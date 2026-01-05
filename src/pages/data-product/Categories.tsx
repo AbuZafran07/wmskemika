@@ -42,6 +42,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useCategories, Category } from '@/hooks/useMasterData';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { getUserFriendlyError, ErrorMessages } from '@/lib/errorHandler';
 
 interface CategoryFormData {
   code: string;
@@ -127,7 +128,7 @@ export default function Categories() {
     }
 
     if (error) {
-      toast.error(error.message);
+      toast.error(getUserFriendlyError(error, ErrorMessages.create.error('category')));
     } else {
       toast.success(
         editingCategory 
@@ -150,7 +151,7 @@ export default function Categories() {
       .eq('id', deletingCategory.id);
 
     if (error) {
-      toast.error(error.message);
+      toast.error(getUserFriendlyError(error, ErrorMessages.delete.error('category')));
     } else {
       toast.success(language === 'en' ? 'Category deleted successfully' : 'Kategori berhasil dihapus');
       refetch();

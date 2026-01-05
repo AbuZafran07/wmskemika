@@ -6,6 +6,43 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Valid roles enum
+const VALID_ROLES = ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales', 'viewer'] as const;
+type AppRole = typeof VALID_ROLES[number];
+
+// Validation utilities
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email) && email.length <= 255;
+}
+
+function isValidPassword(password: string): { valid: boolean; message?: string } {
+  if (password.length < 12) {
+    return { valid: false, message: 'Password must be at least 12 characters' };
+  }
+  if (!/[a-z]/.test(password)) {
+    return { valid: false, message: 'Password must contain at least one lowercase letter' };
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, message: 'Password must contain at least one uppercase letter' };
+  }
+  if (!/\d/.test(password)) {
+    return { valid: false, message: 'Password must contain at least one number' };
+  }
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+    return { valid: false, message: 'Password must contain at least one special character' };
+  }
+  return { valid: true };
+}
+
+function isValidRole(role: string): role is AppRole {
+  return VALID_ROLES.includes(role as AppRole);
+}
+
+function sanitizeString(str: string, maxLength: number = 255): string {
+  return str.trim().slice(0, maxLength);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -58,7 +95,7 @@ serve(async (req) => {
     }
 
     const { action, ...params } = await req.json();
-    console.log('Action:', action, 'Params:', params);
+    console.log('Action:', action);
 
     let result;
 
@@ -98,16 +135,36 @@ serve(async (req) => {
       case 'create': {
         const { email, password, full_name, role } = params;
         
+        // Validate required fields
         if (!email || !password || !role) {
           throw new Error('Email, password, and role are required');
         }
 
+        // Validate email format
+        if (!isValidEmail(email)) {
+          throw new Error('Invalid email format');
+        }
+
+        // Validate password strength
+        const passwordCheck = isValidPassword(password);
+        if (!passwordCheck.valid) {
+          throw new Error(passwordCheck.message);
+        }
+
+        // Validate role
+        if (!isValidRole(role)) {
+          throw new Error(`Invalid role. Must be one of: ${VALID_ROLES.join(', ')}`);
+        }
+
+        // Sanitize full_name
+        const sanitizedFullName = full_name ? sanitizeString(full_name, 100) : undefined;
+
         // Create user
         const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-          email,
+          email: sanitizeString(email),
           password,
           email_confirm: true,
-          user_metadata: { full_name }
+          user_metadata: { full_name: sanitizedFullName }
         });
 
         if (authError) throw authError;
@@ -122,7 +179,7 @@ serve(async (req) => {
 
         if (roleInsertError) throw roleInsertError;
 
-        result = { user: authData.user };
+        result = { user: { id: authData.user.id, email: authData.user.email } };
         break;
       }
 
@@ -133,13 +190,33 @@ serve(async (req) => {
           throw new Error('User ID is required');
         }
 
-        // Update profile
-        const { error: profileError } = await supabaseAdmin
-          .from('profiles')
-          .update({ full_name, is_active })
-          .eq('id', user_id);
+        // Validate UUID format
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(user_id)) {
+          throw new Error('Invalid user ID format');
+        }
 
-        if (profileError) throw profileError;
+        // Validate role if provided
+        if (role && !isValidRole(role)) {
+          throw new Error(`Invalid role. Must be one of: ${VALID_ROLES.join(', ')}`);
+        }
+
+        // Sanitize full_name if provided
+        const sanitizedFullName = full_name ? sanitizeString(full_name, 100) : undefined;
+
+        // Update profile
+        const updateData: Record<string, unknown> = {};
+        if (sanitizedFullName !== undefined) updateData.full_name = sanitizedFullName;
+        if (typeof is_active === 'boolean') updateData.is_active = is_active;
+
+        if (Object.keys(updateData).length > 0) {
+          const { error: profileError } = await supabaseAdmin
+            .from('profiles')
+            .update(updateData)
+            .eq('id', user_id);
+
+          if (profileError) throw profileError;
+        }
 
         // Update role if provided
         if (role) {
@@ -170,6 +247,12 @@ serve(async (req) => {
           throw new Error('User ID is required');
         }
 
+        // Validate UUID format
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(user_id)) {
+          throw new Error('Invalid user ID format');
+        }
+
         // Prevent deleting self
         if (user_id === user.id) {
           throw new Error('Cannot delete your own account');
@@ -187,6 +270,18 @@ serve(async (req) => {
         
         if (!user_id || !new_password) {
           throw new Error('User ID and new password are required');
+        }
+
+        // Validate UUID format
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(user_id)) {
+          throw new Error('Invalid user ID format');
+        }
+
+        // Validate password strength
+        const passwordCheck = isValidPassword(new_password);
+        if (!passwordCheck.valid) {
+          throw new Error(passwordCheck.message);
         }
 
         const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(

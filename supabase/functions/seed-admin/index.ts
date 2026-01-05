@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-setup-token',
 }
 
 serve(async (req) => {
@@ -252,7 +252,8 @@ function constantTimeEqual(a: string, b: string): boolean {
 }
 
 // Mark admin as seeded in settings table
-async function markAdminSeeded(supabaseAdmin: ReturnType<typeof createClient>): Promise<void> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function markAdminSeeded(supabaseAdmin: any): Promise<void> {
   const { error } = await supabaseAdmin
     .from('settings')
     .upsert({

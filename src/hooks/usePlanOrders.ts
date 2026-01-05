@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { getUserFriendlyError, ErrorMessages } from '@/lib/errorHandler';
 
 export interface PlanOrderHeader {
   id: string;
@@ -61,8 +62,7 @@ export function usePlanOrders() {
       .order('created_at', { ascending: false });
 
     if (error) {
-      toast.error('Failed to load plan orders');
-      console.error(error);
+      toast.error(getUserFriendlyError(error, ErrorMessages.load.error('plan orders')));
     } else {
       setPlanOrders(data || []);
     }
@@ -100,8 +100,7 @@ export function usePlanOrderItems(planOrderId: string | null) {
       .eq('plan_order_id', planOrderId);
 
     if (error) {
-      toast.error('Failed to load items');
-      console.error(error);
+      toast.error(getUserFriendlyError(error, ErrorMessages.load.error('items')));
     } else {
       setItems(data || []);
     }
