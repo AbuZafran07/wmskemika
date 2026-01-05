@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { getUserFriendlyError, ErrorMessages } from '@/lib/errorHandler';
 
 export interface SalesOrderHeader {
   id: string;
@@ -76,8 +77,7 @@ export function useSalesOrders() {
       .order('created_at', { ascending: false });
 
     if (error) {
-      toast.error('Failed to load sales orders');
-      console.error(error);
+      toast.error(getUserFriendlyError(error, ErrorMessages.load.error('sales orders')));
     } else {
       setSalesOrders(data || []);
     }
@@ -115,8 +115,7 @@ export function useSalesOrderItems(salesOrderId: string | null) {
       .eq('sales_order_id', salesOrderId);
 
     if (error) {
-      toast.error('Failed to load items');
-      console.error(error);
+      toast.error(getUserFriendlyError(error, ErrorMessages.load.error('items')));
     } else {
       setItems(data || []);
     }

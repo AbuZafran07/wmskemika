@@ -26,6 +26,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth, UserRole } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { getUserFriendlyError } from '@/lib/errorHandler';
 
 interface ApprovalWorkflowProps {
   type: 'plan_order' | 'sales_order';
@@ -96,7 +97,7 @@ export function ApprovalWorkflow({
       .eq('id', orderId);
 
     if (error) {
-      toast.error(error.message);
+      toast.error(getUserFriendlyError(error, 'Failed to approve order. Please try again.'));
     } else {
       toast.success(language === 'en' ? `${orderNumber} approved successfully` : `${orderNumber} berhasil disetujui`);
       onStatusChange();
@@ -128,7 +129,7 @@ export function ApprovalWorkflow({
       .eq('id', orderId);
 
     if (error) {
-      toast.error(error.message);
+      toast.error(getUserFriendlyError(error, 'Failed to reject order. Please try again.'));
     } else {
       toast.success(language === 'en' ? `${orderNumber} rejected` : `${orderNumber} ditolak`);
       onStatusChange();
