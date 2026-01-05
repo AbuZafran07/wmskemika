@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, Info, Package, Building2, Upload, Loader2, X, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -90,31 +90,31 @@ export default function StockOut() {
   const [deliveryNoteUrl, setDeliveryNoteUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
 
+  const fetchSalesOrders = useCallback(async () => {
+    setLoadingSalesOrders(true);
+    const { data, error } = await supabase
+      .from('sales_order_headers')
+      .select(`
+        id, sales_order_number, status, ship_to_address,
+        customer:customers(id, name, code)
+      `)
+      .in('status', ['approved', 'partially_delivered'])
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      toast.error('Failed to load sales orders');
+      console.error(error);
+    } else {
+      setSalesOrders(data || []);
+    }
+    setLoadingSalesOrders(false);
+  }, []);
+
   // Fetch approved sales orders with remaining qty
   useEffect(() => {
-    const fetchSalesOrders = async () => {
-      setLoadingSalesOrders(true);
-      const { data, error } = await supabase
-        .from('sales_order_headers')
-        .select(`
-          id, sales_order_number, status, ship_to_address,
-          customer:customers(id, name, code)
-        `)
-        .in('status', ['approved', 'partially_delivered'])
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        toast.error('Failed to load sales orders');
-        console.error(error);
-      } else {
-        setSalesOrders(data || []);
-      }
-      setLoadingSalesOrders(false);
-    };
-
     fetchSalesOrders();
     generateStockOutNumber();
-  }, []);
+  }, [fetchSalesOrders]);
 
   // Fetch items when sales order selected
   useEffect(() => {
@@ -339,20 +339,27 @@ export default function StockOut() {
             });
         }
 
-        // Update SO item qty_delivered
-        const { data: soItem } = await supabase
+        // Update SO item qty_delivered (AFTER all batch processing for this item)
+        const { data: soItem, error: soItemFetchError } = await supabase
           .from('sales_order_items')
-          .select('qty_delivered')
+          .select('qty_delivered, ordered_qty')
           .eq('id', item.sales_order_item_id)
           .single();
 
-        await supabase
+        if (soItemFetchError) throw soItemFetchError;
+
+        const newQtyDelivered = (soItem?.qty_delivered || 0) + item.qty_out;
+        const newQtyRemaining = Math.max(0, (soItem?.ordered_qty || item.qty_ordered) - newQtyDelivered);
+        
+        const { error: soItemUpdateError } = await supabase
           .from('sales_order_items')
           .update({ 
-            qty_delivered: (soItem?.qty_delivered || 0) + item.qty_out,
-            qty_remaining: item.qty_remaining - item.qty_out,
+            qty_delivered: newQtyDelivered,
+            qty_remaining: newQtyRemaining,
           })
           .eq('id', item.sales_order_item_id);
+
+        if (soItemUpdateError) throw soItemUpdateError;
       }
 
       // 3. Check if sales order is fully delivered
@@ -368,8 +375,47 @@ export default function StockOut() {
         .update({ status: newStatus })
         .eq('id', selectedSalesOrderId);
 
+      // 4. Create audit log entry
+      const { data: { user } } = await supabase.auth.getUser();
+      const itemsSummary = validItems.map(item => ({
+        product_name: item.product_name,
+        qty_out: item.qty_out,
+        batches: item.batches.filter(b => b.qty_out > 0).map(b => ({ batch_no: b.batch_no, qty: b.qty_out })),
+      }));
+
+      await supabase
+        .from('audit_logs')
+        .insert({
+          action: 'STOCK_OUT_CREATE',
+          module: 'stock_out',
+          ref_table: 'stock_out_headers',
+          ref_id: headerData.id,
+          ref_no: stockOutNumber,
+          user_id: user?.id,
+          user_email: user?.email,
+          new_data: {
+            stock_out_number: stockOutNumber,
+            sales_order_number: selectedSalesOrder?.sales_order_number,
+            sales_order_id: selectedSalesOrderId,
+            customer: selectedSalesOrder?.customer?.name,
+            delivery_date: deliveryDate,
+            items: itemsSummary,
+            total_items: validItems.length,
+            total_qty_out: validItems.reduce((sum, i) => sum + i.qty_out, 0),
+          },
+        });
+
       toast.success(language === 'en' ? 'Stock Out saved successfully' : 'Stock Out berhasil disimpan');
-      navigate('/stock-out');
+
+      // Reset form + refresh list so the status/availability updates immediately
+      await fetchSalesOrders();
+      setSelectedSalesOrderId('');
+      setSelectedSalesOrder(null);
+      setItems([]);
+      setNotes('');
+      setDeliveryNoteUrl('');
+      setDeliveryDate(new Date().toISOString().split('T')[0]);
+      generateStockOutNumber();
     } catch (error) {
       console.error(error);
       toast.error(language === 'en' ? 'Failed to save Stock Out' : 'Gagal menyimpan Stock Out');

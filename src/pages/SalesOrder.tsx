@@ -913,10 +913,18 @@ export default function SalesOrder() {
               <Label>{language === 'en' ? 'PO Document' : 'Dokumen PO'}</Label>
               <div className="flex gap-2">
                 {poDocumentUrl ? (
-                  <div className="flex items-center gap-2 p-2 bg-muted rounded flex-1">
-                    <a href={poDocumentUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline truncate">
-                      {poDocumentUrl.split('/').pop()}
-                    </a>
+                  <div className="flex items-center gap-2 p-2 bg-muted rounded flex-1 overflow-hidden">
+                    <span className="text-sm text-primary truncate max-w-[300px]">
+                      {(() => {
+                        // Extract filename from URL (before query params)
+                        const urlPath = poDocumentUrl.split('?')[0];
+                        const segments = urlPath.split('/');
+                        const filename = segments[segments.length - 1];
+                        // Remove UUID prefix if present (format: uuid-filename.ext)
+                        const uuidPattern = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-/i;
+                        return decodeURIComponent(filename.replace(uuidPattern, ''));
+                      })()}
+                    </span>
                   </div>
                 ) : (
                   <Input value="" disabled placeholder={language === 'en' ? 'Upload PO document' : 'Upload dokumen PO'} className="bg-muted flex-1" />
@@ -1088,7 +1096,7 @@ export default function SalesOrder() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isApproving}>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleApprove} disabled={isApproving} className="bg-success hover:bg-success/90">
+            <AlertDialogAction onClick={handleApprove} disabled={isApproving} className="bg-success text-success-foreground hover:bg-success/90">
               {isApproving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Approve
             </AlertDialogAction>
