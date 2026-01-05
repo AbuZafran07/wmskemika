@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, X, Sun, Moon, Bell, User, LogOut, Settings, ChevronDown } from 'lucide-react';
+import { Menu, X, Sun, Moon, Bell, User, LogOut, Settings, ChevronDown, AlertTriangle, Calendar, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -9,12 +9,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications, Notification } from '@/hooks/useNotifications';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import logoImage from '@/assets/logo.png';
+import { cn } from '@/lib/utils';
 
 interface AppHeaderProps {
   onMenuClick: () => void;
@@ -25,6 +33,7 @@ export default function AppHeader({ onMenuClick, isMobileDrawerOpen }: AppHeader
   const { language, setLanguage, t } = useLanguage();
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -39,6 +48,41 @@ export default function AppHeader({ onMenuClick, isMobileDrawerOpen }: AppHeader
       case 'warehouse': return 'success';
       case 'sales': return 'warning';
       default: return 'secondary';
+    }
+  };
+
+  const getNotificationIcon = (type: Notification['type']) => {
+    switch (type) {
+      case 'low_stock':
+        return <Package className="w-4 h-4 text-warning" />;
+      case 'expiring_soon':
+        return <Calendar className="w-4 h-4 text-warning" />;
+      case 'expired':
+        return <AlertTriangle className="w-4 h-4 text-destructive" />;
+      default:
+        return <Bell className="w-4 h-4 text-info" />;
+    }
+  };
+
+  const getNotificationBg = (type: Notification['type'], read: boolean) => {
+    if (read) return 'bg-muted/30';
+    switch (type) {
+      case 'expired':
+        return 'bg-destructive/10';
+      case 'low_stock':
+      case 'expiring_soon':
+        return 'bg-warning/10';
+      default:
+        return 'bg-info/10';
+    }
+  };
+
+  const handleNotificationClick = (notif: Notification) => {
+    markAsRead(notif.id);
+    if (notif.type === 'low_stock') {
+      navigate('/data-stock');
+    } else if (notif.type === 'expiring_soon' || notif.type === 'expired') {
+      navigate('/reports/expiry');
     }
   };
 
@@ -114,10 +158,79 @@ export default function AppHeader({ onMenuClick, isMobileDrawerOpen }: AppHeader
         </Button>
 
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full" />
-        </Button>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="relative">
+              <Bell className="w-5 h-5" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-destructive rounded-full animate-pulse" />
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-0" align="end">
+            <div className="flex items-center justify-between p-3 border-b">
+              <h4 className="font-semibold text-sm">
+                {language === 'en' ? 'Notifications' : 'Notifikasi'}
+              </h4>
+              {unreadCount > 0 && (
+                <Button variant="ghost" size="sm" className="text-xs h-7" onClick={markAllAsRead}>
+                  {language === 'en' ? 'Mark all as read' : 'Tandai semua dibaca'}
+                </Button>
+              )}
+            </div>
+            <ScrollArea className="h-[300px]">
+              {notifications.length === 0 ? (
+                <div className="p-4 text-center text-sm text-muted-foreground">
+                  {language === 'en' ? 'No notifications' : 'Tidak ada notifikasi'}
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {notifications.slice(0, 20).map((notif) => (
+                    <div
+                      key={notif.id}
+                      className={cn(
+                        'p-3 cursor-pointer hover:bg-muted/50 transition-colors',
+                        getNotificationBg(notif.type, notif.read)
+                      )}
+                      onClick={() => handleNotificationClick(notif)}
+                    >
+                      <div className="flex gap-3">
+                        <div className="flex-shrink-0 mt-0.5">
+                          {getNotificationIcon(notif.type)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={cn(
+                            'text-sm',
+                            !notif.read && 'font-medium'
+                          )}>
+                            {notif.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                            {notif.message}
+                          </p>
+                        </div>
+                        {!notif.read && (
+                          <div className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-1.5" />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+            {notifications.length > 0 && (
+              <div className="p-2 border-t">
+                <Button 
+                  variant="ghost" 
+                  className="w-full text-sm h-8"
+                  onClick={() => navigate('/reports/expiry')}
+                >
+                  {language === 'en' ? 'View all alerts' : 'Lihat semua peringatan'}
+                </Button>
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
 
         {/* User Menu */}
         <DropdownMenu>
@@ -143,13 +256,13 @@ export default function AppHeader({ onMenuClick, isMobileDrawerOpen }: AppHeader
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate('/profile')}>
               <User className="w-4 h-4 mr-2" />
               {t('auth.profile')}
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate('/settings')}>
               <Settings className="w-4 h-4 mr-2" />
-              Settings
+              {language === 'en' ? 'Settings' : 'Pengaturan'}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">

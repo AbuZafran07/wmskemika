@@ -34,6 +34,8 @@ import OutboundReport from "./pages/reports/OutboundReport";
 import AdjustmentLog from "./pages/reports/AdjustmentLog";
 import AuditLog from "./pages/reports/AuditLog";
 import StockMovement from "./pages/reports/StockMovement";
+import ExpiryAlert from "./pages/reports/ExpiryAlert";
+import Profile from "./pages/Profile";
 
 import NotFound from "./pages/NotFound";
 
@@ -71,12 +73,14 @@ const App = () => (
                   <Route path="/data-stock" element={<DataStock />} />
                   <Route path="/user-management" element={<UserManagement />} />
                   <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/profile" element={<Profile />} />
                   
                   {/* Reports */}
                   <Route path="/reports/stock" element={<StockReport />} />
                   <Route path="/reports/inbound" element={<InboundReport />} />
                   <Route path="/reports/outbound" element={<OutboundReport />} />
                   <Route path="/reports/movement" element={<StockMovement />} />
+                  <Route path="/reports/expiry" element={<ExpiryAlert />} />
                   <Route path="/reports/adjustment" element={<AdjustmentLog />} />
                   <Route path="/reports/audit" element={<AuditLog />} />
                 </Route>
