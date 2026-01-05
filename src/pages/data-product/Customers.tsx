@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, MoreHorizontal, Edit, Trash2, Loader2, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,6 +48,7 @@ import {
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useCustomers, Customer } from '@/hooks/useMasterData';
 import { supabase } from '@/integrations/supabase/client';
+import { generateCustomerCode } from '@/lib/codeGenerator';
 import { toast } from 'sonner';
 
 interface CustomerFormData {
@@ -101,9 +102,10 @@ export default function Customers() {
     customer.code.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     setEditingCustomer(null);
-    setFormData(initialFormData);
+    const autoCode = await generateCustomerCode();
+    setFormData({ ...initialFormData, code: autoCode });
     setIsDialogOpen(true);
   };
 

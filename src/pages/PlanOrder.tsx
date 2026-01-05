@@ -46,9 +46,10 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { usePlanOrders, createPlanOrder, updatePlanOrderStatus, PlanOrderHeader } from '@/hooks/usePlanOrders';
+import { usePlanOrders, createPlanOrder, PlanOrderHeader } from '@/hooks/usePlanOrders';
 import { useSuppliers, useProducts, Product } from '@/hooks/useMasterData';
 import { uploadFile } from '@/lib/storage';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface OrderItem {
@@ -247,16 +248,35 @@ export default function PlanOrder() {
     setIsSaving(false);
   };
 
+  const canApprove = () => {
+    if (!user) return false;
+    if (user.role === 'super_admin') return true;
+    // Check settings for allow_admin_approve
+    return false; // Will be checked via settings
+  };
+
   const handleApprove = async () => {
     if (!selectedOrder) return;
-
-    const result = await updatePlanOrderStatus(selectedOrder.id, 'approved', user?.id);
     
-    if (result.success) {
+    if (!canApprove() && user?.role !== 'super_admin') {
+      toast.error(language === 'en' ? 'Only super_admin can approve orders' : 'Hanya super_admin yang dapat menyetujui order');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('plan_order_headers')
+      .update({
+        status: 'approved',
+        approved_by: user?.id,
+        approved_at: new Date().toISOString(),
+      })
+      .eq('id', selectedOrder.id);
+    
+    if (error) {
+      toast.error(error.message);
+    } else {
       toast.success(language === 'en' ? 'Plan Order approved' : 'Plan Order disetujui');
       refetch();
-    } else {
-      toast.error(result.error);
     }
 
     setIsApproveDialogOpen(false);
@@ -266,13 +286,16 @@ export default function PlanOrder() {
   const handleCancel = async () => {
     if (!selectedOrder) return;
 
-    const result = await updatePlanOrderStatus(selectedOrder.id, 'cancelled');
+    const { error } = await supabase
+      .from('plan_order_headers')
+      .update({ status: 'cancelled' })
+      .eq('id', selectedOrder.id);
     
-    if (result.success) {
+    if (error) {
+      toast.error(error.message);
+    } else {
       toast.success(language === 'en' ? 'Plan Order cancelled' : 'Plan Order dibatalkan');
       refetch();
-    } else {
-      toast.error(result.error);
     }
 
     setIsCancelDialogOpen(false);
