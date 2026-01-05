@@ -1,7 +1,7 @@
 project_id = "yzlfqllwusfnhigtezfo"
 
 [functions.seed-admin]
-verify_jwt = false
+verify_jwt = true
 
 [functions.user-management]
 verify_jwt = true
