@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Search, MoreHorizontal, Edit, Trash2, Key, Loader2, Shield, UserCheck, UserX } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, Search, MoreHorizontal, Edit, Trash2, Key, Loader2, Shield, UserCheck, UserX, Upload, FileSpreadsheet, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -81,6 +81,7 @@ export default function UserManagement() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
+  const [isBulkImportDialogOpen, setIsBulkImportDialogOpen] = useState(false);
   
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
   const [deletingUser, setDeletingUser] = useState<UserData | null>(null);
@@ -94,6 +95,13 @@ export default function UserManagement() {
   const [newPassword, setNewPassword] = useState('');
   
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Bulk import state
+  const csvInputRef = useRef<HTMLInputElement>(null);
+  const [csvData, setCsvData] = useState<{ email: string; password: string; full_name: string; role: string }[]>([]);
+  const [csvErrors, setCsvErrors] = useState<string[]>([]);
+  const [isBulkImporting, setIsBulkImporting] = useState(false);
+  const [bulkImportResults, setBulkImportResults] = useState<{ row: number; email: string; success: boolean; error?: string }[] | null>(null);
 
   // Check if user is super_admin
   if (!hasPermission(['super_admin'])) {
@@ -273,6 +281,99 @@ export default function UserManagement() {
     setNewPassword('');
   };
 
+  // CSV Import Handlers
+  const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      const lines = text.split('\n').filter(line => line.trim());
+      
+      if (lines.length < 2) {
+        setCsvErrors([language === 'en' ? 'CSV must have header row and at least one data row' : 'CSV harus memiliki baris header dan minimal satu baris data']);
+        return;
+      }
+
+      const header = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/"/g, ''));
+      const requiredCols = ['email', 'password', 'role'];
+      const missingCols = requiredCols.filter(col => !header.includes(col));
+      
+      if (missingCols.length > 0) {
+        setCsvErrors([`${language === 'en' ? 'Missing required columns' : 'Kolom wajib tidak ditemukan'}: ${missingCols.join(', ')}`]);
+        return;
+      }
+
+      const emailIdx = header.indexOf('email');
+      const passwordIdx = header.indexOf('password');
+      const fullNameIdx = header.indexOf('full_name');
+      const roleIdx = header.indexOf('role');
+
+      const parsed: { email: string; password: string; full_name: string; role: string }[] = [];
+      const errors: string[] = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+        const email = values[emailIdx] || '';
+        const password = values[passwordIdx] || '';
+        const full_name = fullNameIdx >= 0 ? (values[fullNameIdx] || '') : '';
+        const role = values[roleIdx] || '';
+
+        if (!email && !password && !role) continue; // skip empty rows
+
+        if (!email) errors.push(`${language === 'en' ? 'Row' : 'Baris'} ${i + 1}: ${language === 'en' ? 'Email is required' : 'Email wajib diisi'}`);
+        if (!password) errors.push(`${language === 'en' ? 'Row' : 'Baris'} ${i + 1}: ${language === 'en' ? 'Password is required' : 'Password wajib diisi'}`);
+        if (!role) errors.push(`${language === 'en' ? 'Row' : 'Baris'} ${i + 1}: ${language === 'en' ? 'Role is required' : 'Role wajib diisi'}`);
+        if (role && !allRoles.includes(role as UserRole)) {
+          errors.push(`${language === 'en' ? 'Row' : 'Baris'} ${i + 1}: ${language === 'en' ? 'Invalid role' : 'Role tidak valid'} "${role}"`);
+        }
+
+        parsed.push({ email, password, full_name, role });
+      }
+
+      setCsvData(parsed);
+      setCsvErrors(errors);
+    };
+    reader.readAsText(file);
+    if (csvInputRef.current) csvInputRef.current.value = '';
+  };
+
+  const handleBulkImport = async () => {
+    if (csvData.length === 0 || csvErrors.length > 0) return;
+
+    setIsBulkImporting(true);
+    setBulkImportResults(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('user-management', {
+        body: {
+          action: 'bulk_create',
+          users: csvData
+        }
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setBulkImportResults(data.results || []);
+      
+      const { success, failed } = data.summary;
+      if (failed === 0) {
+        toast.success(language === 'en' ? `Successfully created ${success} users` : `Berhasil membuat ${success} pengguna`);
+      } else {
+        toast.warning(language === 'en' ? `Created ${success} users, ${failed} failed` : `Berhasil ${success} pengguna, ${failed} gagal`);
+      }
+
+      fetchUsers();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Bulk import failed';
+      toast.error(message);
+    }
+
+    setIsBulkImporting(false);
+  };
+
   const filteredUsers = users.filter(user =>
     user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.full_name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -296,10 +397,16 @@ export default function UserManagement() {
             {language === 'en' ? 'Manage users and assign roles' : 'Kelola pengguna dan tetapkan role'}
           </p>
         </div>
-        <Button onClick={handleAdd}>
-          <Plus className="w-4 h-4 mr-2" />
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => { setCsvData([]); setCsvErrors([]); setBulkImportResults(null); setIsBulkImportDialogOpen(true); }}>
+            <Upload className="w-4 h-4 mr-2" />
+            {language === 'en' ? 'Import CSV' : 'Import CSV'}
+          </Button>
+          <Button onClick={handleAdd}>
+            <Plus className="w-4 h-4 mr-2" />
           {language === 'en' ? 'Add User' : 'Tambah Pengguna'}
-        </Button>
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -553,6 +660,168 @@ export default function UserManagement() {
             <Button onClick={confirmResetPassword} disabled={!newPassword}>
               {language === 'en' ? 'Reset Password' : 'Reset Password'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Import Dialog */}
+      <Dialog open={isBulkImportDialogOpen} onOpenChange={setIsBulkImportDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileSpreadsheet className="w-5 h-5" />
+              {language === 'en' ? 'Bulk Import Users from CSV' : 'Import User Massal dari CSV'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* CSV Format Info */}
+            <div className="p-4 bg-muted rounded-lg">
+              <h4 className="font-medium mb-2">{language === 'en' ? 'CSV Format' : 'Format CSV'}</h4>
+              <p className="text-sm text-muted-foreground mb-2">
+                {language === 'en' 
+                  ? 'Required columns: email, password, role. Optional: full_name'
+                  : 'Kolom wajib: email, password, role. Opsional: full_name'
+                }
+              </p>
+              <code className="block p-2 bg-background rounded text-xs">
+                email,password,full_name,role<br/>
+                user1@example.com,SecurePass123!,John Doe,admin<br/>
+                user2@example.com,SecurePass123!,Jane Smith,sales
+              </code>
+              <p className="text-xs text-muted-foreground mt-2">
+                {language === 'en' 
+                  ? `Valid roles: ${allRoles.join(', ')}`
+                  : `Role valid: ${allRoles.join(', ')}`
+                }
+              </p>
+            </div>
+
+            {/* Upload */}
+            <div className="space-y-2">
+              <Label>{language === 'en' ? 'Upload CSV File' : 'Upload File CSV'}</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="file"
+                  accept=".csv"
+                  ref={csvInputRef}
+                  onChange={handleCsvUpload}
+                />
+              </div>
+            </div>
+
+            {/* Validation Errors */}
+            {csvErrors.length > 0 && (
+              <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+                <h4 className="font-medium text-destructive flex items-center gap-2 mb-2">
+                  <AlertCircle className="w-4 h-4" />
+                  {language === 'en' ? 'Validation Errors' : 'Error Validasi'}
+                </h4>
+                <ul className="text-sm text-destructive space-y-1">
+                  {csvErrors.slice(0, 10).map((err, i) => (
+                    <li key={i}>{err}</li>
+                  ))}
+                  {csvErrors.length > 10 && (
+                    <li>...{language === 'en' ? `and ${csvErrors.length - 10} more errors` : `dan ${csvErrors.length - 10} error lainnya`}</li>
+                  )}
+                </ul>
+              </div>
+            )}
+
+            {/* Preview */}
+            {csvData.length > 0 && csvErrors.length === 0 && !bulkImportResults && (
+              <div>
+                <h4 className="font-medium mb-2">
+                  {language === 'en' ? `Preview (${csvData.length} users)` : `Preview (${csvData.length} pengguna)`}
+                </h4>
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>#</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>{language === 'en' ? 'Full Name' : 'Nama Lengkap'}</TableHead>
+                        <TableHead>Role</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {csvData.slice(0, 10).map((row, i) => (
+                        <TableRow key={i}>
+                          <TableCell>{i + 1}</TableCell>
+                          <TableCell>{row.email}</TableCell>
+                          <TableCell>{row.full_name || '-'}</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{row.role}</Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {csvData.length > 10 && (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center text-muted-foreground">
+                            ...{language === 'en' ? `and ${csvData.length - 10} more rows` : `dan ${csvData.length - 10} baris lainnya`}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+
+            {/* Results */}
+            {bulkImportResults && (
+              <div>
+                <h4 className="font-medium mb-2">{language === 'en' ? 'Import Results' : 'Hasil Import'}</h4>
+                <div className="border rounded-lg overflow-hidden max-h-[300px] overflow-y-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">{language === 'en' ? 'Row' : 'Baris'}</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead className="text-center">Status</TableHead>
+                        <TableHead>{language === 'en' ? 'Message' : 'Pesan'}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {bulkImportResults.map((result, i) => (
+                        <TableRow key={i}>
+                          <TableCell>{result.row}</TableCell>
+                          <TableCell>{result.email}</TableCell>
+                          <TableCell className="text-center">
+                            {result.success ? (
+                              <CheckCircle className="w-5 h-5 text-success mx-auto" />
+                            ) : (
+                              <XCircle className="w-5 h-5 text-destructive mx-auto" />
+                            )}
+                          </TableCell>
+                          <TableCell className={result.success ? 'text-success' : 'text-destructive'}>
+                            {result.success 
+                              ? (language === 'en' ? 'Created successfully' : 'Berhasil dibuat')
+                              : result.error
+                            }
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsBulkImportDialogOpen(false)}>
+              {bulkImportResults ? (language === 'en' ? 'Close' : 'Tutup') : t('common.cancel')}
+            </Button>
+            {!bulkImportResults && (
+              <Button 
+                onClick={handleBulkImport} 
+                disabled={csvData.length === 0 || csvErrors.length > 0 || isBulkImporting}
+              >
+                {isBulkImporting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {language === 'en' ? `Import ${csvData.length} Users` : `Import ${csvData.length} Pengguna`}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

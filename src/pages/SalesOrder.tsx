@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo } from 'react';
-import { Plus, Search, Eye, Edit, MoreHorizontal, Printer, Trash2, Loader2, Upload, X, AlertTriangle, CheckCircle, XCircle, Archive, List } from 'lucide-react';
+import { Plus, Search, Eye, Edit, MoreHorizontal, Printer, Trash2, Loader2, Upload, X, AlertTriangle, CheckCircle, XCircle, Archive, List, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -65,7 +65,7 @@ import {
 } from '@/hooks/useSalesOrders';
 import { useSettings } from '@/hooks/usePlanOrders';
 import { useCustomers, useProducts, Product } from '@/hooks/useMasterData';
-import { uploadFile } from '@/lib/storage';
+import { uploadFile, getSignedUrl } from '@/lib/storage';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -118,6 +118,7 @@ export default function SalesOrder() {
   const [isApproving, setIsApproving] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isOpeningPoDoc, setIsOpeningPoDoc] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -528,6 +529,60 @@ export default function SalesOrder() {
     setIsDetailDialogOpen(true);
   };
 
+  const handleViewPoDocument = async (order: SalesOrderHeader) => {
+    if (!order.po_document_url) {
+      toast.error(language === 'en' ? 'No document attached' : 'Tidak ada dokumen terlampir');
+      return;
+    }
+
+    setIsOpeningPoDoc(true);
+    try {
+      // Extract path from URL or use directly
+      const url = order.po_document_url;
+      let path = url;
+      
+      // If it's a full URL, extract the path portion
+      if (url.includes('/storage/v1/object/')) {
+        const pathMatch = url.match(/\/storage\/v1\/object\/(?:sign|public)\/documents\/(.+?)(?:\?|$)/);
+        if (pathMatch) {
+          path = pathMatch[1];
+        }
+      }
+
+      // Get a fresh signed URL
+      const signedUrl = await getSignedUrl(path, 'documents', 3600);
+      
+      if (signedUrl) {
+        window.open(signedUrl, '_blank');
+      } else {
+        // Fallback to original URL if signing fails
+        window.open(url, '_blank');
+      }
+    } catch (error) {
+      console.error('Error opening document:', error);
+      toast.error(language === 'en' ? 'Failed to open document' : 'Gagal membuka dokumen');
+    }
+    setIsOpeningPoDoc(false);
+  };
+
+  // Get display filename from URL
+  const getDocumentFilename = (url: string | null): string => {
+    if (!url) return '';
+    try {
+      const decoded = decodeURIComponent(url);
+      const parts = decoded.split('/');
+      const filename = parts[parts.length - 1].split('?')[0];
+      // Remove UUID prefix if present (format: uuid_filename.ext)
+      const underscoreIdx = filename.indexOf('_');
+      if (underscoreIdx > 30) { // UUID is 36 chars, so check if underscore is after a long prefix
+        return filename.substring(underscoreIdx + 1);
+      }
+      return filename;
+    } catch {
+      return 'Document';
+    }
+  };
+
   const handleExportPDF = () => {
     if (!selectedOrder || !printRef.current) return;
     
@@ -730,6 +785,12 @@ export default function SalesOrder() {
                                 <Eye className="w-4 h-4 mr-2" />
                                 {language === 'en' ? 'View Details' : 'Lihat Detail'}
                               </DropdownMenuItem>
+                              {order.po_document_url && (
+                                <DropdownMenuItem onClick={() => handleViewPoDocument(order)} disabled={isOpeningPoDoc}>
+                                  <FileText className="w-4 h-4 mr-2" />
+                                  {language === 'en' ? 'View Document' : 'Lihat Dokumen'}
+                                </DropdownMenuItem>
+                              )}
                               {showEdit && (
                                 <DropdownMenuItem onClick={() => handleEdit(order)}>
                                   <Edit className="w-4 h-4 mr-2" />
@@ -1085,10 +1146,18 @@ export default function SalesOrder() {
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle>{language === 'en' ? 'Sales Order Details' : 'Detail Sales Order'}</DialogTitle>
-              <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={itemsLoading}>
-                <Printer className="w-4 h-4 mr-2" />
-                {language === 'en' ? 'Print / PDF' : 'Cetak / PDF'}
-              </Button>
+              <div className="flex gap-2">
+                {selectedOrder?.po_document_url && (
+                  <Button variant="outline" size="sm" onClick={() => selectedOrder && handleViewPoDocument(selectedOrder)} disabled={isOpeningPoDoc}>
+                    {isOpeningPoDoc ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
+                    {language === 'en' ? 'View Document' : 'Lihat Dokumen'}
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={itemsLoading}>
+                  <Printer className="w-4 h-4 mr-2" />
+                  {language === 'en' ? 'Print / PDF' : 'Cetak / PDF'}
+                </Button>
+              </div>
             </div>
           </DialogHeader>
           

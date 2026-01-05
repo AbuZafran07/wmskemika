@@ -295,6 +295,103 @@ serve(async (req) => {
         break;
       }
 
+      case 'bulk_create': {
+        const { users: usersToCreate } = params;
+        
+        if (!Array.isArray(usersToCreate) || usersToCreate.length === 0) {
+          throw new Error('Users array is required and cannot be empty');
+        }
+
+        if (usersToCreate.length > 50) {
+          throw new Error('Maximum 50 users can be created at once');
+        }
+
+        const results: { row: number; email: string; success: boolean; error?: string }[] = [];
+
+        for (let i = 0; i < usersToCreate.length; i++) {
+          const userData = usersToCreate[i];
+          const rowNum = i + 2; // Row 2 is first data row (row 1 is header)
+
+          try {
+            const { email, password, full_name, role } = userData;
+
+            // Validate required fields
+            if (!email || !password || !role) {
+              results.push({ row: rowNum, email: email || '', success: false, error: 'Email, password, and role are required' });
+              continue;
+            }
+
+            // Validate email format
+            if (!isValidEmail(email)) {
+              results.push({ row: rowNum, email, success: false, error: 'Invalid email format' });
+              continue;
+            }
+
+            // Validate password strength
+            const passwordCheck = isValidPassword(password);
+            if (!passwordCheck.valid) {
+              results.push({ row: rowNum, email, success: false, error: passwordCheck.message });
+              continue;
+            }
+
+            // Validate role
+            if (!isValidRole(role)) {
+              results.push({ row: rowNum, email, success: false, error: `Invalid role. Must be one of: ${VALID_ROLES.join(', ')}` });
+              continue;
+            }
+
+            // Sanitize full_name
+            const sanitizedFullName = full_name ? sanitizeString(full_name, 100) : undefined;
+
+            // Create user
+            const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+              email: sanitizeString(email),
+              password,
+              email_confirm: true,
+              user_metadata: { full_name: sanitizedFullName }
+            });
+
+            if (authError) {
+              results.push({ row: rowNum, email, success: false, error: authError.message });
+              continue;
+            }
+
+            // Add role
+            const { error: roleInsertError } = await supabaseAdmin
+              .from('user_roles')
+              .insert({
+                user_id: authData.user.id,
+                role: role
+              });
+
+            if (roleInsertError) {
+              // Rollback user creation if role insert fails
+              await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+              results.push({ row: rowNum, email, success: false, error: roleInsertError.message });
+              continue;
+            }
+
+            results.push({ row: rowNum, email, success: true });
+          } catch (err) {
+            const errMsg = err instanceof Error ? err.message : 'Unknown error';
+            results.push({ row: rowNum, email: userData.email || '', success: false, error: errMsg });
+          }
+        }
+
+        const successCount = results.filter(r => r.success).length;
+        const failCount = results.filter(r => !r.success).length;
+
+        result = { 
+          results, 
+          summary: { 
+            total: usersToCreate.length, 
+            success: successCount, 
+            failed: failCount 
+          } 
+        };
+        break;
+      }
+
       default:
         throw new Error(`Unknown action: ${action}`);
     }
