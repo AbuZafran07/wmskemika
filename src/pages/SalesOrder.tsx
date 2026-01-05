@@ -1287,6 +1287,13 @@ export default function SalesOrder() {
                 </tbody>
               </table>
 
+              {selectedOrder.notes && (
+                <div style={{ marginBottom: '15px' }}>
+                  <p style={{ fontSize: '10px', color: '#666', textTransform: 'uppercase' }}>Catatan</p>
+                  <p style={{ fontSize: '12px' }}>{selectedOrder.notes}</p>
+                </div>
+              )}
+
               <div className="summary">
                 <div className="summary-row">
                   <span>Subtotal</span>
@@ -1311,6 +1318,21 @@ export default function SalesOrder() {
                 <div className="summary-row total">
                   <span>Grand Total</span>
                   <span>{formatCurrency(selectedOrder.grand_total)}</span>
+                </div>
+              </div>
+
+              <div className="footer">
+                <div>
+                  <p style={{ fontSize: '10px', color: '#666' }}>Dibuat oleh</p>
+                  <div className="signature">Staff Sales</div>
+                </div>
+                <div>
+                  <p style={{ fontSize: '10px', color: '#666' }}>Disetujui oleh</p>
+                  <div className="signature">Manager</div>
+                </div>
+                <div>
+                  <p style={{ fontSize: '10px', color: '#666' }}>Diterima oleh</p>
+                  <div className="signature">Customer</div>
                 </div>
               </div>
             </div>

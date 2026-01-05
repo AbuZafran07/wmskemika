@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Package, Building2, UserCircle, AlertTriangle, DollarSign,
   ArrowDownToLine, ArrowUpFromLine, TrendingUp, TrendingDown, Loader2,
+  CalendarClock, ChevronRight,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -43,6 +46,23 @@ interface RecentActivity {
   desc: string;
   time: string;
   qty: string;
+}
+
+interface LowStockItem {
+  id: string;
+  name: string;
+  sku: string | null;
+  currentStock: number;
+  minStock: number;
+}
+
+interface ExpiringBatch {
+  id: string;
+  productName: string;
+  batchNo: string;
+  expiryDate: string;
+  daysUntilExpiry: number;
+  qty: number;
 }
 
 function StatCard({ title, value, subtitle, icon: Icon, trend, color, loading }: {
@@ -95,6 +115,7 @@ function StatCard({ title, value, subtitle, icon: Icon, trend, color, loading }:
 const COLORS = ['hsl(153, 100%, 30%)', 'hsl(199, 89%, 48%)', 'hsl(38, 92%, 50%)', 'hsl(280, 65%, 60%)', 'hsl(340, 75%, 55%)'];
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { t, language } = useLanguage();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -106,6 +127,8 @@ export default function Dashboard() {
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
   const [categoryData, setCategoryData] = useState<CategoryValue[]>([]);
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
+  const [lowStockProducts, setLowStockProducts] = useState<LowStockItem[]>([]);
+  const [expiringBatches, setExpiringBatches] = useState<ExpiringBatch[]>([]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -124,13 +147,14 @@ export default function Dashboard() {
         supabase.from('customers').select('id', { count: 'exact' }).is('deleted_at', null),
       ]);
 
-      // Fetch low stock items
-      const { data: lowStockData } = await supabase
+      // Fetch low stock items with full product data
+      const { data: allProducts } = await supabase
         .from('products')
-        .select('id, min_stock')
-        .is('deleted_at', null);
+        .select('id, name, sku, min_stock, purchase_price')
+        .is('deleted_at', null)
+        .eq('is_active', true);
 
-      const { data: batchData } = await supabase.from('inventory_batches').select('product_id, qty_on_hand');
+      const { data: batchData } = await supabase.from('inventory_batches').select('id, product_id, batch_no, qty_on_hand, expired_date');
       
       const productStock: Record<string, number> = {};
       (batchData || []).forEach(b => {
@@ -139,17 +163,55 @@ export default function Dashboard() {
 
       let lowStockCount = 0;
       let totalStockValue = 0;
+      const lowStockList: LowStockItem[] = [];
       
-      const { data: productsWithPrice } = await supabase
-        .from('products')
-        .select('id, purchase_price, min_stock')
-        .is('deleted_at', null);
-
-      (productsWithPrice || []).forEach(p => {
+      (allProducts || []).forEach(p => {
         const stock = productStock[p.id] || 0;
-        if (stock < (p.min_stock || 0)) lowStockCount++;
+        if (stock <= (p.min_stock || 0) && stock > 0) {
+          lowStockCount++;
+          lowStockList.push({
+            id: p.id,
+            name: p.name,
+            sku: p.sku,
+            currentStock: stock,
+            minStock: p.min_stock || 0,
+          });
+        }
         totalStockValue += stock * p.purchase_price;
       });
+      
+      // Sort by most critical (lowest stock relative to min)
+      lowStockList.sort((a, b) => (a.currentStock / a.minStock) - (b.currentStock / b.minStock));
+      setLowStockProducts(lowStockList.slice(0, 5));
+
+      // Fetch expiring batches
+      const now = new Date();
+      const expiringList: ExpiringBatch[] = [];
+      
+      (batchData || []).forEach(batch => {
+        if (!batch.expired_date || batch.qty_on_hand <= 0) return;
+        
+        const expiryDate = new Date(batch.expired_date);
+        const diffDays = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (diffDays <= 30) {
+          const product = (allProducts || []).find(p => p.id === batch.product_id);
+          if (product) {
+            expiringList.push({
+              id: batch.id,
+              productName: product.name,
+              batchNo: batch.batch_no,
+              expiryDate: batch.expired_date,
+              daysUntilExpiry: diffDays,
+              qty: batch.qty_on_hand,
+            });
+          }
+        }
+      });
+      
+      // Sort by most urgent (closest to expiry)
+      expiringList.sort((a, b) => a.daysUntilExpiry - b.daysUntilExpiry);
+      setExpiringBatches(expiringList.slice(0, 5));
 
       // Fetch 30-day transactions
       const thirtyDaysAgo = new Date();
@@ -309,6 +371,102 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Alert Widgets */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Low Stock Alerts */}
+        <Card className="border-warning/30">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-warning/10">
+                  <AlertTriangle className="w-5 h-5 text-warning" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">{language === 'en' ? 'Low Stock Alerts' : 'Peringatan Stok Rendah'}</CardTitle>
+                  <CardDescription>{language === 'en' ? 'Products below minimum stock level' : 'Produk di bawah stok minimum'}</CardDescription>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/data-stock')} className="gap-1">
+                {language === 'en' ? 'View All' : 'Lihat Semua'}
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {lowStockProducts.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground">
+                <Package className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">{language === 'en' ? 'All products have sufficient stock' : 'Semua produk memiliki stok yang cukup'}</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {lowStockProducts.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-warning/5 border border-warning/20">
+                    <div>
+                      <p className="font-medium text-sm">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">{item.sku || '-'}</p>
+                    </div>
+                    <div className="text-right">
+                      <Badge variant="pending" className="font-mono">
+                        {item.currentStock} / {item.minStock}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Expiring Batches Alerts */}
+        <Card className="border-destructive/30">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-destructive/10">
+                  <CalendarClock className="w-5 h-5 text-destructive" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">{language === 'en' ? 'Expiry Alerts' : 'Peringatan Kadaluarsa'}</CardTitle>
+                  <CardDescription>{language === 'en' ? 'Batches expiring within 30 days' : 'Batch kadaluarsa dalam 30 hari'}</CardDescription>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/reports/expiry')} className="gap-1">
+                {language === 'en' ? 'View All' : 'Lihat Semua'}
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {expiringBatches.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground">
+                <CalendarClock className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">{language === 'en' ? 'No products expiring soon' : 'Tidak ada produk yang akan kadaluarsa'}</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {expiringBatches.map((batch) => (
+                  <div key={batch.id} className="flex items-center justify-between p-3 rounded-lg bg-destructive/5 border border-destructive/20">
+                    <div>
+                      <p className="font-medium text-sm">{batch.productName}</p>
+                      <p className="text-xs text-muted-foreground">Batch: {batch.batchNo} • {batch.qty} units</p>
+                    </div>
+                    <div className="text-right">
+                      <Badge variant={batch.daysUntilExpiry <= 0 ? 'cancelled' : batch.daysUntilExpiry <= 7 ? 'pending' : 'draft'}>
+                        {batch.daysUntilExpiry <= 0 
+                          ? (language === 'en' ? 'Expired' : 'Kadaluarsa')
+                          : `${batch.daysUntilExpiry} ${language === 'en' ? 'days' : 'hari'}`
+                        }
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
