@@ -2,6 +2,11 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getUserFriendlyError, ErrorMessages } from '@/lib/errorHandler';
+import { 
+  salesOrderHeaderSchema, 
+  salesOrderItemsArraySchema, 
+  validateData 
+} from '@/lib/validationSchemas';
 
 export interface SalesOrderHeader {
   id: string;
@@ -171,27 +176,42 @@ export async function createSalesOrder(
   }>
 ): Promise<{ success: boolean; error?: string; id?: string }> {
   try {
+    // Validate header data
+    const headerValidation = validateData(salesOrderHeaderSchema, header);
+    if (headerValidation.success === false) {
+      return { success: false, error: headerValidation.errors.join(', ') };
+    }
+
+    // Validate items data
+    const itemsValidation = validateData(salesOrderItemsArraySchema, items);
+    if (itemsValidation.success === false) {
+      return { success: false, error: itemsValidation.errors.join(', ') };
+    }
+
+    const validatedHeader = headerValidation.data;
+    const validatedItems = itemsValidation.data;
+
     // Insert header
     const { data: headerData, error: headerError } = await supabase
       .from('sales_order_headers')
       .insert({
-        sales_order_number: header.sales_order_number,
-        order_date: header.order_date,
-        customer_id: header.customer_id,
-        customer_po_number: header.customer_po_number,
-        sales_name: header.sales_name,
-        allocation_type: header.allocation_type,
-        project_instansi: header.project_instansi,
-        delivery_deadline: header.delivery_deadline,
-        ship_to_address: header.ship_to_address,
-        notes: header.notes,
-        po_document_url: header.po_document_url,
-        status: header.status,
-        total_amount: header.total_amount,
-        discount: header.discount,
-        tax_rate: header.tax_rate,
-        shipping_cost: header.shipping_cost,
-        grand_total: header.grand_total,
+        sales_order_number: validatedHeader.sales_order_number,
+        order_date: validatedHeader.order_date,
+        customer_id: validatedHeader.customer_id,
+        customer_po_number: validatedHeader.customer_po_number,
+        sales_name: validatedHeader.sales_name,
+        allocation_type: validatedHeader.allocation_type,
+        project_instansi: validatedHeader.project_instansi,
+        delivery_deadline: validatedHeader.delivery_deadline,
+        ship_to_address: validatedHeader.ship_to_address,
+        notes: validatedHeader.notes,
+        po_document_url: validatedHeader.po_document_url,
+        status: validatedHeader.status,
+        total_amount: validatedHeader.total_amount,
+        discount: validatedHeader.discount,
+        tax_rate: validatedHeader.tax_rate,
+        shipping_cost: validatedHeader.shipping_cost,
+        grand_total: validatedHeader.grand_total,
       })
       .select()
       .single();
@@ -199,7 +219,7 @@ export async function createSalesOrder(
     if (headerError) throw headerError;
 
     // Insert items
-    const itemsToInsert = items.map(item => ({
+    const itemsToInsert = validatedItems.map(item => ({
       sales_order_id: headerData.id,
       product_id: item.product_id,
       unit_price: item.unit_price,

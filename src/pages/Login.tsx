@@ -222,10 +222,12 @@ export default function Login() {
               </p>
             </div>
 
-            {/* Demo credentials */}
-            <div className="text-center text-xs text-muted-foreground space-y-1">
-              <p>Demo: ferry@kemika.co.id / 123456</p>
-            </div>
+            {/* Demo credentials - only shown in development */}
+            {import.meta.env.DEV && (
+              <div className="text-center text-xs text-muted-foreground space-y-1">
+                <p>Demo: demo@example.com / demo123456</p>
+              </div>
+            )}
           </div>
         </div>
 
