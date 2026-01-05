@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, MoreHorizontal, Edit, Trash2, Loader2, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,6 +41,7 @@ import {
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSuppliers, Supplier } from '@/hooks/useMasterData';
 import { supabase } from '@/integrations/supabase/client';
+import { generateSupplierCode } from '@/lib/codeGenerator';
 import { toast } from 'sonner';
 
 interface SupplierFormData {
@@ -88,9 +89,10 @@ export default function Suppliers() {
     supplier.code.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     setEditingSupplier(null);
-    setFormData(initialFormData);
+    const autoCode = await generateSupplierCode();
+    setFormData({ ...initialFormData, code: autoCode });
     setIsDialogOpen(true);
   };
 

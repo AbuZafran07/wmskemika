@@ -28,6 +28,16 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -35,7 +45,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useSalesOrders, createSalesOrder, updateSalesOrderStatus, getProductStock } from '@/hooks/useSalesOrders';
+import { useAuth } from '@/contexts/AuthContext';
+import { useSalesOrders, createSalesOrder, getProductStock } from '@/hooks/useSalesOrders';
 import { useCustomers, useProducts, Product } from '@/hooks/useMasterData';
 import { uploadFile } from '@/lib/storage';
 import { supabase } from '@/integrations/supabase/client';
@@ -65,6 +76,7 @@ interface OrderItem {
 
 export default function SalesOrder() {
   const { t, language } = useLanguage();
+  const { user } = useAuth();
   const { salesOrders, loading, refetch } = useSalesOrders();
   const { customers } = useCustomers();
   const { products } = useProducts();
@@ -73,6 +85,8 @@ export default function SalesOrder() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form state
@@ -285,14 +299,37 @@ export default function SalesOrder() {
     setIsSaving(false);
   };
 
-  const handleApprove = async (id: string) => {
-    const result = await updateSalesOrderStatus(id, 'approved');
-    if (result.success) {
+  const canApprove = () => {
+    if (!user) return false;
+    return user.role === 'super_admin';
+  };
+
+  const handleApprove = async () => {
+    if (!selectedOrderId) return;
+    
+    if (!canApprove()) {
+      toast.error(language === 'en' ? 'Only super_admin can approve orders' : 'Hanya super_admin yang dapat menyetujui order');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('sales_order_headers')
+      .update({
+        status: 'approved',
+        approved_by: user?.id,
+        approved_at: new Date().toISOString(),
+      })
+      .eq('id', selectedOrderId);
+
+    if (error) {
+      toast.error(error.message);
+    } else {
       toast.success(language === 'en' ? 'Sales Order approved' : 'Sales Order disetujui');
       refetch();
-    } else {
-      toast.error(result.error);
     }
+    
+    setIsApproveDialogOpen(false);
+    setSelectedOrderId(null);
   };
 
   const { subtotal, taxAmount, grandTotal } = calculateTotals();
@@ -398,9 +435,9 @@ export default function SalesOrder() {
                                 <Printer className="w-4 h-4 mr-2" />
                                 Print PDF
                               </DropdownMenuItem>
-                              {order.status === 'draft' && (
+                              {order.status === 'draft' && canApprove() && (
                                 <>
-                                  <DropdownMenuItem onClick={() => handleApprove(order.id)}>
+                                  <DropdownMenuItem onClick={() => { setSelectedOrderId(order.id); setIsApproveDialogOpen(true); }}>
                                     <CheckCircle className="w-4 h-4 mr-2" />
                                     {language === 'en' ? 'Approve' : 'Setujui'}
                                   </DropdownMenuItem>
@@ -735,6 +772,27 @@ export default function SalesOrder() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Approve Dialog */}
+      <AlertDialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{language === 'en' ? 'Approve Sales Order' : 'Setujui Sales Order'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === 'en' 
+                ? 'Are you sure you want to approve this Sales Order?'
+                : 'Apakah Anda yakin ingin menyetujui Sales Order ini?'
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleApprove} className="bg-success hover:bg-success/90">
+              {language === 'en' ? 'Approve' : 'Setujui'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
