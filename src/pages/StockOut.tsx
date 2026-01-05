@@ -88,6 +88,7 @@ export default function StockOut() {
   const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
   const [deliveryNoteUrl, setDeliveryNoteUrl] = useState('');
+  const [deliveryNoteFileName, setDeliveryNoteFileName] = useState('');
   const [isUploading, setIsUploading] = useState(false);
 
   const fetchSalesOrders = useCallback(async () => {
@@ -190,12 +191,31 @@ export default function StockOut() {
     fetchItems();
   }, [selectedSalesOrderId, salesOrders]);
 
-  const generateStockOutNumber = () => {
+  const generateStockOutNumber = async () => {
+    const { data } = await supabase
+      .from('stock_out_headers')
+      .select('stock_out_number')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
     const date = new Date();
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    setStockOutNumber(`SO-${year}${month}-${random}`);
+    
+    let sequence = 1;
+    if (data && data.length > 0) {
+      const lastNumber = data[0].stock_out_number;
+      const match = lastNumber.match(/SO-(\d{6})-(\d+)/);
+      if (match) {
+        const lastYearMonth = match[1];
+        const currentYearMonth = `${year}${month}`;
+        if (lastYearMonth === currentYearMonth) {
+          sequence = parseInt(match[2], 10) + 1;
+        }
+      }
+    }
+    
+    setStockOutNumber(`SO-${year}${month}-${String(sequence).padStart(3, '0')}`);
   };
 
   const handleBatchQtyChange = (itemIndex: number, batchIndex: number, value: number) => {
@@ -242,11 +262,17 @@ export default function StockOut() {
     
     if (result) {
       setDeliveryNoteUrl(result.url);
+      setDeliveryNoteFileName(result.originalName);
       toast.success(language === 'en' ? 'File uploaded successfully' : 'File berhasil diupload');
     } else {
       toast.error(language === 'en' ? 'Failed to upload file' : 'Gagal upload file');
     }
     setIsUploading(false);
+  };
+
+  const handleClearDeliveryNote = () => {
+    setDeliveryNoteUrl('');
+    setDeliveryNoteFileName('');
   };
 
   const handleSave = async () => {
@@ -414,8 +440,9 @@ export default function StockOut() {
       setItems([]);
       setNotes('');
       setDeliveryNoteUrl('');
+      setDeliveryNoteFileName('');
       setDeliveryDate(new Date().toISOString().split('T')[0]);
-      generateStockOutNumber();
+      await generateStockOutNumber();
     } catch (error) {
       console.error(error);
       toast.error(language === 'en' ? 'Failed to save Stock Out' : 'Gagal menyimpan Stock Out');
@@ -503,7 +530,8 @@ export default function StockOut() {
               <Label>{language === 'en' ? 'Stock Out Number' : 'No. Stock Out'} *</Label>
               <Input
                 value={stockOutNumber}
-                onChange={(e) => setStockOutNumber(e.target.value)}
+                disabled
+                className="bg-muted font-mono"
               />
             </div>
             <div className="space-y-2">
@@ -536,10 +564,11 @@ export default function StockOut() {
               <Label>{language === 'en' ? 'Delivery Note' : 'Surat Jalan'}</Label>
               <div className="flex gap-2">
                 <Input
-                  value={deliveryNoteUrl ? 'File uploaded' : ''}
+                  value={deliveryNoteFileName || ''}
                   disabled
                   placeholder={language === 'en' ? 'Upload delivery note' : 'Upload surat jalan'}
-                  className="bg-muted"
+                  className="bg-muted truncate"
+                  title={deliveryNoteFileName || undefined}
                 />
                 <Button
                   variant="outline"
@@ -549,7 +578,7 @@ export default function StockOut() {
                   {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                 </Button>
                 {deliveryNoteUrl && (
-                  <Button variant="outline" size="icon" onClick={() => setDeliveryNoteUrl('')}>
+                  <Button variant="outline" size="icon" onClick={handleClearDeliveryNote}>
                     <X className="w-4 h-4" />
                   </Button>
                 )}

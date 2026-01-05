@@ -212,6 +212,33 @@ export default function StockAdjustment() {
     }
   };
 
+  const generateAdjustmentNumber = async () => {
+    const { data } = await supabase
+      .from('stock_adjustments')
+      .select('adjustment_number')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    
+    let sequence = 1;
+    if (data && data.length > 0) {
+      const lastNumber = data[0].adjustment_number;
+      const match = lastNumber.match(/ADJ-(\d{6})-(\d+)/);
+      if (match) {
+        const lastYearMonth = match[1];
+        const currentYearMonth = `${year}${month}`;
+        if (lastYearMonth === currentYearMonth) {
+          sequence = parseInt(match[2], 10) + 1;
+        }
+      }
+    }
+    
+    setAdjustmentNumber(`ADJ-${year}${month}-${String(sequence).padStart(3, '0')}`);
+  };
+
   const resetForm = () => {
     setAdjustmentNumber('');
     setAdjustmentDate(new Date().toISOString().split('T')[0]);
@@ -488,9 +515,9 @@ export default function StockAdjustment() {
                   <div className="space-y-2">
                     <Label>{language === 'en' ? 'Adjustment Number' : 'Nomor Penyesuaian'} *</Label>
                     <Input
-                      placeholder="e.g., ADJ-2026-001"
                       value={adjustmentNumber}
-                      onChange={(e) => setAdjustmentNumber(e.target.value)}
+                      disabled
+                      className="bg-muted font-mono"
                     />
                   </div>
                   <div className="space-y-2">
@@ -679,7 +706,7 @@ export default function StockAdjustment() {
           <h1 className="text-2xl font-bold font-display">{language === 'en' ? 'Stock Adjustment' : 'Penyesuaian Stok'}</h1>
           <p className="text-muted-foreground">{language === 'en' ? 'Adjust inventory with approval workflow' : 'Sesuaikan inventori dengan alur persetujuan'}</p>
         </div>
-        <Button onClick={() => setIsFormOpen(true)}>
+        <Button onClick={async () => { await generateAdjustmentNumber(); setAdjustmentDate(new Date().toISOString().split('T')[0]); setIsFormOpen(true); }}>
           <Plus className="w-4 h-4 mr-2" />
           {language === 'en' ? 'Create Adjustment' : 'Buat Penyesuaian'}
         </Button>
