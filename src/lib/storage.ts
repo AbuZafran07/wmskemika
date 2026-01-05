@@ -8,10 +8,12 @@ export async function uploadFile(
   file: File,
   bucket: 'product-photos' | 'documents',
   folder: string = ''
-): Promise<{ url: string; path: string } | null> {
+): Promise<{ url: string; path: string; originalName: string } | null> {
   try {
     const fileExt = file.name.split('.').pop();
-    const fileName = `${folder ? folder + '/' : ''}${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+    // Preserve original filename in the path: timestamp-uuid-originalname.ext
+    const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const fileName = `${folder ? folder + '/' : ''}${Date.now()}-${sanitizedName}`;
 
     const { error: uploadError } = await supabase.storage
       .from(bucket)
@@ -27,7 +29,8 @@ export async function uploadFile(
     
     return {
       url: signedUrl || fileName, // Fallback to path if signed URL fails
-      path: fileName
+      path: fileName,
+      originalName: file.name
     };
   } catch (error) {
     console.error('File upload failed:', error);

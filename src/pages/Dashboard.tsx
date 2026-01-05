@@ -32,6 +32,14 @@ interface StockMovement {
 interface TopProduct {
   name: string;
   qty: number;
+  sku?: string;
+}
+
+interface ProductMovement {
+  id: string;
+  name: string;
+  sku: string | null;
+  totalQty: number;
 }
 
 interface CategoryValue {
@@ -129,6 +137,9 @@ export default function Dashboard() {
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<LowStockItem[]>([]);
   const [expiringBatches, setExpiringBatches] = useState<ExpiringBatch[]>([]);
+  const [bestSellingProducts, setBestSellingProducts] = useState<ProductMovement[]>([]);
+  const [slowestMovingProducts, setSlowestMovingProducts] = useState<ProductMovement[]>([]);
+  const [productViewMode, setProductViewMode] = useState<'best' | 'slow'>('best');
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -275,7 +286,7 @@ export default function Dashboard() {
       // Recent activity
       const { data: recentTx } = await supabase
         .from('stock_transactions')
-        .select('id, transaction_type, quantity, reference_number, created_at')
+        .select('id, transaction_type, quantity, reference_number, created_at, product_id')
         .order('created_at', { ascending: false })
         .limit(5);
 
@@ -287,6 +298,44 @@ export default function Dashboard() {
         qty: `${tx.quantity > 0 ? '+' : ''}${tx.quantity} units`,
       }));
       setRecentActivity(activities);
+
+      // Fetch best selling & slowest moving products (based on stock out transactions)
+      const { data: outTransactions } = await supabase
+        .from('stock_transactions')
+        .select('product_id, quantity')
+        .eq('transaction_type', 'out')
+        .gte('created_at', thirtyDaysAgo.toISOString());
+
+      // Aggregate by product
+      const productQty: Record<string, number> = {};
+      (outTransactions || []).forEach(tx => {
+        productQty[tx.product_id] = (productQty[tx.product_id] || 0) + Math.abs(tx.quantity);
+      });
+
+      // Get product details
+      const productIds = Object.keys(productQty);
+      const { data: productDetails } = productIds.length > 0 
+        ? await supabase.from('products').select('id, name, sku').in('id', productIds)
+        : { data: [] };
+
+      const productMap: Record<string, { name: string; sku: string | null }> = {};
+      (productDetails || []).forEach(p => { productMap[p.id] = { name: p.name, sku: p.sku }; });
+
+      // Create sorted lists
+      const productMovements: ProductMovement[] = productIds.map(id => ({
+        id,
+        name: productMap[id]?.name || 'Unknown',
+        sku: productMap[id]?.sku || null,
+        totalQty: productQty[id],
+      }));
+
+      // Best selling = highest qty
+      const bestSelling = [...productMovements].sort((a, b) => b.totalQty - a.totalQty).slice(0, 5);
+      setBestSellingProducts(bestSelling);
+
+      // Slowest moving = lowest qty (but > 0)
+      const slowest = [...productMovements].sort((a, b) => a.totalQty - b.totalQty).slice(0, 5);
+      setSlowestMovingProducts(slowest);
 
       setLoading(false);
     };
@@ -470,6 +519,74 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Top Products Widget */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">
+              {productViewMode === 'best' 
+                ? (language === 'en' ? 'Best Selling Products' : 'Produk Terlaris')
+                : (language === 'en' ? 'Slowest Moving Products' : 'Produk Pergerakan Lambat')
+              }
+            </CardTitle>
+            <div className="flex rounded-lg border border-border overflow-hidden">
+              <button
+                onClick={() => setProductViewMode('best')}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                  productViewMode === 'best'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-background text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                {language === 'en' ? 'Best Selling' : 'Terlaris'}
+              </button>
+              <button
+                onClick={() => setProductViewMode('slow')}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                  productViewMode === 'slow'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-background text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                {language === 'en' ? 'Slowest' : 'Lambat'}
+              </button>
+            </div>
+          </div>
+          <CardDescription>
+            {language === 'en' ? 'Based on stock out transactions in the last 30 days' : 'Berdasarkan transaksi keluar dalam 30 hari terakhir'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {(productViewMode === 'best' ? bestSellingProducts : slowestMovingProducts).length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Package className="w-10 h-10 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">{language === 'en' ? 'No data available' : 'Data tidak tersedia'}</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {(productViewMode === 'best' ? bestSellingProducts : slowestMovingProducts).map((product, idx) => (
+                <div key={product.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+                      idx === 0 ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
+                    }`}>
+                      {idx + 1}
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">{product.name}</p>
+                      <p className="text-xs text-muted-foreground">{product.sku || '-'}</p>
+                    </div>
+                  </div>
+                  <Badge variant={productViewMode === 'best' ? 'success' : 'pending'}>
+                    {product.totalQty.toLocaleString()} {language === 'en' ? 'units' : 'unit'}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

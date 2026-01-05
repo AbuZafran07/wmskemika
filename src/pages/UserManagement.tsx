@@ -138,7 +138,9 @@ export default function UserManagement() {
   };
 
   useEffect(() => {
-    fetchUsers();
+    if (hasPermission(['super_admin'])) {
+      fetchUsers();
+    }
   }, []);
 
   const resetForm = () => {

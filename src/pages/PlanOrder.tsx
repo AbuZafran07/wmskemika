@@ -730,15 +730,18 @@ export default function PlanOrder() {
                   <Label>{language === 'en' ? 'PO Document' : 'Dokumen PO'} *</Label>
                   <div className="flex items-center gap-4">
                     {poDocumentUrl ? (
-                      <div className="flex items-center gap-2 p-2 bg-muted rounded">
-                        <a 
-                          href={poDocumentUrl} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-sm truncate max-w-xs text-primary hover:underline"
-                        >
-                          {poDocumentUrl.split('/').pop()}
-                        </a>
+                      <div className="flex items-center gap-2 p-2 bg-muted rounded overflow-hidden">
+                        <span className="text-sm truncate max-w-[250px] text-primary">
+                          {(() => {
+                            // Extract filename from URL (before query params)
+                            const urlPath = poDocumentUrl.split('?')[0];
+                            const segments = urlPath.split('/');
+                            const filename = segments[segments.length - 1];
+                            // Remove timestamp prefix if present (format: timestamp-filename.ext)
+                            const timestampPattern = /^\d{13}-/;
+                            return decodeURIComponent(filename.replace(timestampPattern, ''));
+                          })()}
+                        </span>
                         <Button 
                           variant="ghost" 
                           size="iconSm"
@@ -1156,7 +1159,7 @@ export default function PlanOrder() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isApproving}>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleApprove} disabled={isApproving} className="bg-success hover:bg-success/90">
+            <AlertDialogAction onClick={handleApprove} disabled={isApproving} className="bg-success text-success-foreground hover:bg-success/90">
               {isApproving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Approve
             </AlertDialogAction>
