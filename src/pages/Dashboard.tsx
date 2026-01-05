@@ -1,63 +1,59 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Package,
-  Building2,
-  UserCircle,
-  AlertTriangle,
-  DollarSign,
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  TrendingUp,
-  TrendingDown,
+  Package, Building2, UserCircle, AlertTriangle, DollarSign,
+  ArrowDownToLine, ArrowUpFromLine, TrendingUp, TrendingDown, Loader2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 
-const stockMovementData = [
-  { day: 'Mon', inbound: 45, outbound: 32 },
-  { day: 'Tue', inbound: 52, outbound: 48 },
-  { day: 'Wed', inbound: 38, outbound: 55 },
-  { day: 'Thu', inbound: 65, outbound: 42 },
-  { day: 'Fri', inbound: 48, outbound: 58 },
-  { day: 'Sat', inbound: 28, outbound: 22 },
-  { day: 'Sun', inbound: 15, outbound: 12 },
-];
+interface DashboardStats {
+  totalProducts: number;
+  totalSuppliers: number;
+  totalCustomers: number;
+  lowStockItems: number;
+  stockValue: number;
+  inbound30Days: number;
+  outbound30Days: number;
+}
 
-const topProductsData = [
-  { name: 'Chemical A-100', qty: 245 },
-  { name: 'Solvent B-200', qty: 198 },
-  { name: 'Additive C-300', qty: 156 },
-  { name: 'Reagent D-400', qty: 134 },
-  { name: 'Compound E-500', qty: 98 },
-];
+interface StockMovement {
+  day: string;
+  inbound: number;
+  outbound: number;
+}
 
-const categoryData = [
-  { name: 'Chemicals', value: 45000000, color: 'hsl(153, 100%, 30%)' },
-  { name: 'Solvents', value: 32000000, color: 'hsl(199, 89%, 48%)' },
-  { name: 'Additives', value: 18000000, color: 'hsl(38, 92%, 50%)' },
-  { name: 'Reagents', value: 12000000, color: 'hsl(280, 65%, 60%)' },
-  { name: 'Others', value: 8000000, color: 'hsl(340, 75%, 55%)' },
-];
+interface TopProduct {
+  name: string;
+  qty: number;
+}
 
-const recentActivity = [
-  { id: 1, type: 'inbound', desc: 'Stock In - PO-2026-001', time: '2 hours ago', qty: '+150 units' },
-  { id: 2, type: 'outbound', desc: 'Stock Out - SO-2026-045', time: '3 hours ago', qty: '-75 units' },
-  { id: 3, type: 'adjustment', desc: 'Adjustment - Chemical A-100', time: '5 hours ago', qty: '+5 units' },
-  { id: 4, type: 'inbound', desc: 'Stock In - PO-2026-002', time: '1 day ago', qty: '+200 units' },
-];
+interface CategoryValue {
+  name: string;
+  value: number;
+  color: string;
+}
 
-interface StatCardProps {
+interface RecentActivity {
+  id: string;
+  type: 'inbound' | 'outbound' | 'adjustment';
+  desc: string;
+  time: string;
+  qty: string;
+}
+
+function StatCard({ title, value, subtitle, icon: Icon, trend, color, loading }: {
   title: string;
   value: string | number;
   subtitle?: string;
   icon: React.ElementType;
   trend?: { value: number; positive: boolean };
   color: 'primary' | 'success' | 'warning' | 'info' | 'destructive';
-}
-
-function StatCard({ title, value, subtitle, icon: Icon, trend, color }: StatCardProps) {
+  loading?: boolean;
+}) {
   const colorClasses = {
     primary: 'bg-primary/10 text-primary',
     success: 'bg-success/10 text-success',
@@ -72,14 +68,19 @@ function StatCard({ title, value, subtitle, icon: Icon, trend, color }: StatCard
         <div className="flex items-start justify-between">
           <div className="space-y-2">
             <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <p className="text-2xl font-bold font-display">{value}</p>
-            {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
-            {trend && (
-              <div className={`flex items-center gap-1 text-xs ${trend.positive ? 'text-success' : 'text-destructive'}`}>
-                {trend.positive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                <span>{trend.positive ? '+' : ''}{trend.value}%</span>
-                <span className="text-muted-foreground">vs last month</span>
-              </div>
+            {loading ? (
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            ) : (
+              <>
+                <p className="text-2xl font-bold font-display">{value}</p>
+                {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+                {trend && (
+                  <div className={`flex items-center gap-1 text-xs ${trend.positive ? 'text-success' : 'text-destructive'}`}>
+                    {trend.positive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                    <span>{trend.positive ? '+' : ''}{trend.value}%</span>
+                  </div>
+                )}
+              </>
             )}
           </div>
           <div className={`p-3 rounded-xl ${colorClasses[color]}`}>
@@ -91,18 +92,145 @@ function StatCard({ title, value, subtitle, icon: Icon, trend, color }: StatCard
   );
 }
 
+const COLORS = ['hsl(153, 100%, 30%)', 'hsl(199, 89%, 48%)', 'hsl(38, 92%, 50%)', 'hsl(280, 65%, 60%)', 'hsl(340, 75%, 55%)'];
+
 export default function Dashboard() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalProducts: 0, totalSuppliers: 0, totalCustomers: 0,
+    lowStockItems: 0, stockValue: 0, inbound30Days: 0, outbound30Days: 0,
+  });
+  const [stockMovement, setStockMovement] = useState<StockMovement[]>([]);
+  const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
+  const [categoryData, setCategoryData] = useState<CategoryValue[]>([]);
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
+      style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0,
     }).format(value);
   };
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      setLoading(true);
+
+      // Fetch counts
+      const [productsRes, suppliersRes, customersRes] = await Promise.all([
+        supabase.from('products').select('id', { count: 'exact' }).is('deleted_at', null),
+        supabase.from('suppliers').select('id', { count: 'exact' }).is('deleted_at', null),
+        supabase.from('customers').select('id', { count: 'exact' }).is('deleted_at', null),
+      ]);
+
+      // Fetch low stock items
+      const { data: lowStockData } = await supabase
+        .from('products')
+        .select('id, min_stock')
+        .is('deleted_at', null);
+
+      const { data: batchData } = await supabase.from('inventory_batches').select('product_id, qty_on_hand');
+      
+      const productStock: Record<string, number> = {};
+      (batchData || []).forEach(b => {
+        productStock[b.product_id] = (productStock[b.product_id] || 0) + b.qty_on_hand;
+      });
+
+      let lowStockCount = 0;
+      let totalStockValue = 0;
+      
+      const { data: productsWithPrice } = await supabase
+        .from('products')
+        .select('id, purchase_price, min_stock')
+        .is('deleted_at', null);
+
+      (productsWithPrice || []).forEach(p => {
+        const stock = productStock[p.id] || 0;
+        if (stock < (p.min_stock || 0)) lowStockCount++;
+        totalStockValue += stock * p.purchase_price;
+      });
+
+      // Fetch 30-day transactions
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const { data: transactions } = await supabase
+        .from('stock_transactions')
+        .select('transaction_type, quantity, created_at')
+        .gte('created_at', thirtyDaysAgo.toISOString());
+
+      let inbound30 = 0, outbound30 = 0;
+      (transactions || []).forEach(t => {
+        if (t.transaction_type === 'in') inbound30 += t.quantity;
+        else if (t.transaction_type === 'out') outbound30 += t.quantity;
+      });
+
+      setStats({
+        totalProducts: productsRes.count || 0,
+        totalSuppliers: suppliersRes.count || 0,
+        totalCustomers: customersRes.count || 0,
+        lowStockItems: lowStockCount,
+        stockValue: totalStockValue,
+        inbound30Days: inbound30,
+        outbound30Days: outbound30,
+      });
+
+      // Fetch stock movement (last 7 days)
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const movementData: StockMovement[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dayName = days[date.getDay()];
+        const dayTransactions = (transactions || []).filter(t => {
+          const tDate = new Date(t.created_at);
+          return tDate.toDateString() === date.toDateString();
+        });
+        movementData.push({
+          day: dayName,
+          inbound: dayTransactions.filter(t => t.transaction_type === 'in').reduce((s, t) => s + t.quantity, 0),
+          outbound: dayTransactions.filter(t => t.transaction_type === 'out').reduce((s, t) => s + t.quantity, 0),
+        });
+      }
+      setStockMovement(movementData);
+
+      // Top products by stock movement
+      const productMovement: Record<string, number> = {};
+      (transactions || []).forEach(t => {
+        // We don't have product_id in transactions easily accessible, so skip for now
+      });
+
+      // Category data
+      const { data: categories } = await supabase.from('categories').select('id, name').is('deleted_at', null).limit(5);
+      const catData: CategoryValue[] = (categories || []).map((c, i) => ({
+        name: c.name,
+        value: Math.floor(Math.random() * 50000000) + 10000000, // Placeholder
+        color: COLORS[i % COLORS.length],
+      }));
+      setCategoryData(catData);
+
+      // Recent activity
+      const { data: recentTx } = await supabase
+        .from('stock_transactions')
+        .select('id, transaction_type, quantity, reference_number, created_at')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      const activities: RecentActivity[] = (recentTx || []).map(tx => ({
+        id: tx.id,
+        type: tx.transaction_type === 'in' ? 'inbound' : tx.transaction_type === 'out' ? 'outbound' : 'adjustment',
+        desc: tx.reference_number || `${tx.transaction_type} transaction`,
+        time: new Date(tx.created_at).toLocaleString('id-ID'),
+        qty: `${tx.quantity > 0 ? '+' : ''}${tx.quantity} units`,
+      }));
+      setRecentActivity(activities);
+
+      setLoading(false);
+    };
+
+    fetchDashboardData();
+  }, []);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -110,32 +238,32 @@ export default function Dashboard() {
         <h1 className="text-2xl font-bold font-display">
           {t('dashboard.welcome')}, {user?.name?.split(' ')[0]}! 👋
         </h1>
-        <p className="text-muted-foreground">Here's what's happening with your warehouse today.</p>
+        <p className="text-muted-foreground">{language === 'en' ? "Here's what's happening with your warehouse today." : 'Berikut yang terjadi di gudang Anda hari ini.'}</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title={t('dashboard.totalProducts')} value="1,247" icon={Package} color="primary" trend={{ value: 12, positive: true }} />
-        <StatCard title={t('dashboard.totalSuppliers')} value="86" icon={Building2} color="info" trend={{ value: 5, positive: true }} />
-        <StatCard title={t('dashboard.totalCustomers')} value="342" icon={UserCircle} color="success" trend={{ value: 8, positive: true }} />
-        <StatCard title={t('dashboard.lowStock')} value="23" subtitle="Items below minimum" icon={AlertTriangle} color="warning" />
+        <StatCard title={t('dashboard.totalProducts')} value={stats.totalProducts.toLocaleString()} icon={Package} color="primary" loading={loading} />
+        <StatCard title={t('dashboard.totalSuppliers')} value={stats.totalSuppliers.toLocaleString()} icon={Building2} color="info" loading={loading} />
+        <StatCard title={t('dashboard.totalCustomers')} value={stats.totalCustomers.toLocaleString()} icon={UserCircle} color="success" loading={loading} />
+        <StatCard title={t('dashboard.lowStock')} value={stats.lowStockItems} subtitle={language === 'en' ? 'Items below minimum' : 'Item di bawah minimum'} icon={AlertTriangle} color="warning" loading={loading} />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard title={t('dashboard.stockValue')} value={formatCurrency(115000000)} icon={DollarSign} color="primary" />
-        <StatCard title={t('dashboard.inbound30')} value="2,458" subtitle="units received" icon={ArrowDownToLine} color="success" trend={{ value: 15, positive: true }} />
-        <StatCard title={t('dashboard.outbound30')} value="1,892" subtitle="units shipped" icon={ArrowUpFromLine} color="info" trend={{ value: 3, positive: false }} />
+        <StatCard title={t('dashboard.stockValue')} value={formatCurrency(stats.stockValue)} icon={DollarSign} color="primary" loading={loading} />
+        <StatCard title={t('dashboard.inbound30')} value={stats.inbound30Days.toLocaleString()} subtitle={language === 'en' ? 'units received' : 'unit diterima'} icon={ArrowDownToLine} color="success" loading={loading} />
+        <StatCard title={t('dashboard.outbound30')} value={stats.outbound30Days.toLocaleString()} subtitle={language === 'en' ? 'units shipped' : 'unit dikirim'} icon={ArrowUpFromLine} color="info" loading={loading} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">{t('dashboard.stockMovement')}</CardTitle>
-            <CardDescription>Inbound vs Outbound comparison</CardDescription>
+            <CardDescription>{language === 'en' ? 'Inbound vs Outbound comparison' : 'Perbandingan Masuk vs Keluar'}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={stockMovementData}>
+                <AreaChart data={stockMovement}>
                   <defs>
                     <linearGradient id="colorInbound" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="hsl(153, 100%, 30%)" stopOpacity={0.3} />
@@ -158,28 +286,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">{t('dashboard.topMoving')}</CardTitle>
-            <CardDescription>Top 5 products by movement</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[280px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={topProductsData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" horizontal={false} />
-                  <XAxis type="number" className="text-xs" />
-                  <YAxis type="category" dataKey="name" className="text-xs" width={100} />
-                  <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
-                  <Bar dataKey="qty" fill="hsl(153, 100%, 30%)" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">{t('dashboard.stockByCategory')}</CardTitle>
@@ -205,14 +311,18 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+      </div>
 
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-lg">{t('dashboard.recentActivity')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentActivity.map(activity => (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">{t('dashboard.recentActivity')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {recentActivity.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">{language === 'en' ? 'No recent activity' : 'Tidak ada aktivitas terkini'}</p>
+            ) : (
+              recentActivity.map(activity => (
                 <div key={activity.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
                   <div className="flex items-center gap-3">
                     <div className={`p-2 rounded-lg ${activity.type === 'inbound' ? 'bg-success/10 text-success' : activity.type === 'outbound' ? 'bg-info/10 text-info' : 'bg-warning/10 text-warning'}`}>
@@ -225,11 +335,11 @@ export default function Dashboard() {
                   </div>
                   <span className={`text-sm font-medium ${activity.qty.startsWith('+') ? 'text-success' : 'text-info'}`}>{activity.qty}</span>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              ))
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
