@@ -338,6 +338,36 @@ export default function StockIn() {
 
       if (statusError) throw statusError;
 
+      // 5. Create audit log entry
+      const { data: { user } } = await supabase.auth.getUser();
+      const itemsSummary = validItems.map(item => ({
+        product_name: item.product_name,
+        qty_received: item.qty_received,
+        batch_no: item.batch_no,
+      }));
+
+      await supabase
+        .from('audit_logs')
+        .insert({
+          action: 'STOCK_IN_CREATE',
+          module: 'stock_in',
+          ref_table: 'stock_in_headers',
+          ref_id: headerData.id,
+          ref_no: stockInNumber,
+          user_id: user?.id,
+          user_email: user?.email,
+          new_data: {
+            stock_in_number: stockInNumber,
+            plan_order_number: selectedPlanOrder?.plan_number,
+            plan_order_id: selectedPlanOrderId,
+            supplier: selectedPlanOrder?.supplier?.name,
+            received_date: receivedDate,
+            items: itemsSummary,
+            total_items: validItems.length,
+            total_qty_received: validItems.reduce((sum, i) => sum + i.qty_received, 0),
+          },
+        });
+
       toast.success(language === 'en' ? 'Stock In saved successfully' : 'Stock In berhasil disimpan');
 
       // Reset form + refresh list so the status/availability updates immediately
