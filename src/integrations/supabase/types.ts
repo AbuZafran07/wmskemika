@@ -499,10 +499,13 @@ export type Database = {
           created_by: string | null
           customer_id: string
           customer_po_number: string
+          deleted_at: string | null
+          deleted_by: string | null
           delivery_deadline: string
           discount: number | null
           grand_total: number | null
           id: string
+          is_deleted: boolean | null
           notes: string | null
           order_date: string
           po_document_url: string | null
@@ -524,10 +527,13 @@ export type Database = {
           created_by?: string | null
           customer_id: string
           customer_po_number: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           delivery_deadline: string
           discount?: number | null
           grand_total?: number | null
           id?: string
+          is_deleted?: boolean | null
           notes?: string | null
           order_date?: string
           po_document_url?: string | null
@@ -549,10 +555,13 @@ export type Database = {
           created_by?: string | null
           customer_id?: string
           customer_po_number?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           delivery_deadline?: string
           discount?: number | null
           grand_total?: number | null
           id?: string
+          is_deleted?: boolean | null
           notes?: string | null
           order_date?: string
           po_document_url?: string | null
@@ -1155,6 +1164,17 @@ export type Database = {
       }
       plan_order_soft_delete: { Args: { order_id: string }; Returns: Json }
       plan_order_update: {
+        Args: { header_data: Json; items_data: Json; order_id: string }
+        Returns: Json
+      }
+      sales_order_approve: { Args: { order_id: string }; Returns: Json }
+      sales_order_cancel: { Args: { order_id: string }; Returns: Json }
+      sales_order_create: {
+        Args: { attachment_meta?: Json; header_data: Json; items_data: Json }
+        Returns: Json
+      }
+      sales_order_soft_delete: { Args: { order_id: string }; Returns: Json }
+      sales_order_update: {
         Args: { header_data: Json; items_data: Json; order_id: string }
         Returns: Json
       }

@@ -18,6 +18,7 @@ import StockOut from "./pages/StockOut";
 import StockAdjustment from "./pages/StockAdjustment";
 import DataStock from "./pages/DataStock";
 import UserManagement from "./pages/UserManagement";
+import SettingsPage from "./pages/Settings";
 
 // Data Product
 import Products from "./pages/data-product/Products";
@@ -68,6 +69,7 @@ const App = () => (
                   <Route path="/data-product/customers" element={<Customers />} />
                   <Route path="/data-stock" element={<DataStock />} />
                   <Route path="/user-management" element={<UserManagement />} />
+                  <Route path="/settings" element={<SettingsPage />} />
                   
                   {/* Reports */}
                   <Route path="/reports/stock" element={<StockReport />} />
