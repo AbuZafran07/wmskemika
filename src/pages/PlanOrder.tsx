@@ -46,7 +46,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { usePlanOrders, createPlanOrder, PlanOrderHeader } from '@/hooks/usePlanOrders';
+import { usePlanOrders, usePlanOrderItems, createPlanOrder, PlanOrderHeader, PlanOrderItem } from '@/hooks/usePlanOrders';
 import { useSuppliers, useProducts, Product } from '@/hooks/useMasterData';
 import { uploadFile } from '@/lib/storage';
 import { supabase } from '@/integrations/supabase/client';
@@ -55,7 +55,7 @@ import { toast } from 'sonner';
 interface OrderItem {
   id: string;
   product_id: string;
-  product?: Product;
+  product?: Partial<Product> & { id: string; name: string };
   unit_price: number;
   planned_qty: number;
   notes: string;
@@ -80,7 +80,14 @@ export default function PlanOrder() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<PlanOrderHeader | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
+  
+  // Fetch items for selected order in detail view
+  const { items: selectedOrderItems, loading: itemsLoading } = usePlanOrderItems(selectedOrder?.id || null);
   
   // Form state
   const [planNumber, setPlanNumber] = useState('');
@@ -302,6 +309,137 @@ export default function PlanOrder() {
     setSelectedOrder(null);
   };
 
+  const handleViewDetail = (order: PlanOrderHeader) => {
+    setSelectedOrder(order);
+    setIsDetailDialogOpen(true);
+  };
+
+  const handleEdit = (order: PlanOrderHeader) => {
+    // Populate form with order data
+    setPlanNumber(order.plan_number);
+    setPlanDate(order.plan_date);
+    setSupplierId(order.supplier_id);
+    setExpectedDelivery(order.expected_delivery_date || '');
+    setNotes(order.notes || '');
+    setPoDocumentUrl(order.po_document_url || '');
+    setDiscount(order.discount?.toString() || '0');
+    setTaxRate(order.tax_rate?.toString() || '11');
+    setShippingCost(order.shipping_cost?.toString() || '0');
+    setEditingOrderId(order.id);
+    setIsEditMode(true);
+    setIsFormOpen(true);
+    
+    // Fetch and populate items
+    fetchOrderItemsForEdit(order.id);
+  };
+
+  const fetchOrderItemsForEdit = async (orderId: string) => {
+    const { data, error } = await supabase
+      .from('plan_order_items')
+      .select(`*, product:products(id, name, sku, purchase_price)`)
+      .eq('plan_order_id', orderId);
+    
+    if (!error && data) {
+      setOrderItems(data.map(item => ({
+        id: item.id,
+        product_id: item.product_id,
+        product: item.product,
+        unit_price: item.unit_price,
+        planned_qty: item.planned_qty,
+        notes: item.notes || '',
+      })));
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!editingOrderId || !planNumber || !supplierId || orderItems.length === 0) {
+      toast.error(language === 'en' ? 'Please fill all required fields' : 'Harap isi semua field wajib');
+      return;
+    }
+
+    if (orderItems.some(item => !item.product_id || item.planned_qty <= 0)) {
+      toast.error(language === 'en' ? 'Please complete all line items' : 'Harap lengkapi semua item');
+      return;
+    }
+
+    setIsSaving(true);
+    const { subtotal, discountValue, grandTotal } = calculateTotals();
+
+    try {
+      // Update header
+      const { error: headerError } = await supabase
+        .from('plan_order_headers')
+        .update({
+          plan_number: planNumber,
+          plan_date: planDate,
+          supplier_id: supplierId,
+          expected_delivery_date: expectedDelivery || null,
+          notes: notes || null,
+          po_document_url: poDocumentUrl,
+          total_amount: subtotal,
+          discount: discountValue,
+          tax_rate: parseFloat(taxRate) || 0,
+          shipping_cost: parseFloat(shippingCost) || 0,
+          grand_total: grandTotal,
+        })
+        .eq('id', editingOrderId);
+
+      if (headerError) throw headerError;
+
+      // Delete existing items and re-insert
+      await supabase.from('plan_order_items').delete().eq('plan_order_id', editingOrderId);
+
+      const itemsToInsert = orderItems.map(item => ({
+        plan_order_id: editingOrderId,
+        product_id: item.product_id,
+        unit_price: item.unit_price,
+        planned_qty: item.planned_qty,
+        notes: item.notes || null,
+      }));
+
+      const { error: itemsError } = await supabase.from('plan_order_items').insert(itemsToInsert);
+      if (itemsError) throw itemsError;
+
+      toast.success(language === 'en' ? 'Plan Order updated successfully' : 'Plan Order berhasil diupdate');
+      setIsFormOpen(false);
+      setIsEditMode(false);
+      setEditingOrderId(null);
+      resetForm();
+      refetch();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to update';
+      toast.error(message);
+    }
+
+    setIsSaving(false);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedOrder) return;
+
+    try {
+      // Delete items first
+      await supabase.from('plan_order_items').delete().eq('plan_order_id', selectedOrder.id);
+      
+      // Delete header
+      const { error } = await supabase
+        .from('plan_order_headers')
+        .delete()
+        .eq('id', selectedOrder.id);
+      
+      if (error) throw error;
+      
+      toast.success(language === 'en' ? 'Plan Order deleted' : 'Plan Order dihapus');
+      refetch();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to delete';
+      toast.error(message);
+    }
+
+    setIsDeleteDialogOpen(false);
+    setSelectedOrder(null);
+  };
+
   const { subtotal, discountValue, taxValue, shippingValue, grandTotal } = calculateTotals();
 
   // Form View
@@ -309,15 +447,21 @@ export default function PlanOrder() {
     return (
       <div className="space-y-6 animate-fade-in">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => { setIsFormOpen(false); resetForm(); }}>
+          <Button variant="ghost" size="icon" onClick={() => { setIsFormOpen(false); setIsEditMode(false); setEditingOrderId(null); resetForm(); }}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
             <h1 className="text-2xl font-bold font-display">
-              {language === 'en' ? 'Create Plan Order' : 'Buat Plan Order'}
+              {isEditMode 
+                ? (language === 'en' ? 'Edit Plan Order' : 'Edit Plan Order')
+                : (language === 'en' ? 'Create Plan Order' : 'Buat Plan Order')
+              }
             </h1>
             <p className="text-muted-foreground">
-              {language === 'en' ? 'Create new inbound plan' : 'Buat rencana pembelian baru'}
+              {isEditMode
+                ? (language === 'en' ? 'Update existing plan order' : 'Ubah plan order yang ada')
+                : (language === 'en' ? 'Create new inbound plan' : 'Buat rencana pembelian baru')
+              }
             </p>
           </div>
         </div>
@@ -561,11 +705,14 @@ export default function PlanOrder() {
             </Card>
 
             <div className="flex flex-col gap-2">
-              <Button onClick={handleSubmit} disabled={isSaving} className="w-full">
+              <Button onClick={isEditMode ? handleUpdate : handleSubmit} disabled={isSaving} className="w-full">
                 {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                {language === 'en' ? 'Save as Draft' : 'Simpan Draft'}
+                {isEditMode 
+                  ? (language === 'en' ? 'Update Order' : 'Update Order')
+                  : (language === 'en' ? 'Save as Draft' : 'Simpan Draft')
+                }
               </Button>
-              <Button variant="outline" onClick={() => { setIsFormOpen(false); resetForm(); }}>
+              <Button variant="outline" onClick={() => { setIsFormOpen(false); setIsEditMode(false); setEditingOrderId(null); resetForm(); }}>
                 {t('common.cancel')}
               </Button>
             </div>
@@ -660,13 +807,13 @@ export default function PlanOrder() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleViewDetail(order)}>
                                 <Eye className="w-4 h-4 mr-2" />
                                 {language === 'en' ? 'View Details' : 'Lihat Detail'}
                               </DropdownMenuItem>
                               {order.status === 'draft' && (
                                 <>
-                                  <DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleEdit(order)}>
                                     <Edit className="w-4 h-4 mr-2" />
                                     {t('common.edit')}
                                   </DropdownMenuItem>
@@ -683,6 +830,13 @@ export default function PlanOrder() {
                                   >
                                     <XCircle className="w-4 h-4 mr-2" />
                                     Cancel
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem 
+                                    className="text-destructive"
+                                    onClick={() => { setSelectedOrder(order); setIsDeleteDialogOpen(true); }}
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    {t('common.delete')}
                                   </DropdownMenuItem>
                                 </>
                               )}
@@ -740,6 +894,159 @@ export default function PlanOrder() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Delete Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{language === 'en' ? 'Delete Plan Order' : 'Hapus Plan Order'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === 'en' 
+                ? `Are you sure you want to delete "${selectedOrder?.plan_number}"? This action cannot be undone.`
+                : `Apakah Anda yakin ingin menghapus "${selectedOrder?.plan_number}"? Tindakan ini tidak dapat dibatalkan.`
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+              {t('common.delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* View Detail Dialog */}
+      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{language === 'en' ? 'Plan Order Details' : 'Detail Plan Order'}</DialogTitle>
+          </DialogHeader>
+          
+          {selectedOrder && (
+            <div className="space-y-6">
+              {/* Order Header Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">{language === 'en' ? 'Plan Number' : 'Nomor Plan'}</p>
+                  <p className="font-medium">{selectedOrder.plan_number}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{language === 'en' ? 'Date' : 'Tanggal'}</p>
+                  <p className="font-medium">{formatDate(selectedOrder.plan_date)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Supplier</p>
+                  <p className="font-medium">{selectedOrder.supplier?.name}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{language === 'en' ? 'Expected Delivery' : 'Estimasi Pengiriman'}</p>
+                  <p className="font-medium">{selectedOrder.expected_delivery_date ? formatDate(selectedOrder.expected_delivery_date) : '-'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{t('common.status')}</p>
+                  <Badge variant={statusConfig[selectedOrder.status]?.variant || 'draft'}>
+                    {language === 'en' ? statusConfig[selectedOrder.status]?.label : statusConfig[selectedOrder.status]?.labelId}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Grand Total</p>
+                  <p className="font-medium text-primary">{formatCurrency(selectedOrder.grand_total)}</p>
+                </div>
+              </div>
+
+              {selectedOrder.notes && (
+                <div>
+                  <p className="text-sm text-muted-foreground">{language === 'en' ? 'Notes' : 'Catatan'}</p>
+                  <p className="text-sm">{selectedOrder.notes}</p>
+                </div>
+              )}
+
+              {/* Order Items */}
+              <div>
+                <h4 className="font-semibold mb-3">{language === 'en' ? 'Order Items' : 'Item Order'}</h4>
+                {itemsLoading ? (
+                  <div className="flex justify-center py-4">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">#</TableHead>
+                        <TableHead>{language === 'en' ? 'Product Name' : 'Nama Barang'}</TableHead>
+                        <TableHead className="text-center">Qty</TableHead>
+                        <TableHead className="text-right">{language === 'en' ? 'Unit Price' : 'Harga'}</TableHead>
+                        <TableHead className="text-right">Subtotal</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedOrderItems.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
+                            {language === 'en' ? 'No items found' : 'Tidak ada item'}
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        selectedOrderItems.map((item, index) => (
+                          <TableRow key={item.id}>
+                            <TableCell>{index + 1}</TableCell>
+                            <TableCell>
+                              <div>
+                                <p className="font-medium">{item.product?.name}</p>
+                                {item.product?.sku && (
+                                  <p className="text-xs text-muted-foreground">SKU: {item.product.sku}</p>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">{item.planned_qty}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(item.unit_price)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(item.subtotal || item.unit_price * item.planned_qty)}</TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+
+              {/* Summary */}
+              <div className="border-t pt-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span>{formatCurrency(selectedOrder.total_amount)}</span>
+                </div>
+                {selectedOrder.discount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Discount</span>
+                    <span>-{formatCurrency(selectedOrder.discount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Tax ({selectedOrder.tax_rate}%)</span>
+                  <span>{formatCurrency((selectedOrder.total_amount - selectedOrder.discount) * selectedOrder.tax_rate / 100)}</span>
+                </div>
+                {selectedOrder.shipping_cost > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">{language === 'en' ? 'Shipping' : 'Ongkir'}</span>
+                    <span>{formatCurrency(selectedOrder.shipping_cost)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-semibold text-lg pt-2 border-t">
+                  <span>Grand Total</span>
+                  <span className="text-primary">{formatCurrency(selectedOrder.grand_total)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDetailDialogOpen(false)}>
+              {language === 'en' ? 'Close' : 'Tutup'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
