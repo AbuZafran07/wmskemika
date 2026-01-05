@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { Plus, Search, Filter, Eye, Edit, MoreHorizontal, CheckCircle, XCircle, Loader2, Upload, ArrowLeft, Trash2, FileText, Printer, X, CalendarDays } from 'lucide-react';
+import React, { useState, useRef, useMemo } from 'react';
+import { Plus, Search, Eye, Edit, MoreHorizontal, CheckCircle, XCircle, Loader2, Upload, ArrowLeft, Trash2, Printer, Archive, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -49,9 +49,22 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { usePlanOrders, usePlanOrderItems, createPlanOrder, PlanOrderHeader, PlanOrderItem } from '@/hooks/usePlanOrders';
+import { 
+  usePlanOrders, 
+  usePlanOrderItems, 
+  useSettings,
+  createPlanOrder, 
+  updatePlanOrder,
+  approvePlanOrder,
+  cancelPlanOrder,
+  deletePlanOrder,
+  logPlanOrderUpload,
+  PlanOrderHeader, 
+  PlanOrderItem 
+} from '@/hooks/usePlanOrders';
 import { useSuppliers, useProducts, Product } from '@/hooks/useMasterData';
 import { uploadFile } from '@/lib/storage';
 import { supabase } from '@/integrations/supabase/client';
@@ -80,12 +93,13 @@ export default function PlanOrder() {
   const { planOrders, loading, refetch } = usePlanOrders();
   const { suppliers } = useSuppliers();
   const { products } = useProducts();
+  const { allowAdminApprove } = useSettings();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'active' | 'archived'>('active');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
@@ -105,12 +119,16 @@ export default function PlanOrder() {
   const [expectedDelivery, setExpectedDelivery] = useState('');
   const [notes, setNotes] = useState('');
   const [poDocumentUrl, setPoDocumentUrl] = useState('');
+  const [poDocumentKey, setPoDocumentKey] = useState('');
   const [discount, setDiscount] = useState('0');
   const [taxRate, setTaxRate] = useState('11');
   const [shippingCost, setShippingCost] = useState('0');
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const printRef = useRef<HTMLDivElement>(null);
@@ -131,26 +149,52 @@ export default function PlanOrder() {
     });
   };
 
-  // Filter logic with status and date range
-  const filteredOrders = planOrders.filter(order => {
-    const matchesSearch = 
-      order.plan_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.supplier?.name.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-    
-    const orderDate = new Date(order.plan_date);
-    const matchesDateFrom = !dateFrom || orderDate >= new Date(dateFrom);
-    const matchesDateTo = !dateTo || orderDate <= new Date(dateTo);
-    
-    return matchesSearch && matchesStatus && matchesDateFrom && matchesDateTo;
-  });
+  // Check if user can approve orders
+  const canApprove = useMemo(() => {
+    if (!user) return false;
+    if (user.role === 'super_admin') return true;
+    if (user.role === 'admin' && allowAdminApprove) return true;
+    return false;
+  }, [user, allowAdminApprove]);
+
+  // Check if order can be cancelled
+  const canCancelOrder = (order: PlanOrderHeader, items: PlanOrderItem[]) => {
+    if (order.status === 'draft') return true;
+    if (order.status === 'approved') {
+      const totalReceived = items.reduce((sum, item) => sum + (item.qty_received || 0), 0);
+      return totalReceived === 0;
+    }
+    return false;
+  };
+
+  // Filter logic with status, date range, and view mode (active/archived)
+  const filteredOrders = useMemo(() => {
+    return planOrders.filter(order => {
+      const matchesSearch = 
+        order.plan_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        order.supplier?.name.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+      
+      const orderDate = new Date(order.plan_date);
+      const matchesDateFrom = !dateFrom || orderDate >= new Date(dateFrom);
+      const matchesDateTo = !dateTo || orderDate <= new Date(dateTo);
+      
+      // View mode filter: active vs archived
+      const activeStatuses = ['draft', 'approved', 'partially_received'];
+      const archivedStatuses = ['received', 'cancelled'];
+      const matchesViewMode = viewMode === 'active' 
+        ? activeStatuses.includes(order.status)
+        : archivedStatuses.includes(order.status);
+      
+      return matchesSearch && matchesStatus && matchesDateFrom && matchesDateTo && matchesViewMode;
+    });
+  }, [planOrders, searchQuery, statusFilter, dateFrom, dateTo, viewMode]);
 
   const clearFilters = () => {
     setStatusFilter('all');
     setDateFrom('');
     setDateTo('');
-    setIsFilterOpen(false);
   };
 
   const hasActiveFilters = statusFilter !== 'all' || dateFrom || dateTo;
@@ -158,7 +202,6 @@ export default function PlanOrder() {
   const handleExportPDF = () => {
     if (!selectedOrder || !printRef.current) return;
     
-    // Open print dialog
     const printContent = printRef.current;
     const printWindow = window.open('', '_blank');
     
@@ -296,6 +339,7 @@ export default function PlanOrder() {
     setExpectedDelivery('');
     setNotes('');
     setPoDocumentUrl('');
+    setPoDocumentKey('');
     setDiscount('0');
     setTaxRate('11');
     setShippingCost('0');
@@ -343,6 +387,7 @@ export default function PlanOrder() {
     
     if (result) {
       setPoDocumentUrl(result.url);
+      setPoDocumentKey(result.path);
       toast.success(language === 'en' ? 'Document uploaded successfully' : 'Dokumen berhasil diupload');
     } else {
       toast.error(language === 'en' ? 'Failed to upload document' : 'Gagal upload dokumen');
@@ -392,7 +437,13 @@ export default function PlanOrder() {
         unit_price: item.unit_price,
         planned_qty: item.planned_qty,
         notes: item.notes,
-      }))
+      })),
+      poDocumentKey ? {
+        file_key: poDocumentKey,
+        url: poDocumentUrl,
+        mime_type: undefined,
+        file_size: undefined,
+      } : undefined
     );
 
     if (result.success) {
@@ -407,37 +458,25 @@ export default function PlanOrder() {
     setIsSaving(false);
   };
 
-  const canApprove = () => {
-    if (!user) return false;
-    if (user.role === 'super_admin') return true;
-    // Check settings for allow_admin_approve
-    return false; // Will be checked via settings
-  };
-
   const handleApprove = async () => {
     if (!selectedOrder) return;
     
-    if (!canApprove() && user?.role !== 'super_admin') {
-      toast.error(language === 'en' ? 'Only super_admin can approve orders' : 'Hanya super_admin yang dapat menyetujui order');
+    if (!canApprove) {
+      toast.error(language === 'en' ? 'You do not have permission to approve orders' : 'Anda tidak memiliki izin untuk menyetujui order');
       return;
     }
 
-    const { error } = await supabase
-      .from('plan_order_headers')
-      .update({
-        status: 'approved',
-        approved_by: user?.id,
-        approved_at: new Date().toISOString(),
-      })
-      .eq('id', selectedOrder.id);
+    setIsApproving(true);
+    const result = await approvePlanOrder(selectedOrder.id);
     
-    if (error) {
-      toast.error(error.message);
-    } else {
+    if (result.success) {
       toast.success(language === 'en' ? 'Plan Order approved' : 'Plan Order disetujui');
       refetch();
+    } else {
+      toast.error(result.error || 'Failed to approve');
     }
 
+    setIsApproving(false);
     setIsApproveDialogOpen(false);
     setSelectedOrder(null);
   };
@@ -445,18 +484,17 @@ export default function PlanOrder() {
   const handleCancel = async () => {
     if (!selectedOrder) return;
 
-    const { error } = await supabase
-      .from('plan_order_headers')
-      .update({ status: 'cancelled' })
-      .eq('id', selectedOrder.id);
+    setIsCancelling(true);
+    const result = await cancelPlanOrder(selectedOrder.id);
     
-    if (error) {
-      toast.error(error.message);
-    } else {
+    if (result.success) {
       toast.success(language === 'en' ? 'Plan Order cancelled' : 'Plan Order dibatalkan');
       refetch();
+    } else {
+      toast.error(result.error || 'Failed to cancel');
     }
 
+    setIsCancelling(false);
     setIsCancelDialogOpen(false);
     setSelectedOrder(null);
   };
@@ -467,13 +505,13 @@ export default function PlanOrder() {
   };
 
   const handleEdit = (order: PlanOrderHeader) => {
-    // Populate form with order data
     setPlanNumber(order.plan_number);
     setPlanDate(order.plan_date);
     setSupplierId(order.supplier_id);
     setExpectedDelivery(order.expected_delivery_date || '');
     setNotes(order.notes || '');
     setPoDocumentUrl(order.po_document_url || '');
+    setPoDocumentKey('');
     setDiscount(order.discount?.toString() || '0');
     setTaxRate(order.tax_rate?.toString() || '11');
     setShippingCost(order.shipping_cost?.toString() || '0');
@@ -481,7 +519,6 @@ export default function PlanOrder() {
     setIsEditMode(true);
     setIsFormOpen(true);
     
-    // Fetch and populate items
     fetchOrderItemsForEdit(order.id);
   };
 
@@ -517,50 +554,46 @@ export default function PlanOrder() {
     setIsSaving(true);
     const { subtotal, discountValue, grandTotal } = calculateTotals();
 
-    try {
-      // Update header
-      const { error: headerError } = await supabase
-        .from('plan_order_headers')
-        .update({
-          plan_number: planNumber,
-          plan_date: planDate,
-          supplier_id: supplierId,
-          expected_delivery_date: expectedDelivery || null,
-          notes: notes || null,
-          po_document_url: poDocumentUrl,
-          total_amount: subtotal,
-          discount: discountValue,
-          tax_rate: parseFloat(taxRate) || 0,
-          shipping_cost: parseFloat(shippingCost) || 0,
-          grand_total: grandTotal,
-        })
-        .eq('id', editingOrderId);
-
-      if (headerError) throw headerError;
-
-      // Delete existing items and re-insert
-      await supabase.from('plan_order_items').delete().eq('plan_order_id', editingOrderId);
-
-      const itemsToInsert = orderItems.map(item => ({
-        plan_order_id: editingOrderId,
+    const result = await updatePlanOrder(
+      editingOrderId,
+      {
+        plan_number: planNumber,
+        plan_date: planDate,
+        supplier_id: supplierId,
+        expected_delivery_date: expectedDelivery || null,
+        notes: notes || null,
+        po_document_url: poDocumentUrl,
+        total_amount: subtotal,
+        discount: discountValue,
+        tax_rate: parseFloat(taxRate) || 0,
+        shipping_cost: parseFloat(shippingCost) || 0,
+        grand_total: grandTotal,
+      },
+      orderItems.map(item => ({
         product_id: item.product_id,
         unit_price: item.unit_price,
         planned_qty: item.planned_qty,
-        notes: item.notes || null,
-      }));
+        notes: item.notes,
+      }))
+    );
 
-      const { error: itemsError } = await supabase.from('plan_order_items').insert(itemsToInsert);
-      if (itemsError) throw itemsError;
-
+    if (result.success) {
+      // Log attachment if new one was uploaded
+      if (poDocumentKey && poDocumentUrl) {
+        await logPlanOrderUpload(editingOrderId, planNumber, {
+          file_key: poDocumentKey,
+          url: poDocumentUrl,
+        });
+      }
+      
       toast.success(language === 'en' ? 'Plan Order updated successfully' : 'Plan Order berhasil diupdate');
       setIsFormOpen(false);
       setIsEditMode(false);
       setEditingOrderId(null);
       resetForm();
       refetch();
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Failed to update';
-      toast.error(message);
+    } else {
+      toast.error(result.error || 'Failed to update');
     }
 
     setIsSaving(false);
@@ -569,25 +602,17 @@ export default function PlanOrder() {
   const handleDelete = async () => {
     if (!selectedOrder) return;
 
-    try {
-      // Delete items first
-      await supabase.from('plan_order_items').delete().eq('plan_order_id', selectedOrder.id);
-      
-      // Delete header
-      const { error } = await supabase
-        .from('plan_order_headers')
-        .delete()
-        .eq('id', selectedOrder.id);
-      
-      if (error) throw error;
-      
+    setIsDeleting(true);
+    const result = await deletePlanOrder(selectedOrder.id);
+    
+    if (result.success) {
       toast.success(language === 'en' ? 'Plan Order deleted' : 'Plan Order dihapus');
       refetch();
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Failed to delete';
-      toast.error(message);
+    } else {
+      toast.error(result.error || 'Failed to delete');
     }
 
+    setIsDeleting(false);
     setIsDeleteDialogOpen(false);
     setSelectedOrder(null);
   };
@@ -672,11 +697,18 @@ export default function PlanOrder() {
                   <div className="flex items-center gap-4">
                     {poDocumentUrl ? (
                       <div className="flex items-center gap-2 p-2 bg-muted rounded">
-                        <span className="text-sm truncate max-w-xs">{poDocumentUrl.split('/').pop()}</span>
+                        <a 
+                          href={poDocumentUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-sm truncate max-w-xs text-primary hover:underline"
+                        >
+                          {poDocumentUrl.split('/').pop()}
+                        </a>
                         <Button 
                           variant="ghost" 
                           size="iconSm"
-                          onClick={() => setPoDocumentUrl('')}
+                          onClick={() => { setPoDocumentUrl(''); setPoDocumentKey(''); }}
                         >
                           <XCircle className="w-4 h-4" />
                         </Button>
@@ -775,7 +807,8 @@ export default function PlanOrder() {
                               type="number"
                               className="w-20 text-center mx-auto"
                               value={item.planned_qty}
-                              onChange={(e) => handleItemChange(item.id, 'planned_qty', parseInt(e.target.value) || 0)}
+                              min={1}
+                              onChange={(e) => handleItemChange(item.id, 'planned_qty', parseInt(e.target.value) || 1)}
                             />
                           </TableCell>
                           <TableCell className="text-right">
@@ -817,6 +850,7 @@ export default function PlanOrder() {
                       type="number"
                       className="w-32 text-right"
                       value={discount}
+                      min={0}
                       onChange={(e) => setDiscount(e.target.value)}
                     />
                   </div>
@@ -828,6 +862,7 @@ export default function PlanOrder() {
                       type="number"
                       className="w-32 text-right"
                       value={taxRate}
+                      min={0}
                       onChange={(e) => setTaxRate(e.target.value)}
                     />
                   </div>
@@ -843,6 +878,7 @@ export default function PlanOrder() {
                       type="number"
                       className="w-32 text-right"
                       value={shippingCost}
+                      min={0}
                       onChange={(e) => setShippingCost(e.target.value)}
                     />
                   </div>
@@ -889,6 +925,20 @@ export default function PlanOrder() {
         </Button>
       </div>
 
+      {/* Tabs: Active / Archived */}
+      <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'active' | 'archived')}>
+        <TabsList>
+          <TabsTrigger value="active" className="gap-2">
+            <List className="w-4 h-4" />
+            {language === 'en' ? 'Active' : 'Aktif'}
+          </TabsTrigger>
+          <TabsTrigger value="archived" className="gap-2">
+            <Archive className="w-4 h-4" />
+            {language === 'en' ? 'Archived' : 'Arsip'}
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       {/* Filters */}
       <Card>
         <CardContent className="p-4">
@@ -917,26 +967,16 @@ export default function PlanOrder() {
               </SelectContent>
             </Select>
 
-            {/* Date Filter Popover */}
-            <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+            {/* Date Range Filter */}
+            <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className={hasActiveFilters ? 'border-primary text-primary' : ''}>
-                  <CalendarDays className="w-4 h-4 mr-2" />
-                  {language === 'en' ? 'Date Filter' : 'Filter Tanggal'}
-                  {hasActiveFilters && <span className="ml-1 w-2 h-2 bg-primary rounded-full" />}
+                <Button variant="outline" className="gap-2">
+                  {language === 'en' ? 'Date Range' : 'Rentang Tanggal'}
+                  {hasActiveFilters && <Badge variant="draft" className="text-xs px-1">{language === 'en' ? 'Active' : 'Aktif'}</Badge>}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-80" align="end">
+              <PopoverContent className="w-80">
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium">{language === 'en' ? 'Filter by Date' : 'Filter Berdasarkan Tanggal'}</h4>
-                    {hasActiveFilters && (
-                      <Button variant="ghost" size="sm" onClick={clearFilters}>
-                        <X className="w-4 h-4 mr-1" />
-                        {language === 'en' ? 'Clear' : 'Hapus'}
-                      </Button>
-                    )}
-                  </div>
                   <div className="space-y-2">
                     <Label>{language === 'en' ? 'From Date' : 'Dari Tanggal'}</Label>
                     <Input
@@ -953,37 +993,13 @@ export default function PlanOrder() {
                       onChange={(e) => setDateTo(e.target.value)}
                     />
                   </div>
-                  <Button className="w-full" onClick={() => setIsFilterOpen(false)}>
-                    {language === 'en' ? 'Apply Filter' : 'Terapkan Filter'}
+                  <Button variant="outline" size="sm" onClick={clearFilters} className="w-full">
+                    {language === 'en' ? 'Clear Filters' : 'Hapus Filter'}
                   </Button>
                 </div>
               </PopoverContent>
             </Popover>
           </div>
-
-          {/* Active Filters Display */}
-          {hasActiveFilters && (
-            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t">
-              {statusFilter !== 'all' && (
-                <Badge variant="secondary" className="flex items-center gap-1">
-                  Status: {statusConfig[statusFilter]?.label}
-                  <X className="w-3 h-3 cursor-pointer" onClick={() => setStatusFilter('all')} />
-                </Badge>
-              )}
-              {dateFrom && (
-                <Badge variant="secondary" className="flex items-center gap-1">
-                  {language === 'en' ? 'From' : 'Dari'}: {formatDate(dateFrom)}
-                  <X className="w-3 h-3 cursor-pointer" onClick={() => setDateFrom('')} />
-                </Badge>
-              )}
-              {dateTo && (
-                <Badge variant="secondary" className="flex items-center gap-1">
-                  {language === 'en' ? 'To' : 'Sampai'}: {formatDate(dateTo)}
-                  <X className="w-3 h-3 cursor-pointer" onClick={() => setDateTo('')} />
-                </Badge>
-              )}
-            </div>
-          )}
         </CardContent>
       </Card>
 
@@ -991,7 +1007,7 @@ export default function PlanOrder() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
+            <div className="flex justify-center py-12">
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
           ) : (
@@ -1017,6 +1033,11 @@ export default function PlanOrder() {
                 ) : (
                   filteredOrders.map((order) => {
                     const status = statusConfig[order.status];
+                    const showApprove = order.status === 'draft' && canApprove;
+                    const showCancel = order.status === 'draft' || order.status === 'approved';
+                    const showEdit = order.status === 'draft';
+                    const showDelete = order.status === 'draft';
+                    
                     return (
                       <TableRow key={order.id}>
                         <TableCell className="font-medium">{order.plan_number}</TableCell>
@@ -1041,34 +1062,38 @@ export default function PlanOrder() {
                                 <Eye className="w-4 h-4 mr-2" />
                                 {language === 'en' ? 'View Details' : 'Lihat Detail'}
                               </DropdownMenuItem>
-                              {order.status === 'draft' && (
-                                <>
-                                  <DropdownMenuItem onClick={() => handleEdit(order)}>
-                                    <Edit className="w-4 h-4 mr-2" />
-                                    {t('common.edit')}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem 
-                                    className="text-success"
-                                    onClick={() => { setSelectedOrder(order); setIsApproveDialogOpen(true); }}
-                                  >
-                                    <CheckCircle className="w-4 h-4 mr-2" />
-                                    Approve
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem 
-                                    className="text-destructive"
-                                    onClick={() => { setSelectedOrder(order); setIsCancelDialogOpen(true); }}
-                                  >
-                                    <XCircle className="w-4 h-4 mr-2" />
-                                    Cancel
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem 
-                                    className="text-destructive"
-                                    onClick={() => { setSelectedOrder(order); setIsDeleteDialogOpen(true); }}
-                                  >
-                                    <Trash2 className="w-4 h-4 mr-2" />
-                                    {t('common.delete')}
-                                  </DropdownMenuItem>
-                                </>
+                              {showEdit && (
+                                <DropdownMenuItem onClick={() => handleEdit(order)}>
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  {t('common.edit')}
+                                </DropdownMenuItem>
+                              )}
+                              {showApprove && (
+                                <DropdownMenuItem 
+                                  className="text-success"
+                                  onClick={() => { setSelectedOrder(order); setIsApproveDialogOpen(true); }}
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-2" />
+                                  Approve
+                                </DropdownMenuItem>
+                              )}
+                              {showCancel && (
+                                <DropdownMenuItem 
+                                  className="text-destructive"
+                                  onClick={() => { setSelectedOrder(order); setIsCancelDialogOpen(true); }}
+                                >
+                                  <XCircle className="w-4 h-4 mr-2" />
+                                  Cancel
+                                </DropdownMenuItem>
+                              )}
+                              {showDelete && (
+                                <DropdownMenuItem 
+                                  className="text-destructive"
+                                  onClick={() => { setSelectedOrder(order); setIsDeleteDialogOpen(true); }}
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  {t('common.delete')}
+                                </DropdownMenuItem>
                               )}
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -1096,8 +1121,9 @@ export default function PlanOrder() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleApprove} className="bg-success hover:bg-success/90">
+            <AlertDialogCancel disabled={isApproving}>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleApprove} disabled={isApproving} className="bg-success hover:bg-success/90">
+              {isApproving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Approve
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -1117,8 +1143,9 @@ export default function PlanOrder() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCancel} className="bg-destructive hover:bg-destructive/90">
+            <AlertDialogCancel disabled={isCancelling}>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCancel} disabled={isCancelling} className="bg-destructive hover:bg-destructive/90">
+              {isCancelling && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {language === 'en' ? 'Cancel Order' : 'Batalkan Order'}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -1132,14 +1159,15 @@ export default function PlanOrder() {
             <AlertDialogTitle>{language === 'en' ? 'Delete Plan Order' : 'Hapus Plan Order'}</AlertDialogTitle>
             <AlertDialogDescription>
               {language === 'en' 
-                ? `Are you sure you want to delete "${selectedOrder?.plan_number}"? This action cannot be undone.`
-                : `Apakah Anda yakin ingin menghapus "${selectedOrder?.plan_number}"? Tindakan ini tidak dapat dibatalkan.`
+                ? `Are you sure you want to delete "${selectedOrder?.plan_number}"? This will archive the order.`
+                : `Apakah Anda yakin ingin menghapus "${selectedOrder?.plan_number}"? Order akan diarsipkan.`
               }
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+            <AlertDialogCancel disabled={isDeleting}>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+              {isDeleting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -1189,6 +1217,19 @@ export default function PlanOrder() {
                   <p className="text-sm text-muted-foreground">Grand Total</p>
                   <p className="font-medium text-primary">{formatCurrency(selectedOrder.grand_total)}</p>
                 </div>
+                {selectedOrder.po_document_url && (
+                  <div className="col-span-2">
+                    <p className="text-sm text-muted-foreground">{language === 'en' ? 'PO Document' : 'Dokumen PO'}</p>
+                    <a 
+                      href={selectedOrder.po_document_url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-sm text-primary hover:underline"
+                    >
+                      {language === 'en' ? 'View Document' : 'Lihat Dokumen'}
+                    </a>
+                  </div>
+                )}
               </div>
 
               {selectedOrder.notes && (
@@ -1198,7 +1239,7 @@ export default function PlanOrder() {
                 </div>
               )}
 
-              {/* Order Items */}
+              {/* Order Items with SKU, Category, Unit */}
               <div>
                 <h4 className="font-semibold mb-3">{language === 'en' ? 'Order Items' : 'Item Order'}</h4>
                 {itemsLoading ? (
@@ -1210,7 +1251,10 @@ export default function PlanOrder() {
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-12">#</TableHead>
-                        <TableHead>{language === 'en' ? 'Product Name' : 'Nama Barang'}</TableHead>
+                        <TableHead>{language === 'en' ? 'Product' : 'Produk'}</TableHead>
+                        <TableHead>SKU</TableHead>
+                        <TableHead>{language === 'en' ? 'Category' : 'Kategori'}</TableHead>
+                        <TableHead>{language === 'en' ? 'Unit' : 'Satuan'}</TableHead>
                         <TableHead className="text-center">Qty</TableHead>
                         <TableHead className="text-right">{language === 'en' ? 'Unit Price' : 'Harga'}</TableHead>
                         <TableHead className="text-right">Subtotal</TableHead>
@@ -1219,7 +1263,7 @@ export default function PlanOrder() {
                     <TableBody>
                       {selectedOrderItems.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
+                          <TableCell colSpan={8} className="text-center py-4 text-muted-foreground">
                             {language === 'en' ? 'No items found' : 'Tidak ada item'}
                           </TableCell>
                         </TableRow>
@@ -1227,14 +1271,10 @@ export default function PlanOrder() {
                         selectedOrderItems.map((item, index) => (
                           <TableRow key={item.id}>
                             <TableCell>{index + 1}</TableCell>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium">{item.product?.name}</p>
-                                {item.product?.sku && (
-                                  <p className="text-xs text-muted-foreground">SKU: {item.product.sku}</p>
-                                )}
-                              </div>
-                            </TableCell>
+                            <TableCell className="font-medium">{item.product?.name}</TableCell>
+                            <TableCell>{item.product?.sku || '-'}</TableCell>
+                            <TableCell>{item.product?.category?.name || '-'}</TableCell>
+                            <TableCell>{item.product?.unit?.name || '-'}</TableCell>
                             <TableCell className="text-center">{item.planned_qty}</TableCell>
                             <TableCell className="text-right">{formatCurrency(item.unit_price)}</TableCell>
                             <TableCell className="text-right">{formatCurrency(item.subtotal || item.unit_price * item.planned_qty)}</TableCell>
@@ -1332,19 +1372,22 @@ export default function PlanOrder() {
                   <tr>
                     <th style={{ width: '40px' }}>#</th>
                     <th>Nama Barang</th>
-                    <th className="text-center" style={{ width: '80px' }}>Qty</th>
-                    <th className="text-right" style={{ width: '120px' }}>Harga Satuan</th>
-                    <th className="text-right" style={{ width: '120px' }}>Subtotal</th>
+                    <th>SKU</th>
+                    <th>Kategori</th>
+                    <th>Satuan</th>
+                    <th className="text-center" style={{ width: '60px' }}>Qty</th>
+                    <th className="text-right" style={{ width: '100px' }}>Harga</th>
+                    <th className="text-right" style={{ width: '100px' }}>Subtotal</th>
                   </tr>
                 </thead>
                 <tbody>
                   {selectedOrderItems.map((item, index) => (
                     <tr key={item.id}>
                       <td>{index + 1}</td>
-                      <td>
-                        {item.product?.name}
-                        {item.product?.sku && <span style={{ fontSize: '10px', color: '#666' }}> (SKU: {item.product.sku})</span>}
-                      </td>
+                      <td>{item.product?.name}</td>
+                      <td>{item.product?.sku || '-'}</td>
+                      <td>{item.product?.category?.name || '-'}</td>
+                      <td>{item.product?.unit?.name || '-'}</td>
                       <td className="text-center">{item.planned_qty}</td>
                       <td className="text-right">{formatCurrency(item.unit_price)}</td>
                       <td className="text-right">{formatCurrency(item.subtotal || item.unit_price * item.planned_qty)}</td>
@@ -1382,22 +1425,16 @@ export default function PlanOrder() {
 
               <div className="footer">
                 <div>
-                  <p style={{ fontSize: '10px', color: '#666' }}>Dibuat Oleh</p>
-                  <div className="signature">
-                    <p>________________</p>
-                  </div>
+                  <p style={{ fontSize: '10px', color: '#666' }}>Dibuat oleh</p>
+                  <div className="signature">Staff Purchasing</div>
                 </div>
                 <div>
-                  <p style={{ fontSize: '10px', color: '#666' }}>Disetujui Oleh</p>
-                  <div className="signature">
-                    <p>________________</p>
-                  </div>
+                  <p style={{ fontSize: '10px', color: '#666' }}>Disetujui oleh</p>
+                  <div className="signature">Manager</div>
                 </div>
                 <div>
-                  <p style={{ fontSize: '10px', color: '#666' }}>Diterima Oleh</p>
-                  <div className="signature">
-                    <p>________________</p>
-                  </div>
+                  <p style={{ fontSize: '10px', color: '#666' }}>Diterima oleh</p>
+                  <div className="signature">Supplier</div>
                 </div>
               </div>
             </div>

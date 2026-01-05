@@ -63,6 +63,7 @@ export type Database = {
           new_data: Json | null
           old_data: Json | null
           ref_id: string | null
+          ref_no: string | null
           ref_table: string | null
           user_agent: string | null
           user_email: string | null
@@ -77,6 +78,7 @@ export type Database = {
           new_data?: Json | null
           old_data?: Json | null
           ref_id?: string | null
+          ref_no?: string | null
           ref_table?: string | null
           user_agent?: string | null
           user_email?: string | null
@@ -91,6 +93,7 @@ export type Database = {
           new_data?: Json | null
           old_data?: Json | null
           ref_id?: string | null
+          ref_no?: string | null
           ref_table?: string | null
           user_agent?: string | null
           user_email?: string | null
@@ -244,10 +247,13 @@ export type Database = {
           approved_by: string | null
           created_at: string | null
           created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           discount: number | null
           expected_delivery_date: string | null
           grand_total: number | null
           id: string
+          is_deleted: boolean | null
           notes: string | null
           plan_date: string
           plan_number: string
@@ -264,10 +270,13 @@ export type Database = {
           approved_by?: string | null
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           discount?: number | null
           expected_delivery_date?: string | null
           grand_total?: number | null
           id?: string
+          is_deleted?: boolean | null
           notes?: string | null
           plan_date?: string
           plan_number: string
@@ -284,10 +293,13 @@ export type Database = {
           approved_by?: string | null
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           discount?: number | null
           expected_delivery_date?: string | null
           grand_total?: number | null
           id?: string
+          is_deleted?: boolean | null
           notes?: string | null
           plan_date?: string
           plan_number?: string
@@ -1134,6 +1146,17 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      plan_order_approve: { Args: { order_id: string }; Returns: Json }
+      plan_order_cancel: { Args: { order_id: string }; Returns: Json }
+      plan_order_create: {
+        Args: { attachment_meta?: Json; header_data: Json; items_data: Json }
+        Returns: Json
+      }
+      plan_order_soft_delete: { Args: { order_id: string }; Returns: Json }
+      plan_order_update: {
+        Args: { header_data: Json; items_data: Json; order_id: string }
+        Returns: Json
       }
     }
     Enums: {
