@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -20,14 +20,11 @@ import {
   FileBarChart,
   ClipboardCheck,
   History,
-  X,
   Package,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import logoImage from '@/assets/logo.png';
 
 interface MenuItem {
   key: string;
@@ -88,15 +85,43 @@ const menuItems: { groupKey: string; items: MenuItem[] }[] = [
 ];
 
 interface AppSidebarProps {
-  isCollapsed: boolean;
-  onToggle: () => void;
+  isMobile: boolean;
+  isOpen: boolean;
+  onClose: () => void;
+  onNavigate: () => void;
 }
 
-export default function AppSidebar({ isCollapsed, onToggle }: AppSidebarProps) {
+const SCROLL_POSITION_KEY = 'sidebar-scroll-position';
+
+export default function AppSidebar({ isMobile, isOpen, onClose, onNavigate }: AppSidebarProps) {
   const { t } = useLanguage();
-  const { user, hasPermission } = useAuth();
+  const { hasPermission } = useAuth();
   const location = useLocation();
   const [expandedItems, setExpandedItems] = useState<string[]>(['dataProduct']);
+  const scrollContainerRef = useRef<HTMLElement>(null);
+
+  // Preserve scroll position
+  useEffect(() => {
+    const savedScrollPosition = sessionStorage.getItem(SCROLL_POSITION_KEY);
+    if (savedScrollPosition && scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = parseInt(savedScrollPosition, 10);
+    }
+  }, []);
+
+  // Save scroll position on scroll
+  const handleScroll = () => {
+    if (scrollContainerRef.current) {
+      sessionStorage.setItem(SCROLL_POSITION_KEY, scrollContainerRef.current.scrollTop.toString());
+    }
+  };
+
+  // Auto-scroll active item into view
+  useEffect(() => {
+    const activeElement = scrollContainerRef.current?.querySelector('[data-active="true"]');
+    if (activeElement) {
+      activeElement.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [location.pathname]);
 
   const toggleExpanded = (key: string) => {
     setExpandedItems(prev =>
@@ -107,6 +132,12 @@ export default function AppSidebar({ isCollapsed, onToggle }: AppSidebarProps) {
   const isActive = (href: string) => location.pathname === href;
   const isParentActive = (children: MenuItem[]) =>
     children.some(child => child.href && location.pathname.startsWith(child.href));
+
+  const handleNavClick = () => {
+    if (isMobile) {
+      onNavigate();
+    }
+  };
 
   const renderMenuItem = (item: MenuItem, depth = 0) => {
     // Check role permission
@@ -132,13 +163,11 @@ export default function AppSidebar({ isCollapsed, onToggle }: AppSidebarProps) {
           >
             <div className="flex items-center gap-3">
               <Icon className="w-5 h-5" />
-              {!isCollapsed && <span>{t(item.labelKey)}</span>}
+              <span>{t(item.labelKey)}</span>
             </div>
-            {!isCollapsed && (
-              isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />
-            )}
+            {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           </button>
-          {!isCollapsed && isExpanded && (
+          {isExpanded && (
             <div className="ml-4 mt-1 space-y-1 border-l border-sidebar-border pl-3">
               {item.children!.map(child => renderMenuItem(child, depth + 1))}
             </div>
@@ -151,6 +180,8 @@ export default function AppSidebar({ isCollapsed, onToggle }: AppSidebarProps) {
       <NavLink
         key={item.key}
         to={item.href!}
+        onClick={handleNavClick}
+        data-active={active}
         className={({ isActive: navActive }) =>
           cn(
             'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200',
@@ -160,88 +191,47 @@ export default function AppSidebar({ isCollapsed, onToggle }: AppSidebarProps) {
         }
       >
         <Icon className="w-5 h-5 flex-shrink-0" />
-        {!isCollapsed && (
-          <div className="flex flex-col">
-            <span>{t(item.labelKey)}</span>
-            {item.subLabelKey && (
-              <span className="text-xs text-sidebar-muted">{t(item.subLabelKey)}</span>
-            )}
-          </div>
-        )}
+        <div className="flex flex-col">
+          <span>{t(item.labelKey)}</span>
+          {item.subLabelKey && (
+            <span className="text-xs text-sidebar-muted">{t(item.subLabelKey)}</span>
+          )}
+        </div>
       </NavLink>
     );
   };
 
   return (
-    <>
-      {/* Mobile overlay */}
-      {!isCollapsed && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={onToggle}
-        />
+    <aside
+      className={cn(
+        'h-full sidebar-gradient sidebar-shadow flex flex-col',
+        isMobile ? 'w-full' : 'w-full'
       )}
-
-      {/* Sidebar */}
-      <aside
-        className={cn(
-          'fixed left-0 top-0 h-full sidebar-gradient z-50 transition-all duration-300 flex flex-col',
-          'lg:relative lg:z-0',
-          isCollapsed ? 'w-0 lg:w-16 overflow-hidden' : 'w-64'
-        )}
+    >
+      {/* Navigation - scrollable */}
+      <nav 
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-3 space-y-6"
       >
-        {/* Header */}
-        <div className="flex items-center gap-3 p-4 border-b border-sidebar-border">
-          <div className="flex-shrink-0">
-            <img 
-              src={logoImage} 
-              alt="Kemika Logo" 
-              className="h-10 w-auto object-contain"
-            />
+        {menuItems.map(group => (
+          <div key={group.groupKey}>
+            <h2 className="px-3 mb-2 text-xs font-semibold text-sidebar-muted uppercase tracking-wider">
+              {t(group.groupKey)}
+            </h2>
+            <div className="space-y-1">
+              {group.items.map(item => renderMenuItem(item))}
+            </div>
           </div>
-          {!isCollapsed && (
-            <div className="flex-1 min-w-0">
-              <h1 className="font-display font-bold text-sidebar-foreground truncate text-sm">
-                {t('app.name')}
-              </h1>
-              <p className="text-xs text-sidebar-muted truncate">{t('app.subtitle')}</p>
-            </div>
-          )}
-          <Button
-            variant="ghost"
-            size="iconSm"
-            onClick={onToggle}
-            className="lg:hidden text-sidebar-foreground hover:bg-sidebar-accent"
-          >
-            <X className="w-5 h-5" />
-          </Button>
-        </div>
+        ))}
+      </nav>
 
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-3 space-y-6">
-          {menuItems.map(group => (
-            <div key={group.groupKey}>
-              {!isCollapsed && (
-                <h2 className="px-3 mb-2 text-xs font-semibold text-sidebar-muted uppercase tracking-wider">
-                  {t(group.groupKey)}
-                </h2>
-              )}
-              <div className="space-y-1">
-                {group.items.map(item => renderMenuItem(item))}
-              </div>
-            </div>
-          ))}
-        </nav>
-
-        {/* Footer */}
-        <div className="p-4 border-t border-sidebar-border">
-          {!isCollapsed && (
-            <p className="text-xs text-sidebar-muted text-center">
-              © 2026 PT. Kemika Karya Pratama
-            </p>
-          )}
-        </div>
-      </aside>
-    </>
+      {/* Footer */}
+      <div className="p-4 border-t border-sidebar-border flex-shrink-0">
+        <p className="text-xs text-sidebar-muted text-center">
+          © 2026 PT. Kemika Karya Pratama
+        </p>
+      </div>
+    </aside>
   );
 }
