@@ -80,6 +80,7 @@ export default function StockIn() {
   const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
   const [deliveryNoteUrl, setDeliveryNoteUrl] = useState('');
+  const [deliveryNoteFileName, setDeliveryNoteFileName] = useState('');
   const [isUploading, setIsUploading] = useState(false);
 
   const fetchPlanOrders = useCallback(async () => {
@@ -159,12 +160,33 @@ export default function StockIn() {
     fetchItems();
   }, [selectedPlanOrderId, planOrders]);
 
-  const generateStockInNumber = () => {
+  const generateStockInNumber = async () => {
+    // Get the latest stock in number from the database
+    const { data } = await supabase
+      .from('stock_in_headers')
+      .select('stock_in_number')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
     const date = new Date();
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    setStockInNumber(`SI-${year}${month}-${random}`);
+    
+    let sequence = 1;
+    if (data && data.length > 0) {
+      const lastNumber = data[0].stock_in_number;
+      // Try to extract the sequence number from format SI-YYYYMM-XXX
+      const match = lastNumber.match(/SI-(\d{6})-(\d+)/);
+      if (match) {
+        const lastYearMonth = match[1];
+        const currentYearMonth = `${year}${month}`;
+        if (lastYearMonth === currentYearMonth) {
+          sequence = parseInt(match[2], 10) + 1;
+        }
+      }
+    }
+    
+    setStockInNumber(`SI-${year}${month}-${String(sequence).padStart(3, '0')}`);
   };
 
   const handleItemChange = (index: number, field: keyof StockInItem, value: string | number) => {
@@ -183,11 +205,17 @@ export default function StockIn() {
     
     if (result) {
       setDeliveryNoteUrl(result.url);
+      setDeliveryNoteFileName(result.originalName);
       toast.success(language === 'en' ? 'File uploaded successfully' : 'File berhasil diupload');
     } else {
       toast.error(language === 'en' ? 'Failed to upload file' : 'Gagal upload file');
     }
     setIsUploading(false);
+  };
+
+  const handleClearDeliveryNote = () => {
+    setDeliveryNoteUrl('');
+    setDeliveryNoteFileName('');
   };
 
   const handleSave = async () => {
@@ -239,7 +267,7 @@ export default function StockIn() {
         product_id: item.product_id,
         qty_received: item.qty_received,
         batch_no: item.batch_no,
-        expired_date: item.expired_date || null,
+        expired_date: item.expired_date ? item.expired_date : null,
       }));
 
       const { error: itemsError } = await supabase
@@ -262,12 +290,17 @@ export default function StockIn() {
 
         if (existingBatch) {
           // Update existing batch
+          const updateData: { qty_on_hand: number; expired_date?: string | null } = { 
+            qty_on_hand: existingBatch.qty_on_hand + item.qty_received
+          };
+          // Only update expired_date if provided
+          if (item.expired_date) {
+            updateData.expired_date = item.expired_date;
+          }
+          
           const { error: batchUpdateError } = await supabase
             .from('inventory_batches')
-            .update({ 
-              qty_on_hand: existingBatch.qty_on_hand + item.qty_received,
-              expired_date: item.expired_date || null,
-            })
+            .update(updateData)
             .eq('id', existingBatch.id);
 
           if (batchUpdateError) throw batchUpdateError;
@@ -279,7 +312,7 @@ export default function StockIn() {
               product_id: item.product_id,
               batch_no: item.batch_no,
               qty_on_hand: item.qty_received,
-              expired_date: item.expired_date || null,
+              expired_date: item.expired_date ? item.expired_date : null,
             });
 
           if (batchInsertError) throw batchInsertError;
@@ -377,8 +410,9 @@ export default function StockIn() {
       setItems([]);
       setNotes('');
       setDeliveryNoteUrl('');
+      setDeliveryNoteFileName('');
       setReceivedDate(new Date().toISOString().split('T')[0]);
-      generateStockInNumber();
+      await generateStockInNumber();
     } catch (error) {
       console.error(error);
       const message = error instanceof Error ? error.message : undefined;
@@ -462,7 +496,8 @@ export default function StockIn() {
               <Label>{language === 'en' ? 'Stock In Number' : 'No. Stock In'} *</Label>
               <Input
                 value={stockInNumber}
-                onChange={(e) => setStockInNumber(e.target.value)}
+                disabled
+                className="bg-muted font-mono"
               />
             </div>
             <div className="space-y-2">
@@ -495,10 +530,11 @@ export default function StockIn() {
               <Label>{language === 'en' ? 'Delivery Note' : 'Surat Jalan'}</Label>
               <div className="flex gap-2">
                 <Input
-                  value={deliveryNoteUrl ? 'File uploaded' : ''}
+                  value={deliveryNoteFileName || ''}
                   disabled
                   placeholder={language === 'en' ? 'Upload delivery note' : 'Upload surat jalan'}
-                  className="bg-muted"
+                  className="bg-muted truncate"
+                  title={deliveryNoteFileName || undefined}
                 />
                 <Button
                   variant="outline"
@@ -508,7 +544,7 @@ export default function StockIn() {
                   {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                 </Button>
                 {deliveryNoteUrl && (
-                  <Button variant="outline" size="icon" onClick={() => setDeliveryNoteUrl('')}>
+                  <Button variant="outline" size="icon" onClick={handleClearDeliveryNote}>
                     <X className="w-4 h-4" />
                   </Button>
                 )}

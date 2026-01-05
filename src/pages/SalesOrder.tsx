@@ -200,12 +200,32 @@ export default function SalesOrder() {
 
   const hasActiveFilters = statusFilter !== 'all' || dateFrom || dateTo;
 
-  const generateSoNumber = () => {
+  const generateSoNumber = async () => {
+    const { data } = await supabase
+      .from('sales_order_headers')
+      .select('sales_order_number')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
     const date = new Date();
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    setSoNumber(`SO-${year}${month}-${random}`);
+    
+    let sequence = 1;
+    if (data && data.length > 0) {
+      const lastNumber = data[0].sales_order_number;
+      // Matches formats like: SOR-YYYYMM-XXX or SOR/YYYYMMDD/XXX
+      const match = lastNumber.match(/SOR[-\/](\d{6,8})[-\/](\d+)/);
+      if (match) {
+        const lastYearMonth = match[1].slice(0, 6);
+        const currentYearMonth = `${year}${month}`;
+        if (lastYearMonth === currentYearMonth) {
+          sequence = parseInt(match[2], 10) + 1;
+        }
+      }
+    }
+    
+    setSoNumber(`SOR-${year}${month}-${String(sequence).padStart(4, '0')}`);
   };
 
   const resetForm = () => {
@@ -228,8 +248,8 @@ export default function SalesOrder() {
     setSelectedProductId('');
   };
 
-  const handleOpenDialog = () => {
-    generateSoNumber();
+  const handleOpenDialog = async () => {
+    await generateSoNumber();
     resetForm();
     setOrderDate(new Date().toISOString().split('T')[0]);
     setIsEditMode(false);
@@ -845,7 +865,7 @@ export default function SalesOrder() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label>{language === 'en' ? 'SO Number' : 'No. SO'} *</Label>
-                <Input value={soNumber} onChange={(e) => setSoNumber(e.target.value)} />
+                <Input value={soNumber} disabled={!isEditMode} className={!isEditMode ? 'bg-muted font-mono' : ''} />
               </div>
               <div className="space-y-2">
                 <Label>{language === 'en' ? 'Order Date' : 'Tanggal Order'} *</Label>
