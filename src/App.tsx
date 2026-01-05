@@ -33,6 +33,7 @@ import InboundReport from "./pages/reports/InboundReport";
 import OutboundReport from "./pages/reports/OutboundReport";
 import AdjustmentLog from "./pages/reports/AdjustmentLog";
 import AuditLog from "./pages/reports/AuditLog";
+import StockMovement from "./pages/reports/StockMovement";
 
 import NotFound from "./pages/NotFound";
 
@@ -75,6 +76,7 @@ const App = () => (
                   <Route path="/reports/stock" element={<StockReport />} />
                   <Route path="/reports/inbound" element={<InboundReport />} />
                   <Route path="/reports/outbound" element={<OutboundReport />} />
+                  <Route path="/reports/movement" element={<StockMovement />} />
                   <Route path="/reports/adjustment" element={<AdjustmentLog />} />
                   <Route path="/reports/audit" element={<AuditLog />} />
                 </Route>
