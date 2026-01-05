@@ -66,7 +66,7 @@ import {
   PlanOrderItem 
 } from '@/hooks/usePlanOrders';
 import { useSuppliers, useProducts, Product } from '@/hooks/useMasterData';
-import { uploadFile } from '@/lib/storage';
+import { uploadFile, getSignedUrl } from '@/lib/storage';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -129,6 +129,7 @@ export default function PlanOrder() {
   const [isApproving, setIsApproving] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isOpeningPoDoc, setIsOpeningPoDoc] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const printRef = useRef<HTMLDivElement>(null);
@@ -332,6 +333,39 @@ export default function PlanOrder() {
     return { subtotal, discountValue, taxValue, shippingValue, grandTotal };
   };
 
+  const handleViewPoDocument = async (order: PlanOrderHeader) => {
+    setIsOpeningPoDoc(true);
+    try {
+      const { data, error } = await supabase
+        .from('attachments')
+        .select('file_key, url')
+        .eq('ref_table', 'plan_order_headers')
+        .eq('ref_id', order.id)
+        .order('uploaded_at', { ascending: false })
+        .limit(1);
+
+      if (error) throw error;
+
+      const fileKey = data?.[0]?.file_key;
+      const fallbackUrl = data?.[0]?.url || order.po_document_url || '';
+
+      const freshUrl = fileKey ? await getSignedUrl(fileKey, 'documents') : null;
+      const urlToOpen = freshUrl || fallbackUrl;
+
+      if (!urlToOpen) {
+        toast.error(language === 'en' ? 'Document not found' : 'Dokumen tidak ditemukan');
+        return;
+      }
+
+      window.open(urlToOpen, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      console.error(err);
+      toast.error(language === 'en' ? 'Failed to open document' : 'Gagal membuka dokumen');
+    } finally {
+      setIsOpeningPoDoc(false);
+    }
+  };
+ 
   const resetForm = () => {
     setPlanNumber('');
     setPlanDate(new Date().toISOString().split('T')[0]);
@@ -1220,14 +1254,23 @@ export default function PlanOrder() {
                 {selectedOrder.po_document_url && (
                   <div className="col-span-2">
                     <p className="text-sm text-muted-foreground">{language === 'en' ? 'PO Document' : 'Dokumen PO'}</p>
-                    <a 
-                      href={selectedOrder.po_document_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-sm text-primary hover:underline"
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0"
+                      onClick={() => handleViewPoDocument(selectedOrder)}
+                      disabled={isOpeningPoDoc}
                     >
-                      {language === 'en' ? 'View Document' : 'Lihat Dokumen'}
-                    </a>
+                      {isOpeningPoDoc ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          {language === 'en' ? 'Opening...' : 'Membuka...'}
+                        </>
+                      ) : (
+                        <>{language === 'en' ? 'View Document' : 'Lihat Dokumen'}</>
+                      )}
+                    </Button>
                   </div>
                 )}
               </div>
