@@ -27,9 +27,37 @@ serve(async (req) => {
       }
     );
 
-    const adminEmail = 'ferry@kemika.co.id';
-    const adminPassword = '123456';
-    const adminName = 'Ferry Admin';
+    // Get credentials from environment variables - never hardcode
+    const adminEmail = Deno.env.get('ADMIN_EMAIL');
+    const adminPassword = Deno.env.get('ADMIN_PASSWORD');
+    const adminName = Deno.env.get('ADMIN_NAME') ?? 'System Administrator';
+
+    if (!adminEmail || !adminPassword) {
+      console.error('Missing required environment variables: ADMIN_EMAIL and ADMIN_PASSWORD');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Server configuration error. Contact administrator.'
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500 
+        }
+      );
+    }
+
+    // Validate password strength
+    if (adminPassword.length < 12) {
+      console.error('Admin password does not meet minimum security requirements');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Password does not meet security requirements (minimum 12 characters)'
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400 
+        }
+      );
+    }
 
     console.log('Checking if admin user exists...');
     
@@ -72,11 +100,11 @@ serve(async (req) => {
         }
       }
 
+      // Do not expose user details in response
       return new Response(
         JSON.stringify({ 
-          message: 'Admin user already exists', 
-          userId: existingUser.id,
-          email: adminEmail
+          message: 'Admin user configuration complete',
+          success: true
         }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -106,7 +134,7 @@ serve(async (req) => {
       throw new Error('Failed to create user');
     }
 
-    console.log('Admin user created:', authData.user.id);
+    console.log('Admin user created successfully');
 
     // Add super_admin role
     console.log('Adding super_admin role...');
@@ -124,13 +152,11 @@ serve(async (req) => {
 
     console.log('Super admin created successfully!');
 
+    // Do not expose credentials or user details in response
     return new Response(
       JSON.stringify({ 
-        message: 'Super admin created successfully!',
-        userId: authData.user.id,
-        email: adminEmail,
-        password: adminPassword,
-        role: 'super_admin'
+        message: 'Super admin created successfully',
+        success: true
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -139,11 +165,11 @@ serve(async (req) => {
     );
 
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Failed to seed admin user';
+    // Do not expose internal error details
     console.error('Seed admin error:', error);
     return new Response(
       JSON.stringify({ 
-        error: errorMessage
+        error: 'An error occurred during admin setup. Check server logs.'
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
