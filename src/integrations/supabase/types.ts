@@ -730,7 +730,10 @@ export type Database = {
           attachment_url: string | null
           created_at: string | null
           created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           id: string
+          is_deleted: boolean | null
           reason: string
           rejected_reason: string | null
           status: string
@@ -744,7 +747,10 @@ export type Database = {
           attachment_url?: string | null
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
+          is_deleted?: boolean | null
           reason: string
           rejected_reason?: string | null
           status?: string
@@ -758,7 +764,10 @@ export type Database = {
           attachment_url?: string | null
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
+          is_deleted?: boolean | null
           reason?: string
           rejected_reason?: string | null
           status?: string
@@ -1176,6 +1185,26 @@ export type Database = {
       sales_order_soft_delete: { Args: { order_id: string }; Returns: Json }
       sales_order_update: {
         Args: { header_data: Json; items_data: Json; order_id: string }
+        Returns: Json
+      }
+      stock_adjustment_approve: {
+        Args: { adjustment_id: string }
+        Returns: Json
+      }
+      stock_adjustment_create: {
+        Args: { attachment_meta?: Json; header_data: Json; items_data: Json }
+        Returns: Json
+      }
+      stock_adjustment_reject: {
+        Args: { adjustment_id: string; reject_reason?: string }
+        Returns: Json
+      }
+      stock_adjustment_soft_delete: {
+        Args: { adjustment_id: string }
+        Returns: Json
+      }
+      stock_adjustment_update: {
+        Args: { adjustment_id: string; header_data: Json; items_data: Json }
         Returns: Json
       }
     }
