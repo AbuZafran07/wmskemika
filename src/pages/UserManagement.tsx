@@ -183,7 +183,7 @@ export default function UserManagement() {
     try {
       if (editingUser) {
         // Update user
-        const { error } = await supabase.functions.invoke('user-management', {
+        const { data, error } = await supabase.functions.invoke('user-management', {
           body: {
             action: 'update',
             user_id: editingUser.id,
@@ -194,10 +194,11 @@ export default function UserManagement() {
         });
 
         if (error) throw error;
+        if (data?.error) throw new Error(data.error);
         toast.success(language === 'en' ? 'User updated successfully' : 'Pengguna berhasil diperbarui');
       } else {
         // Create user
-        const { error } = await supabase.functions.invoke('user-management', {
+        const { data, error } = await supabase.functions.invoke('user-management', {
           body: {
             action: 'create',
             email: formEmail,
@@ -208,6 +209,7 @@ export default function UserManagement() {
         });
 
         if (error) throw error;
+        if (data?.error) throw new Error(data.error);
         toast.success(language === 'en' ? 'User created successfully' : 'Pengguna berhasil dibuat');
       }
 
@@ -226,7 +228,7 @@ export default function UserManagement() {
     if (!deletingUser) return;
 
     try {
-      const { error } = await supabase.functions.invoke('user-management', {
+      const { data, error } = await supabase.functions.invoke('user-management', {
         body: {
           action: 'delete',
           user_id: deletingUser.id
@@ -234,6 +236,7 @@ export default function UserManagement() {
       });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       toast.success(language === 'en' ? 'User deleted successfully' : 'Pengguna berhasil dihapus');
       fetchUsers();
     } catch (error: unknown) {
@@ -249,7 +252,7 @@ export default function UserManagement() {
     if (!resetPasswordUser || !newPassword) return;
 
     try {
-      const { error } = await supabase.functions.invoke('user-management', {
+      const { data, error } = await supabase.functions.invoke('user-management', {
         body: {
           action: 'reset_password',
           user_id: resetPasswordUser.id,
@@ -258,6 +261,7 @@ export default function UserManagement() {
       });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       toast.success(language === 'en' ? 'Password reset successfully' : 'Password berhasil direset');
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to reset password';
@@ -437,6 +441,12 @@ export default function UserManagement() {
                     value={formPassword}
                     onChange={(e) => setFormPassword(e.target.value)}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    {language === 'en' 
+                      ? 'Min 12 chars, uppercase, lowercase, number & special char (!@#$%^&*)'
+                      : 'Min 12 karakter, huruf besar, huruf kecil, angka & karakter khusus (!@#$%^&*)'
+                    }
+                  </p>
                 </div>
               </>
             )}
