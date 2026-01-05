@@ -47,6 +47,7 @@ import {
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth, UserRole } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { FunctionsHttpError, FunctionsRelayError } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 
 interface UserData {
@@ -121,20 +122,85 @@ export default function UserManagement() {
     );
   }
 
+  const isValidEmail = (email: string) => {
+    const trimmed = email.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(trimmed) && trimmed.length <= 255;
+  };
+
+  const validatePassword = (password: string): string | null => {
+    if (password.length < 12) {
+      return language === 'en' ? 'Password must be at least 12 characters' : 'Password minimal 12 karakter';
+    }
+    if (!/[a-z]/.test(password)) {
+      return language === 'en' ? 'Password must contain at least one lowercase letter' : 'Password harus mengandung minimal 1 huruf kecil';
+    }
+    if (!/[A-Z]/.test(password)) {
+      return language === 'en' ? 'Password must contain at least one uppercase letter' : 'Password harus mengandung minimal 1 huruf besar';
+    }
+    if (!/\d/.test(password)) {
+      return language === 'en' ? 'Password must contain at least one number' : 'Password harus mengandung minimal 1 angka';
+    }
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+      return language === 'en'
+        ? 'Password must contain at least one special character'
+        : 'Password harus mengandung minimal 1 karakter spesial (!@#$%^&*)';
+    }
+    return null;
+  };
+
+  const getInvokeHeaders = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    return token ? { Authorization: `Bearer ${token}` } : undefined;
+  };
+
+  const extractInvokeErrorMessage = async (err: unknown) => {
+    if (err instanceof FunctionsHttpError || err instanceof FunctionsRelayError) {
+      const res = err.context;
+      try {
+        const cloned = res.clone();
+        const contentType = cloned.headers.get('content-type') || '';
+
+        if (contentType.includes('application/json')) {
+          const body = await cloned.json();
+          if (body?.error && typeof body.error === 'string') return body.error;
+        } else {
+          const text = (await cloned.text()).trim();
+          if (text) return text;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    if (err instanceof Error) return err.message;
+    return language === 'en' ? 'Operation failed' : 'Operasi gagal';
+  };
+
+  const invokeUserManagement = async (payload: Record<string, unknown>) => {
+    const headers = await getInvokeHeaders();
+    const { data, error } = await supabase.functions.invoke('user-management', {
+      body: payload,
+      headers,
+    });
+
+    if (error) throw error;
+    if ((data as any)?.error) throw new Error((data as any).error);
+    return data as any;
+  };
+
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('user-management', {
-        body: { action: 'list' }
-      });
-
-      if (error) throw error;
+      const data = await invokeUserManagement({ action: 'list' });
       setUsers(data.users || []);
-    } catch (error) {
-      console.error('Failed to fetch users:', error);
-      toast.error(language === 'en' ? 'Failed to load users' : 'Gagal memuat pengguna');
+    } catch (err) {
+      console.error('Failed to fetch users:', err);
+      toast.error(await extractInvokeErrorMessage(err));
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -178,80 +244,90 @@ export default function UserManagement() {
   };
 
   const handleSave = async () => {
-    if (!editingUser && (!formEmail || !formPassword)) {
-      toast.error(language === 'en' ? 'Email and password are required' : 'Email dan password wajib diisi');
-      return;
-    }
-
     if (!formRole) {
       toast.error(language === 'en' ? 'Role is required' : 'Role wajib dipilih');
       return;
     }
 
-    setIsSaving(true);
+    // Create
+    if (!editingUser) {
+      const email = formEmail.trim();
+      const password = formPassword;
 
-    try {
-      if (editingUser) {
-        // Update user
-        const { data, error } = await supabase.functions.invoke('user-management', {
-          body: {
-            action: 'update',
-            user_id: editingUser.id,
-            full_name: formFullName,
-            role: formRole,
-            is_active: formIsActive
-          }
-        });
-
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
-        toast.success(language === 'en' ? 'User updated successfully' : 'Pengguna berhasil diperbarui');
-      } else {
-        // Create user
-        const { data, error } = await supabase.functions.invoke('user-management', {
-          body: {
-            action: 'create',
-            email: formEmail,
-            password: formPassword,
-            full_name: formFullName,
-            role: formRole
-          }
-        });
-
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
-        toast.success(language === 'en' ? 'User created successfully' : 'Pengguna berhasil dibuat');
+      if (!email || !password) {
+        toast.error(language === 'en' ? 'Email and password are required' : 'Email dan password wajib diisi');
+        return;
       }
 
+      if (!isValidEmail(email)) {
+        toast.error(language === 'en' ? 'Invalid email format' : 'Format email tidak valid');
+        return;
+      }
+
+      const pwdError = validatePassword(password);
+      if (pwdError) {
+        toast.error(pwdError);
+        return;
+      }
+
+      setIsSaving(true);
+      try {
+        await invokeUserManagement({
+          action: 'create',
+          email,
+          password,
+          full_name: formFullName,
+          role: formRole,
+        });
+
+        toast.success(language === 'en' ? 'User created successfully' : 'Pengguna berhasil dibuat');
+        setIsDialogOpen(false);
+        resetForm();
+        fetchUsers();
+      } catch (err) {
+        toast.error(await extractInvokeErrorMessage(err));
+      } finally {
+        setIsSaving(false);
+      }
+
+      return;
+    }
+
+    // Update
+    setIsSaving(true);
+    try {
+      await invokeUserManagement({
+        action: 'update',
+        user_id: editingUser.id,
+        full_name: formFullName,
+        role: formRole,
+        is_active: formIsActive,
+      });
+
+      toast.success(language === 'en' ? 'User updated successfully' : 'Pengguna berhasil diperbarui');
       setIsDialogOpen(false);
       resetForm();
       fetchUsers();
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Operation failed';
-      toast.error(message);
+    } catch (err) {
+      toast.error(await extractInvokeErrorMessage(err));
+    } finally {
+      setIsSaving(false);
     }
-
-    setIsSaving(false);
   };
 
   const confirmDelete = async () => {
     if (!deletingUser) return;
 
     try {
-      const { data, error } = await supabase.functions.invoke('user-management', {
-        body: {
-          action: 'delete',
-          user_id: deletingUser.id
-        }
+      await invokeUserManagement({
+        action: 'delete',
+        user_id: deletingUser.id,
       });
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
       toast.success(language === 'en' ? 'User deleted successfully' : 'Pengguna berhasil dihapus');
       fetchUsers();
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Failed to delete user';
-      toast.error(message);
+    } catch (err) {
+      toast.error(await extractInvokeErrorMessage(err));
     }
 
     setIsDeleteDialogOpen(false);
@@ -261,21 +337,22 @@ export default function UserManagement() {
   const confirmResetPassword = async () => {
     if (!resetPasswordUser || !newPassword) return;
 
+    const pwdError = validatePassword(newPassword);
+    if (pwdError) {
+      toast.error(pwdError);
+      return;
+    }
+
     try {
-      const { data, error } = await supabase.functions.invoke('user-management', {
-        body: {
-          action: 'reset_password',
-          user_id: resetPasswordUser.id,
-          new_password: newPassword
-        }
+      await invokeUserManagement({
+        action: 'reset_password',
+        user_id: resetPasswordUser.id,
+        new_password: newPassword,
       });
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
       toast.success(language === 'en' ? 'Password reset successfully' : 'Password berhasil direset');
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Failed to reset password';
-      toast.error(message);
+    } catch (err) {
+      toast.error(await extractInvokeErrorMessage(err));
     }
 
     setIsResetPasswordDialogOpen(false);
@@ -317,7 +394,7 @@ export default function UserManagement() {
 
       for (let i = 1; i < lines.length; i++) {
         const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
-        const email = values[emailIdx] || '';
+        const email = (values[emailIdx] || '').trim();
         const password = values[passwordIdx] || '';
         const full_name = fullNameIdx >= 0 ? (values[fullNameIdx] || '') : '';
         const role = values[roleIdx] || '';
@@ -325,7 +402,14 @@ export default function UserManagement() {
         if (!email && !password && !role) continue; // skip empty rows
 
         if (!email) errors.push(`${language === 'en' ? 'Row' : 'Baris'} ${i + 1}: ${language === 'en' ? 'Email is required' : 'Email wajib diisi'}`);
+        if (email && !isValidEmail(email)) errors.push(`${language === 'en' ? 'Row' : 'Baris'} ${i + 1}: ${language === 'en' ? 'Invalid email format' : 'Format email tidak valid'}`);
+
         if (!password) errors.push(`${language === 'en' ? 'Row' : 'Baris'} ${i + 1}: ${language === 'en' ? 'Password is required' : 'Password wajib diisi'}`);
+        if (password) {
+          const pwdError = validatePassword(password);
+          if (pwdError) errors.push(`${language === 'en' ? 'Row' : 'Baris'} ${i + 1}: ${pwdError}`);
+        }
+
         if (!role) errors.push(`${language === 'en' ? 'Row' : 'Baris'} ${i + 1}: ${language === 'en' ? 'Role is required' : 'Role wajib diisi'}`);
         if (role && !allRoles.includes(role as UserRole)) {
           errors.push(`${language === 'en' ? 'Row' : 'Baris'} ${i + 1}: ${language === 'en' ? 'Invalid role' : 'Role tidak valid'} "${role}"`);
@@ -348,18 +432,13 @@ export default function UserManagement() {
     setBulkImportResults(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke('user-management', {
-        body: {
-          action: 'bulk_create',
-          users: csvData
-        }
+      const data = await invokeUserManagement({
+        action: 'bulk_create',
+        users: csvData,
       });
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-
       setBulkImportResults(data.results || []);
-      
+
       const { success, failed } = data.summary;
       if (failed === 0) {
         toast.success(language === 'en' ? `Successfully created ${success} users` : `Berhasil membuat ${success} pengguna`);
@@ -368,12 +447,11 @@ export default function UserManagement() {
       }
 
       fetchUsers();
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Bulk import failed';
-      toast.error(message);
+    } catch (err) {
+      toast.error(await extractInvokeErrorMessage(err));
+    } finally {
+      setIsBulkImporting(false);
     }
-
-    setIsBulkImporting(false);
   };
 
   const filteredUsers = users.filter(user =>
