@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getUserFriendlyError, ErrorMessages } from '@/lib/errorHandler';
+import { 
+  planOrderHeaderSchema, 
+  planOrderItemsArraySchema, 
+  statusUpdateSchema,
+  validateData 
+} from '@/lib/validationSchemas';
 
 export interface PlanOrderHeader {
   id: string;
@@ -124,22 +130,37 @@ export async function createPlanOrder(
   }>
 ): Promise<{ success: boolean; error?: string; id?: string }> {
   try {
+    // Validate header data
+    const headerValidation = validateData(planOrderHeaderSchema, header);
+    if (headerValidation.success === false) {
+      return { success: false, error: headerValidation.errors.join(', ') };
+    }
+
+    // Validate items data
+    const itemsValidation = validateData(planOrderItemsArraySchema, items);
+    if (itemsValidation.success === false) {
+      return { success: false, error: itemsValidation.errors.join(', ') };
+    }
+
+    const validatedHeader = headerValidation.data;
+    const validatedItems = itemsValidation.data;
+
     // Insert header
     const { data: headerData, error: headerError } = await supabase
       .from('plan_order_headers')
       .insert({
-        plan_number: header.plan_number,
-        plan_date: header.plan_date,
-        supplier_id: header.supplier_id,
-        expected_delivery_date: header.expected_delivery_date,
-        notes: header.notes,
-        po_document_url: header.po_document_url,
-        status: header.status,
-        total_amount: header.total_amount,
-        discount: header.discount,
-        tax_rate: header.tax_rate,
-        shipping_cost: header.shipping_cost,
-        grand_total: header.grand_total,
+        plan_number: validatedHeader.plan_number,
+        plan_date: validatedHeader.plan_date,
+        supplier_id: validatedHeader.supplier_id,
+        expected_delivery_date: validatedHeader.expected_delivery_date,
+        notes: validatedHeader.notes,
+        po_document_url: validatedHeader.po_document_url,
+        status: validatedHeader.status,
+        total_amount: validatedHeader.total_amount,
+        discount: validatedHeader.discount,
+        tax_rate: validatedHeader.tax_rate,
+        shipping_cost: validatedHeader.shipping_cost,
+        grand_total: validatedHeader.grand_total,
       })
       .select()
       .single();
@@ -147,7 +168,7 @@ export async function createPlanOrder(
     if (headerError) throw headerError;
 
     // Insert items
-    const itemsToInsert = items.map(item => ({
+    const itemsToInsert = validatedItems.map(item => ({
       plan_order_id: headerData.id,
       product_id: item.product_id,
       unit_price: item.unit_price,
