@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Plus, Search, Filter, Eye, Edit, MoreHorizontal, CheckCircle, XCircle, Loader2, Upload, ArrowLeft, Trash2 } from 'lucide-react';
+import { Plus, Search, Filter, Eye, Edit, MoreHorizontal, CheckCircle, XCircle, Loader2, Upload, ArrowLeft, Trash2, FileText, Printer, X, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,6 +44,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlanOrders, usePlanOrderItems, createPlanOrder, PlanOrderHeader, PlanOrderItem } from '@/hooks/usePlanOrders';
@@ -77,6 +82,10 @@ export default function PlanOrder() {
   const { products } = useProducts();
   
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
@@ -104,6 +113,7 @@ export default function PlanOrder() {
   const [isUploading, setIsUploading] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const printRef = useRef<HTMLDivElement>(null);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -121,10 +131,152 @@ export default function PlanOrder() {
     });
   };
 
-  const filteredOrders = planOrders.filter(order =>
-    order.plan_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    order.supplier?.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter logic with status and date range
+  const filteredOrders = planOrders.filter(order => {
+    const matchesSearch = 
+      order.plan_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.supplier?.name.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+    
+    const orderDate = new Date(order.plan_date);
+    const matchesDateFrom = !dateFrom || orderDate >= new Date(dateFrom);
+    const matchesDateTo = !dateTo || orderDate <= new Date(dateTo);
+    
+    return matchesSearch && matchesStatus && matchesDateFrom && matchesDateTo;
+  });
+
+  const clearFilters = () => {
+    setStatusFilter('all');
+    setDateFrom('');
+    setDateTo('');
+    setIsFilterOpen(false);
+  };
+
+  const hasActiveFilters = statusFilter !== 'all' || dateFrom || dateTo;
+
+  const handleExportPDF = () => {
+    if (!selectedOrder || !printRef.current) return;
+    
+    // Open print dialog
+    const printContent = printRef.current;
+    const printWindow = window.open('', '_blank');
+    
+    if (printWindow) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Plan Order - ${selectedOrder.plan_number}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+              padding: 20px; 
+              color: #333;
+              font-size: 12px;
+            }
+            .header { 
+              text-align: center; 
+              border-bottom: 2px solid #333; 
+              padding-bottom: 15px; 
+              margin-bottom: 20px; 
+            }
+            .company-name { font-size: 18px; font-weight: bold; color: #1a365d; }
+            .document-title { font-size: 16px; margin-top: 10px; font-weight: 600; }
+            .info-grid { 
+              display: grid; 
+              grid-template-columns: 1fr 1fr; 
+              gap: 15px; 
+              margin-bottom: 20px; 
+            }
+            .info-item label { 
+              font-size: 10px; 
+              color: #666; 
+              text-transform: uppercase; 
+              display: block;
+              margin-bottom: 2px;
+            }
+            .info-item p { font-weight: 500; }
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              margin: 20px 0; 
+            }
+            th, td { 
+              border: 1px solid #ddd; 
+              padding: 8px; 
+              text-align: left; 
+            }
+            th { 
+              background: #f5f5f5; 
+              font-weight: 600; 
+              font-size: 11px;
+            }
+            .text-right { text-align: right; }
+            .text-center { text-align: center; }
+            .summary { 
+              margin-top: 20px; 
+              border-top: 1px solid #ddd;
+              padding-top: 15px;
+            }
+            .summary-row { 
+              display: flex; 
+              justify-content: space-between; 
+              padding: 5px 0;
+            }
+            .summary-row.total { 
+              font-weight: bold; 
+              font-size: 14px; 
+              border-top: 2px solid #333;
+              margin-top: 10px;
+              padding-top: 10px;
+            }
+            .footer { 
+              margin-top: 40px; 
+              display: grid; 
+              grid-template-columns: 1fr 1fr 1fr; 
+              text-align: center; 
+            }
+            .signature { 
+              padding-top: 60px; 
+              border-top: 1px solid #333; 
+              margin-top: 60px;
+              width: 80%;
+              margin-left: auto;
+              margin-right: auto;
+            }
+            .badge {
+              display: inline-block;
+              padding: 2px 8px;
+              border-radius: 4px;
+              font-size: 10px;
+              font-weight: 600;
+            }
+            .badge-draft { background: #e2e8f0; color: #475569; }
+            .badge-approved { background: #dcfce7; color: #166534; }
+            .badge-pending { background: #fef3c7; color: #92400e; }
+            .badge-success { background: #d1fae5; color: #065f46; }
+            .badge-cancelled { background: #fee2e2; color: #991b1b; }
+            @media print {
+              body { padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          ${printContent.innerHTML}
+          <script>
+            window.onload = function() { 
+              window.print(); 
+              window.onafterprint = function() { window.close(); }
+            }
+          </script>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+    }
+  };
 
   const calculateTotals = () => {
     const subtotal = orderItems.reduce((sum, item) => sum + (item.unit_price * item.planned_qty), 0);
@@ -749,11 +901,89 @@ export default function PlanOrder() {
                 icon={<Search className="w-4 h-4" />}
               />
             </div>
-            <Button variant="outline">
-              <Filter className="w-4 h-4 mr-2" />
-              {t('common.filter')}
-            </Button>
+            
+            {/* Status Filter */}
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder={language === 'en' ? 'All Status' : 'Semua Status'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{language === 'en' ? 'All Status' : 'Semua Status'}</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="approved">{language === 'en' ? 'Approved' : 'Disetujui'}</SelectItem>
+                <SelectItem value="partially_received">{language === 'en' ? 'Partially Received' : 'Diterima Sebagian'}</SelectItem>
+                <SelectItem value="received">{language === 'en' ? 'Received' : 'Diterima'}</SelectItem>
+                <SelectItem value="cancelled">{language === 'en' ? 'Cancelled' : 'Dibatalkan'}</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Date Filter Popover */}
+            <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={hasActiveFilters ? 'border-primary text-primary' : ''}>
+                  <CalendarDays className="w-4 h-4 mr-2" />
+                  {language === 'en' ? 'Date Filter' : 'Filter Tanggal'}
+                  {hasActiveFilters && <span className="ml-1 w-2 h-2 bg-primary rounded-full" />}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="end">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium">{language === 'en' ? 'Filter by Date' : 'Filter Berdasarkan Tanggal'}</h4>
+                    {hasActiveFilters && (
+                      <Button variant="ghost" size="sm" onClick={clearFilters}>
+                        <X className="w-4 h-4 mr-1" />
+                        {language === 'en' ? 'Clear' : 'Hapus'}
+                      </Button>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{language === 'en' ? 'From Date' : 'Dari Tanggal'}</Label>
+                    <Input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{language === 'en' ? 'To Date' : 'Sampai Tanggal'}</Label>
+                    <Input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                    />
+                  </div>
+                  <Button className="w-full" onClick={() => setIsFilterOpen(false)}>
+                    {language === 'en' ? 'Apply Filter' : 'Terapkan Filter'}
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
+
+          {/* Active Filters Display */}
+          {hasActiveFilters && (
+            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t">
+              {statusFilter !== 'all' && (
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  Status: {statusConfig[statusFilter]?.label}
+                  <X className="w-3 h-3 cursor-pointer" onClick={() => setStatusFilter('all')} />
+                </Badge>
+              )}
+              {dateFrom && (
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  {language === 'en' ? 'From' : 'Dari'}: {formatDate(dateFrom)}
+                  <X className="w-3 h-3 cursor-pointer" onClick={() => setDateFrom('')} />
+                </Badge>
+              )}
+              {dateTo && (
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  {language === 'en' ? 'To' : 'Sampai'}: {formatDate(dateTo)}
+                  <X className="w-3 h-3 cursor-pointer" onClick={() => setDateTo('')} />
+                </Badge>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -920,7 +1150,13 @@ export default function PlanOrder() {
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{language === 'en' ? 'Plan Order Details' : 'Detail Plan Order'}</DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle>{language === 'en' ? 'Plan Order Details' : 'Detail Plan Order'}</DialogTitle>
+              <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={itemsLoading}>
+                <Printer className="w-4 h-4 mr-2" />
+                {language === 'en' ? 'Print / PDF' : 'Cetak / PDF'}
+              </Button>
+            </div>
           </DialogHeader>
           
           {selectedOrder && (
@@ -1047,6 +1283,127 @@ export default function PlanOrder() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Hidden Print Content */}
+      <div className="hidden">
+        <div ref={printRef}>
+          {selectedOrder && (
+            <div>
+              <div className="header">
+                <p className="company-name">PT. KEMIKA KARYA PRATAMA</p>
+                <p style={{ fontSize: '11px', color: '#666' }}>Jl. Industri Raya No. 123, Jakarta</p>
+                <p className="document-title">PLAN ORDER</p>
+              </div>
+
+              <div className="info-grid">
+                <div className="info-item">
+                  <label>Nomor Plan</label>
+                  <p>{selectedOrder.plan_number}</p>
+                </div>
+                <div className="info-item">
+                  <label>Tanggal</label>
+                  <p>{formatDate(selectedOrder.plan_date)}</p>
+                </div>
+                <div className="info-item">
+                  <label>Supplier</label>
+                  <p>{selectedOrder.supplier?.name}</p>
+                </div>
+                <div className="info-item">
+                  <label>Estimasi Pengiriman</label>
+                  <p>{selectedOrder.expected_delivery_date ? formatDate(selectedOrder.expected_delivery_date) : '-'}</p>
+                </div>
+                <div className="info-item">
+                  <label>Status</label>
+                  <span className={`badge badge-${statusConfig[selectedOrder.status]?.variant}`}>
+                    {statusConfig[selectedOrder.status]?.labelId}
+                  </span>
+                </div>
+              </div>
+
+              {selectedOrder.notes && (
+                <div style={{ marginBottom: '15px' }}>
+                  <p style={{ fontSize: '10px', color: '#666', textTransform: 'uppercase' }}>Catatan</p>
+                  <p style={{ fontSize: '12px' }}>{selectedOrder.notes}</p>
+                </div>
+              )}
+
+              <table>
+                <thead>
+                  <tr>
+                    <th style={{ width: '40px' }}>#</th>
+                    <th>Nama Barang</th>
+                    <th className="text-center" style={{ width: '80px' }}>Qty</th>
+                    <th className="text-right" style={{ width: '120px' }}>Harga Satuan</th>
+                    <th className="text-right" style={{ width: '120px' }}>Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedOrderItems.map((item, index) => (
+                    <tr key={item.id}>
+                      <td>{index + 1}</td>
+                      <td>
+                        {item.product?.name}
+                        {item.product?.sku && <span style={{ fontSize: '10px', color: '#666' }}> (SKU: {item.product.sku})</span>}
+                      </td>
+                      <td className="text-center">{item.planned_qty}</td>
+                      <td className="text-right">{formatCurrency(item.unit_price)}</td>
+                      <td className="text-right">{formatCurrency(item.subtotal || item.unit_price * item.planned_qty)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div className="summary">
+                <div className="summary-row">
+                  <span>Subtotal</span>
+                  <span>{formatCurrency(selectedOrder.total_amount)}</span>
+                </div>
+                {selectedOrder.discount > 0 && (
+                  <div className="summary-row">
+                    <span>Discount</span>
+                    <span>-{formatCurrency(selectedOrder.discount)}</span>
+                  </div>
+                )}
+                <div className="summary-row">
+                  <span>Tax ({selectedOrder.tax_rate}%)</span>
+                  <span>{formatCurrency((selectedOrder.total_amount - selectedOrder.discount) * selectedOrder.tax_rate / 100)}</span>
+                </div>
+                {selectedOrder.shipping_cost > 0 && (
+                  <div className="summary-row">
+                    <span>Ongkir</span>
+                    <span>{formatCurrency(selectedOrder.shipping_cost)}</span>
+                  </div>
+                )}
+                <div className="summary-row total">
+                  <span>Grand Total</span>
+                  <span>{formatCurrency(selectedOrder.grand_total)}</span>
+                </div>
+              </div>
+
+              <div className="footer">
+                <div>
+                  <p style={{ fontSize: '10px', color: '#666' }}>Dibuat Oleh</p>
+                  <div className="signature">
+                    <p>________________</p>
+                  </div>
+                </div>
+                <div>
+                  <p style={{ fontSize: '10px', color: '#666' }}>Disetujui Oleh</p>
+                  <div className="signature">
+                    <p>________________</p>
+                  </div>
+                </div>
+                <div>
+                  <p style={{ fontSize: '10px', color: '#666' }}>Diterima Oleh</p>
+                  <div className="signature">
+                    <p>________________</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
