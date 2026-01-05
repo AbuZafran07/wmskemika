@@ -70,6 +70,7 @@ const menuItems: { groupKey: string; items: MenuItem[] }[] = [
       },
       { key: 'dataStock', labelKey: 'menu.dataStock', icon: Database, href: '/data-stock' },
       { key: 'userManagement', labelKey: 'menu.userManagement', icon: Users, href: '/user-management', roles: ['super_admin'] },
+      { key: 'settings', labelKey: 'menu.settings', icon: Settings2, href: '/settings', roles: ['super_admin', 'admin'] },
     ],
   },
   {

@@ -79,6 +79,7 @@ export function useSalesOrders() {
         *,
         customer:customers(id, name, code)
       `)
+      .eq('is_deleted', false)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -242,29 +243,52 @@ export async function createSalesOrder(
   }
 }
 
-export async function updateSalesOrderStatus(
-  id: string, 
-  status: string,
-  approvedBy?: string
+export async function updateSalesOrder(
+  orderId: string,
+  header: Partial<SalesOrderHeader>,
+  items: Array<{ product_id: string; unit_price: number; ordered_qty: number; discount?: number; }>
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const updateData: Record<string, unknown> = { status };
-    
-    if (status === 'approved' && approvedBy) {
-      updateData.approved_by = approvedBy;
-      updateData.approved_at = new Date().toISOString();
-    }
-
-    const { error } = await supabase
-      .from('sales_order_headers')
-      .update(updateData)
-      .eq('id', id);
-
+    const { data, error } = await supabase.rpc('sales_order_update', {
+      order_id: orderId,
+      header_data: header,
+      items_data: items,
+    });
     if (error) throw error;
-
-    return { success: true };
+    const result = data as { success: boolean; error?: string };
+    return result;
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to update status';
+    const message = error instanceof Error ? error.message : 'Failed to update';
     return { success: false, error: message };
+  }
+}
+
+export async function approveSalesOrder(orderId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data, error } = await supabase.rpc('sales_order_approve', { order_id: orderId });
+    if (error) throw error;
+    return data as { success: boolean; error?: string };
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to approve' };
+  }
+}
+
+export async function cancelSalesOrder(orderId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data, error } = await supabase.rpc('sales_order_cancel', { order_id: orderId });
+    if (error) throw error;
+    return data as { success: boolean; error?: string };
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to cancel' };
+  }
+}
+
+export async function deleteSalesOrder(orderId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data, error } = await supabase.rpc('sales_order_soft_delete', { order_id: orderId });
+    if (error) throw error;
+    return data as { success: boolean; error?: string };
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to delete' };
   }
 }

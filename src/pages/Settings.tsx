@@ -1,0 +1,300 @@
+import React, { useState, useEffect } from 'react';
+import { Settings as SettingsIcon, Save, Loader2, Shield, Users, Bell } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+interface SettingsData {
+  allow_admin_approve: boolean;
+}
+
+export default function SettingsPage() {
+  const { language } = useLanguage();
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [settings, setSettings] = useState<SettingsData>({
+    allow_admin_approve: false,
+  });
+
+  // Check if user is super_admin
+  const isSuperAdmin = user?.role === 'super_admin';
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('settings')
+        .select('key, value')
+        .in('key', ['allow_admin_approve']);
+
+      if (error) throw error;
+
+      const settingsMap: SettingsData = {
+        allow_admin_approve: false,
+      };
+
+      data?.forEach(item => {
+        if (item.key === 'allow_admin_approve') {
+          // Handle both boolean and object formats
+          let value = false;
+          if (typeof item.value === 'boolean') {
+            value = item.value;
+          } else if (item.value === 'true') {
+            value = true;
+          } else if (typeof item.value === 'object' && item.value !== null && !Array.isArray(item.value)) {
+            const objValue = item.value as Record<string, unknown>;
+            value = objValue.value === true;
+          }
+          settingsMap.allow_admin_approve = value;
+        }
+      });
+
+      setSettings(settingsMap);
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+      toast.error(language === 'en' ? 'Failed to load settings' : 'Gagal memuat pengaturan');
+    }
+    setLoading(false);
+  };
+
+  const handleSave = async () => {
+    if (!isSuperAdmin) {
+      toast.error(language === 'en' ? 'Only super_admin can modify settings' : 'Hanya super_admin yang dapat mengubah pengaturan');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // Update allow_admin_approve setting
+      const { error } = await supabase
+        .from('settings')
+        .update({ 
+          value: settings.allow_admin_approve,
+          updated_at: new Date().toISOString()
+        })
+        .eq('key', 'allow_admin_approve');
+
+      if (error) throw error;
+
+      // Log the change
+      const { data: userData } = await supabase.auth.getUser();
+      await supabase.from('audit_logs').insert({
+        user_id: userData.user?.id,
+        user_email: userData.user?.email,
+        action: 'update',
+        module: 'settings',
+        ref_table: 'settings',
+        ref_no: 'allow_admin_approve',
+        new_data: { allow_admin_approve: settings.allow_admin_approve },
+      });
+
+      toast.success(language === 'en' ? 'Settings saved successfully' : 'Pengaturan berhasil disimpan');
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      toast.error(language === 'en' ? 'Failed to save settings' : 'Gagal menyimpan pengaturan');
+    }
+    setSaving(false);
+  };
+
+  if (!isSuperAdmin) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <div className="flex items-center gap-4">
+          <div className="p-3 rounded-xl bg-primary/10">
+            <SettingsIcon className="w-6 h-6 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold font-display">
+              {language === 'en' ? 'Settings' : 'Pengaturan'}
+            </h1>
+            <p className="text-muted-foreground">
+              {language === 'en' ? 'System configuration' : 'Konfigurasi sistem'}
+            </p>
+          </div>
+        </div>
+
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Shield className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">
+              {language === 'en' ? 'Access Denied' : 'Akses Ditolak'}
+            </h3>
+            <p className="text-muted-foreground">
+              {language === 'en' 
+                ? 'Only super_admin can access and modify system settings.'
+                : 'Hanya super_admin yang dapat mengakses dan mengubah pengaturan sistem.'
+              }
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="p-3 rounded-xl bg-primary/10">
+            <SettingsIcon className="w-6 h-6 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold font-display">
+              {language === 'en' ? 'Settings' : 'Pengaturan'}
+            </h1>
+            <p className="text-muted-foreground">
+              {language === 'en' ? 'System configuration and preferences' : 'Konfigurasi dan preferensi sistem'}
+            </p>
+          </div>
+        </div>
+        <Button onClick={handleSave} disabled={saving || loading}>
+          {saving ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Save className="w-4 h-4 mr-2" />
+          )}
+          {language === 'en' ? 'Save Changes' : 'Simpan Perubahan'}
+        </Button>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      ) : (
+        <div className="grid gap-6">
+          {/* Approval Settings */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-success/10">
+                  <Users className="w-5 h-5 text-success" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">
+                    {language === 'en' ? 'Approval Settings' : 'Pengaturan Persetujuan'}
+                  </CardTitle>
+                  <CardDescription>
+                    {language === 'en' 
+                      ? 'Configure who can approve orders in the system'
+                      : 'Konfigurasi siapa yang dapat menyetujui order dalam sistem'
+                    }
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                <div className="space-y-1">
+                  <Label htmlFor="allow-admin-approve" className="text-base font-medium">
+                    {language === 'en' ? 'Allow Admin to Approve Orders' : 'Izinkan Admin Menyetujui Order'}
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    {language === 'en' 
+                      ? 'When enabled, users with "admin" role can approve Plan Orders and Sales Orders. By default, only super_admin can approve.'
+                      : 'Jika diaktifkan, pengguna dengan role "admin" dapat menyetujui Plan Order dan Sales Order. Secara default, hanya super_admin yang dapat menyetujui.'
+                    }
+                  </p>
+                </div>
+                <Switch
+                  id="allow-admin-approve"
+                  checked={settings.allow_admin_approve}
+                  onCheckedChange={(checked) => setSettings(prev => ({ ...prev, allow_admin_approve: checked }))}
+                />
+              </div>
+
+              <Separator />
+
+              <div className="rounded-lg bg-muted/50 p-4">
+                <h4 className="text-sm font-medium mb-2">
+                  {language === 'en' ? 'Current Approval Permissions:' : 'Izin Persetujuan Saat Ini:'}
+                </h4>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-success" />
+                    <strong>super_admin:</strong> {language === 'en' ? 'Can always approve' : 'Selalu dapat menyetujui'}
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${settings.allow_admin_approve ? 'bg-success' : 'bg-muted-foreground'}`} />
+                    <strong>admin:</strong> {settings.allow_admin_approve 
+                      ? (language === 'en' ? 'Can approve (enabled)' : 'Dapat menyetujui (aktif)')
+                      : (language === 'en' ? 'Cannot approve (disabled)' : 'Tidak dapat menyetujui (nonaktif)')
+                    }
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-muted-foreground" />
+                    <strong>{language === 'en' ? 'Other roles:' : 'Role lainnya:'}</strong> {language === 'en' ? 'Cannot approve' : 'Tidak dapat menyetujui'}
+                  </li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* System Info */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Bell className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">
+                    {language === 'en' ? 'System Information' : 'Informasi Sistem'}
+                  </CardTitle>
+                  <CardDescription>
+                    {language === 'en' 
+                      ? 'Application version and system status'
+                      : 'Versi aplikasi dan status sistem'
+                    }
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-4 rounded-lg bg-muted/50">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                    {language === 'en' ? 'Application' : 'Aplikasi'}
+                  </p>
+                  <p className="font-semibold mt-1">WMS Kemika</p>
+                </div>
+                <div className="p-4 rounded-lg bg-muted/50">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                    {language === 'en' ? 'Version' : 'Versi'}
+                  </p>
+                  <p className="font-semibold mt-1">1.0.0</p>
+                </div>
+                <div className="p-4 rounded-lg bg-muted/50">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                    {language === 'en' ? 'Environment' : 'Lingkungan'}
+                  </p>
+                  <p className="font-semibold mt-1">Production</p>
+                </div>
+                <div className="p-4 rounded-lg bg-muted/50">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                    {language === 'en' ? 'Status' : 'Status'}
+                  </p>
+                  <p className="font-semibold mt-1 text-success">
+                    {language === 'en' ? 'Online' : 'Aktif'}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
