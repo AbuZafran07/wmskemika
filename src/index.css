@@ -123,6 +123,10 @@
     @apply border-border;
   }
 
+  html, body {
+    @apply h-full overflow-hidden;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', sans-serif;
@@ -130,6 +134,15 @@
   
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+  
+  /* Fixed layout dimensions */
+  :root {
+    --header-height: 64px;
+    --sidebar-min-width: 220px;
+    --sidebar-default-width: 280px;
+    --sidebar-max-width: 420px;
+    --mobile-sidebar-width: min(80vw, 320px);
   }
 }
 
@@ -167,6 +180,29 @@
   
   .animate-scale-in {
     animation: scaleIn 0.2s ease-out;
+  }
+  
+  /* Sidebar resize handle */
+  .resize-handle {
+    @apply absolute right-0 top-0 h-full w-1 cursor-col-resize z-10;
+    @apply bg-transparent hover:bg-primary/30 active:bg-primary/50;
+    @apply transition-colors duration-150;
+  }
+  
+  .resize-handle::after {
+    content: '';
+    @apply absolute right-0 top-1/2 -translate-y-1/2 h-8 w-1 rounded-full;
+    @apply bg-sidebar-border opacity-0 group-hover:opacity-100 transition-opacity;
+  }
+  
+  /* Header shadow */
+  .header-shadow {
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.05);
+  }
+  
+  /* Sidebar shadow */
+  .sidebar-shadow {
+    box-shadow: 1px 0 3px 0 rgb(0 0 0 / 0.1);
   }
 }
 

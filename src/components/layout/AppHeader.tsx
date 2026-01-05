@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, Sun, Moon, Bell, User, LogOut, Settings, ChevronDown } from 'lucide-react';
+import { Menu, X, Sun, Moon, Bell, User, LogOut, Settings, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -14,12 +14,14 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
+import logoImage from '@/assets/logo.png';
 
 interface AppHeaderProps {
   onMenuClick: () => void;
+  isMobileDrawerOpen?: boolean;
 }
 
-export default function AppHeader({ onMenuClick }: AppHeaderProps) {
+export default function AppHeader({ onMenuClick, isMobileDrawerOpen }: AppHeaderProps) {
   const { language, setLanguage, t } = useLanguage();
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
@@ -41,25 +43,39 @@ export default function AppHeader({ onMenuClick }: AppHeaderProps) {
   };
 
   return (
-    <header className="h-16 border-b border-border bg-card flex items-center justify-between px-4 lg:px-6">
-      {/* Left side */}
-      <div className="flex items-center gap-4">
+    <header className="h-16 flex-shrink-0 border-b border-border bg-card header-shadow flex items-center justify-between px-4 lg:px-6 z-50 relative">
+      {/* Left side - Logo and hamburger */}
+      <div className="flex items-center gap-3">
+        {/* Hamburger menu - visible on mobile */}
         <Button
           variant="ghost"
           size="icon"
           onClick={onMenuClick}
-          className="lg:hidden"
+          className="lg:hidden flex-shrink-0"
         >
-          <Menu className="w-5 h-5" />
+          {isMobileDrawerOpen ? (
+            <X className="w-5 h-5" />
+          ) : (
+            <Menu className="w-5 h-5" />
+          )}
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onMenuClick}
-          className="hidden lg:flex"
-        >
-          <Menu className="w-5 h-5" />
-        </Button>
+
+        {/* Company logo and name */}
+        <div className="flex items-center gap-3">
+          <img 
+            src={logoImage} 
+            alt="Kemika Logo" 
+            className="h-9 w-auto object-contain flex-shrink-0"
+          />
+          <div className="hidden sm:flex flex-col">
+            <span className="font-display font-bold text-foreground text-sm leading-tight">
+              PT. KEMIKA KARYA PRATAMA
+            </span>
+            <span className="text-[10px] text-muted-foreground leading-tight">
+              Warehouse Management System
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Right side */}
