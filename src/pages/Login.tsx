@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, Package } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import logoImage from '@/assets/logo.png';
 
 export default function Login() {
   const { language, setLanguage, t } = useLanguage();
@@ -51,9 +52,13 @@ export default function Login() {
         
         <div className="relative z-10 flex flex-col justify-between p-12 text-white w-full">
           {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-white/10 rounded-xl backdrop-blur-sm">
-              <Package className="w-8 h-8" />
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-white rounded-xl">
+              <img 
+                src={logoImage} 
+                alt="Kemika Logo" 
+                className="h-12 w-auto object-contain"
+              />
             </div>
             <div>
               <h1 className="font-display font-bold text-xl">{t('app.company')}</h1>
@@ -126,7 +131,11 @@ export default function Login() {
             {/* Mobile Logo */}
             <div className="lg:hidden flex items-center gap-3 justify-center mb-8">
               <div className="p-3 bg-primary/10 rounded-xl">
-                <Package className="w-8 h-8 text-primary" />
+                <img 
+                  src={logoImage} 
+                  alt="Kemika Logo" 
+                  className="h-10 w-auto object-contain"
+                />
               </div>
               <div>
                 <h1 className="font-display font-bold text-lg text-foreground">{t('app.company')}</h1>
