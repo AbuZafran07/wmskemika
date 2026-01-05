@@ -15,6 +15,37 @@ serve(async (req) => {
   try {
     console.log('Starting seed-admin function...');
     
+    // Verify setup token - this should be a one-time secret set during deployment
+    const setupToken = Deno.env.get('ADMIN_SETUP_TOKEN');
+    const authHeader = req.headers.get('x-setup-token');
+    
+    if (!setupToken) {
+      console.error('ADMIN_SETUP_TOKEN not configured');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Setup not available. Function not configured.'
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 503 
+        }
+      );
+    }
+    
+    // Validate setup token using constant-time comparison to prevent timing attacks
+    if (!authHeader || !constantTimeEqual(authHeader, setupToken)) {
+      console.warn('Invalid or missing setup token attempt');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Unauthorized'
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401 
+        }
+      );
+    }
+    
     // Create Supabase admin client
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -26,6 +57,30 @@ serve(async (req) => {
         }
       }
     );
+
+    // Check if admin has already been seeded (one-time execution check)
+    const { data: existingSetting, error: settingError } = await supabaseAdmin
+      .from('settings')
+      .select('value')
+      .eq('key', 'admin_seeded')
+      .maybeSingle();
+    
+    if (settingError) {
+      console.error('Error checking admin_seeded setting:', settingError);
+    }
+    
+    if (existingSetting?.value === true) {
+      console.log('Admin already seeded - one-time execution check failed');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Setup already completed. This function can only be run once.'
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 409 
+        }
+      );
+    }
 
     // Get credentials from environment variables - never hardcode
     const adminEmail = Deno.env.get('ADMIN_EMAIL');
@@ -100,7 +155,9 @@ serve(async (req) => {
         }
       }
 
-      // Do not expose user details in response
+      // Mark admin as seeded to prevent future runs
+      await markAdminSeeded(supabaseAdmin);
+
       return new Response(
         JSON.stringify({ 
           message: 'Admin user configuration complete',
@@ -150,9 +207,11 @@ serve(async (req) => {
       throw roleError;
     }
 
+    // Mark admin as seeded to prevent future runs
+    await markAdminSeeded(supabaseAdmin);
+
     console.log('Super admin created successfully!');
 
-    // Do not expose credentials or user details in response
     return new Response(
       JSON.stringify({ 
         message: 'Super admin created successfully',
@@ -165,7 +224,6 @@ serve(async (req) => {
     );
 
   } catch (error: unknown) {
-    // Do not expose internal error details
     console.error('Seed admin error:', error);
     return new Response(
       JSON.stringify({ 
@@ -178,3 +236,36 @@ serve(async (req) => {
     );
   }
 });
+
+// Constant-time string comparison to prevent timing attacks
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  
+  return result === 0;
+}
+
+// Mark admin as seeded in settings table
+async function markAdminSeeded(supabaseAdmin: ReturnType<typeof createClient>): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from('settings')
+    .upsert({
+      key: 'admin_seeded',
+      value: true,
+      updated_at: new Date().toISOString()
+    }, {
+      onConflict: 'key'
+    });
+  
+  if (error) {
+    console.error('Error marking admin as seeded:', error);
+  } else {
+    console.log('Admin seeded flag set - function will not run again');
+  }
+}
