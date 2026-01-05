@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
-  Package,
   ClipboardList,
   ArrowDownToLine,
   Database,
@@ -21,13 +20,14 @@ import {
   FileBarChart,
   ClipboardCheck,
   History,
-  Menu,
   X,
+  Package,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import logoImage from '@/assets/logo.png';
 
 interface MenuItem {
   key: string;
@@ -192,12 +192,16 @@ export default function AppSidebar({ isCollapsed, onToggle }: AppSidebarProps) {
       >
         {/* Header */}
         <div className="flex items-center gap-3 p-4 border-b border-sidebar-border">
-          <div className="p-2 bg-sidebar-primary/20 rounded-lg flex-shrink-0">
-            <Package className="w-6 h-6 text-sidebar-primary" />
+          <div className="flex-shrink-0">
+            <img 
+              src={logoImage} 
+              alt="Kemika Logo" 
+              className="h-10 w-auto object-contain"
+            />
           </div>
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
-              <h1 className="font-display font-bold text-sidebar-foreground truncate">
+              <h1 className="font-display font-bold text-sidebar-foreground truncate text-sm">
                 {t('app.name')}
               </h1>
               <p className="text-xs text-sidebar-muted truncate">{t('app.subtitle')}</p>
