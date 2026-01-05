@@ -21,6 +21,7 @@ import {
   ClipboardCheck,
   History,
   Package,
+  TrendingUpDown,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -79,6 +80,7 @@ const menuItems: { groupKey: string; items: MenuItem[] }[] = [
       { key: 'stockReport', labelKey: 'menu.stockReport', icon: FileText, href: '/reports/stock' },
       { key: 'inboundReport', labelKey: 'menu.inboundReport', icon: FileBarChart, href: '/reports/inbound' },
       { key: 'outboundReport', labelKey: 'menu.outboundReport', icon: FileBarChart, href: '/reports/outbound' },
+      { key: 'stockMovement', labelKey: 'menu.stockMovement', icon: TrendingUpDown, href: '/reports/movement' },
       { key: 'adjustmentLog', labelKey: 'menu.adjustmentLog', icon: ClipboardCheck, href: '/reports/adjustment' },
       { key: 'auditLog', labelKey: 'menu.auditLog', icon: History, href: '/reports/audit' },
     ],

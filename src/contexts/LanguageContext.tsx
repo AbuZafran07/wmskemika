@@ -68,6 +68,7 @@ const translations: Record<Language, Record<string, string>> = {
     'menu.adjustmentLog': 'Adjustment Log',
     'menu.auditLog': 'Audit Log',
     'menu.dataStock': 'Data Stock',
+    'menu.stockMovement': 'Stock Movement',
     
     // Dashboard
     'dashboard.welcome': 'Welcome back',
@@ -173,6 +174,7 @@ const translations: Record<Language, Record<string, string>> = {
     'menu.adjustmentLog': 'Log Penyesuaian',
     'menu.auditLog': 'Log Audit',
     'menu.dataStock': 'Data Stok',
+    'menu.stockMovement': 'Pergerakan Stok',
     
     // Dashboard
     'dashboard.welcome': 'Selamat datang',
