@@ -1,4 +1,5 @@
-import React, { useState, useRef, useMemo, useEffect } from "react";
+import React, { useMemo, useRef, useState } from "react";
+import html2pdf from "html2pdf.js";
 import {
   Plus,
   Search,
@@ -17,9 +18,8 @@ import {
   List,
   FileText,
   Download,
-  PenLine,
 } from "lucide-react";
-import html2pdf from "html2pdf.js";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,10 +45,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
+
 import {
   useSalesOrders,
   useSalesOrderItems,
@@ -60,11 +62,14 @@ import {
   getProductStock,
   SalesOrderHeader,
 } from "@/hooks/useSalesOrders";
+
 import { useSettings } from "@/hooks/usePlanOrders";
-import { useCustomers, useProducts, Product } from "@/hooks/useMasterData";
+import { useCustomers, useProducts } from "@/hooks/useMasterData";
 import { uploadFile, getSignedUrl } from "@/lib/storage";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+const LOGO_SRC = "/logo-kemika.png";
 
 const statusConfig: Record<
   string,
@@ -87,14 +92,49 @@ interface OrderItem {
   category: string;
   unit_price: number;
   ordered_qty: number;
+
+  // DISABLE item discount; keep for schema compatibility
   discount: number;
+
   subtotal: number;
   stock_available: number;
+}
+
+function extractStoragePathFromDocumentsUrl(url: string): string | null {
+  // goal: return path inside bucket "documents", e.g. "sales-orders/xxx.pdf"
+  try {
+    if (!url) return null;
+
+    // if plain path already
+    if (!url.startsWith("http")) {
+      return url.replace(/^\/+/, "");
+    }
+
+    // signed/public: .../storage/v1/object/(sign|public)/documents/<path>?...
+    const m1 = url.match(/\/storage\/v1\/object\/(?:sign|public)\/documents\/(.+?)(?:\?|$)/);
+    if (m1?.[1]) return decodeURIComponent(m1[1]);
+
+    // some supabase URLs: .../storage/v1/object/documents/<path>
+    const m2 = url.match(/\/storage\/v1\/object\/documents\/(.+?)(?:\?|$)/);
+    if (m2?.[1]) return decodeURIComponent(m2[1]);
+
+    // if url contains "/documents/" anywhere
+    const idx = url.indexOf("/documents/");
+    if (idx >= 0) {
+      const part = url.substring(idx + "/documents/".length);
+      return decodeURIComponent(part.split("?")[0]);
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 export default function SalesOrder() {
   const { t, language } = useLanguage();
   const { user } = useAuth();
+
   const { salesOrders, loading, refetch } = useSalesOrders();
   const { customers } = useCustomers();
   const { products } = useProducts();
@@ -105,27 +145,32 @@ export default function SalesOrder() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [viewMode, setViewMode] = useState<"active" | "archived">("active");
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
   const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+
   const [selectedOrder, setSelectedOrder] = useState<SalesOrderHeader | null>(null);
+
   const [isApproving, setIsApproving] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
   const [isOpeningPoDoc, setIsOpeningPoDoc] = useState(false);
   const [isPdfPreviewOpen, setIsPdfPreviewOpen] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const printRef = useRef<HTMLDivElement>(null);
-  const pdfPreviewRef = useRef<HTMLDivElement>(null);
 
-  // Fetch items for detail view
+  const printRef = useRef<HTMLDivElement>(null);
+
   const { items: selectedOrderItems, loading: itemsLoading } = useSalesOrderItems(selectedOrder?.id || null);
 
   // Form state
@@ -140,22 +185,20 @@ export default function SalesOrder() {
   const [shipToAddress, setShipToAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [poDocumentUrl, setPoDocumentUrl] = useState("");
-  const [poDocumentKey, setPoDocumentKey] = useState("");
+
+  // ONLY ONE DISCOUNT (order-level)
   const [discount, setDiscount] = useState(0);
   const [taxRate, setTaxRate] = useState(11);
   const [shippingCost, setShippingCost] = useState(0);
+
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [selectedProductId, setSelectedProductId] = useState("");
 
-  // Auto-fill fields from customer
+  // auto-fill
   const [customerPic, setCustomerPic] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
 
-  // Validation touched state
-  const [touched, setTouched] = useState<Record<string, boolean>>({});
-
-  // Check if user can approve orders
   const canApprove = useMemo(() => {
     if (!user) return false;
     if (user.role === "super_admin") return true;
@@ -164,22 +207,21 @@ export default function SalesOrder() {
   }, [user, allowAdminApprove]);
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      minimumFractionDigits: 0,
-    }).format(value);
+    return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(
+      value,
+    );
   };
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("id-ID", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+  const formatDateID = (dateStr?: string | null) => {
+    if (!dateStr) return "";
+    return new Date(dateStr).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
   };
 
-  // Filter logic
+  const formatDateShort = (dateStr?: string | null) => {
+    if (!dateStr) return "";
+    return new Date(dateStr).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+  };
+
   const filteredOrders = useMemo(() => {
     return salesOrders.filter((order) => {
       const matchesSearch =
@@ -189,26 +231,27 @@ export default function SalesOrder() {
 
       const matchesStatus = statusFilter === "all" || order.status === statusFilter;
 
-      const orderDate = new Date(order.order_date);
-      const matchesDateFrom = !dateFrom || orderDate >= new Date(dateFrom);
-      const matchesDateTo = !dateTo || orderDate <= new Date(dateTo);
+      const d = new Date(order.order_date);
+      const matchesFrom = !dateFrom || d >= new Date(dateFrom);
+      const matchesTo = !dateTo || d <= new Date(dateTo);
 
       const activeStatuses = ["draft", "approved", "partially_delivered"];
       const archivedStatuses = ["delivered", "cancelled"];
+
       const matchesViewMode =
         viewMode === "active" ? activeStatuses.includes(order.status) : archivedStatuses.includes(order.status);
 
-      return matchesSearch && matchesStatus && matchesDateFrom && matchesDateTo && matchesViewMode;
+      return matchesSearch && matchesStatus && matchesFrom && matchesTo && matchesViewMode;
     });
   }, [salesOrders, searchQuery, statusFilter, dateFrom, dateTo, viewMode]);
+
+  const hasActiveFilters = statusFilter !== "all" || dateFrom || dateTo;
 
   const clearFilters = () => {
     setStatusFilter("all");
     setDateFrom("");
     setDateTo("");
   };
-
-  const hasActiveFilters = statusFilter !== "all" || dateFrom || dateTo;
 
   const generateSoNumber = async () => {
     const { data } = await supabase
@@ -217,21 +260,18 @@ export default function SalesOrder() {
       .order("created_at", { ascending: false })
       .limit(1);
 
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
 
     let sequence = 1;
     if (data && data.length > 0) {
-      const lastNumber = data[0].sales_order_number;
-      // Matches formats like: SOR-YYYYMM-XXX or SOR/YYYYMMDD/XXX
-      const match = lastNumber.match(/SOR[-\/](\d{6,8})[-\/](\d+)/);
+      const last = data[0].sales_order_number;
+      const match = last.match(/SOR[-\/](\d{6,8})[-\/](\d+)/);
       if (match) {
         const lastYearMonth = match[1].slice(0, 6);
         const currentYearMonth = `${year}${month}`;
-        if (lastYearMonth === currentYearMonth) {
-          sequence = parseInt(match[2], 10) + 1;
-        }
+        if (lastYearMonth === currentYearMonth) sequence = parseInt(match[2], 10) + 1;
       }
     }
 
@@ -250,7 +290,6 @@ export default function SalesOrder() {
     setShipToAddress("");
     setNotes("");
     setPoDocumentUrl("");
-    setPoDocumentKey("");
     setDiscount(0);
     setTaxRate(11);
     setShippingCost(0);
@@ -259,46 +298,25 @@ export default function SalesOrder() {
     setCustomerPic("");
     setCustomerPhone("");
     setPaymentTerms("");
-    setTouched({});
-  };
-
-  // Auto-fill customer data when customer is selected
-  const handleCustomerChange = (newCustomerId: string) => {
-    setCustomerId(newCustomerId);
-    setTouched((prev) => ({ ...prev, customerId: true }));
-
-    const customer = customers.find((c) => c.id === newCustomerId);
-    if (customer) {
-      setCustomerPic(customer.pic || "");
-      setCustomerPhone(customer.phone || "");
-      setPaymentTerms(customer.terms_payment || "");
-      // Auto-fill shipping address from customer address (editable)
-      if (!shipToAddress) {
-        setShipToAddress(customer.address || "");
-      }
-    }
-  };
-
-  // Validation helpers
-  const getFieldError = (field: string, value: string | number) => {
-    if (!touched[field]) return null;
-    if (!value || (typeof value === "string" && !value.trim())) {
-      return language === "en" ? "This field is required" : "Field ini wajib diisi";
-    }
-    return null;
-  };
-
-  const markTouched = (field: string) => {
-    setTouched((prev) => ({ ...prev, [field]: true }));
   };
 
   const handleOpenDialog = async () => {
     resetForm();
-    setOrderDate(new Date().toISOString().split("T")[0]);
+    await generateSoNumber();
     setIsEditMode(false);
     setEditingOrderId(null);
-    await generateSoNumber();
     setIsDialogOpen(true);
+  };
+
+  const handleCustomerChange = (newId: string) => {
+    setCustomerId(newId);
+    const c: any = customers.find((x: any) => x.id === newId);
+    if (c) {
+      setCustomerPic(c.pic || "");
+      setCustomerPhone(c.phone || "");
+      setPaymentTerms(c.terms_payment || "");
+      if (!shipToAddress) setShipToAddress(c.address || "");
+    }
   };
 
   const handleEdit = async (order: SalesOrderHeader) => {
@@ -313,37 +331,48 @@ export default function SalesOrder() {
     setShipToAddress(order.ship_to_address || "");
     setNotes(order.notes || "");
     setPoDocumentUrl(order.po_document_url || "");
-    setPoDocumentKey("");
+
     setDiscount(order.discount || 0);
     setTaxRate(order.tax_rate || 11);
     setShippingCost(order.shipping_cost || 0);
+
     setEditingOrderId(order.id);
     setIsEditMode(true);
 
-    // Fetch items
     const { data } = await supabase
       .from("sales_order_items")
-      .select(`*, product:products(id, name, sku, selling_price, category:categories(name), unit:units(name))`)
+      .select(
+        `*, product:products(id, name, sku, selling_price, purchase_price, category:categories(name), unit:units(name))`,
+      )
       .eq("sales_order_id", order.id);
 
     if (data) {
       const items: OrderItem[] = [];
-      for (const item of data) {
-        const stock = await getProductStock(item.product_id);
+      for (const it of data as any[]) {
+        const stock = await getProductStock(it.product_id);
+        const qty = it.ordered_qty || 0;
+        const price = it.unit_price || 0;
         items.push({
-          product_id: item.product_id,
-          product_name: item.product?.name || "",
-          sku: item.product?.sku || "-",
-          unit: item.product?.unit?.name || "-",
-          category: item.product?.category?.name || "-",
-          unit_price: item.unit_price,
-          ordered_qty: item.ordered_qty,
-          discount: item.discount || 0,
-          subtotal: item.ordered_qty * item.unit_price - (item.discount || 0),
+          product_id: it.product_id,
+          product_name: it.product?.name || "",
+          sku: it.product?.sku || "-",
+          unit: it.product?.unit?.name || "-",
+          category: it.product?.category?.name || "-",
+          unit_price: price,
+          ordered_qty: qty,
+          discount: 0, // DISABLE item discount
+          subtotal: qty * price,
           stock_available: stock,
         });
       }
       setOrderItems(items);
+    }
+
+    const c: any = customers.find((x: any) => x.id === order.customer_id);
+    if (c) {
+      setCustomerPic(c.pic || "");
+      setCustomerPhone(c.phone || "");
+      setPaymentTerms(c.terms_payment || "");
     }
 
     setIsDialogOpen(true);
@@ -358,7 +387,6 @@ export default function SalesOrder() {
 
     if (result) {
       setPoDocumentUrl(result.url);
-      setPoDocumentKey(result.path);
       toast.success(language === "en" ? "Document uploaded successfully" : "Dokumen berhasil diupload");
     } else {
       toast.error(language === "en" ? "Failed to upload document" : "Gagal upload dokumen");
@@ -368,44 +396,52 @@ export default function SalesOrder() {
 
   const handleAddProduct = async () => {
     if (!selectedProductId) return;
+    const p: any = products.find((x: any) => x.id === selectedProductId);
+    if (!p) return;
 
-    const product = products.find((p) => p.id === selectedProductId);
-    if (!product) return;
-
-    if (orderItems.some((item) => item.product_id === selectedProductId)) {
+    if (orderItems.some((it) => it.product_id === selectedProductId)) {
       toast.error(language === "en" ? "Product already added" : "Produk sudah ditambahkan");
       return;
     }
 
     const stockAvailable = await getProductStock(selectedProductId);
 
-    const newItem: OrderItem = {
-      product_id: product.id,
-      product_name: product.name,
-      sku: product.sku || "-",
-      unit: product.unit?.name || "-",
-      category: product.category?.name || "-",
-      unit_price: product.selling_price || product.purchase_price,
-      ordered_qty: 1,
-      discount: 0,
-      subtotal: product.selling_price || product.purchase_price,
-      stock_available: stockAvailable,
-    };
+    const price = p.selling_price || p.purchase_price || 0;
 
-    setOrderItems((prev) => [...prev, newItem]);
+    setOrderItems((prev) => [
+      ...prev,
+      {
+        product_id: p.id,
+        product_name: p.name,
+        sku: p.sku || "-",
+        unit: p.unit?.name || "-",
+        category: p.category?.name || "-",
+        unit_price: price,
+        ordered_qty: 1,
+        discount: 0, // DISABLE item discount
+        subtotal: 1 * price,
+        stock_available: stockAvailable,
+      },
+    ]);
+
     setSelectedProductId("");
   };
 
   const handleItemChange = (index: number, field: keyof OrderItem, value: number) => {
     setOrderItems((prev) =>
-      prev.map((item, i) => {
-        if (i !== index) return item;
-        const updated = { ...item, [field]: value };
-        const qty = field === "ordered_qty" ? value : item.ordered_qty;
-        const price = field === "unit_price" ? value : item.unit_price;
-        const disc = field === "discount" ? value : item.discount;
-        updated.subtotal = qty * price - disc;
-        return updated;
+      prev.map((it, i) => {
+        if (i !== index) return it;
+
+        const next = { ...it } as OrderItem;
+
+        if (field === "ordered_qty") next.ordered_qty = value;
+        if (field === "unit_price") next.unit_price = value;
+
+        // DISABLE item discount; subtotal always qty*price
+        next.discount = 0;
+        next.subtotal = (next.ordered_qty || 0) * (next.unit_price || 0);
+
+        return next;
       }),
     );
   };
@@ -415,11 +451,18 @@ export default function SalesOrder() {
   };
 
   const calculateTotals = () => {
-    const subtotal = orderItems.reduce((sum, item) => sum + item.subtotal, 0);
-    const totalAfterDiscount = subtotal - discount;
-    const taxAmount = totalAfterDiscount * (taxRate / 100);
-    const grandTotal = totalAfterDiscount + taxAmount + shippingCost;
-    return { subtotal, taxAmount, grandTotal };
+    const subtotal = orderItems.reduce((sum, it) => sum + (it.subtotal || 0), 0);
+
+    const safeDiscount = Math.max(0, discount || 0);
+    const totalAfterDiscount = Math.max(0, subtotal - safeDiscount);
+
+    const safeTaxRate = Math.max(0, taxRate || 0);
+    const taxAmount = totalAfterDiscount * (safeTaxRate / 100);
+
+    const safeShipping = Math.max(0, shippingCost || 0);
+    const grandTotal = totalAfterDiscount + taxAmount + safeShipping;
+
+    return { subtotal, totalAfterDiscount, taxAmount, grandTotal };
   };
 
   const handleSave = async () => {
@@ -427,25 +470,31 @@ export default function SalesOrder() {
       toast.error(language === "en" ? "Please fill all required fields" : "Harap isi semua field wajib");
       return;
     }
-
     if (orderItems.length === 0) {
       toast.error(language === "en" ? "Please add at least one product" : "Tambahkan minimal satu produk");
       return;
     }
 
-    // Warn about low stock
-    for (const item of orderItems) {
-      if (item.ordered_qty > item.stock_available) {
+    for (const it of orderItems) {
+      if (it.ordered_qty > it.stock_available) {
         toast.warning(
           language === "en"
-            ? `Warning: ${item.product_name} has insufficient stock (Available: ${item.stock_available})`
-            : `Peringatan: ${item.product_name} stok tidak cukup (Tersedia: ${item.stock_available})`,
+            ? `Warning: ${it.product_name} has insufficient stock (Available: ${it.stock_available})`
+            : `Peringatan: ${it.product_name} stok tidak cukup (Tersedia: ${it.stock_available})`,
         );
       }
     }
 
     setIsSaving(true);
+
     const { subtotal, grandTotal } = calculateTotals();
+
+    const itemsPayload = orderItems.map((it) => ({
+      product_id: it.product_id,
+      unit_price: it.unit_price,
+      ordered_qty: it.ordered_qty,
+      discount: 0, // item discount DISABLED
+    }));
 
     if (isEditMode && editingOrderId) {
       const result = await updateSalesOrder(
@@ -463,17 +512,12 @@ export default function SalesOrder() {
           notes: notes || null,
           po_document_url: poDocumentUrl || null,
           total_amount: subtotal,
-          discount: discount,
-          tax_rate: taxRate,
-          shipping_cost: shippingCost,
+          discount: Math.max(0, discount || 0), // ONLY ONE DISCOUNT
+          tax_rate: Math.max(0, taxRate || 0),
+          shipping_cost: Math.max(0, shippingCost || 0),
           grand_total: grandTotal,
         },
-        orderItems.map((item) => ({
-          product_id: item.product_id,
-          unit_price: item.unit_price,
-          ordered_qty: item.ordered_qty,
-          discount: item.discount,
-        })),
+        itemsPayload,
       );
 
       if (result.success) {
@@ -502,20 +546,15 @@ export default function SalesOrder() {
           po_document_url: poDocumentUrl || null,
           status: "draft",
           total_amount: subtotal,
-          discount: discount,
-          tax_rate: taxRate,
-          shipping_cost: shippingCost,
+          discount: Math.max(0, discount || 0), // ONLY ONE DISCOUNT
+          tax_rate: Math.max(0, taxRate || 0),
+          shipping_cost: Math.max(0, shippingCost || 0),
           grand_total: grandTotal,
           created_by: null,
           approved_by: null,
           approved_at: null,
         },
-        orderItems.map((item) => ({
-          product_id: item.product_id,
-          unit_price: item.unit_price,
-          ordered_qty: item.ordered_qty,
-          discount: item.discount,
-        })),
+        itemsPayload,
       );
 
       if (result.success) {
@@ -533,7 +572,6 @@ export default function SalesOrder() {
 
   const handleApprove = async () => {
     if (!selectedOrder) return;
-
     if (!canApprove) {
       toast.error(
         language === "en"
@@ -542,17 +580,12 @@ export default function SalesOrder() {
       );
       return;
     }
-
     setIsApproving(true);
     const result = await approveSalesOrder(selectedOrder.id);
-
     if (result.success) {
       toast.success(language === "en" ? "Sales Order approved" : "Sales Order disetujui");
       refetch();
-    } else {
-      toast.error(result.error || "Failed to approve");
-    }
-
+    } else toast.error(result.error || "Failed to approve");
     setIsApproving(false);
     setIsApproveDialogOpen(false);
     setSelectedOrder(null);
@@ -560,17 +593,12 @@ export default function SalesOrder() {
 
   const handleCancel = async () => {
     if (!selectedOrder) return;
-
     setIsCancelling(true);
     const result = await cancelSalesOrder(selectedOrder.id);
-
     if (result.success) {
       toast.success(language === "en" ? "Sales Order cancelled" : "Sales Order dibatalkan");
       refetch();
-    } else {
-      toast.error(result.error || "Failed to cancel");
-    }
-
+    } else toast.error(result.error || "Failed to cancel");
     setIsCancelling(false);
     setIsCancelDialogOpen(false);
     setSelectedOrder(null);
@@ -578,17 +606,12 @@ export default function SalesOrder() {
 
   const handleDelete = async () => {
     if (!selectedOrder) return;
-
     setIsDeleting(true);
     const result = await deleteSalesOrder(selectedOrder.id);
-
     if (result.success) {
       toast.success(language === "en" ? "Sales Order deleted" : "Sales Order dihapus");
       refetch();
-    } else {
-      toast.error(result.error || "Failed to delete");
-    }
-
+    } else toast.error(result.error || "Failed to delete");
     setIsDeleting(false);
     setIsDeleteDialogOpen(false);
     setSelectedOrder(null);
@@ -608,65 +631,31 @@ export default function SalesOrder() {
     setIsOpeningPoDoc(true);
     try {
       const url = order.po_document_url;
-      let path = url;
 
-      // Try multiple patterns to extract the file path
-      // Pattern 1: /storage/v1/object/sign/documents/path or /storage/v1/object/public/documents/path
-      if (url.includes("/storage/v1/object/")) {
-        const pathMatch = url.match(/\/storage\/v1\/object\/(?:sign|public)\/documents\/(.+?)(?:\?|$)/);
-        if (pathMatch) {
-          path = decodeURIComponent(pathMatch[1]);
-        }
-      }
-      // Pattern 2: Direct path without URL prefix (e.g., sales-orders/timestamp-filename.pdf)
-      else if (!url.startsWith("http")) {
-        path = url;
-      }
-      // Pattern 3: Full supabase URL pattern
-      else if (url.includes(".supabase.co/storage/")) {
-        const pathMatch = url.match(/\/storage\/v1\/object\/(?:sign|public)\/documents\/(.+?)(?:\?|$)/);
-        if (pathMatch) {
-          path = decodeURIComponent(pathMatch[1]);
+      // 1) try extract storage path
+      const storagePath = extractStoragePathFromDocumentsUrl(url);
+
+      // 2) if we can sign => open signed URL
+      if (storagePath) {
+        const signed = await getSignedUrl(storagePath, "documents", 3600);
+        if (signed) {
+          window.open(signed, "_blank");
+          setIsOpeningPoDoc(false);
+          return;
         }
       }
 
-      // Get a fresh signed URL
-      const signedUrl = await getSignedUrl(path, "documents", 3600);
-
-      if (signedUrl) {
-        window.open(signedUrl, "_blank");
+      // 3) fallback open directly (for public / already signed)
+      if (url.startsWith("http")) {
+        window.open(url, "_blank");
       } else {
-        // If signing fails but we have a URL, try opening it directly
-        if (url.startsWith("http")) {
-          window.open(url, "_blank");
-        } else {
-          toast.error(language === "en" ? "Failed to open document" : "Gagal membuka dokumen");
-        }
+        toast.error(language === "en" ? "Failed to open document" : "Gagal membuka dokumen");
       }
-    } catch (error) {
-      console.error("Error opening document:", error);
+    } catch (e) {
+      console.error(e);
       toast.error(language === "en" ? "Failed to open document" : "Gagal membuka dokumen");
     }
     setIsOpeningPoDoc(false);
-  };
-
-  // Get display filename from URL
-  const getDocumentFilename = (url: string | null): string => {
-    if (!url) return "";
-    try {
-      const decoded = decodeURIComponent(url);
-      const parts = decoded.split("/");
-      const filename = parts[parts.length - 1].split("?")[0];
-      // Remove UUID prefix if present (format: uuid_filename.ext)
-      const underscoreIdx = filename.indexOf("_");
-      if (underscoreIdx > 30) {
-        // UUID is 36 chars, so check if underscore is after a long prefix
-        return filename.substring(underscoreIdx + 1);
-      }
-      return filename;
-    } catch {
-      return "Document";
-    }
   };
 
   const handlePreviewPDF = () => {
@@ -680,84 +669,291 @@ export default function SalesOrder() {
     setIsDownloadingPdf(true);
     try {
       const element = printRef.current;
+
       const opt = {
-        margin: [15, 15, 15, 15] as [number, number, number, number],
+        margin: [10, 10, 10, 10] as [number, number, number, number],
         filename: `SalesOrder_${selectedOrder.sales_order_number}.pdf`,
         image: { type: "jpeg" as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
+        html2canvas: { scale: 2, useCORS: true, allowTaint: true },
         jsPDF: { unit: "mm" as const, format: "a4" as const, orientation: "portrait" as const },
+        pagebreak: { mode: ["css", "legacy"] as any },
       };
 
-      await html2pdf().set(opt).from(element).save();
+      await (html2pdf() as any).set(opt).from(element).save();
       toast.success(language === "en" ? "PDF downloaded successfully" : "PDF berhasil diunduh");
-    } catch (error) {
-      console.error("Error generating PDF:", error);
+    } catch (e) {
+      console.error(e);
       toast.error(language === "en" ? "Failed to download PDF" : "Gagal mengunduh PDF");
     }
     setIsDownloadingPdf(false);
   };
 
-  const handleExportPDF = () => {
+  const handlePrint = () => {
     if (!selectedOrder || !printRef.current) return;
 
-    const printContent = printRef.current;
-    const printWindow = window.open("", "_blank");
+    const html = printRef.current.innerHTML;
+    const w = window.open("", "_blank");
+    if (!w) return;
 
-    if (printWindow) {
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Sales Order - ${selectedOrder.sales_order_number}</title>
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: Arial, sans-serif; padding: 30px; color: #333; font-size: 11px; }
-            .pdf-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1a365d; padding-bottom: 15px; margin-bottom: 20px; }
-            .company-logo { font-size: 24px; font-weight: bold; color: #1a365d; }
-            .document-title { font-size: 18px; font-weight: bold; text-align: right; }
-            .info-section { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 4px; }
-            .info-box { }
-            .info-box label { font-size: 9px; color: #666; text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 3px; }
-            .info-box p { font-weight: 500; font-size: 11px; }
-            table { width: 100%; border-collapse: collapse; margin: 15px 0; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 10px; }
-            th { background: #1a365d; color: white; font-weight: 600; text-transform: uppercase; }
-            .text-right { text-align: right; }
-            .text-center { text-align: center; }
-            .summary-section { display: flex; justify-content: flex-end; margin-top: 20px; }
-            .summary-box { width: 280px; }
-            .summary-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 11px; }
-            .summary-row.total { font-weight: bold; font-size: 13px; border-top: 2px solid #333; margin-top: 5px; padding-top: 8px; }
-            .address-section { margin: 20px 0; padding: 10px; background: #f8f9fa; border-radius: 4px; }
-            .address-section label { font-size: 9px; color: #666; text-transform: uppercase; font-weight: bold; }
-            .notes-section { margin: 15px 0; padding: 10px; border: 1px dashed #ccc; border-radius: 4px; }
-            .notes-section label { font-size: 9px; color: #666; text-transform: uppercase; font-weight: bold; }
-            .signature-section { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 60px; text-align: center; }
-            .signature-box { }
-            .signature-box .date-line { font-size: 10px; color: #666; margin-bottom: 50px; }
-            .signature-box .role { font-size: 10px; margin-bottom: 60px; }
-            .signature-box .line { border-bottom: 1px solid #333; margin: 0 10px; padding-top: 5px; font-size: 10px; }
-            .signature-box .approved-info { color: #059669; font-weight: bold; }
-            .digital-signature { margin-top: 30px; padding: 15px; border: 2px solid #059669; border-radius: 8px; background: #f0fdf4; }
-            .digital-signature h4 { color: #059669; margin-bottom: 10px; font-size: 12px; }
-            .digital-signature p { font-size: 10px; margin: 3px 0; }
-            @media print { 
-              body { padding: 20px; } 
-              @page { margin: 15mm; }
-            }
-          </style>
-        </head>
-        <body>
-          ${printContent.innerHTML}
-          <script>window.onload = function() { window.print(); window.onafterprint = function() { window.close(); } }</script>
-        </body>
-        </html>
-      `);
-      printWindow.document.close();
-    }
+    w.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Sales Order - ${selectedOrder.sales_order_number}</title>
+        <meta charset="utf-8" />
+        <style>
+          * { box-sizing: border-box; }
+          body { font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 18mm; color: #111; }
+          @page { size: A4; margin: 12mm; }
+          @media print { body { padding: 0; } }
+        </style>
+      </head>
+      <body>
+        ${html}
+        <script>
+          window.onload = function() { window.print(); window.onafterprint = function(){ window.close(); } }
+        </script>
+      </body>
+      </html>
+    `);
+    w.document.close();
   };
 
   const { subtotal, taxAmount, grandTotal } = calculateTotals();
+
+  // ===== PDF TEMPLATE (same as before, but totals now include ONLY ONE DISCOUNT) =====
+  const PdfTemplate = ({ order }: { order: SalesOrderHeader }) => {
+    const alloc = (order.allocation_type || "").toUpperCase();
+
+    const safeDiscount = Math.max(0, order.discount || 0);
+    const afterDisc = Math.max(0, (order.total_amount || 0) - safeDiscount);
+    const tax = afterDisc * (Math.max(0, order.tax_rate || 0) / 100);
+
+    return (
+      <div style={{ fontFamily: "Arial, Helvetica, sans-serif", color: "#111", width: "100%" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <img src={LOGO_SRC} alt="Kemika" style={{ height: 44, objectFit: "contain" }} />
+          </div>
+
+          <div style={{ textAlign: "right" }}>
+            <h1 style={{ margin: 0, fontSize: 20, letterSpacing: 0.5 }}>SALES ORDER</h1>
+            <div style={{ marginTop: 6, fontSize: 11, lineHeight: 1.6 }}>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <div style={{ width: 92, textAlign: "left", color: "#444" }}>Sales Order No.</div>
+                <div style={{ width: 10, textAlign: "center", color: "#444" }}>:</div>
+                <div style={{ width: 120, textAlign: "left", fontWeight: 600 }}>
+                  {order.sales_order_number?.replace("SOR", "PO") || order.sales_order_number}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <div style={{ width: 92, textAlign: "left", color: "#444" }}>SO Date</div>
+                <div style={{ width: 10, textAlign: "center", color: "#444" }}>:</div>
+                <div style={{ width: 120, textAlign: "left", fontWeight: 600 }}>
+                  {formatDateShort(order.order_date)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 10, fontSize: 11 }}>
+          <span style={{ color: "#444" }}>TIPE ALOKASI</span>
+          <span style={{ color: "#444", fontWeight: 600 }}> : </span>
+          <span style={{ fontWeight: 700, color: "#c1121f" }}>{alloc}</span>
+        </div>
+
+        <div style={{ borderTop: "2px solid #2a2a2a", margin: "10px 0 14px" }} />
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, fontSize: 11 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", rowGap: 10, columnGap: 10 }}>
+            <div style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>SALES</div>
+            <div style={{ fontWeight: 600 }}>{order.sales_name || "-"}</div>
+
+            <div style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>CUSTOMER</div>
+            <div style={{ fontWeight: 600 }}>{order.customer?.name || "-"}</div>
+
+            <div style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>PIC</div>
+            <div style={{ fontWeight: 600 }}>{order.customer?.pic || customerPic || "-"}</div>
+
+            <div style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>PHONE</div>
+            <div style={{ fontWeight: 600 }}>{order.customer?.phone || customerPhone || "-"}</div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", rowGap: 10, columnGap: 10 }}>
+            <div style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>TANGGAL</div>
+            <div style={{ fontWeight: 600 }}>{formatDateID(order.order_date)}</div>
+
+            <div style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>PO CUSTOMER</div>
+            <div style={{ fontWeight: 600 }}>{order.customer_po_number || "-"}</div>
+
+            <div style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>BATAS PENGIRIMAN</div>
+            <div style={{ fontWeight: 600 }}>{formatDateID(order.delivery_deadline)}</div>
+
+            <div style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>PAYMENT TERMS</div>
+            <div style={{ color: "#c1121f", fontWeight: 800 }}>
+              {(order.customer?.terms_payment || paymentTerms || "-").toString().toUpperCase()}
+            </div>
+          </div>
+        </div>
+
+        <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 14, fontSize: 11 }}>
+          <thead>
+            <tr>
+              <th style={{ background: "#0b6b3a", color: "#fff", padding: 8, border: "1px solid #0b6b3a", width: 40 }}>
+                No
+              </th>
+              <th style={{ background: "#0b6b3a", color: "#fff", padding: 8, border: "1px solid #0b6b3a" }}>
+                Nama Barang
+              </th>
+              <th style={{ background: "#0b6b3a", color: "#fff", padding: 8, border: "1px solid #0b6b3a", width: 90 }}>
+                SKU
+              </th>
+              <th style={{ background: "#0b6b3a", color: "#fff", padding: 8, border: "1px solid #0b6b3a", width: 110 }}>
+                Kategori
+              </th>
+              <th style={{ background: "#0b6b3a", color: "#fff", padding: 8, border: "1px solid #0b6b3a", width: 70 }}>
+                Satuan
+              </th>
+              <th
+                style={{
+                  background: "#0b6b3a",
+                  color: "#fff",
+                  padding: 8,
+                  border: "1px solid #0b6b3a",
+                  width: 70,
+                  textAlign: "center",
+                }}
+              >
+                Qty
+              </th>
+              <th
+                style={{
+                  background: "#0b6b3a",
+                  color: "#fff",
+                  padding: 8,
+                  border: "1px solid #0b6b3a",
+                  width: 110,
+                  textAlign: "right",
+                }}
+              >
+                Harga
+              </th>
+              <th
+                style={{
+                  background: "#0b6b3a",
+                  color: "#fff",
+                  padding: 8,
+                  border: "1px solid #0b6b3a",
+                  width: 120,
+                  textAlign: "right",
+                }}
+              >
+                Subtotal
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {selectedOrderItems.map((it: any, idx: number) => (
+              <tr key={it.id}>
+                <td style={{ border: "1px solid #cfcfcf", padding: 8 }}>{idx + 1}</td>
+                <td style={{ border: "1px solid #cfcfcf", padding: 8 }}>{it.product?.name || "-"}</td>
+                <td style={{ border: "1px solid #cfcfcf", padding: 8 }}>{it.product?.sku || "-"}</td>
+                <td style={{ border: "1px solid #cfcfcf", padding: 8 }}>{it.product?.category?.name || "-"}</td>
+                <td style={{ border: "1px solid #cfcfcf", padding: 8 }}>{it.product?.unit?.name || "-"}</td>
+                <td style={{ border: "1px solid #cfcfcf", padding: 8, textAlign: "center" }}>{it.ordered_qty}</td>
+                <td style={{ border: "1px solid #cfcfcf", padding: 8, textAlign: "right" }}>
+                  {formatCurrency(it.unit_price)}
+                </td>
+                <td style={{ border: "1px solid #cfcfcf", padding: 8, textAlign: "right" }}>
+                  {formatCurrency(it.subtotal ?? it.unit_price * it.ordered_qty)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div style={{ marginTop: 10, fontSize: 11 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}>
+            <div style={{ color: "#444" }}>Subtotal</div>
+            <div style={{ fontWeight: 700 }}>{formatCurrency(order.total_amount || 0)}</div>
+          </div>
+
+          {safeDiscount > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}>
+              <div style={{ color: "#444" }}>Discount</div>
+              <div style={{ fontWeight: 700 }}>-{formatCurrency(safeDiscount)}</div>
+            </div>
+          )}
+
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}>
+            <div style={{ color: "#444" }}>Tax ({order.tax_rate || 0}%)</div>
+            <div style={{ fontWeight: 700 }}>{formatCurrency(tax)}</div>
+          </div>
+
+          <div
+            style={{
+              marginTop: 8,
+              borderTop: "2px solid #2a2a2a",
+              paddingTop: 8,
+              display: "flex",
+              justifyContent: "space-between",
+            }}
+          >
+            <div style={{ fontWeight: 800, fontSize: 14 }}>Grand Total</div>
+            <div style={{ fontWeight: 900, fontSize: 14 }}>{formatCurrency(order.grand_total || 0)}</div>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 12, border: "1px solid #2a2a2a", display: "grid", gridTemplateColumns: "1fr 1fr" }}>
+          <div style={{ padding: 10, minHeight: 70 }}>
+            <div style={{ fontSize: 10, fontWeight: 800, color: "#444" }}>SHIP TO ADDRESS/ALAMAT PENGIRIMAN:</div>
+            <div style={{ marginTop: 8, fontSize: 11 }}>{order.ship_to_address || "-"}</div>
+          </div>
+          <div style={{ padding: 10, minHeight: 70, borderLeft: "1px solid #2a2a2a" }}>
+            <div style={{ fontSize: 10, fontWeight: 800, color: "#444" }}>CATATAN :</div>
+            <div style={{ marginTop: 8, fontSize: 11 }}>{order.notes || "-"}</div>
+          </div>
+        </div>
+
+        <div
+          style={{ marginTop: 16, border: "1px solid #2a2a2a", display: "grid", gridTemplateColumns: "repeat(4, 1fr)" }}
+        >
+          {["Pemohon,", "Finance,", "Purchasing,", "Menyetujui,"].map((role, i) => (
+            <div
+              key={role}
+              style={{
+                minHeight: 125,
+                borderRight: i === 3 ? "none" : "1px solid #2a2a2a",
+                padding: 10,
+                fontSize: 11,
+                position: "relative",
+              }}
+            >
+              <div style={{ fontSize: 11, marginBottom: 10 }}>Date:</div>
+              <div style={{ marginTop: 8 }}>{role}</div>
+              <div style={{ position: "absolute", left: 10, right: 10, bottom: 12, borderTop: "1px solid #2a2a2a" }} />
+              <div
+                style={{
+                  position: "absolute",
+                  left: 10,
+                  right: 10,
+                  bottom: 0,
+                  textAlign: "center",
+                  transform: "translateY(8px)",
+                  fontSize: 11,
+                }}
+              >
+                (……………..…........………)
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // ===== END PDF TEMPLATE =====
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -775,8 +971,8 @@ export default function SalesOrder() {
         </Button>
       </div>
 
-      {/* Tabs: Active / Archived */}
-      <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "active" | "archived")}>
+      {/* Tabs */}
+      <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)}>
         <TabsList>
           <TabsTrigger value="active" className="gap-2">
             <List className="w-4 h-4" />
@@ -893,7 +1089,7 @@ export default function SalesOrder() {
                     return (
                       <TableRow key={order.id}>
                         <TableCell className="font-medium">{order.sales_order_number}</TableCell>
-                        <TableCell>{formatDate(order.order_date)}</TableCell>
+                        <TableCell>{formatDateID(order.order_date)}</TableCell>
                         <TableCell>
                           <div>
                             <p className="font-medium">{order.customer?.name}</p>
@@ -921,18 +1117,21 @@ export default function SalesOrder() {
                                 <Eye className="w-4 h-4 mr-2" />
                                 {language === "en" ? "View Details" : "Lihat Detail"}
                               </DropdownMenuItem>
+
                               {order.po_document_url && (
                                 <DropdownMenuItem onClick={() => handleViewPoDocument(order)} disabled={isOpeningPoDoc}>
                                   <FileText className="w-4 h-4 mr-2" />
                                   {language === "en" ? "View Document" : "Lihat Dokumen"}
                                 </DropdownMenuItem>
                               )}
+
                               {showEdit && (
                                 <DropdownMenuItem onClick={() => handleEdit(order)}>
                                   <Edit className="w-4 h-4 mr-2" />
                                   {t("common.edit")}
                                 </DropdownMenuItem>
                               )}
+
                               {showApprove && (
                                 <DropdownMenuItem
                                   className="text-success"
@@ -945,6 +1144,7 @@ export default function SalesOrder() {
                                   Approve
                                 </DropdownMenuItem>
                               )}
+
                               {showCancel && (
                                 <DropdownMenuItem
                                   className="text-destructive"
@@ -957,6 +1157,7 @@ export default function SalesOrder() {
                                   Cancel
                                 </DropdownMenuItem>
                               )}
+
                               {showDelete && (
                                 <DropdownMenuItem
                                   className="text-destructive"
@@ -982,7 +1183,7 @@ export default function SalesOrder() {
         </CardContent>
       </Card>
 
-      {/* Create/Edit Sales Order Dialog */}
+      {/* Create/Edit */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
@@ -998,7 +1199,6 @@ export default function SalesOrder() {
           </DialogHeader>
 
           <div className="space-y-6 py-4">
-            {/* Header Info */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label>{language === "en" ? "SO Number" : "No. SO"} *</Label>
@@ -1009,18 +1209,13 @@ export default function SalesOrder() {
                 <Input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label className="flex items-center gap-1">
-                  Customer *
-                  {getFieldError("customerId", customerId) && (
-                    <span className="text-destructive text-xs">({getFieldError("customerId", customerId)})</span>
-                  )}
-                </Label>
+                <Label>Customer *</Label>
                 <Select value={customerId} onValueChange={handleCustomerChange}>
-                  <SelectTrigger className={getFieldError("customerId", customerId) ? "border-destructive" : ""}>
+                  <SelectTrigger>
                     <SelectValue placeholder={language === "en" ? "Select customer" : "Pilih customer"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {customers.map((c) => (
+                    {(customers as any[]).map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.name}
                       </SelectItem>
@@ -1029,195 +1224,70 @@ export default function SalesOrder() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="flex items-center gap-1">
-                  {language === "en" ? "Customer PO Number" : "No. PO Customer"} *
-                  {getFieldError("customerPoNumber", customerPoNumber) && (
-                    <span className="text-destructive text-xs">
-                      ({getFieldError("customerPoNumber", customerPoNumber)})
-                    </span>
-                  )}
-                </Label>
+                <Label>{language === "en" ? "Customer PO Number" : "No. PO Customer"} *</Label>
                 <Input
-                  placeholder="e.g., CUST-PO-001"
                   value={customerPoNumber}
                   onChange={(e) => setCustomerPoNumber(e.target.value)}
-                  onBlur={() => markTouched("customerPoNumber")}
-                  className={getFieldError("customerPoNumber", customerPoNumber) ? "border-destructive" : ""}
+                  placeholder="e.g., PO-0001"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
-                <Label className="flex items-center gap-1">
-                  {language === "en" ? "Sales Name" : "Nama Sales"} *
-                  {getFieldError("salesName", salesName) && (
-                    <span className="text-destructive text-xs">({getFieldError("salesName", salesName)})</span>
-                  )}
-                </Label>
-                <Input
-                  placeholder={language === "en" ? "Enter sales name" : "Nama sales"}
-                  value={salesName}
-                  onChange={(e) => setSalesName(e.target.value)}
-                  onBlur={() => markTouched("salesName")}
-                  className={getFieldError("salesName", salesName) ? "border-destructive" : ""}
-                />
+                <Label>{language === "en" ? "Sales Name" : "Nama Sales"} *</Label>
+                <Input value={salesName} onChange={(e) => setSalesName(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label className="flex items-center gap-1">
-                  {language === "en" ? "Allocation Type" : "Tipe Alokasi"} *
-                  {getFieldError("allocationType", allocationType) && (
-                    <span className="text-destructive text-xs">
-                      ({getFieldError("allocationType", allocationType)})
-                    </span>
-                  )}
-                </Label>
-                <Select
-                  value={allocationType}
-                  onValueChange={(v) => {
-                    setAllocationType(v);
-                    markTouched("allocationType");
-                  }}
-                >
-                  <SelectTrigger
-                    className={getFieldError("allocationType", allocationType) ? "border-destructive" : ""}
-                  >
+                <Label>{language === "en" ? "Allocation Type" : "Tipe Alokasi"} *</Label>
+                <Select value={allocationType} onValueChange={setAllocationType}>
+                  <SelectTrigger>
                     <SelectValue placeholder={language === "en" ? "Select type" : "Pilih tipe"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {allocationTypes.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
+                    {allocationTypes.map((x) => (
+                      <SelectItem key={x} value={x}>
+                        {x}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="flex items-center gap-1">
-                  {language === "en" ? "Project/Instansi" : "Proyek/Instansi"} *
-                  {getFieldError("projectInstansi", projectInstansi) && (
-                    <span className="text-destructive text-xs">
-                      ({getFieldError("projectInstansi", projectInstansi)})
-                    </span>
-                  )}
-                </Label>
-                <Input
-                  placeholder={language === "en" ? "Enter project name" : "Nama proyek"}
-                  value={projectInstansi}
-                  onChange={(e) => setProjectInstansi(e.target.value)}
-                  onBlur={() => markTouched("projectInstansi")}
-                  className={getFieldError("projectInstansi", projectInstansi) ? "border-destructive" : ""}
-                />
+                <Label>{language === "en" ? "Project/Instansi" : "Proyek/Instansi"} *</Label>
+                <Input value={projectInstansi} onChange={(e) => setProjectInstansi(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label className="flex items-center gap-1">
-                  {language === "en" ? "Delivery Deadline" : "Batas Pengiriman"} *
-                  {getFieldError("deliveryDeadline", deliveryDeadline) && (
-                    <span className="text-destructive text-xs">
-                      ({getFieldError("deliveryDeadline", deliveryDeadline)})
-                    </span>
-                  )}
-                </Label>
-                <Input
-                  type="date"
-                  value={deliveryDeadline}
-                  onChange={(e) => setDeliveryDeadline(e.target.value)}
-                  onBlur={() => markTouched("deliveryDeadline")}
-                  className={getFieldError("deliveryDeadline", deliveryDeadline) ? "border-destructive" : ""}
-                />
-              </div>
-            </div>
-
-            {/* Auto-filled customer info */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>PIC</Label>
-                <Input
-                  value={customerPic}
-                  onChange={(e) => setCustomerPic(e.target.value)}
-                  placeholder={language === "en" ? "Auto-filled from customer" : "Otomatis dari customer"}
-                  className="bg-muted/50"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{language === "en" ? "Phone" : "Telepon"}</Label>
-                <Input
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  placeholder={language === "en" ? "Auto-filled from customer" : "Otomatis dari customer"}
-                  className="bg-muted/50"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{language === "en" ? "Payment Terms" : "Termin Pembayaran"}</Label>
-                <Input
-                  value={paymentTerms}
-                  onChange={(e) => setPaymentTerms(e.target.value)}
-                  placeholder={language === "en" ? "Auto-filled from customer" : "Otomatis dari customer"}
-                  className="bg-muted/50"
-                />
+                <Label>{language === "en" ? "Delivery Deadline" : "Batas Pengiriman"} *</Label>
+                <Input type="date" value={deliveryDeadline} onChange={(e) => setDeliveryDeadline(e.target.value)} />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{language === "en" ? "Ship To Address" : "Alamat Pengiriman"}</Label>
-                <Textarea
-                  placeholder={language === "en" ? "Enter shipping address" : "Alamat pengiriman"}
-                  value={shipToAddress}
-                  onChange={(e) => setShipToAddress(e.target.value)}
-                  rows={2}
-                />
+                <Textarea value={shipToAddress} onChange={(e) => setShipToAddress(e.target.value)} rows={2} />
               </div>
               <div className="space-y-2">
                 <Label>{language === "en" ? "Notes" : "Catatan"}</Label>
-                <Textarea
-                  placeholder={language === "en" ? "Enter notes" : "Catatan"}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={2}
-                />
+                <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
               </div>
             </div>
 
             <div className="space-y-2">
               <Label>{language === "en" ? "PO Document" : "Dokumen PO"}</Label>
               <div className="flex gap-2">
-                {poDocumentUrl ? (
-                  <div className="flex items-center gap-2 p-2 bg-muted rounded flex-1 overflow-hidden">
-                    <span className="text-sm text-primary truncate max-w-[300px]">
-                      {(() => {
-                        // Extract filename from URL (before query params)
-                        const urlPath = poDocumentUrl.split("?")[0];
-                        const segments = urlPath.split("/");
-                        const filename = segments[segments.length - 1];
-                        // Remove UUID prefix if present (format: uuid-filename.ext)
-                        const uuidPattern = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-/i;
-                        return decodeURIComponent(filename.replace(uuidPattern, ""));
-                      })()}
-                    </span>
-                  </div>
-                ) : (
-                  <Input
-                    value=""
-                    disabled
-                    placeholder={language === "en" ? "Upload PO document" : "Upload dokumen PO"}
-                    className="bg-muted flex-1"
-                  />
-                )}
+                <Input
+                  value={poDocumentUrl ? decodeURIComponent(poDocumentUrl.split("?")[0].split("/").pop() || "") : ""}
+                  disabled
+                  placeholder={language === "en" ? "Upload PO document" : "Upload dokumen PO"}
+                  className="bg-muted flex-1"
+                />
                 <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
                   {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                 </Button>
                 {poDocumentUrl && (
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => {
-                      setPoDocumentUrl("");
-                      setPoDocumentKey("");
-                    }}
-                  >
+                  <Button variant="outline" size="icon" onClick={() => setPoDocumentUrl("")}>
                     <X className="w-4 h-4" />
                   </Button>
                 )}
@@ -1231,7 +1301,7 @@ export default function SalesOrder() {
               </div>
             </div>
 
-            {/* Product Items */}
+            {/* Items */}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">{language === "en" ? "Order Items" : "Item Pesanan"}</CardTitle>
@@ -1245,7 +1315,7 @@ export default function SalesOrder() {
                       />
                     </SelectTrigger>
                     <SelectContent>
-                      {products
+                      {(products as any[])
                         .filter((p) => p.is_active)
                         .map((p) => (
                           <SelectItem key={p.id} value={p.id}>
@@ -1270,27 +1340,28 @@ export default function SalesOrder() {
                       <TableHead className="text-right">{language === "en" ? "Unit Price" : "Harga"}</TableHead>
                       <TableHead className="text-center">Qty</TableHead>
                       <TableHead className="text-right">Subtotal</TableHead>
-                      <TableHead></TableHead>
+                      <TableHead />
                     </TableRow>
                   </TableHeader>
+
                   <TableBody>
                     {orderItems.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                           {language === "en" ? "No products added" : "Belum ada produk ditambahkan"}
                         </TableCell>
                       </TableRow>
                     ) : (
-                      orderItems.map((item, index) => (
-                        <TableRow key={item.product_id}>
-                          <TableCell className="font-medium">{item.product_name}</TableCell>
-                          <TableCell>{item.sku}</TableCell>
-                          <TableCell>{item.unit}</TableCell>
+                      orderItems.map((it, idx) => (
+                        <TableRow key={it.product_id}>
+                          <TableCell className="font-medium">{it.product_name}</TableCell>
+                          <TableCell>{it.sku}</TableCell>
+                          <TableCell>{it.unit}</TableCell>
                           <TableCell className="text-center">
-                            <Badge variant={item.stock_available >= item.ordered_qty ? "success" : "pending"}>
-                              {item.stock_available}
+                            <Badge variant={it.stock_available >= it.ordered_qty ? "success" : "pending"}>
+                              {it.stock_available}
                             </Badge>
-                            {item.stock_available < item.ordered_qty && (
+                            {it.stock_available < it.ordered_qty && (
                               <AlertTriangle className="w-4 h-4 text-warning inline ml-1" />
                             )}
                           </TableCell>
@@ -1298,32 +1369,23 @@ export default function SalesOrder() {
                             <Input
                               type="number"
                               min="0"
-                              value={item.unit_price}
-                              onChange={(e) => handleItemChange(index, "unit_price", parseFloat(e.target.value) || 0)}
+                              value={it.unit_price}
+                              onChange={(e) => handleItemChange(idx, "unit_price", parseFloat(e.target.value) || 0)}
                               className="w-28 text-right"
                             />
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="text-center">
                             <Input
                               type="number"
                               min="1"
-                              value={item.ordered_qty}
-                              onChange={(e) => handleItemChange(index, "ordered_qty", parseInt(e.target.value) || 1)}
+                              value={it.ordered_qty}
+                              onChange={(e) => handleItemChange(idx, "ordered_qty", parseInt(e.target.value) || 1)}
                               className="w-20 text-center"
                             />
                           </TableCell>
+                          <TableCell className="text-right font-medium">{formatCurrency(it.subtotal)}</TableCell>
                           <TableCell>
-                            <Input
-                              type="number"
-                              min="0"
-                              value={item.discount}
-                              onChange={(e) => handleItemChange(index, "discount", parseFloat(e.target.value) || 0)}
-                              className="w-24 text-right"
-                            />
-                          </TableCell>
-                          <TableCell className="text-right font-medium">{formatCurrency(item.subtotal)}</TableCell>
-                          <TableCell>
-                            <Button variant="ghost" size="iconSm" onClick={() => handleRemoveItem(index)}>
+                            <Button variant="ghost" size="iconSm" onClick={() => handleRemoveItem(idx)}>
                               <Trash2 className="w-4 h-4 text-destructive" />
                             </Button>
                           </TableCell>
@@ -1335,7 +1397,7 @@ export default function SalesOrder() {
               </CardContent>
             </Card>
 
-            {/* Totals */}
+            {/* Totals (ONLY ONE DISCOUNT) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -1369,6 +1431,7 @@ export default function SalesOrder() {
                   />
                 </div>
               </div>
+
               <Card className="bg-muted/50">
                 <CardContent className="p-4 space-y-2">
                   <div className="flex justify-between">
@@ -1377,7 +1440,7 @@ export default function SalesOrder() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">{language === "en" ? "Discount" : "Diskon"}</span>
-                    <span className="font-medium text-destructive">-{formatCurrency(discount)}</span>
+                    <span className="font-medium text-destructive">-{formatCurrency(Math.max(0, discount || 0))}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">
@@ -1424,7 +1487,7 @@ export default function SalesOrder() {
         </DialogContent>
       </Dialog>
 
-      {/* Approve Dialog */}
+      {/* Approve */}
       <AlertDialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1449,7 +1512,7 @@ export default function SalesOrder() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Cancel Dialog */}
+      {/* Cancel */}
       <AlertDialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1474,7 +1537,7 @@ export default function SalesOrder() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete Dialog */}
+      {/* Delete */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1499,13 +1562,13 @@ export default function SalesOrder() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Detail Dialog */}
+      {/* Detail */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <DialogTitle>{language === "en" ? "Sales Order Details" : "Detail Sales Order"}</DialogTitle>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap justify-end">
                 {selectedOrder?.po_document_url && (
                   <Button
                     variant="outline"
@@ -1538,7 +1601,7 @@ export default function SalesOrder() {
                   )}
                   {language === "en" ? "Download" : "Unduh"}
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={itemsLoading}>
+                <Button variant="outline" size="sm" onClick={handlePrint} disabled={itemsLoading}>
                   <Printer className="w-4 h-4 mr-2" />
                   {language === "en" ? "Print" : "Cetak"}
                 </Button>
@@ -1555,118 +1618,7 @@ export default function SalesOrder() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">{language === "en" ? "Date" : "Tanggal"}</p>
-                  <p className="font-medium">{formatDate(selectedOrder.order_date)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Customer</p>
-                  <p className="font-medium">{selectedOrder.customer?.name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{language === "en" ? "Customer PO" : "PO Customer"}</p>
-                  <p className="font-medium">{selectedOrder.customer_po_number}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Sales</p>
-                  <p className="font-medium">{selectedOrder.sales_name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    {language === "en" ? "Delivery Deadline" : "Batas Pengiriman"}
-                  </p>
-                  <p className="font-medium">{formatDate(selectedOrder.delivery_deadline)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{t("common.status")}</p>
-                  <Badge variant={statusConfig[selectedOrder.status]?.variant || "draft"}>
-                    {language === "en"
-                      ? statusConfig[selectedOrder.status]?.label
-                      : statusConfig[selectedOrder.status]?.labelId}
-                  </Badge>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Grand Total</p>
-                  <p className="font-medium text-primary">{formatCurrency(selectedOrder.grand_total)}</p>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-semibold mb-3">{language === "en" ? "Order Items" : "Item Pesanan"}</h4>
-                {itemsLoading ? (
-                  <div className="flex justify-center py-4">
-                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                  </div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">#</TableHead>
-                        <TableHead>{language === "en" ? "Product" : "Produk"}</TableHead>
-                        <TableHead>SKU</TableHead>
-                        <TableHead>{language === "en" ? "Category" : "Kategori"}</TableHead>
-                        <TableHead>{language === "en" ? "Unit" : "Satuan"}</TableHead>
-                        <TableHead className="text-center">Qty</TableHead>
-                        <TableHead className="text-right">{language === "en" ? "Price" : "Harga"}</TableHead>
-                        <TableHead className="text-right">Subtotal</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {selectedOrderItems.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={8} className="text-center py-4 text-muted-foreground">
-                            {language === "en" ? "No items found" : "Tidak ada item"}
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        selectedOrderItems.map((item, index) => (
-                          <TableRow key={item.id}>
-                            <TableCell>{index + 1}</TableCell>
-                            <TableCell className="font-medium">{item.product?.name}</TableCell>
-                            <TableCell>{item.product?.sku || "-"}</TableCell>
-                            <TableCell>{item.product?.category?.name || "-"}</TableCell>
-                            <TableCell>{item.product?.unit?.name || "-"}</TableCell>
-                            <TableCell className="text-center">{item.ordered_qty}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(item.unit_price)}</TableCell>
-                            <TableCell className="text-right">
-                              {formatCurrency(
-                                item.subtotal || item.unit_price * item.ordered_qty - (item.discount || 0),
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                )}
-              </div>
-
-              <div className="border-t pt-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span>{formatCurrency(selectedOrder.total_amount)}</span>
-                </div>
-                {selectedOrder.discount > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Discount</span>
-                    <span>-{formatCurrency(selectedOrder.discount)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Tax ({selectedOrder.tax_rate}%)</span>
-                  <span>
-                    {formatCurrency(
-                      ((selectedOrder.total_amount - selectedOrder.discount) * selectedOrder.tax_rate) / 100,
-                    )}
-                  </span>
-                </div>
-                {selectedOrder.shipping_cost > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">{language === "en" ? "Shipping" : "Pengiriman"}</span>
-                    <span>{formatCurrency(selectedOrder.shipping_cost)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between font-semibold text-lg pt-2 border-t">
-                  <span>Grand Total</span>
-                  <span className="text-primary">{formatCurrency(selectedOrder.grand_total)}</span>
+                  <p className="font-medium">{formatDateID(selectedOrder.order_date)}</p>
                 </div>
               </div>
             </div>
@@ -1680,225 +1632,12 @@ export default function SalesOrder() {
         </DialogContent>
       </Dialog>
 
-      {/* Hidden Print Content - Kemika Format */}
+      {/* Hidden PDF/Print DOM */}
       <div className="hidden">
-        <div ref={printRef}>
-          {selectedOrder && (
-            <div>
-              {/* Header */}
-              <div className="pdf-header">
-                <div>
-                  <div className="company-logo">Kemika</div>
-                </div>
-                <div className="document-title">SALES ORDER</div>
-              </div>
-
-              {/* Info Section - Row 1 */}
-              <div className="info-section">
-                <div className="info-box">
-                  <label>Sales Order No.</label>
-                  <p>{selectedOrder.sales_order_number}</p>
-                </div>
-                <div className="info-box">
-                  <label>Tipe Alokasi</label>
-                  <p>{selectedOrder.allocation_type.toUpperCase()}</p>
-                </div>
-                <div className="info-box">
-                  <label>SO Date</label>
-                  <p>{formatDate(selectedOrder.order_date)}</p>
-                </div>
-                <div className="info-box">
-                  <label>Tanggal</label>
-                  <p>{formatDate(selectedOrder.order_date)}</p>
-                </div>
-              </div>
-
-              {/* Info Section - Row 2 */}
-              <div className="info-section">
-                <div className="info-box">
-                  <label>Sales</label>
-                  <p>{selectedOrder.sales_name}</p>
-                </div>
-                <div className="info-box">
-                  <label>Customer</label>
-                  <p>{selectedOrder.customer?.name}</p>
-                </div>
-                <div className="info-box">
-                  <label>PO Customer</label>
-                  <p>{selectedOrder.customer_po_number}</p>
-                </div>
-                <div className="info-box">
-                  <label>Batas Pengiriman</label>
-                  <p>{formatDate(selectedOrder.delivery_deadline)}</p>
-                </div>
-              </div>
-
-              {/* Info Section - Row 3 */}
-              <div className="info-section">
-                <div className="info-box">
-                  <label>PIC</label>
-                  <p>{selectedOrder.customer?.pic || "-"}</p>
-                </div>
-                <div className="info-box">
-                  <label>Phone</label>
-                  <p>{selectedOrder.customer?.phone || "-"}</p>
-                </div>
-                <div className="info-box">
-                  <label>Payment Terms</label>
-                  <p>{selectedOrder.customer?.terms_payment || "-"}</p>
-                </div>
-                <div className="info-box">
-                  <label>Proyek/Instansi</label>
-                  <p>{selectedOrder.project_instansi}</p>
-                </div>
-              </div>
-
-              {/* Items Table */}
-              <table>
-                <thead>
-                  <tr>
-                    <th style={{ width: "30px" }}>#</th>
-                    <th>Nama Barang</th>
-                    <th style={{ width: "80px" }}>SKU</th>
-                    <th style={{ width: "100px" }}>Kategori</th>
-                    <th style={{ width: "60px" }}>Satuan</th>
-                    <th className="text-center" style={{ width: "50px" }}>
-                      Qty
-                    </th>
-                    <th className="text-right" style={{ width: "100px" }}>
-                      Harga
-                    </th>
-                    <th className="text-right" style={{ width: "100px" }}>
-                      Subtotal
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedOrderItems.map((item, index) => (
-                    <tr key={item.id}>
-                      <td className="text-center">{index + 1}</td>
-                      <td>{item.product?.name}</td>
-                      <td>{item.product?.sku || "-"}</td>
-                      <td>{item.product?.category?.name || "-"}</td>
-                      <td>{item.product?.unit?.name || "-"}</td>
-                      <td className="text-center">{item.ordered_qty}</td>
-                      <td className="text-right">{formatCurrency(item.unit_price)}</td>
-                      <td className="text-right">
-                        {formatCurrency(item.subtotal || item.unit_price * item.ordered_qty - (item.discount || 0))}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {/* Summary */}
-              <div className="summary-section">
-                <div className="summary-box">
-                  <div className="summary-row">
-                    <span>Subtotal:</span>
-                    <span>{formatCurrency(selectedOrder.total_amount)}</span>
-                  </div>
-                  {selectedOrder.discount > 0 && (
-                    <div className="summary-row">
-                      <span>Discount:</span>
-                      <span>-{formatCurrency(selectedOrder.discount)}</span>
-                    </div>
-                  )}
-                  <div className="summary-row">
-                    <span>Tax ({selectedOrder.tax_rate}%):</span>
-                    <span>
-                      {formatCurrency(
-                        ((selectedOrder.total_amount - selectedOrder.discount) * selectedOrder.tax_rate) / 100,
-                      )}
-                    </span>
-                  </div>
-                  {selectedOrder.shipping_cost > 0 && (
-                    <div className="summary-row">
-                      <span>Pengiriman:</span>
-                      <span>{formatCurrency(selectedOrder.shipping_cost)}</span>
-                    </div>
-                  )}
-                  <div className="summary-row total">
-                    <span>Grand Total:</span>
-                    <span>{formatCurrency(selectedOrder.grand_total)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Ship To Address */}
-              {selectedOrder.ship_to_address && (
-                <div className="address-section">
-                  <label>SHIP TO ADDRESS/ALAMAT PENGIRIMAN:</label>
-                  <p style={{ marginTop: "5px" }}>{selectedOrder.ship_to_address}</p>
-                </div>
-              )}
-
-              {/* Notes */}
-              {selectedOrder.notes && (
-                <div className="notes-section">
-                  <label>CATATAN:</label>
-                  <p style={{ marginTop: "5px" }}>{selectedOrder.notes}</p>
-                </div>
-              )}
-
-              {/* Digital Signature for Approved Orders */}
-              {selectedOrder.status !== "draft" && selectedOrder.approved_at && (
-                <div className="digital-signature">
-                  <h4>✓ DIGITAL SIGNATURE / TANDA TANGAN DIGITAL</h4>
-                  <p>
-                    <strong>{language === "en" ? "Approved By" : "Disetujui Oleh"}:</strong>{" "}
-                    {selectedOrder.approved_by || "System"}
-                  </p>
-                  <p>
-                    <strong>{language === "en" ? "Approval Date" : "Tanggal Persetujuan"}:</strong>{" "}
-                    {formatDate(selectedOrder.approved_at)}
-                  </p>
-                  <p>
-                    <strong>Status:</strong> {selectedOrder.status.toUpperCase()}
-                  </p>
-                  <p style={{ fontSize: "8px", marginTop: "8px", color: "#666" }}>
-                    {language === "en"
-                      ? "This document has been digitally approved and is valid without physical signature."
-                      : "Dokumen ini telah disetujui secara digital dan sah tanpa tanda tangan fisik."}
-                  </p>
-                </div>
-              )}
-
-              {/* Signature Section */}
-              <div className="signature-section">
-                <div className="signature-box">
-                  <div className="date-line">Date:</div>
-                  <div className="role">Pemohon,</div>
-                  <div className="line">(……………..…........………)</div>
-                </div>
-                <div className="signature-box">
-                  <div className="date-line">Date:</div>
-                  <div className="role">Finance,</div>
-                  <div className="line">(……………..…........………)</div>
-                </div>
-                <div className="signature-box">
-                  <div className="date-line">Date:</div>
-                  <div className="role">Purchasing,</div>
-                  <div className="line">(……………..…........………)</div>
-                </div>
-                <div className="signature-box">
-                  <div className="date-line">
-                    Date:{selectedOrder.approved_at ? ` ${formatDate(selectedOrder.approved_at)}` : ""}
-                  </div>
-                  <div className="role">Menyetujui,</div>
-                  {selectedOrder.approved_by ? (
-                    <div className="line approved-info">({selectedOrder.approved_by})</div>
-                  ) : (
-                    <div className="line">(……………..…........………)</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        <div ref={printRef}>{selectedOrder && <PdfTemplate order={selectedOrder} />}</div>
       </div>
 
-      {/* PDF Preview Dialog */}
+      {/* PDF Preview */}
       <Dialog open={isPdfPreviewOpen} onOpenChange={setIsPdfPreviewOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1906,298 +1645,8 @@ export default function SalesOrder() {
           </DialogHeader>
 
           {selectedOrder && (
-            <div
-              className="bg-white text-black p-8 rounded-lg border"
-              style={{ fontFamily: "Arial, sans-serif", fontSize: "11px" }}
-            >
-              {/* Header */}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  borderBottom: "2px solid #1a365d",
-                  paddingBottom: "15px",
-                  marginBottom: "20px",
-                }}
-              >
-                <div style={{ fontSize: "24px", fontWeight: "bold", color: "#1a365d" }}>Kemika</div>
-                <div style={{ fontSize: "18px", fontWeight: "bold" }}>SALES ORDER</div>
-              </div>
-
-              {/* Info Section - Row 1 */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(4, 1fr)",
-                  gap: "15px",
-                  marginBottom: "15px",
-                  padding: "10px",
-                  background: "#f8f9fa",
-                  borderRadius: "4px",
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: "9px", color: "#666", textTransform: "uppercase", fontWeight: "bold" }}>
-                    Sales Order No.
-                  </div>
-                  <div style={{ fontWeight: "500" }}>{selectedOrder.sales_order_number}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: "9px", color: "#666", textTransform: "uppercase", fontWeight: "bold" }}>
-                    Tipe Alokasi
-                  </div>
-                  <div style={{ fontWeight: "500" }}>{selectedOrder.allocation_type.toUpperCase()}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: "9px", color: "#666", textTransform: "uppercase", fontWeight: "bold" }}>
-                    SO Date
-                  </div>
-                  <div style={{ fontWeight: "500" }}>{formatDate(selectedOrder.order_date)}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: "9px", color: "#666", textTransform: "uppercase", fontWeight: "bold" }}>
-                    Batas Pengiriman
-                  </div>
-                  <div style={{ fontWeight: "500" }}>{formatDate(selectedOrder.delivery_deadline)}</div>
-                </div>
-              </div>
-
-              {/* Info Section - Row 2 */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(4, 1fr)",
-                  gap: "15px",
-                  marginBottom: "15px",
-                  padding: "10px",
-                  background: "#f8f9fa",
-                  borderRadius: "4px",
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: "9px", color: "#666", textTransform: "uppercase", fontWeight: "bold" }}>
-                    Sales
-                  </div>
-                  <div style={{ fontWeight: "500" }}>{selectedOrder.sales_name}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: "9px", color: "#666", textTransform: "uppercase", fontWeight: "bold" }}>
-                    Customer
-                  </div>
-                  <div style={{ fontWeight: "500" }}>{selectedOrder.customer?.name}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: "9px", color: "#666", textTransform: "uppercase", fontWeight: "bold" }}>
-                    PO Customer
-                  </div>
-                  <div style={{ fontWeight: "500" }}>{selectedOrder.customer_po_number}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: "9px", color: "#666", textTransform: "uppercase", fontWeight: "bold" }}>
-                    Proyek/Instansi
-                  </div>
-                  <div style={{ fontWeight: "500" }}>{selectedOrder.project_instansi}</div>
-                </div>
-              </div>
-
-              {/* Items Table */}
-              <table style={{ width: "100%", borderCollapse: "collapse", margin: "15px 0" }}>
-                <thead>
-                  <tr>
-                    <th
-                      style={{
-                        border: "1px solid #ddd",
-                        padding: "8px",
-                        background: "#1a365d",
-                        color: "white",
-                        fontSize: "10px",
-                        width: "30px",
-                      }}
-                    >
-                      #
-                    </th>
-                    <th
-                      style={{
-                        border: "1px solid #ddd",
-                        padding: "8px",
-                        background: "#1a365d",
-                        color: "white",
-                        fontSize: "10px",
-                        textAlign: "left",
-                      }}
-                    >
-                      Nama Barang
-                    </th>
-                    <th
-                      style={{
-                        border: "1px solid #ddd",
-                        padding: "8px",
-                        background: "#1a365d",
-                        color: "white",
-                        fontSize: "10px",
-                        width: "80px",
-                      }}
-                    >
-                      SKU
-                    </th>
-                    <th
-                      style={{
-                        border: "1px solid #ddd",
-                        padding: "8px",
-                        background: "#1a365d",
-                        color: "white",
-                        fontSize: "10px",
-                        width: "60px",
-                        textAlign: "center",
-                      }}
-                    >
-                      Qty
-                    </th>
-                    <th
-                      style={{
-                        border: "1px solid #ddd",
-                        padding: "8px",
-                        background: "#1a365d",
-                        color: "white",
-                        fontSize: "10px",
-                        width: "100px",
-                        textAlign: "right",
-                      }}
-                    >
-                      Harga
-                    </th>
-                    <th
-                      style={{
-                        border: "1px solid #ddd",
-                        padding: "8px",
-                        background: "#1a365d",
-                        color: "white",
-                        fontSize: "10px",
-                        width: "100px",
-                        textAlign: "right",
-                      }}
-                    >
-                      Subtotal
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedOrderItems.map((item, index) => (
-                    <tr key={item.id}>
-                      <td style={{ border: "1px solid #ddd", padding: "8px", textAlign: "center", fontSize: "10px" }}>
-                        {index + 1}
-                      </td>
-                      <td style={{ border: "1px solid #ddd", padding: "8px", fontSize: "10px" }}>
-                        {item.product?.name}
-                      </td>
-                      <td style={{ border: "1px solid #ddd", padding: "8px", fontSize: "10px" }}>
-                        {item.product?.sku || "-"}
-                      </td>
-                      <td style={{ border: "1px solid #ddd", padding: "8px", textAlign: "center", fontSize: "10px" }}>
-                        {item.ordered_qty}
-                      </td>
-                      <td style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right", fontSize: "10px" }}>
-                        {formatCurrency(item.unit_price)}
-                      </td>
-                      <td style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right", fontSize: "10px" }}>
-                        {formatCurrency(item.subtotal || item.unit_price * item.ordered_qty - (item.discount || 0))}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {/* Summary */}
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "20px" }}>
-                <div style={{ width: "280px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: "11px" }}>
-                    <span>Subtotal:</span>
-                    <span>{formatCurrency(selectedOrder.total_amount)}</span>
-                  </div>
-                  {selectedOrder.discount > 0 && (
-                    <div
-                      style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: "11px" }}
-                    >
-                      <span>Discount:</span>
-                      <span>-{formatCurrency(selectedOrder.discount)}</span>
-                    </div>
-                  )}
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: "11px" }}>
-                    <span>Tax ({selectedOrder.tax_rate}%):</span>
-                    <span>
-                      {formatCurrency(
-                        ((selectedOrder.total_amount - selectedOrder.discount) * selectedOrder.tax_rate) / 100,
-                      )}
-                    </span>
-                  </div>
-                  {selectedOrder.shipping_cost > 0 && (
-                    <div
-                      style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: "11px" }}
-                    >
-                      <span>Pengiriman:</span>
-                      <span>{formatCurrency(selectedOrder.shipping_cost)}</span>
-                    </div>
-                  )}
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      padding: "8px 0",
-                      fontSize: "13px",
-                      fontWeight: "bold",
-                      borderTop: "2px solid #333",
-                      marginTop: "5px",
-                    }}
-                  >
-                    <span>Grand Total:</span>
-                    <span>{formatCurrency(selectedOrder.grand_total)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Digital Signature for Approved Orders */}
-              {selectedOrder.status !== "draft" && selectedOrder.approved_at && (
-                <div
-                  style={{
-                    marginTop: "30px",
-                    padding: "15px",
-                    border: "2px solid #059669",
-                    borderRadius: "8px",
-                    background: "#f0fdf4",
-                  }}
-                >
-                  <h4
-                    style={{
-                      color: "#059669",
-                      marginBottom: "10px",
-                      fontSize: "12px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                    }}
-                  >
-                    <PenLine className="w-4 h-4" />
-                    {language === "en" ? "DIGITAL SIGNATURE" : "TANDA TANGAN DIGITAL"}
-                  </h4>
-                  <p style={{ fontSize: "10px", margin: "3px 0" }}>
-                    <strong>{language === "en" ? "Approved By" : "Disetujui Oleh"}:</strong>{" "}
-                    {selectedOrder.approved_by || "System"}
-                  </p>
-                  <p style={{ fontSize: "10px", margin: "3px 0" }}>
-                    <strong>{language === "en" ? "Approval Date" : "Tanggal Persetujuan"}:</strong>{" "}
-                    {formatDate(selectedOrder.approved_at)}
-                  </p>
-                  <p style={{ fontSize: "10px", margin: "3px 0" }}>
-                    <strong>Status:</strong> {selectedOrder.status.toUpperCase()}
-                  </p>
-                  <p style={{ fontSize: "8px", marginTop: "8px", color: "#666" }}>
-                    {language === "en"
-                      ? "This document has been digitally approved and is valid without physical signature."
-                      : "Dokumen ini telah disetujui secara digital dan sah tanpa tanda tangan fisik."}
-                  </p>
-                </div>
-              )}
+            <div className="bg-white text-black p-6 rounded-lg border">
+              <PdfTemplate order={selectedOrder} />
             </div>
           )}
 
@@ -2213,7 +1662,7 @@ export default function SalesOrder() {
               )}
               {language === "en" ? "Download PDF" : "Unduh PDF"}
             </Button>
-            <Button onClick={handleExportPDF}>
+            <Button onClick={handlePrint}>
               <Printer className="w-4 h-4 mr-2" />
               {language === "en" ? "Print" : "Cetak"}
             </Button>
