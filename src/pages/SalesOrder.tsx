@@ -332,6 +332,9 @@ export default function SalesOrder() {
       const items: OrderItem[] = [];
       for (const item of data) {
         const stock = await getProductStock(item.product_id);
+        const discPercent = item.discount || 0;
+        const baseAmount = item.ordered_qty * item.unit_price;
+        const discountAmount = baseAmount * (discPercent / 100);
         items.push({
           product_id: item.product_id,
           product_name: item.product?.name || '',
@@ -340,8 +343,8 @@ export default function SalesOrder() {
           category: item.product?.category?.name || '-',
           unit_price: item.unit_price,
           ordered_qty: item.ordered_qty,
-          discount: item.discount || 0,
-          subtotal: (item.ordered_qty * item.unit_price) - (item.discount || 0),
+          discount: discPercent,
+          subtotal: baseAmount - discountAmount,
           stock_available: stock,
         });
       }
@@ -404,8 +407,11 @@ export default function SalesOrder() {
       const updated = { ...item, [field]: value };
       const qty = field === 'ordered_qty' ? value : item.ordered_qty;
       const price = field === 'unit_price' ? value : item.unit_price;
-      const disc = field === 'discount' ? value : item.discount;
-      updated.subtotal = (qty * price) - disc;
+      const discPercent = field === 'discount' ? value : item.discount;
+      // Discount is percentage-based
+      const baseAmount = qty * price;
+      const discountAmount = baseAmount * (discPercent / 100);
+      updated.subtotal = baseAmount - discountAmount;
       return updated;
     }));
   };
@@ -416,10 +422,12 @@ export default function SalesOrder() {
 
   const calculateTotals = () => {
     const subtotal = orderItems.reduce((sum, item) => sum + item.subtotal, 0);
-    const totalAfterDiscount = subtotal - discount;
+    // Discount is now percentage-based
+    const discountAmount = subtotal * (discount / 100);
+    const totalAfterDiscount = subtotal - discountAmount;
     const taxAmount = totalAfterDiscount * (taxRate / 100);
     const grandTotal = totalAfterDiscount + taxAmount + shippingCost;
-    return { subtotal, taxAmount, grandTotal };
+    return { subtotal, discountAmount, taxAmount, grandTotal };
   };
 
   const handleSave = async () => {
@@ -445,7 +453,7 @@ export default function SalesOrder() {
     }
 
     setIsSaving(true);
-    const { subtotal, grandTotal } = calculateTotals();
+    const { subtotal, discountAmount, grandTotal } = calculateTotals();
 
     if (isEditMode && editingOrderId) {
       const result = await updateSalesOrder(
@@ -707,38 +715,42 @@ export default function SalesOrder() {
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { font-family: Arial, sans-serif; padding: 30px; color: #333; font-size: 11px; }
-            .pdf-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1a365d; padding-bottom: 15px; margin-bottom: 20px; }
-            .company-logo { font-size: 24px; font-weight: bold; color: #1a365d; }
-            .document-title { font-size: 18px; font-weight: bold; text-align: right; }
-            .info-section { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 4px; }
-            .info-box { }
-            .info-box label { font-size: 9px; color: #666; text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 3px; }
-            .info-box p { font-weight: 500; font-size: 11px; }
+            .pdf-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+            .company-logo { font-size: 32px; font-weight: bold; color: #1a5632; font-style: italic; }
+            .document-title-section { text-align: right; }
+            .document-title { font-size: 20px; font-weight: bold; color: #1a5632; }
+            .document-info { font-size: 10px; color: #666; margin-top: 5px; }
+            .allocation-badge { background: #e8f5e9; color: #1a5632; padding: 8px 15px; font-size: 11px; margin-bottom: 15px; display: inline-block; }
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px; background: #fafafa; padding: 15px; border-left: 3px solid #1a5632; }
+            .info-row { display: flex; margin-bottom: 6px; font-size: 11px; }
+            .info-label { width: 140px; font-weight: bold; text-transform: uppercase; color: #666; }
+            .info-colon { width: 15px; }
+            .info-value { flex: 1; }
             table { width: 100%; border-collapse: collapse; margin: 15px 0; }
             th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 10px; }
-            th { background: #1a365d; color: white; font-weight: 600; text-transform: uppercase; }
+            th { background: #1a5632; color: white; font-weight: 600; text-transform: uppercase; }
             .text-right { text-align: right; }
             .text-center { text-align: center; }
-            .summary-section { display: flex; justify-content: flex-end; margin-top: 20px; }
-            .summary-box { width: 280px; }
+            .summary-section { display: flex; justify-content: flex-end; margin-top: 15px; }
+            .summary-box { width: 280px; border-top: 1px solid #ddd; }
             .summary-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 11px; }
-            .summary-row.total { font-weight: bold; font-size: 13px; border-top: 2px solid #333; margin-top: 5px; padding-top: 8px; }
-            .address-section { margin: 20px 0; padding: 10px; background: #f8f9fa; border-radius: 4px; }
-            .address-section label { font-size: 9px; color: #666; text-transform: uppercase; font-weight: bold; }
-            .notes-section { margin: 15px 0; padding: 10px; border: 1px dashed #ccc; border-radius: 4px; }
-            .notes-section label { font-size: 9px; color: #666; text-transform: uppercase; font-weight: bold; }
-            .signature-section { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 60px; text-align: center; }
-            .signature-box { }
-            .signature-box .date-line { font-size: 10px; color: #666; margin-bottom: 50px; }
-            .signature-box .role { font-size: 10px; margin-bottom: 60px; }
-            .signature-box .line { border-bottom: 1px solid #333; margin: 0 10px; padding-top: 5px; font-size: 10px; }
+            .summary-row.total { font-weight: bold; font-size: 14px; background: #f5f5f5; padding: 10px; margin-top: 5px; color: #1a5632; }
+            .address-notes-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0; }
+            .address-box, .notes-box { border: 1px solid #ddd; padding: 10px; min-height: 80px; }
+            .address-box label, .notes-box label { font-size: 9px; color: #666; text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 5px; }
+            .signature-section { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 40px; text-align: center; border: 1px solid #ddd; }
+            .signature-box { padding: 15px 10px; border-right: 1px solid #ddd; }
+            .signature-box:last-child { border-right: none; }
+            .signature-box .date-line { font-size: 10px; color: #666; margin-bottom: 40px; text-align: left; }
+            .signature-box .role { font-size: 10px; margin-bottom: 50px; }
+            .signature-box .line { border-bottom: 1px solid #333; margin: 0 5px; padding-top: 5px; font-size: 10px; }
             .signature-box .approved-info { color: #059669; font-weight: bold; }
-            .digital-signature { margin-top: 30px; padding: 15px; border: 2px solid #059669; border-radius: 8px; background: #f0fdf4; }
+            .digital-signature { margin-top: 20px; padding: 15px; border: 2px solid #059669; border-radius: 8px; background: #f0fdf4; }
             .digital-signature h4 { color: #059669; margin-bottom: 10px; font-size: 12px; }
             .digital-signature p { font-size: 10px; margin: 3px 0; }
             @media print { 
               body { padding: 20px; } 
-              @page { margin: 15mm; }
+              @page { margin: 10mm; }
             }
           </style>
         </head>
@@ -752,7 +764,7 @@ export default function SalesOrder() {
     }
   };
 
-  const { subtotal, taxAmount, grandTotal } = calculateTotals();
+  const { subtotal, discountAmount, taxAmount, grandTotal } = calculateTotals();
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -1179,7 +1191,7 @@ export default function SalesOrder() {
                       <TableHead className="text-center">{language === 'en' ? 'Stock' : 'Stok'}</TableHead>
                       <TableHead className="text-right">{language === 'en' ? 'Unit Price' : 'Harga'}</TableHead>
                       <TableHead className="text-center">Qty</TableHead>
-                      <TableHead className="text-right">{language === 'en' ? 'Discount' : 'Diskon'}</TableHead>
+                      <TableHead className="text-right">{language === 'en' ? 'Discount (%)' : 'Diskon (%)'}</TableHead>
                       <TableHead className="text-right">Subtotal</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
@@ -1233,8 +1245,8 @@ export default function SalesOrder() {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>{language === 'en' ? 'Discount' : 'Diskon'}</Label>
-                    <Input type="number" min="0" value={discount} onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)} />
+                    <Label>{language === 'en' ? 'Discount (%)' : 'Diskon (%)'}</Label>
+                    <Input type="number" min="0" max="100" value={discount} onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)} />
                   </div>
                   <div className="space-y-2">
                     <Label>{language === 'en' ? 'Tax Rate (%)' : 'Tarif Pajak (%)'}</Label>
@@ -1253,8 +1265,8 @@ export default function SalesOrder() {
                     <span className="font-medium">{formatCurrency(subtotal)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">{language === 'en' ? 'Discount' : 'Diskon'}</span>
-                    <span className="font-medium text-destructive">-{formatCurrency(discount)}</span>
+                    <span className="text-muted-foreground">{language === 'en' ? 'Discount' : 'Diskon'} ({discount}%)</span>
+                    <span className="font-medium text-destructive">-{formatCurrency(discountAmount)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">{language === 'en' ? 'Tax' : 'Pajak'} ({taxRate}%)</span>
@@ -1450,18 +1462,23 @@ export default function SalesOrder() {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        selectedOrderItems.map((item, index) => (
-                          <TableRow key={item.id}>
-                            <TableCell>{index + 1}</TableCell>
-                            <TableCell className="font-medium">{item.product?.name}</TableCell>
-                            <TableCell>{item.product?.sku || '-'}</TableCell>
-                            <TableCell>{item.product?.category?.name || '-'}</TableCell>
-                            <TableCell>{item.product?.unit?.name || '-'}</TableCell>
-                            <TableCell className="text-center">{item.ordered_qty}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(item.unit_price)}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(item.subtotal || (item.unit_price * item.ordered_qty) - (item.discount || 0))}</TableCell>
-                          </TableRow>
-                        ))
+                        selectedOrderItems.map((item, index) => {
+                          const baseAmount = item.ordered_qty * item.unit_price;
+                          const discAmount = baseAmount * ((item.discount || 0) / 100);
+                          const itemSubtotal = item.subtotal || baseAmount - discAmount;
+                          return (
+                            <TableRow key={item.id}>
+                              <TableCell>{index + 1}</TableCell>
+                              <TableCell className="font-medium">{item.product?.name}</TableCell>
+                              <TableCell>{item.product?.sku || '-'}</TableCell>
+                              <TableCell>{item.product?.category?.name || '-'}</TableCell>
+                              <TableCell>{item.product?.unit?.name || '-'}</TableCell>
+                              <TableCell className="text-center">{item.ordered_qty}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(item.unit_price)}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(itemSubtotal)}</TableCell>
+                            </TableRow>
+                          );
+                        })
                       )}
                     </TableBody>
                   </Table>
@@ -1475,13 +1492,13 @@ export default function SalesOrder() {
                 </div>
                 {selectedOrder.discount > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Discount</span>
-                    <span>-{formatCurrency(selectedOrder.discount)}</span>
+                    <span className="text-muted-foreground">Discount ({selectedOrder.discount}%)</span>
+                    <span className="text-destructive">-{formatCurrency(selectedOrder.total_amount * selectedOrder.discount / 100)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Tax ({selectedOrder.tax_rate}%)</span>
-                  <span>{formatCurrency((selectedOrder.total_amount - selectedOrder.discount) * selectedOrder.tax_rate / 100)}</span>
+                  <span>{formatCurrency(selectedOrder.total_amount * (1 - selectedOrder.discount / 100) * selectedOrder.tax_rate / 100)}</span>
                 </div>
                 {selectedOrder.shipping_cost > 0 && (
                   <div className="flex justify-between text-sm">
@@ -1513,68 +1530,70 @@ export default function SalesOrder() {
               {/* Header */}
               <div className="pdf-header">
                 <div>
-                  <div className="company-logo">Kemika</div>
+                  <div className="company-logo" style={{ color: '#1a5632', fontStyle: 'italic' }}>
+                    <span style={{ color: '#c41e3a', fontWeight: 'bold' }}>K</span>emika
+                  </div>
+                  <div style={{ fontSize: '8px', color: '#666', fontStyle: 'italic' }}>SPREADING SOLUTIONS</div>
                 </div>
-                <div className="document-title">SALES ORDER</div>
-              </div>
-
-              {/* Info Section - Row 1 */}
-              <div className="info-section">
-                <div className="info-box">
-                  <label>Sales Order No.</label>
-                  <p>{selectedOrder.sales_order_number}</p>
-                </div>
-                <div className="info-box">
-                  <label>Tipe Alokasi</label>
-                  <p>{selectedOrder.allocation_type.toUpperCase()}</p>
-                </div>
-                <div className="info-box">
-                  <label>SO Date</label>
-                  <p>{formatDate(selectedOrder.order_date)}</p>
-                </div>
-                <div className="info-box">
-                  <label>Tanggal</label>
-                  <p>{formatDate(selectedOrder.order_date)}</p>
+                <div className="document-title-section">
+                  <div className="document-title">SALES ORDER</div>
+                  <div className="document-info">
+                    <div>Sales Order No. : {selectedOrder.customer_po_number}</div>
+                    <div>SO Date : {formatDate(selectedOrder.order_date)}</div>
+                  </div>
                 </div>
               </div>
 
-              {/* Info Section - Row 2 */}
-              <div className="info-section">
-                <div className="info-box">
-                  <label>Sales</label>
-                  <p>{selectedOrder.sales_name}</p>
-                </div>
-                <div className="info-box">
-                  <label>Customer</label>
-                  <p>{selectedOrder.customer?.name}</p>
-                </div>
-                <div className="info-box">
-                  <label>PO Customer</label>
-                  <p>{selectedOrder.customer_po_number}</p>
-                </div>
-                <div className="info-box">
-                  <label>Batas Pengiriman</label>
-                  <p>{formatDate(selectedOrder.delivery_deadline)}</p>
-                </div>
+              {/* Allocation Type */}
+              <div className="allocation-badge">
+                TIPE ALOKASI : <strong>{selectedOrder.allocation_type.toUpperCase()}</strong>
               </div>
 
-              {/* Info Section - Row 3 */}
-              <div className="info-section">
-                <div className="info-box">
-                  <label>PIC</label>
-                  <p>{selectedOrder.customer?.pic || '-'}</p>
+              {/* Info Section - 2 Column Layout */}
+              <div className="info-grid">
+                <div className="info-left">
+                  <div className="info-row">
+                    <span className="info-label">SALES</span>
+                    <span className="info-colon">:</span>
+                    <span className="info-value">{selectedOrder.sales_name}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">CUSTOMER</span>
+                    <span className="info-colon">:</span>
+                    <span className="info-value">{selectedOrder.customer?.name}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">PIC</span>
+                    <span className="info-colon">:</span>
+                    <span className="info-value">{selectedOrder.customer?.pic || '-'}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">PHONE</span>
+                    <span className="info-colon">:</span>
+                    <span className="info-value">{selectedOrder.customer?.phone || '-'}</span>
+                  </div>
                 </div>
-                <div className="info-box">
-                  <label>Phone</label>
-                  <p>{selectedOrder.customer?.phone || '-'}</p>
-                </div>
-                <div className="info-box">
-                  <label>Payment Terms</label>
-                  <p>{selectedOrder.customer?.terms_payment || '-'}</p>
-                </div>
-                <div className="info-box">
-                  <label>Proyek/Instansi</label>
-                  <p>{selectedOrder.project_instansi}</p>
+                <div className="info-right">
+                  <div className="info-row">
+                    <span className="info-label">TANGGAL</span>
+                    <span className="info-colon">:</span>
+                    <span className="info-value">{formatDate(selectedOrder.order_date)}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">PO CUSTOMER</span>
+                    <span className="info-colon">:</span>
+                    <span className="info-value">{selectedOrder.customer_po_number}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">BATAS PENGIRIMAN</span>
+                    <span className="info-colon">:</span>
+                    <span className="info-value">{formatDate(selectedOrder.delivery_deadline)}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">PAYMENT TERMS</span>
+                    <span className="info-colon">:</span>
+                    <span className="info-value">{selectedOrder.customer?.terms_payment || '-'}</span>
+                  </div>
                 </div>
               </div>
 
@@ -1593,18 +1612,23 @@ export default function SalesOrder() {
                   </tr>
                 </thead>
                 <tbody>
-                  {selectedOrderItems.map((item, index) => (
-                    <tr key={item.id}>
-                      <td className="text-center">{index + 1}</td>
-                      <td>{item.product?.name}</td>
-                      <td>{item.product?.sku || '-'}</td>
-                      <td>{item.product?.category?.name || '-'}</td>
-                      <td>{item.product?.unit?.name || '-'}</td>
-                      <td className="text-center">{item.ordered_qty}</td>
-                      <td className="text-right">{formatCurrency(item.unit_price)}</td>
-                      <td className="text-right">{formatCurrency(item.subtotal || (item.unit_price * item.ordered_qty) - (item.discount || 0))}</td>
-                    </tr>
-                  ))}
+                  {selectedOrderItems.map((item, index) => {
+                    const baseAmount = item.ordered_qty * item.unit_price;
+                    const discAmount = baseAmount * ((item.discount || 0) / 100);
+                    const itemSubtotal = item.subtotal || baseAmount - discAmount;
+                    return (
+                      <tr key={item.id}>
+                        <td className="text-center">{index + 1}</td>
+                        <td>{item.product?.name}</td>
+                        <td>{item.product?.sku || '-'}</td>
+                        <td>{item.product?.category?.name || '-'}</td>
+                        <td>{item.product?.unit?.name || '-'}</td>
+                        <td className="text-center">{item.ordered_qty}</td>
+                        <td className="text-right">{formatCurrency(item.unit_price)}</td>
+                        <td className="text-right">{formatCurrency(itemSubtotal)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
 
@@ -1612,47 +1636,31 @@ export default function SalesOrder() {
               <div className="summary-section">
                 <div className="summary-box">
                   <div className="summary-row">
-                    <span>Subtotal:</span>
+                    <span>Subtotal</span>
                     <span>{formatCurrency(selectedOrder.total_amount)}</span>
                   </div>
-                  {selectedOrder.discount > 0 && (
-                    <div className="summary-row">
-                      <span>Discount:</span>
-                      <span>-{formatCurrency(selectedOrder.discount)}</span>
-                    </div>
-                  )}
                   <div className="summary-row">
-                    <span>Tax ({selectedOrder.tax_rate}%):</span>
-                    <span>{formatCurrency((selectedOrder.total_amount - selectedOrder.discount) * selectedOrder.tax_rate / 100)}</span>
+                    <span>Tax ({selectedOrder.tax_rate}%)</span>
+                    <span>{formatCurrency(selectedOrder.total_amount * (1 - selectedOrder.discount / 100) * selectedOrder.tax_rate / 100)}</span>
                   </div>
-                  {selectedOrder.shipping_cost > 0 && (
-                    <div className="summary-row">
-                      <span>Pengiriman:</span>
-                      <span>{formatCurrency(selectedOrder.shipping_cost)}</span>
-                    </div>
-                  )}
                   <div className="summary-row total">
-                    <span>Grand Total:</span>
+                    <span>Grand Total</span>
                     <span>{formatCurrency(selectedOrder.grand_total)}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Ship To Address */}
-              {selectedOrder.ship_to_address && (
-                <div className="address-section">
+              {/* Ship To Address and Notes - Side by Side */}
+              <div className="address-notes-grid">
+                <div className="address-box">
                   <label>SHIP TO ADDRESS/ALAMAT PENGIRIMAN:</label>
-                  <p style={{ marginTop: '5px' }}>{selectedOrder.ship_to_address}</p>
+                  <p>{selectedOrder.ship_to_address || '-'}</p>
                 </div>
-              )}
-
-              {/* Notes */}
-              {selectedOrder.notes && (
-                <div className="notes-section">
-                  <label>CATATAN:</label>
-                  <p style={{ marginTop: '5px' }}>{selectedOrder.notes}</p>
+                <div className="notes-box">
+                  <label>CATATAN :</label>
+                  <p>{selectedOrder.notes || '-'}</p>
                 </div>
-              )}
+              </div>
 
               {/* Digital Signature for Approved Orders */}
               {selectedOrder.status !== 'draft' && selectedOrder.approved_at && (
@@ -1711,48 +1719,72 @@ export default function SalesOrder() {
           {selectedOrder && (
             <div className="bg-white text-black p-8 rounded-lg border" style={{ fontFamily: 'Arial, sans-serif', fontSize: '11px' }}>
               {/* Header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #1a365d', paddingBottom: '15px', marginBottom: '20px' }}>
-                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1a365d' }}>Kemika</div>
-                <div style={{ fontSize: '18px', fontWeight: 'bold' }}>SALES ORDER</div>
-              </div>
-
-              {/* Info Section - Row 1 */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px', marginBottom: '15px', padding: '10px', background: '#f8f9fa', borderRadius: '4px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
                 <div>
-                  <div style={{ fontSize: '9px', color: '#666', textTransform: 'uppercase', fontWeight: 'bold' }}>Sales Order No.</div>
-                  <div style={{ fontWeight: '500' }}>{selectedOrder.sales_order_number}</div>
+                  <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#1a5632', fontStyle: 'italic' }}>
+                    <span style={{ color: '#c41e3a', fontWeight: 'bold' }}>K</span>emika
+                  </div>
+                  <div style={{ fontSize: '8px', color: '#666', fontStyle: 'italic' }}>SPREADING SOLUTIONS</div>
                 </div>
-                <div>
-                  <div style={{ fontSize: '9px', color: '#666', textTransform: 'uppercase', fontWeight: 'bold' }}>Tipe Alokasi</div>
-                  <div style={{ fontWeight: '500' }}>{selectedOrder.allocation_type.toUpperCase()}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '9px', color: '#666', textTransform: 'uppercase', fontWeight: 'bold' }}>SO Date</div>
-                  <div style={{ fontWeight: '500' }}>{formatDate(selectedOrder.order_date)}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '9px', color: '#666', textTransform: 'uppercase', fontWeight: 'bold' }}>Batas Pengiriman</div>
-                  <div style={{ fontWeight: '500' }}>{formatDate(selectedOrder.delivery_deadline)}</div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#1a5632' }}>SALES ORDER</div>
+                  <div style={{ fontSize: '10px', color: '#666', marginTop: '5px' }}>
+                    <div>Sales Order No. : {selectedOrder.customer_po_number}</div>
+                    <div>SO Date : {formatDate(selectedOrder.order_date)}</div>
+                  </div>
                 </div>
               </div>
 
-              {/* Info Section - Row 2 */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px', marginBottom: '15px', padding: '10px', background: '#f8f9fa', borderRadius: '4px' }}>
+              {/* Allocation Type Badge */}
+              <div style={{ background: '#e8f5e9', color: '#1a5632', padding: '8px 15px', fontSize: '11px', marginBottom: '15px', display: 'inline-block' }}>
+                TIPE ALOKASI : <strong>{selectedOrder.allocation_type.toUpperCase()}</strong>
+              </div>
+
+              {/* Info Section - 2 Column Layout */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px', background: '#fafafa', padding: '15px', borderLeft: '3px solid #1a5632' }}>
                 <div>
-                  <div style={{ fontSize: '9px', color: '#666', textTransform: 'uppercase', fontWeight: 'bold' }}>Sales</div>
-                  <div style={{ fontWeight: '500' }}>{selectedOrder.sales_name}</div>
+                  <div style={{ display: 'flex', marginBottom: '6px', fontSize: '11px' }}>
+                    <span style={{ width: '140px', fontWeight: 'bold', textTransform: 'uppercase', color: '#666' }}>SALES</span>
+                    <span style={{ width: '15px' }}>:</span>
+                    <span>{selectedOrder.sales_name}</span>
+                  </div>
+                  <div style={{ display: 'flex', marginBottom: '6px', fontSize: '11px' }}>
+                    <span style={{ width: '140px', fontWeight: 'bold', textTransform: 'uppercase', color: '#666' }}>CUSTOMER</span>
+                    <span style={{ width: '15px' }}>:</span>
+                    <span>{selectedOrder.customer?.name}</span>
+                  </div>
+                  <div style={{ display: 'flex', marginBottom: '6px', fontSize: '11px' }}>
+                    <span style={{ width: '140px', fontWeight: 'bold', textTransform: 'uppercase', color: '#666' }}>PIC</span>
+                    <span style={{ width: '15px' }}>:</span>
+                    <span>{selectedOrder.customer?.pic || '-'}</span>
+                  </div>
+                  <div style={{ display: 'flex', marginBottom: '6px', fontSize: '11px' }}>
+                    <span style={{ width: '140px', fontWeight: 'bold', textTransform: 'uppercase', color: '#666' }}>PHONE</span>
+                    <span style={{ width: '15px' }}>:</span>
+                    <span>{selectedOrder.customer?.phone || '-'}</span>
+                  </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '9px', color: '#666', textTransform: 'uppercase', fontWeight: 'bold' }}>Customer</div>
-                  <div style={{ fontWeight: '500' }}>{selectedOrder.customer?.name}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '9px', color: '#666', textTransform: 'uppercase', fontWeight: 'bold' }}>PO Customer</div>
-                  <div style={{ fontWeight: '500' }}>{selectedOrder.customer_po_number}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '9px', color: '#666', textTransform: 'uppercase', fontWeight: 'bold' }}>Proyek/Instansi</div>
-                  <div style={{ fontWeight: '500' }}>{selectedOrder.project_instansi}</div>
+                  <div style={{ display: 'flex', marginBottom: '6px', fontSize: '11px' }}>
+                    <span style={{ width: '140px', fontWeight: 'bold', textTransform: 'uppercase', color: '#666' }}>TANGGAL</span>
+                    <span style={{ width: '15px' }}>:</span>
+                    <span>{formatDate(selectedOrder.order_date)}</span>
+                  </div>
+                  <div style={{ display: 'flex', marginBottom: '6px', fontSize: '11px' }}>
+                    <span style={{ width: '140px', fontWeight: 'bold', textTransform: 'uppercase', color: '#666' }}>PO CUSTOMER</span>
+                    <span style={{ width: '15px' }}>:</span>
+                    <span>{selectedOrder.customer_po_number}</span>
+                  </div>
+                  <div style={{ display: 'flex', marginBottom: '6px', fontSize: '11px' }}>
+                    <span style={{ width: '140px', fontWeight: 'bold', textTransform: 'uppercase', color: '#666' }}>BATAS PENGIRIMAN</span>
+                    <span style={{ width: '15px' }}>:</span>
+                    <span>{formatDate(selectedOrder.delivery_deadline)}</span>
+                  </div>
+                  <div style={{ display: 'flex', marginBottom: '6px', fontSize: '11px' }}>
+                    <span style={{ width: '140px', fontWeight: 'bold', textTransform: 'uppercase', color: '#666' }}>PAYMENT TERMS</span>
+                    <span style={{ width: '15px' }}>:</span>
+                    <span>{selectedOrder.customer?.terms_payment || '-'}</span>
+                  </div>
                 </div>
               </div>
 
@@ -1760,61 +1792,70 @@ export default function SalesOrder() {
               <table style={{ width: '100%', borderCollapse: 'collapse', margin: '15px 0' }}>
                 <thead>
                   <tr>
-                    <th style={{ border: '1px solid #ddd', padding: '8px', background: '#1a365d', color: 'white', fontSize: '10px', width: '30px' }}>#</th>
-                    <th style={{ border: '1px solid #ddd', padding: '8px', background: '#1a365d', color: 'white', fontSize: '10px', textAlign: 'left' }}>Nama Barang</th>
-                    <th style={{ border: '1px solid #ddd', padding: '8px', background: '#1a365d', color: 'white', fontSize: '10px', width: '80px' }}>SKU</th>
-                    <th style={{ border: '1px solid #ddd', padding: '8px', background: '#1a365d', color: 'white', fontSize: '10px', width: '60px', textAlign: 'center' }}>Qty</th>
-                    <th style={{ border: '1px solid #ddd', padding: '8px', background: '#1a365d', color: 'white', fontSize: '10px', width: '100px', textAlign: 'right' }}>Harga</th>
-                    <th style={{ border: '1px solid #ddd', padding: '8px', background: '#1a365d', color: 'white', fontSize: '10px', width: '100px', textAlign: 'right' }}>Subtotal</th>
+                    <th style={{ border: '1px solid #ddd', padding: '8px', background: '#1a5632', color: 'white', fontSize: '10px', width: '30px' }}>#</th>
+                    <th style={{ border: '1px solid #ddd', padding: '8px', background: '#1a5632', color: 'white', fontSize: '10px', textAlign: 'left' }}>Nama Barang</th>
+                    <th style={{ border: '1px solid #ddd', padding: '8px', background: '#1a5632', color: 'white', fontSize: '10px', width: '80px' }}>SKU</th>
+                    <th style={{ border: '1px solid #ddd', padding: '8px', background: '#1a5632', color: 'white', fontSize: '10px', width: '100px' }}>Kategori</th>
+                    <th style={{ border: '1px solid #ddd', padding: '8px', background: '#1a5632', color: 'white', fontSize: '10px', width: '60px' }}>Satuan</th>
+                    <th style={{ border: '1px solid #ddd', padding: '8px', background: '#1a5632', color: 'white', fontSize: '10px', width: '50px', textAlign: 'center' }}>Qty</th>
+                    <th style={{ border: '1px solid #ddd', padding: '8px', background: '#1a5632', color: 'white', fontSize: '10px', width: '100px', textAlign: 'right' }}>Harga</th>
+                    <th style={{ border: '1px solid #ddd', padding: '8px', background: '#1a5632', color: 'white', fontSize: '10px', width: '100px', textAlign: 'right' }}>Subtotal</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {selectedOrderItems.map((item, index) => (
-                    <tr key={item.id}>
-                      <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'center', fontSize: '10px' }}>{index + 1}</td>
-                      <td style={{ border: '1px solid #ddd', padding: '8px', fontSize: '10px' }}>{item.product?.name}</td>
-                      <td style={{ border: '1px solid #ddd', padding: '8px', fontSize: '10px' }}>{item.product?.sku || '-'}</td>
-                      <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'center', fontSize: '10px' }}>{item.ordered_qty}</td>
-                      <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right', fontSize: '10px' }}>{formatCurrency(item.unit_price)}</td>
-                      <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right', fontSize: '10px' }}>{formatCurrency(item.subtotal || (item.unit_price * item.ordered_qty) - (item.discount || 0))}</td>
-                    </tr>
-                  ))}
+                  {selectedOrderItems.map((item, index) => {
+                    const baseAmount = item.ordered_qty * item.unit_price;
+                    const discAmount = baseAmount * ((item.discount || 0) / 100);
+                    const itemSubtotal = item.subtotal || baseAmount - discAmount;
+                    return (
+                      <tr key={item.id}>
+                        <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'center', fontSize: '10px' }}>{index + 1}</td>
+                        <td style={{ border: '1px solid #ddd', padding: '8px', fontSize: '10px' }}>{item.product?.name}</td>
+                        <td style={{ border: '1px solid #ddd', padding: '8px', fontSize: '10px' }}>{item.product?.sku || '-'}</td>
+                        <td style={{ border: '1px solid #ddd', padding: '8px', fontSize: '10px' }}>{item.product?.category?.name || '-'}</td>
+                        <td style={{ border: '1px solid #ddd', padding: '8px', fontSize: '10px' }}>{item.product?.unit?.name || '-'}</td>
+                        <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'center', fontSize: '10px' }}>{item.ordered_qty}</td>
+                        <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right', fontSize: '10px' }}>{formatCurrency(item.unit_price)}</td>
+                        <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right', fontSize: '10px' }}>{formatCurrency(itemSubtotal)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
 
               {/* Summary */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
-                <div style={{ width: '280px' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '15px' }}>
+                <div style={{ width: '280px', borderTop: '1px solid #ddd' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: '11px' }}>
-                    <span>Subtotal:</span>
+                    <span>Subtotal</span>
                     <span>{formatCurrency(selectedOrder.total_amount)}</span>
                   </div>
-                  {selectedOrder.discount > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: '11px' }}>
-                      <span>Discount:</span>
-                      <span>-{formatCurrency(selectedOrder.discount)}</span>
-                    </div>
-                  )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: '11px' }}>
-                    <span>Tax ({selectedOrder.tax_rate}%):</span>
-                    <span>{formatCurrency((selectedOrder.total_amount - selectedOrder.discount) * selectedOrder.tax_rate / 100)}</span>
+                    <span>Tax ({selectedOrder.tax_rate}%)</span>
+                    <span>{formatCurrency(selectedOrder.total_amount * (1 - selectedOrder.discount / 100) * selectedOrder.tax_rate / 100)}</span>
                   </div>
-                  {selectedOrder.shipping_cost > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: '11px' }}>
-                      <span>Pengiriman:</span>
-                      <span>{formatCurrency(selectedOrder.shipping_cost)}</span>
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: '13px', fontWeight: 'bold', borderTop: '2px solid #333', marginTop: '5px' }}>
-                    <span>Grand Total:</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', fontSize: '14px', fontWeight: 'bold', background: '#f5f5f5', marginTop: '5px', color: '#1a5632' }}>
+                    <span>Grand Total</span>
                     <span>{formatCurrency(selectedOrder.grand_total)}</span>
                   </div>
                 </div>
               </div>
 
+              {/* Address and Notes Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', margin: '20px 0' }}>
+                <div style={{ border: '1px solid #ddd', padding: '10px', minHeight: '80px' }}>
+                  <div style={{ fontSize: '9px', color: '#666', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '5px' }}>SHIP TO ADDRESS/ALAMAT PENGIRIMAN:</div>
+                  <div style={{ fontSize: '11px' }}>{selectedOrder.ship_to_address || '-'}</div>
+                </div>
+                <div style={{ border: '1px solid #ddd', padding: '10px', minHeight: '80px' }}>
+                  <div style={{ fontSize: '9px', color: '#666', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '5px' }}>CATATAN :</div>
+                  <div style={{ fontSize: '11px' }}>{selectedOrder.notes || '-'}</div>
+                </div>
+              </div>
+
               {/* Digital Signature for Approved Orders */}
               {selectedOrder.status !== 'draft' && selectedOrder.approved_at && (
-                <div style={{ marginTop: '30px', padding: '15px', border: '2px solid #059669', borderRadius: '8px', background: '#f0fdf4' }}>
+                <div style={{ marginTop: '20px', padding: '15px', border: '2px solid #059669', borderRadius: '8px', background: '#f0fdf4' }}>
                   <h4 style={{ color: '#059669', marginBottom: '10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <PenLine className="w-4 h-4" />
                     {language === 'en' ? 'DIGITAL SIGNATURE' : 'TANDA TANGAN DIGITAL'}
@@ -1829,6 +1870,36 @@ export default function SalesOrder() {
                   </p>
                 </div>
               )}
+
+              {/* Signature Section */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', marginTop: '40px', textAlign: 'center', border: '1px solid #ddd' }}>
+                <div style={{ padding: '15px 10px', borderRight: '1px solid #ddd' }}>
+                  <div style={{ fontSize: '10px', color: '#666', marginBottom: '40px', textAlign: 'left' }}>Date:</div>
+                  <div style={{ fontSize: '10px', marginBottom: '50px' }}>Pemohon,</div>
+                  <div style={{ borderBottom: '1px solid #333', margin: '0 5px', paddingTop: '5px', fontSize: '10px' }}>(……………..…........………)</div>
+                </div>
+                <div style={{ padding: '15px 10px', borderRight: '1px solid #ddd' }}>
+                  <div style={{ fontSize: '10px', color: '#666', marginBottom: '40px', textAlign: 'left' }}>Date:</div>
+                  <div style={{ fontSize: '10px', marginBottom: '50px' }}>Finance,</div>
+                  <div style={{ borderBottom: '1px solid #333', margin: '0 5px', paddingTop: '5px', fontSize: '10px' }}>(……………..…........………)</div>
+                </div>
+                <div style={{ padding: '15px 10px', borderRight: '1px solid #ddd' }}>
+                  <div style={{ fontSize: '10px', color: '#666', marginBottom: '40px', textAlign: 'left' }}>Date:</div>
+                  <div style={{ fontSize: '10px', marginBottom: '50px' }}>Purchasing,</div>
+                  <div style={{ borderBottom: '1px solid #333', margin: '0 5px', paddingTop: '5px', fontSize: '10px' }}>(……………..…........………)</div>
+                </div>
+                <div style={{ padding: '15px 10px' }}>
+                  <div style={{ fontSize: '10px', color: '#666', marginBottom: '40px', textAlign: 'left' }}>
+                    Date:{selectedOrder.approved_at ? ` ${formatDate(selectedOrder.approved_at)}` : ''}
+                  </div>
+                  <div style={{ fontSize: '10px', marginBottom: '50px' }}>Menyetujui,</div>
+                  {selectedOrder.approved_by ? (
+                    <div style={{ borderBottom: '1px solid #333', margin: '0 5px', paddingTop: '5px', fontSize: '10px', color: '#059669', fontWeight: 'bold' }}>({selectedOrder.approved_by})</div>
+                  ) : (
+                    <div style={{ borderBottom: '1px solid #333', margin: '0 5px', paddingTop: '5px', fontSize: '10px' }}>(……………..…........………)</div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
