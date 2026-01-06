@@ -48,7 +48,7 @@ interface StockInItem {
   qty_remaining: number;
   qty_received: number;
   batch_no: string;
-  expired_date: string; // yyyy-mm-dd or ''
+  expired_date: string;
 }
 
 export default function StockIn() {
@@ -72,7 +72,6 @@ export default function StockIn() {
 
   const fetchPlanOrders = useCallback(async () => {
     setLoadingPlanOrders(true);
-
     const { data, error } = await supabase
       .from("plan_order_headers")
       .select(
@@ -85,21 +84,21 @@ export default function StockIn() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      toast.error(language === "en" ? "Failed to load plan orders" : "Gagal memuat plan order");
+      toast.error("Failed to load plan orders");
       console.error(error);
     } else {
       setPlanOrders(data || []);
     }
-
     setLoadingPlanOrders(false);
-  }, [language]);
+  }, []);
 
+  // Fetch approved plan orders with remaining qty
   useEffect(() => {
     fetchPlanOrders();
     generateStockInNumber();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchPlanOrders]);
 
+  // Fetch items when plan order selected
   useEffect(() => {
     if (!selectedPlanOrderId) {
       setItems([]);
@@ -109,7 +108,6 @@ export default function StockIn() {
 
     const fetchItems = async () => {
       setLoadingItems(true);
-
       const po = planOrders.find((p) => p.id === selectedPlanOrderId);
       setSelectedPlanOrder(po || null);
 
@@ -129,7 +127,7 @@ export default function StockIn() {
         .gt("qty_remaining", 0);
 
       if (error) {
-        toast.error(language === "en" ? "Failed to load items" : "Gagal memuat item");
+        toast.error("Failed to load items");
         console.error(error);
       } else {
         const stockInItems: StockInItem[] = (data || []).map((item: PlanOrderItem) => ({
@@ -147,23 +145,19 @@ export default function StockIn() {
         }));
         setItems(stockInItems);
       }
-
       setLoadingItems(false);
     };
 
     fetchItems();
-  }, [selectedPlanOrderId, planOrders, language]);
+  }, [selectedPlanOrderId, planOrders]);
 
   const generateStockInNumber = async () => {
-    const { data, error } = await supabase
+    // Get the latest stock in number from the database
+    const { data } = await supabase
       .from("stock_in_headers")
       .select("stock_in_number")
       .order("created_at", { ascending: false })
       .limit(1);
-
-    if (error) {
-      console.warn("generateStockInNumber error:", error);
-    }
 
     const date = new Date();
     const year = date.getFullYear();
@@ -171,7 +165,8 @@ export default function StockIn() {
 
     let sequence = 1;
     if (data && data.length > 0) {
-      const lastNumber = data[0].stock_in_number as string;
+      const lastNumber = data[0].stock_in_number;
+      // Try to extract the sequence number from format SI-YYYYMM-XXX
       const match = lastNumber.match(/SI-(\d{6})-(\d+)/);
       if (match) {
         const lastYearMonth = match[1];
@@ -208,7 +203,6 @@ export default function StockIn() {
     } else {
       toast.error(language === "en" ? "Failed to upload file" : "Gagal upload file");
     }
-
     setIsUploading(false);
   };
 
@@ -217,42 +211,13 @@ export default function StockIn() {
     setDeliveryNoteFileName("");
   };
 
-  /**
-   * Find existing inventory batch safely.
-   * Avoid maybeSingle() because it throws if duplicates exist.
-   * Match on (product_id, batch_no, expired_date NULL/equals).
-   */
-  const findExistingBatch = async (productId: string, batchNo: string, expiredDate: string | null) => {
-    let q = supabase
-      .from("inventory_batches")
-      .select("id, qty_on_hand, expired_date")
-      .eq("product_id", productId)
-      .eq("batch_no", batchNo)
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    if (expiredDate) q = q.eq("expired_date", expiredDate);
-    else q = q.is("expired_date", null);
-
-    const { data, error } = await q;
-    if (error) throw error;
-
-    return data && data.length > 0 ? data[0] : null;
-  };
-
   const handleSave = async () => {
     if (!selectedPlanOrderId) {
       toast.error(language === "en" ? "Please select a Plan Order" : "Silakan pilih Plan Order");
       return;
     }
 
-    // REQUIRED: delivery note must be uploaded (as per your business rule)
-    if (!deliveryNoteUrl) {
-      toast.error(language === "en" ? "Please upload Delivery Note" : "Harap upload Surat Jalan");
-      return;
-    }
-
-    const validItems = items.filter((item) => (Number(item.qty_received) || 0) > 0);
+    const validItems = items.filter((item) => item.qty_received > 0);
     if (validItems.length === 0) {
       toast.error(
         language === "en" ? "Please enter at least one item quantity" : "Masukkan minimal satu kuantitas item",
@@ -260,9 +225,9 @@ export default function StockIn() {
       return;
     }
 
+    // Validate batch numbers
     for (const item of validItems) {
-      const batch = (item.batch_no || "").trim();
-      if (!batch) {
+      if (!item.batch_no) {
         toast.error(
           language === "en"
             ? `Please enter batch number for ${item.product_name}`
@@ -270,7 +235,7 @@ export default function StockIn() {
         );
         return;
       }
-      if ((Number(item.qty_received) || 0) > (Number(item.qty_remaining) || 0)) {
+      if (item.qty_received > item.qty_remaining) {
         toast.error(
           language === "en"
             ? `Quantity received cannot exceed remaining for ${item.product_name}`
@@ -283,7 +248,7 @@ export default function StockIn() {
     setIsSaving(true);
 
     try {
-      // 1) Create stock in header
+      // 1. Create stock in header
       const { data: headerData, error: headerError } = await supabase
         .from("stock_in_headers")
         .insert({
@@ -291,61 +256,72 @@ export default function StockIn() {
           plan_order_id: selectedPlanOrderId,
           received_date: receivedDate,
           notes: notes || null,
-          delivery_note_url: deliveryNoteUrl,
+          delivery_note_url: deliveryNoteUrl || null,
         })
-        .select("id")
+        .select()
         .single();
 
       if (headerError) throw headerError;
 
-      // 2) Create stock in items
-      const stockInItemsPayload = validItems.map((item) => ({
+      // 2. Create stock in items
+      const stockInItems = validItems.map((item) => ({
         stock_in_id: headerData.id,
         plan_order_item_id: item.plan_order_item_id,
         product_id: item.product_id,
-        qty_received: Number(item.qty_received) || 0,
-        batch_no: item.batch_no.trim(),
+        qty_received: item.qty_received,
+        batch_no: item.batch_no,
         expired_date: item.expired_date ? item.expired_date : null,
       }));
 
-      const { error: itemsError } = await supabase.from("stock_in_items").insert(stockInItemsPayload);
+      const { error: itemsError } = await supabase.from("stock_in_items").insert(stockInItems);
+
       if (itemsError) throw itemsError;
 
-      // 3) Update inventory_batches + stock_transactions + plan_order_items
+      // 3. Update inventory batches
       for (const item of validItems) {
-        const qty = Number(item.qty_received) || 0;
-        const batchNo = item.batch_no.trim();
-        const exp = item.expired_date ? item.expired_date : null;
+        // Check if batch exists
+        const { data: existingBatch, error: batchFetchError } = await supabase
+          .from("inventory_batches")
+          .select("id, qty_on_hand")
+          .eq("product_id", item.product_id)
+          .eq("batch_no", item.batch_no)
+          .maybeSingle();
 
-        const existingBatch = await findExistingBatch(item.product_id, batchNo, exp);
+        if (batchFetchError) throw batchFetchError;
 
         if (existingBatch) {
+          // Update existing batch
+          const updateData: { qty_on_hand: number; expired_date?: string | null } = {
+            qty_on_hand: existingBatch.qty_on_hand + item.qty_received,
+          };
+          // Only update expired_date if provided
+          if (item.expired_date) {
+            updateData.expired_date = item.expired_date;
+          }
+
           const { error: batchUpdateError } = await supabase
             .from("inventory_batches")
-            .update({
-              qty_on_hand: (Number(existingBatch.qty_on_hand) || 0) + qty,
-              // keep consistent (optional)
-              expired_date: exp,
-            })
+            .update(updateData)
             .eq("id", existingBatch.id);
 
           if (batchUpdateError) throw batchUpdateError;
         } else {
+          // Create new batch
           const { error: batchInsertError } = await supabase.from("inventory_batches").insert({
             product_id: item.product_id,
-            batch_no: batchNo,
-            qty_on_hand: qty,
-            expired_date: exp,
+            batch_no: item.batch_no,
+            qty_on_hand: item.qty_received,
+            expired_date: item.expired_date ? item.expired_date : null,
           });
 
           if (batchInsertError) throw batchInsertError;
         }
 
-        // stock transaction
+        // Create stock transaction
         const { error: txError } = await supabase.from("stock_transactions").insert({
           product_id: item.product_id,
           transaction_type: "in",
-          quantity: qty,
+          quantity: item.qty_received,
           reference_type: "stock_in",
           reference_id: headerData.id,
           reference_number: stockInNumber,
@@ -354,35 +330,31 @@ export default function StockIn() {
 
         if (txError) throw txError;
 
-        // Update plan_order_items safely using planned_qty from DB
+        // Update plan order item qty_received
         const { data: poItem, error: poItemError } = await supabase
           .from("plan_order_items")
-          .select("qty_received, planned_qty")
+          .select("qty_received")
           .eq("id", item.plan_order_item_id)
           .single();
 
         if (poItemError) throw poItemError;
 
-        const orderedQty = Number(poItem?.planned_qty ?? item.qty_ordered) || 0;
-        const prevReceived = Number(poItem?.qty_received ?? 0) || 0;
-        const newQtyReceived = prevReceived + qty;
-        const newQtyRemaining = Math.max(0, orderedQty - newQtyReceived);
-
+        const newQtyReceived = (poItem?.qty_received || 0) + item.qty_received;
         const { error: poUpdateError } = await supabase
           .from("plan_order_items")
           .update({
             qty_received: newQtyReceived,
-            qty_remaining: newQtyRemaining,
+            qty_remaining: Math.max(0, item.qty_ordered - newQtyReceived),
           })
           .eq("id", item.plan_order_item_id);
 
         if (poUpdateError) throw poUpdateError;
       }
 
-      // 4) Update plan_order_headers status -> received/partially_received
+      // 4. Check if plan order is fully received
       const { data: remainingItems, error: remainingError } = await supabase
         .from("plan_order_items")
-        .select("id")
+        .select("qty_remaining")
         .eq("plan_order_id", selectedPlanOrderId)
         .gt("qty_remaining", 0);
 
@@ -396,18 +368,17 @@ export default function StockIn() {
 
       if (statusError) throw statusError;
 
-      // 5) Audit log (best-effort)
-      const { data: authData } = await supabase.auth.getUser();
-      const user = authData?.user;
-
-      const itemsSummary = validItems.map((it) => ({
-        product_name: it.product_name,
-        qty_received: Number(it.qty_received) || 0,
-        batch_no: it.batch_no,
-        expired_date: it.expired_date || null,
+      // 5. Create audit log entry
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const itemsSummary = validItems.map((item) => ({
+        product_name: item.product_name,
+        qty_received: item.qty_received,
+        batch_no: item.batch_no,
       }));
 
-      const { error: auditErr } = await supabase.from("audit_logs").insert({
+      await supabase.from("audit_logs").insert({
         action: "STOCK_IN_CREATE",
         module: "stock_in",
         ref_table: "stock_in_headers",
@@ -421,21 +392,16 @@ export default function StockIn() {
           plan_order_id: selectedPlanOrderId,
           supplier: selectedPlanOrder?.supplier?.name,
           received_date: receivedDate,
-          delivery_note_url: deliveryNoteUrl,
           items: itemsSummary,
           total_items: validItems.length,
-          total_qty_received: validItems.reduce((sum, i) => sum + (Number(i.qty_received) || 0), 0),
+          total_qty_received: validItems.reduce((sum, i) => sum + i.qty_received, 0),
         },
       });
 
-      if (auditErr) console.warn("Audit log insert failed:", auditErr);
-
       toast.success(language === "en" ? "Stock In saved successfully" : "Stock In berhasil disimpan");
 
-      // Refresh list so PO becomes "archived" (disappears from dropdown when status = received)
+      // Reset form + refresh list so the status/availability updates immediately
       await fetchPlanOrders();
-
-      // Clear UI
       setSelectedPlanOrderId("");
       setSelectedPlanOrder(null);
       setItems([]);
@@ -444,18 +410,13 @@ export default function StockIn() {
       setDeliveryNoteFileName("");
       setReceivedDate(new Date().toISOString().split("T")[0]);
       await generateStockInNumber();
-    } catch (error: any) {
+    } catch (error) {
       console.error(error);
-
-      const msg =
-        error?.message ||
-        error?.error_description ||
-        (language === "en" ? "Failed to save Stock In" : "Gagal menyimpan Stock In");
-
-      toast.error(msg);
-    } finally {
-      setIsSaving(false);
+      const message = error instanceof Error ? error.message : undefined;
+      toast.error(message || (language === "en" ? "Failed to save Stock In" : "Gagal menyimpan Stock In"));
     }
+
+    setIsSaving(false);
   };
 
   return (
@@ -477,7 +438,6 @@ export default function StockIn() {
             </p>
           </div>
         </div>
-
         <Button
           variant="outline"
           size="sm"
@@ -564,10 +524,9 @@ export default function StockIn() {
               <Input value={selectedPlanOrder?.supplier?.name || ""} disabled className="bg-muted" />
             </div>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             <div className="space-y-2">
-              <Label>{language === "en" ? "Delivery Note" : "Surat Jalan"} *</Label>
+              <Label>{language === "en" ? "Delivery Note" : "Surat Jalan"}</Label>
               <div className="flex gap-2">
                 <Input
                   value={deliveryNoteFileName || ""}
@@ -596,18 +555,7 @@ export default function StockIn() {
                   onChange={handleFileUpload}
                 />
               </div>
-
-              {deliveryNoteUrl ? (
-                <p className="text-xs text-muted-foreground">
-                  {language === "en" ? "Delivery note uploaded." : "Surat jalan sudah terupload."}
-                </p>
-              ) : (
-                <p className="text-xs text-destructive">
-                  {language === "en" ? "Delivery note is required." : "Surat jalan wajib diupload."}
-                </p>
-              )}
             </div>
-
             <div className="space-y-2">
               <Label>{language === "en" ? "Notes" : "Catatan"}</Label>
               <Textarea
@@ -649,7 +597,6 @@ export default function StockIn() {
                   <TableHead>{language === "en" ? "EXPIRED DATE" : "TGL KADALUARSA"}</TableHead>
                 </TableRow>
               </TableHeader>
-
               <TableBody>
                 {!selectedPlanOrderId ? (
                   <TableRow>
@@ -685,7 +632,7 @@ export default function StockIn() {
                           min="0"
                           max={item.qty_remaining}
                           value={item.qty_received || ""}
-                          onChange={(e) => handleItemChange(index, "qty_received", parseInt(e.target.value, 10) || 0)}
+                          onChange={(e) => handleItemChange(index, "qty_received", parseInt(e.target.value) || 0)}
                           className="w-24 mx-auto text-center"
                         />
                       </TableCell>
@@ -729,7 +676,6 @@ export default function StockIn() {
             </div>
           </CardContent>
         </Card>
-
         <Card className="border-success/30 bg-success/5">
           <CardContent className="p-4 flex items-start gap-3">
             <CheckCircle className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
@@ -751,7 +697,7 @@ export default function StockIn() {
           <AlertCircle className="w-4 h-4 mr-2" />
           {t("common.cancel")}
         </Button>
-        <Button onClick={handleSave} disabled={!selectedPlanOrderId || isSaving || isUploading}>
+        <Button onClick={handleSave} disabled={!selectedPlanOrderId || isSaving}>
           {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
           <CheckCircle className="w-4 h-4 mr-2" />
           {language === "en" ? "Save Stock In" : "Simpan Stock In"}
