@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadFile } from "@/lib/storage";
+import { getUserFriendlyError } from "@/lib/errorHandler";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
@@ -151,13 +152,16 @@ export default function StockIn() {
     fetchItems();
   }, [selectedPlanOrderId, planOrders]);
 
-  const generateStockInNumber = async () => {
-    // Get the latest stock in number from the database
-    const { data } = await supabase
+  const getNextStockInNumber = async (): Promise<string> => {
+    const { data, error } = await supabase
       .from("stock_in_headers")
       .select("stock_in_number")
       .order("created_at", { ascending: false })
       .limit(1);
+
+    if (error) {
+      console.error(error);
+    }
 
     const date = new Date();
     const year = date.getFullYear();
@@ -166,7 +170,6 @@ export default function StockIn() {
     let sequence = 1;
     if (data && data.length > 0) {
       const lastNumber = data[0].stock_in_number;
-      // Try to extract the sequence number from format SI-YYYYMM-XXX
       const match = lastNumber.match(/SI-(\d{6})-(\d+)/);
       if (match) {
         const lastYearMonth = match[1];
@@ -177,7 +180,12 @@ export default function StockIn() {
       }
     }
 
-    setStockInNumber(`SI-${year}${month}-${String(sequence).padStart(3, "0")}`);
+    return `SI-${year}${month}-${String(sequence).padStart(3, "0")}`;
+  };
+
+  const generateStockInNumber = async () => {
+    const next = await getNextStockInNumber();
+    setStockInNumber(next);
   };
 
   const handleItemChange = (index: number, field: keyof StockInItem, value: string | number) => {
@@ -248,20 +256,43 @@ export default function StockIn() {
     setIsSaving(true);
 
     try {
-      // 1. Create stock in header
-      const { data: headerData, error: headerError } = await supabase
-        .from("stock_in_headers")
-        .insert({
-          stock_in_number: stockInNumber,
-          plan_order_id: selectedPlanOrderId,
-          received_date: receivedDate,
-          notes: notes || null,
-          delivery_note_url: deliveryNoteUrl || null,
-        })
-        .select()
-        .single();
+      // 1. Create stock in header (retry if number already taken)
+      let workingNumber = stockInNumber;
+      let headerData: any | null = null;
 
-      if (headerError) throw headerError;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const { data, error } = await supabase
+          .from("stock_in_headers")
+          .insert({
+            stock_in_number: workingNumber,
+            plan_order_id: selectedPlanOrderId,
+            received_date: receivedDate,
+            notes: notes || null,
+            delivery_note_url: deliveryNoteUrl || null,
+          })
+          .select()
+          .single();
+
+        if (!error && data) {
+          headerData = data;
+          break;
+        }
+
+        // 23505 = unique_violation
+        if (error?.code === "23505" && attempt < 2) {
+          workingNumber = await getNextStockInNumber();
+          setStockInNumber(workingNumber);
+          continue;
+        }
+
+        throw error;
+      }
+
+      if (!headerData) {
+        throw new Error("Failed to create Stock In header");
+      }
+
+      const finalStockInNumber = workingNumber;
 
       // 2. Create stock in items
       const stockInItems = validItems.map((item) => ({
@@ -277,7 +308,7 @@ export default function StockIn() {
 
       if (itemsError) throw itemsError;
 
-      // 3. Update inventory batches
+      // 3. Update inventory batches + create transactions + update plan order items
       for (const item of validItems) {
         // Check if batch exists
         const { data: existingBatch, error: batchFetchError } = await supabase
@@ -320,11 +351,11 @@ export default function StockIn() {
         // Create stock transaction
         const { error: txError } = await supabase.from("stock_transactions").insert({
           product_id: item.product_id,
-          transaction_type: "in",
+          transaction_type: "inbound",
           quantity: item.qty_received,
           reference_type: "stock_in",
           reference_id: headerData.id,
-          reference_number: stockInNumber,
+          reference_number: finalStockInNumber,
           notes: `Received from ${selectedPlanOrder?.plan_number}`,
         });
 
@@ -372,6 +403,7 @@ export default function StockIn() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
+
       const itemsSummary = validItems.map((item) => ({
         product_name: item.product_name,
         qty_received: item.qty_received,
@@ -383,11 +415,11 @@ export default function StockIn() {
         module: "stock_in",
         ref_table: "stock_in_headers",
         ref_id: headerData.id,
-        ref_no: stockInNumber,
+        ref_no: finalStockInNumber,
         user_id: user?.id,
         user_email: user?.email,
         new_data: {
-          stock_in_number: stockInNumber,
+          stock_in_number: finalStockInNumber,
           plan_order_number: selectedPlanOrder?.plan_number,
           plan_order_id: selectedPlanOrderId,
           supplier: selectedPlanOrder?.supplier?.name,
@@ -411,12 +443,11 @@ export default function StockIn() {
       setReceivedDate(new Date().toISOString().split("T")[0]);
       await generateStockInNumber();
     } catch (error) {
-      console.error(error);
-      const message = error instanceof Error ? error.message : undefined;
-      toast.error(message || (language === "en" ? "Failed to save Stock In" : "Gagal menyimpan Stock In"));
+      const fallback = language === "en" ? "Failed to save Stock In" : "Gagal menyimpan Stock In";
+      toast.error(getUserFriendlyError(error, fallback));
+    } finally {
+      setIsSaving(false);
     }
-
-    setIsSaving(false);
   };
 
   return (
