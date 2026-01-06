@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import html2pdf from "html2pdf.js";
 import {
   Plus,
   Search,
@@ -18,7 +17,9 @@ import {
   List,
   FileText,
   Download,
+  PenLine,
 } from "lucide-react";
+import html2pdf from "html2pdf.js";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,8 +46,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -69,8 +70,6 @@ import { uploadFile, getSignedUrl } from "@/lib/storage";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-const LOGO_SRC = "/logo-kemika.png"; // taruh file di /public/logo-kemika.png
-
 const statusConfig: Record<
   string,
   { label: string; labelId: string; variant: "draft" | "approved" | "pending" | "success" | "cancelled" }
@@ -82,7 +81,9 @@ const statusConfig: Record<
   cancelled: { label: "Cancelled", labelId: "Dibatalkan", variant: "cancelled" },
 };
 
-const allocationTypes = ["Selling", "Sample", "Stock", "Project"];
+const allocationTypes = ["Selling", "Sample", "Stock", "Project"] as const;
+
+type AllocationType = (typeof allocationTypes)[number];
 
 interface OrderItem {
   product_id: string;
@@ -92,9 +93,33 @@ interface OrderItem {
   category: string;
   unit_price: number;
   ordered_qty: number;
-  discount: number;
-  subtotal: number;
+  discount: number; // per-line discount (nominal)
+  subtotal: number; // computed: qty*price - line discount
   stock_available: number;
+}
+
+function clampNumber(n: number, min: number, max: number) {
+  if (Number.isNaN(n)) return min;
+  return Math.min(max, Math.max(min, n));
+}
+
+function safeNumber(n: unknown, fallback = 0) {
+  const v = typeof n === "number" ? n : parseFloat(String(n));
+  return Number.isFinite(v) ? v : fallback;
+}
+
+function formatDateID(dateStr: string) {
+  try {
+    return new Date(dateStr).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+  } catch {
+    return dateStr;
+  }
+}
+
+function formatDateTimeID(d: Date) {
+  const date = d.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+  const time = d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+  return `${date} ${time}`;
 }
 
 export default function SalesOrder() {
@@ -117,7 +142,6 @@ export default function SalesOrder() {
   const [isSaving, setIsSaving] = useState(false);
 
   const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
@@ -131,41 +155,40 @@ export default function SalesOrder() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [isOpeningPoDoc, setIsOpeningPoDoc] = useState(false);
+
   const [isPdfPreviewOpen, setIsPdfPreviewOpen] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
-  // Detail items
   const { items: selectedOrderItems, loading: itemsLoading } = useSalesOrderItems(selectedOrder?.id || null);
 
-  // Form state
+  // === Form state ===
   const [soNumber, setSoNumber] = useState("");
   const [orderDate, setOrderDate] = useState(new Date().toISOString().split("T")[0]);
   const [customerId, setCustomerId] = useState("");
   const [customerPoNumber, setCustomerPoNumber] = useState("");
   const [salesName, setSalesName] = useState("");
-  const [allocationType, setAllocationType] = useState("");
+  const [allocationType, setAllocationType] = useState<AllocationType | "">("");
   const [projectInstansi, setProjectInstansi] = useState("");
   const [deliveryDeadline, setDeliveryDeadline] = useState("");
   const [shipToAddress, setShipToAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [poDocumentUrl, setPoDocumentUrl] = useState("");
-  const [poDocumentKey, setPoDocumentKey] = useState("");
-
-  const [discount, setDiscount] = useState(0);
+  const [poDocumentKey, setPoDocumentKey] = useState(""); // penting: simpan path untuk signed url
+  const [headerDiscount, setHeaderDiscount] = useState(0); // discount bawah (nominal)
   const [taxRate, setTaxRate] = useState(11);
   const [shippingCost, setShippingCost] = useState(0);
-
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [selectedProductId, setSelectedProductId] = useState("");
 
-  // auto-fill
+  // Auto-fill customer fields
   const [customerPic, setCustomerPic] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
 
-  // permissions approve
+  // permission approve
   const canApprove = useMemo(() => {
     if (!user) return false;
     if (user.role === "super_admin") return true;
@@ -173,49 +196,35 @@ export default function SalesOrder() {
     return false;
   }, [user, allowAdminApprove]);
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(
-      value,
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(
+      safeNumber(value, 0),
     );
-  };
 
-  const formatDateID = (dateStr?: string | null) => {
-    if (!dateStr) return "";
-    const d = new Date(dateStr);
-    return d.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
-  };
-
-  const formatDateShort = (dateStr?: string | null) => {
-    if (!dateStr) return "";
-    const d = new Date(dateStr);
-    // contoh di PDF: "6 Jan 2026"
-    return d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
-  };
-
+  // === FILTER LIST ===
   const filteredOrders = useMemo(() => {
     return salesOrders.filter((order) => {
       const matchesSearch =
         order.sales_order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.customer?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (order.customer?.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
         order.customer_po_number.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesStatus = statusFilter === "all" || order.status === statusFilter;
 
-      const d = new Date(order.order_date);
-      const matchesFrom = !dateFrom || d >= new Date(dateFrom);
-      const matchesTo = !dateTo || d <= new Date(dateTo);
+      const od = new Date(order.order_date);
+      const matchesDateFrom = !dateFrom || od >= new Date(dateFrom);
+      const matchesDateTo = !dateTo || od <= new Date(dateTo);
 
       const activeStatuses = ["draft", "approved", "partially_delivered"];
       const archivedStatuses = ["delivered", "cancelled"];
-
       const matchesViewMode =
         viewMode === "active" ? activeStatuses.includes(order.status) : archivedStatuses.includes(order.status);
 
-      return matchesSearch && matchesStatus && matchesFrom && matchesTo && matchesViewMode;
+      return matchesSearch && matchesStatus && matchesDateFrom && matchesDateTo && matchesViewMode;
     });
   }, [salesOrders, searchQuery, statusFilter, dateFrom, dateTo, viewMode]);
 
-  const hasActiveFilters = statusFilter !== "all" || dateFrom || dateTo;
+  const hasActiveFilters = statusFilter !== "all" || !!dateFrom || !!dateTo;
 
   const clearFilters = () => {
     setStatusFilter("all");
@@ -223,28 +232,42 @@ export default function SalesOrder() {
     setDateTo("");
   };
 
+  // === NUMBER GENERATOR ===
   const generateSoNumber = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("sales_order_headers")
       .select("sales_order_number")
       .order("created_at", { ascending: false })
       .limit(1);
 
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
+    if (error) {
+      console.error(error);
+      // fallback
+      const date = new Date();
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      setSoNumber(`SO-${year}${month}-0001`);
+      return;
+    }
+
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
 
     let sequence = 1;
     if (data && data.length > 0) {
-      const last = data[0].sales_order_number;
-      const match = last.match(/SOR[-\/](\d{6,8})[-\/](\d+)/);
+      const lastNumber = data[0].sales_order_number;
+      const match = lastNumber.match(/SO[R]?[-\/](\d{6,8})[-\/](\d+)/i);
       if (match) {
         const lastYearMonth = match[1].slice(0, 6);
         const currentYearMonth = `${year}${month}`;
-        if (lastYearMonth === currentYearMonth) sequence = parseInt(match[2], 10) + 1;
+        if (lastYearMonth === currentYearMonth) {
+          sequence = parseInt(match[2], 10) + 1;
+        }
       }
     }
-    setSoNumber(`SOR-${year}${month}-${String(sequence).padStart(4, "0")}`);
+
+    setSoNumber(`PO-${year}${month}-${String(sequence).padStart(4, "0")}`);
   };
 
   const resetForm = () => {
@@ -260,7 +283,7 @@ export default function SalesOrder() {
     setNotes("");
     setPoDocumentUrl("");
     setPoDocumentKey("");
-    setDiscount(0);
+    setHeaderDiscount(0);
     setTaxRate(11);
     setShippingCost(0);
     setOrderItems([]);
@@ -278,9 +301,9 @@ export default function SalesOrder() {
     setIsDialogOpen(true);
   };
 
-  const handleCustomerChange = (newId: string) => {
-    setCustomerId(newId);
-    const c = customers.find((x) => x.id === newId);
+  const handleCustomerChange = (newCustomerId: string) => {
+    setCustomerId(newCustomerId);
+    const c = customers.find((x) => x.id === newCustomerId);
     if (c) {
       setCustomerPic(c.pic || "");
       setCustomerPhone(c.phone || "");
@@ -289,53 +312,248 @@ export default function SalesOrder() {
     }
   };
 
+  // === ITEMS: CONNECT DISCOUNT -> SUBTOTAL ===
+  const recomputeLineSubtotal = (qty: number, price: number, disc: number) => {
+    const q = clampNumber(safeNumber(qty, 0), 0, 1_000_000_000);
+    const p = clampNumber(safeNumber(price, 0), 0, 1_000_000_000_000);
+    const d = clampNumber(safeNumber(disc, 0), 0, q * p); // diskon tidak boleh > nilai line
+    return {
+      qty: q,
+      price: p,
+      disc: d,
+      subtotal: q * p - d,
+    };
+  };
+
+  const handleItemChange = (
+    index: number,
+    field: keyof Pick<OrderItem, "ordered_qty" | "unit_price" | "discount">,
+    value: number,
+  ) => {
+    setOrderItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== index) return item;
+        const next = { ...item, [field]: value } as OrderItem;
+
+        const calc = recomputeLineSubtotal(
+          field === "ordered_qty" ? value : next.ordered_qty,
+          field === "unit_price" ? value : next.unit_price,
+          field === "discount" ? value : next.discount,
+        );
+
+        next.ordered_qty = calc.qty;
+        next.unit_price = calc.price;
+        next.discount = calc.disc;
+        next.subtotal = calc.subtotal;
+
+        return next;
+      }),
+    );
+  };
+
+  const handleRemoveItem = (index: number) => {
+    setOrderItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddProduct = async () => {
+    if (!selectedProductId) return;
+    const p = products.find((x) => x.id === selectedProductId);
+    if (!p) return;
+
+    if (orderItems.some((it) => it.product_id === selectedProductId)) {
+      toast.error(language === "en" ? "Product already added" : "Produk sudah ditambahkan");
+      return;
+    }
+
+    const stockAvailable = await getProductStock(selectedProductId);
+    const price = safeNumber(p.selling_price || p.purchase_price, 0);
+
+    const calc = recomputeLineSubtotal(1, price, 0);
+
+    const newItem: OrderItem = {
+      product_id: p.id,
+      product_name: p.name,
+      sku: p.sku || "-",
+      unit: p.unit?.name || "-",
+      category: p.category?.name || "-",
+      unit_price: calc.price,
+      ordered_qty: calc.qty,
+      discount: calc.disc,
+      subtotal: calc.subtotal,
+      stock_available: stockAvailable,
+    };
+
+    setOrderItems((prev) => [...prev, newItem]);
+    setSelectedProductId("");
+  };
+
+  // === TOTALS: LINE DISCOUNT + HEADER DISCOUNT CONNECTED ===
+  const totals = useMemo(() => {
+    const itemsSubtotal = orderItems.reduce((sum, it) => sum + safeNumber(it.subtotal, 0), 0);
+
+    const headerDisc = clampNumber(safeNumber(headerDiscount, 0), 0, itemsSubtotal);
+    const afterHeaderDiscount = itemsSubtotal - headerDisc;
+
+    const tax = afterHeaderDiscount * (clampNumber(safeNumber(taxRate, 0), 0, 100) / 100);
+    const ship = clampNumber(safeNumber(shippingCost, 0), 0, 1_000_000_000_000);
+
+    const grandTotal = afterHeaderDiscount + tax + ship;
+
+    return {
+      itemsSubtotal,
+      headerDisc,
+      afterHeaderDiscount,
+      tax,
+      ship,
+      grandTotal,
+    };
+  }, [orderItems, headerDiscount, taxRate, shippingCost]);
+
+  // === FILE UPLOAD ===
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const result = await uploadFile(file, "documents", "sales-orders");
+      if (result) {
+        setPoDocumentUrl(result.url);
+        setPoDocumentKey(result.path); // <- ini yang paling aman buat view
+        toast.success(language === "en" ? "Document uploaded successfully" : "Dokumen berhasil diupload");
+      } else {
+        toast.error(language === "en" ? "Failed to upload document" : "Gagal upload dokumen");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error(language === "en" ? "Failed to upload document" : "Gagal upload dokumen");
+    }
+    setIsUploading(false);
+  };
+
+  // === VIEW DOCUMENT FIX (SIGNED URL + FALLBACK) ===
+  const extractStoragePathFromUrl = (url: string): string | null => {
+    if (!url) return null;
+
+    // If it's already a plain path
+    if (!url.startsWith("http")) return url;
+
+    // supabase storage url patterns
+    // .../storage/v1/object/public/<bucket>/<path>
+    // .../storage/v1/object/sign/<bucket>/<path>?token=...
+    try {
+      const m = url.match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+?)(?:\?|$)/);
+      if (m && m[2]) return decodeURIComponent(m[2]);
+    } catch {
+      // ignore
+    }
+    return null;
+  };
+
+  const openDocument = async (order: SalesOrderHeader) => {
+    const rawUrl = order.po_document_url || "";
+    if (!rawUrl) {
+      toast.error(language === "en" ? "No document attached" : "Tidak ada dokumen terlampir");
+      return;
+    }
+
+    setIsOpeningPoDoc(true);
+    try {
+      // 1) prefer saved key (path)
+      const possibleKey =
+        // @ts-ignore (some projects store this)
+        (order.po_document_key as string | undefined) || poDocumentKey || extractStoragePathFromUrl(rawUrl);
+
+      // 2) try signed url if we have path
+      if (possibleKey) {
+        const signed = await getSignedUrl(possibleKey, "documents", 3600);
+        if (signed) {
+          window.open(signed, "_blank", "noopener,noreferrer");
+          setIsOpeningPoDoc(false);
+          return;
+        }
+
+        // fallback to supabase native signed url (just in case lib wrapper mismatch)
+        const { data, error } = await supabase.storage.from("documents").createSignedUrl(possibleKey, 3600);
+        if (!error && data?.signedUrl) {
+          window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+          setIsOpeningPoDoc(false);
+          return;
+        }
+      }
+
+      // 3) last fallback: open raw url
+      window.open(rawUrl, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      console.error(err);
+      toast.error(language === "en" ? "Failed to open document" : "Gagal membuka dokumen");
+    }
+    setIsOpeningPoDoc(false);
+  };
+
+  // === CRUD ===
   const handleEdit = async (order: SalesOrderHeader) => {
+    setIsEditMode(true);
+    setEditingOrderId(order.id);
+
     setSoNumber(order.sales_order_number);
     setOrderDate(order.order_date);
     setCustomerId(order.customer_id);
     setCustomerPoNumber(order.customer_po_number);
     setSalesName(order.sales_name);
-    setAllocationType(order.allocation_type);
+    setAllocationType((order.allocation_type as AllocationType) || "");
     setProjectInstansi(order.project_instansi);
     setDeliveryDeadline(order.delivery_deadline);
     setShipToAddress(order.ship_to_address || "");
     setNotes(order.notes || "");
     setPoDocumentUrl(order.po_document_url || "");
-    setPoDocumentKey("");
-    setDiscount(order.discount || 0);
-    setTaxRate(order.tax_rate || 11);
-    setShippingCost(order.shipping_cost || 0);
-    setEditingOrderId(order.id);
-    setIsEditMode(true);
+    // @ts-ignore
+    setPoDocumentKey(order.po_document_key || "");
 
-    const { data } = await supabase
+    setHeaderDiscount(safeNumber(order.discount, 0));
+    setTaxRate(safeNumber(order.tax_rate, 11));
+    setShippingCost(safeNumber(order.shipping_cost, 0));
+
+    // Fetch items
+    const { data, error } = await supabase
       .from("sales_order_items")
       .select(
         `*, product:products(id, name, sku, selling_price, purchase_price, category:categories(name), unit:units(name))`,
       )
       .eq("sales_order_id", order.id);
 
-    if (data) {
-      const items: OrderItem[] = [];
-      for (const it of data as any[]) {
-        const stock = await getProductStock(it.product_id);
-        items.push({
-          product_id: it.product_id,
-          product_name: it.product?.name || "",
-          sku: it.product?.sku || "-",
-          unit: it.product?.unit?.name || "-",
-          category: it.product?.category?.name || "-",
-          unit_price: it.unit_price,
-          ordered_qty: it.ordered_qty,
-          discount: it.discount || 0,
-          subtotal: it.ordered_qty * it.unit_price - (it.discount || 0),
-          stock_available: stock,
-        });
-      }
-      setOrderItems(items);
+    if (error) {
+      console.error(error);
+      toast.error(language === "en" ? "Failed to load order items" : "Gagal memuat item order");
+      setIsDialogOpen(true);
+      return;
     }
 
-    // set auto-filled (optional)
+    const mapped: OrderItem[] = [];
+    for (const it of data || []) {
+      const stock = await getProductStock(it.product_id);
+      const qty = safeNumber(it.ordered_qty, 0);
+      const price = safeNumber(it.unit_price, 0);
+      const disc = safeNumber(it.discount, 0);
+      const calc = recomputeLineSubtotal(qty, price, disc);
+
+      mapped.push({
+        product_id: it.product_id,
+        product_name: it.product?.name || "",
+        sku: it.product?.sku || "-",
+        unit: it.product?.unit?.name || "-",
+        category: it.product?.category?.name || "-",
+        unit_price: calc.price,
+        ordered_qty: calc.qty,
+        discount: calc.disc,
+        subtotal: calc.subtotal,
+        stock_available: stock,
+      });
+    }
+
+    setOrderItems(mapped);
+
+    // Auto-fill customer data
     const c = customers.find((x) => x.id === order.customer_id);
     if (c) {
       setCustomerPic(c.pic || "");
@@ -346,78 +564,8 @@ export default function SalesOrder() {
     setIsDialogOpen(true);
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsUploading(true);
-    const result = await uploadFile(file, "documents", "sales-orders");
-    if (result) {
-      setPoDocumentUrl(result.url);
-      setPoDocumentKey(result.path);
-      toast.success(language === "en" ? "Document uploaded successfully" : "Dokumen berhasil diupload");
-    } else {
-      toast.error(language === "en" ? "Failed to upload document" : "Gagal upload dokumen");
-    }
-    setIsUploading(false);
-  };
-
-  const handleAddProduct = async () => {
-    if (!selectedProductId) return;
-    const p = products.find((x: any) => x.id === selectedProductId);
-    if (!p) return;
-
-    if (orderItems.some((it) => it.product_id === selectedProductId)) {
-      toast.error(language === "en" ? "Product already added" : "Produk sudah ditambahkan");
-      return;
-    }
-
-    const stockAvailable = await getProductStock(selectedProductId);
-
-    setOrderItems((prev) => [
-      ...prev,
-      {
-        product_id: p.id,
-        product_name: p.name,
-        sku: p.sku || "-",
-        unit: p.unit?.name || "-",
-        category: p.category?.name || "-",
-        unit_price: p.selling_price || p.purchase_price || 0,
-        ordered_qty: 1,
-        discount: 0,
-        subtotal: p.selling_price || p.purchase_price || 0,
-        stock_available: stockAvailable,
-      },
-    ]);
-    setSelectedProductId("");
-  };
-
-  const handleItemChange = (index: number, field: keyof OrderItem, value: number) => {
-    setOrderItems((prev) =>
-      prev.map((it, i) => {
-        if (i !== index) return it;
-        const next = { ...it, [field]: value } as OrderItem;
-        const qty = field === "ordered_qty" ? value : it.ordered_qty;
-        const price = field === "unit_price" ? value : it.unit_price;
-        const disc = field === "discount" ? value : it.discount;
-        next.subtotal = qty * price - disc;
-        return next;
-      }),
-    );
-  };
-
-  const handleRemoveItem = (index: number) => {
-    setOrderItems((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const calculateTotals = () => {
-    const subtotal = orderItems.reduce((sum, it) => sum + it.subtotal, 0);
-    const totalAfterDiscount = subtotal - discount;
-    const taxAmount = totalAfterDiscount * (taxRate / 100);
-    const grandTotal = totalAfterDiscount + taxAmount + shippingCost;
-    return { subtotal, taxAmount, grandTotal };
-  };
-
   const handleSave = async () => {
+    // basic validation
     if (!customerId || !customerPoNumber || !salesName || !allocationType || !projectInstansi || !deliveryDeadline) {
       toast.error(language === "en" ? "Please fill all required fields" : "Harap isi semua field wajib");
       return;
@@ -427,94 +575,79 @@ export default function SalesOrder() {
       return;
     }
 
+    // warn low stock
     for (const it of orderItems) {
       if (it.ordered_qty > it.stock_available) {
         toast.warning(
           language === "en"
-            ? `Warning: ${it.product_name} has insufficient stock (Available: ${it.stock_available})`
+            ? `Warning: ${it.product_name} insufficient stock (Available: ${it.stock_available})`
             : `Peringatan: ${it.product_name} stok tidak cukup (Tersedia: ${it.stock_available})`,
         );
       }
     }
 
     setIsSaving(true);
-    const { subtotal, grandTotal } = calculateTotals();
 
-    if (isEditMode && editingOrderId) {
-      const result = await updateSalesOrder(
-        editingOrderId,
-        {
-          sales_order_number: soNumber,
-          order_date: orderDate,
-          customer_id: customerId,
-          customer_po_number: customerPoNumber,
-          sales_name: salesName,
-          allocation_type: allocationType,
-          project_instansi: projectInstansi,
-          delivery_deadline: deliveryDeadline,
-          ship_to_address: shipToAddress || null,
-          notes: notes || null,
-          po_document_url: poDocumentUrl || null,
-          total_amount: subtotal,
-          discount: discount,
-          tax_rate: taxRate,
-          shipping_cost: shippingCost,
-          grand_total: grandTotal,
-        },
-        orderItems.map((it) => ({
-          product_id: it.product_id,
-          unit_price: it.unit_price,
-          ordered_qty: it.ordered_qty,
-          discount: it.discount,
-        })),
-      );
+    try {
+      const payloadHeader = {
+        sales_order_number: soNumber,
+        order_date: orderDate,
+        customer_id: customerId,
+        customer_po_number: customerPoNumber,
+        sales_name: salesName,
+        allocation_type: allocationType,
+        project_instansi: projectInstansi,
+        delivery_deadline: deliveryDeadline,
+        ship_to_address: shipToAddress || null,
+        notes: notes || null,
+        po_document_url: poDocumentUrl || null,
+        // @ts-ignore (if column exists)
+        po_document_key: poDocumentKey || null,
 
-      if (result.success) {
+        // IMPORTANT:
+        // total_amount = subtotal items (already includes per-line discount)
+        total_amount: totals.itemsSubtotal,
+        // discount = header discount (nominal)
+        discount: totals.headerDisc,
+        tax_rate: clampNumber(safeNumber(taxRate, 11), 0, 100),
+        shipping_cost: clampNumber(safeNumber(shippingCost, 0), 0, 1_000_000_000_000),
+        grand_total: totals.grandTotal,
+      };
+
+      const payloadItems = orderItems.map((it) => ({
+        product_id: it.product_id,
+        unit_price: it.unit_price,
+        ordered_qty: it.ordered_qty,
+        discount: it.discount, // per-line discount
+      }));
+
+      if (isEditMode && editingOrderId) {
+        const result = await updateSalesOrder(editingOrderId, payloadHeader as any, payloadItems as any);
+        if (!result.success) throw new Error(result.error || "Failed to update");
         toast.success(language === "en" ? "Sales Order updated successfully" : "Sales Order berhasil diupdate");
-        setIsDialogOpen(false);
-        setIsEditMode(false);
-        setEditingOrderId(null);
-        resetForm();
-        refetch();
-      } else toast.error(result.error || "Failed to update");
-    } else {
-      const result = await createSalesOrder(
-        {
-          sales_order_number: soNumber,
-          order_date: orderDate,
-          customer_id: customerId,
-          customer_po_number: customerPoNumber,
-          sales_name: salesName,
-          allocation_type: allocationType,
-          project_instansi: projectInstansi,
-          delivery_deadline: deliveryDeadline,
-          ship_to_address: shipToAddress || null,
-          notes: notes || null,
-          po_document_url: poDocumentUrl || null,
-          status: "draft",
-          total_amount: subtotal,
-          discount: discount,
-          tax_rate: taxRate,
-          shipping_cost: shippingCost,
-          grand_total: grandTotal,
-          created_by: null,
-          approved_by: null,
-          approved_at: null,
-        },
-        orderItems.map((it) => ({
-          product_id: it.product_id,
-          unit_price: it.unit_price,
-          ordered_qty: it.ordered_qty,
-          discount: it.discount,
-        })),
-      );
-
-      if (result.success) {
+      } else {
+        const result = await createSalesOrder(
+          {
+            ...(payloadHeader as any),
+            status: "draft",
+            created_by: user?.id || null,
+            approved_by: null,
+            approved_at: null,
+          },
+          payloadItems as any,
+        );
+        if (!result.success) throw new Error(result.error || "Failed to create");
         toast.success(language === "en" ? "Sales Order created successfully" : "Sales Order berhasil dibuat");
-        setIsDialogOpen(false);
-        resetForm();
-        refetch();
-      } else toast.error(result.error || "Failed to create Sales Order");
+      }
+
+      setIsDialogOpen(false);
+      setIsEditMode(false);
+      setEditingOrderId(null);
+      resetForm();
+      refetch();
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : language === "en" ? "Failed to save" : "Gagal menyimpan");
     }
 
     setIsSaving(false);
@@ -530,12 +663,15 @@ export default function SalesOrder() {
       );
       return;
     }
+
     setIsApproving(true);
     const result = await approveSalesOrder(selectedOrder.id);
     if (result.success) {
       toast.success(language === "en" ? "Sales Order approved" : "Sales Order disetujui");
       refetch();
-    } else toast.error(result.error || "Failed to approve");
+    } else {
+      toast.error(result.error || "Failed to approve");
+    }
     setIsApproving(false);
     setIsApproveDialogOpen(false);
     setSelectedOrder(null);
@@ -548,7 +684,9 @@ export default function SalesOrder() {
     if (result.success) {
       toast.success(language === "en" ? "Sales Order cancelled" : "Sales Order dibatalkan");
       refetch();
-    } else toast.error(result.error || "Failed to cancel");
+    } else {
+      toast.error(result.error || "Failed to cancel");
+    }
     setIsCancelling(false);
     setIsCancelDialogOpen(false);
     setSelectedOrder(null);
@@ -561,7 +699,9 @@ export default function SalesOrder() {
     if (result.success) {
       toast.success(language === "en" ? "Sales Order deleted" : "Sales Order dihapus");
       refetch();
-    } else toast.error(result.error || "Failed to delete");
+    } else {
+      toast.error(result.error || "Failed to delete");
+    }
     setIsDeleting(false);
     setIsDeleteDialogOpen(false);
     setSelectedOrder(null);
@@ -572,37 +712,7 @@ export default function SalesOrder() {
     setIsDetailDialogOpen(true);
   };
 
-  const handleViewPoDocument = async (order: SalesOrderHeader) => {
-    if (!order.po_document_url) {
-      toast.error(language === "en" ? "No document attached" : "Tidak ada dokumen terlampir");
-      return;
-    }
-    setIsOpeningPoDoc(true);
-    try {
-      const url = order.po_document_url;
-      let path = url;
-
-      if (url.includes("/storage/v1/object/")) {
-        const pathMatch = url.match(/\/storage\/v1\/object\/(?:sign|public)\/documents\/(.+?)(?:\?|$)/);
-        if (pathMatch) path = decodeURIComponent(pathMatch[1]);
-      } else if (!url.startsWith("http")) {
-        path = url;
-      } else if (url.includes(".supabase.co/storage/")) {
-        const pathMatch = url.match(/\/storage\/v1\/object\/(?:sign|public)\/documents\/(.+?)(?:\?|$)/);
-        if (pathMatch) path = decodeURIComponent(pathMatch[1]);
-      }
-
-      const signedUrl = await getSignedUrl(path, "documents", 3600);
-      if (signedUrl) window.open(signedUrl, "_blank");
-      else if (url.startsWith("http")) window.open(url, "_blank");
-      else toast.error(language === "en" ? "Failed to open document" : "Gagal membuka dokumen");
-    } catch (e) {
-      console.error(e);
-      toast.error(language === "en" ? "Failed to open document" : "Gagal membuka dokumen");
-    }
-    setIsOpeningPoDoc(false);
-  };
-
+  // === PDF ===
   const handlePreviewPDF = () => {
     if (!selectedOrder) return;
     setIsPdfPreviewOpen(true);
@@ -610,432 +720,35 @@ export default function SalesOrder() {
 
   const handleDownloadPDF = async () => {
     if (!selectedOrder || !printRef.current) return;
-
     setIsDownloadingPdf(true);
     try {
-      // pakai html2pdf dari HTML template yang sama dengan preview
       const element = printRef.current;
-
       const opt = {
         margin: [10, 10, 10, 10] as [number, number, number, number],
         filename: `SalesOrder_${selectedOrder.sales_order_number}.pdf`,
         image: { type: "jpeg" as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, allowTaint: true },
+        html2canvas: { scale: 2, useCORS: true },
         jsPDF: { unit: "mm" as const, format: "a4" as const, orientation: "portrait" as const },
-        pagebreak: { mode: ["css", "legacy"] as any },
       };
-
-      await (html2pdf() as any).set(opt).from(element).save();
+      await html2pdf().set(opt).from(element).save();
       toast.success(language === "en" ? "PDF downloaded successfully" : "PDF berhasil diunduh");
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error(err);
       toast.error(language === "en" ? "Failed to download PDF" : "Gagal mengunduh PDF");
     }
     setIsDownloadingPdf(false);
   };
 
-  const handlePrint = () => {
-    if (!selectedOrder || !printRef.current) return;
+  // === INIT: when dialog opened create number ===
+  useEffect(() => {
+    if (isDialogOpen && !isEditMode) {
+      // ensure number exists
+      if (!soNumber) generateSoNumber();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDialogOpen]);
 
-    const html = printRef.current.innerHTML;
-
-    const w = window.open("", "_blank");
-    if (!w) return;
-
-    w.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Sales Order - ${selectedOrder.sales_order_number}</title>
-        <meta charset="utf-8" />
-        <style>
-          * { box-sizing: border-box; }
-          body { font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 18mm; color: #111; }
-          .row { display:flex; justify-content:space-between; align-items:flex-start; }
-          .top-left { display:flex; flex-direction:column; gap:4px; }
-          .logo-wrap { display:flex; align-items:flex-start; gap:8px; }
-          .logo { height: 44px; object-fit: contain; }
-          .title-right { text-align:right; }
-          .title-right h1 { margin:0; font-size: 20px; letter-spacing: .5px; }
-          .title-right .meta { margin-top:6px; font-size: 11px; line-height: 1.6; }
-          .meta-row { display:flex; gap:10px; justify-content:flex-end; }
-          .meta-row .k { width: 92px; text-align:left; color:#444; }
-          .meta-row .sep { width: 10px; text-align:center; color:#444; }
-          .meta-row .v { width: 120px; text-align:left; font-weight: 600; }
-
-          .allocation { margin-top: 10px; font-size: 11px; }
-          .allocation .label { color:#444; }
-          .allocation .value { font-weight: 700; color: #c1121f; } /* merah */
-          .hr { border-top: 2px solid #2a2a2a; margin: 10px 0 14px; }
-
-          .info { display:grid; grid-template-columns: 1fr 1fr; gap: 18px; font-size: 11px; }
-          .box { display:grid; grid-template-columns: 120px 1fr; row-gap: 10px; column-gap: 10px; }
-          .box .k { color:#444; text-transform: uppercase; font-size: 10px; }
-          .box .v { font-weight: 600; }
-          .terms { color:#c1121f; font-weight: 800; } /* merah */
-          .muted { color:#444; font-weight: 600; }
-
-          table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 11px; }
-          thead th {
-            background: #0b6b3a; color: #fff; padding: 8px 8px;
-            border: 1px solid #0b6b3a; text-align: left;
-          }
-          tbody td {
-            border: 1px solid #cfcfcf; padding: 8px 8px;
-          }
-          .tc { text-align:center; }
-          .tr { text-align:right; }
-
-          .totals { margin-top: 10px; font-size: 11px; }
-          .totals .line { display:flex; justify-content:space-between; padding: 3px 0; }
-          .totals .k { color:#444; }
-          .totals .v { font-weight: 700; }
-          .grand { margin-top: 8px; border-top: 2px solid #2a2a2a; padding-top: 8px; }
-          .grand .k { font-weight: 800; font-size: 14px; }
-          .grand .v { font-weight: 900; font-size: 14px; }
-
-          .addr-notes { margin-top: 12px; border: 1px solid #2a2a2a; display:grid; grid-template-columns: 1fr 1fr; }
-          .addr-notes .cell { padding: 10px; min-height: 70px; }
-          .addr-notes .cell + .cell { border-left: 1px solid #2a2a2a; }
-          .cell .head { font-size: 10px; font-weight: 800; color:#444; }
-          .cell .body { margin-top: 8px; font-size: 11px; }
-
-          .sign { margin-top: 16px; border: 1px solid #2a2a2a; display:grid; grid-template-columns: repeat(4, 1fr); }
-          .sign .s { min-height: 125px; border-right: 1px solid #2a2a2a; padding: 10px; font-size: 11px; }
-          .sign .s:last-child { border-right: none; }
-          .sign .date { font-size: 11px; margin-bottom: 10px; }
-          .sign .role { margin-top: 8px; }
-          .sign .line { position: absolute; left: 10px; right: 10px; bottom: 12px; border-top: 1px solid #2a2a2a; }
-          .sign .name { position:absolute; left:10px; right:10px; bottom: 0; text-align:center; transform: translateY(8px); font-size: 11px; }
-
-          @page { size: A4; margin: 12mm; }
-          @media print { body { padding: 0; } }
-        </style>
-      </head>
-      <body>
-        ${html}
-        <script>
-          window.onload = function() { window.print(); window.onafterprint = function(){ window.close(); } }
-        </script>
-      </body>
-      </html>
-    `);
-    w.document.close();
-  };
-
-  const { subtotal, taxAmount, grandTotal } = calculateTotals();
-
-  // ======= PDF TEMPLATE (mirip contoh) =======
-  const PdfTemplate = ({ order }: { order: SalesOrderHeader }) => {
-    const alloc = (order.allocation_type || "").toUpperCase();
-    const tax = ((order.total_amount - (order.discount || 0)) * (order.tax_rate || 0)) / 100;
-
-    return (
-      <div style={{ fontFamily: "Arial, Helvetica, sans-serif", color: "#111", width: "100%" }}>
-        {/* TOP */}
-        <div className="row" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div className="top-left" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <div className="logo-wrap" style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-              <img src={LOGO_SRC} alt="Kemika" className="logo" style={{ height: 44, objectFit: "contain" }} />
-            </div>
-          </div>
-
-          <div className="title-right" style={{ textAlign: "right" }}>
-            <h1 style={{ margin: 0, fontSize: 20, letterSpacing: 0.5 }}>SALES ORDER</h1>
-            <div className="meta" style={{ marginTop: 6, fontSize: 11, lineHeight: 1.6 }}>
-              <div className="meta-row" style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                <div className="k" style={{ width: 92, textAlign: "left", color: "#444" }}>
-                  Sales Order No.
-                </div>
-                <div className="sep" style={{ width: 10, textAlign: "center", color: "#444" }}>
-                  :
-                </div>
-                <div className="v" style={{ width: 120, textAlign: "left", fontWeight: 600 }}>
-                  {order.sales_order_number?.replace("SOR", "PO") || order.sales_order_number}
-                </div>
-              </div>
-              <div className="meta-row" style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                <div className="k" style={{ width: 92, textAlign: "left", color: "#444" }}>
-                  SO Date
-                </div>
-                <div className="sep" style={{ width: 10, textAlign: "center", color: "#444" }}>
-                  :
-                </div>
-                <div className="v" style={{ width: 120, textAlign: "left", fontWeight: 600 }}>
-                  {formatDateShort(order.order_date)}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Allocation */}
-        <div className="allocation" style={{ marginTop: 10, fontSize: 11 }}>
-          <span className="label" style={{ color: "#444" }}>
-            TIPE ALOKASI
-          </span>
-          <span className="muted" style={{ color: "#444", fontWeight: 600 }}>
-            {" "}
-            :{" "}
-          </span>
-          <span className="value" style={{ fontWeight: 700, color: "#c1121f" }}>
-            {alloc}
-          </span>
-        </div>
-
-        <div className="hr" style={{ borderTop: "2px solid #2a2a2a", margin: "10px 0 14px" }} />
-
-        {/* Info 2 columns */}
-        <div className="info" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, fontSize: 11 }}>
-          <div className="box" style={{ display: "grid", gridTemplateColumns: "120px 1fr", rowGap: 10, columnGap: 10 }}>
-            <div className="k" style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>
-              SALES
-            </div>
-            <div className="v" style={{ fontWeight: 600 }}>
-              {order.sales_name || "-"}
-            </div>
-
-            <div className="k" style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>
-              CUSTOMER
-            </div>
-            <div className="v" style={{ fontWeight: 600 }}>
-              {order.customer?.name || "-"}
-            </div>
-
-            <div className="k" style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>
-              PIC
-            </div>
-            <div className="v" style={{ fontWeight: 600 }}>
-              {order.customer?.pic || customerPic || "-"}
-            </div>
-
-            <div className="k" style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>
-              PHONE
-            </div>
-            <div className="v" style={{ fontWeight: 600 }}>
-              {order.customer?.phone || customerPhone || "-"}
-            </div>
-          </div>
-
-          <div className="box" style={{ display: "grid", gridTemplateColumns: "120px 1fr", rowGap: 10, columnGap: 10 }}>
-            <div className="k" style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>
-              TANGGAL
-            </div>
-            <div className="v" style={{ fontWeight: 600 }}>
-              {formatDateID(order.order_date)}
-            </div>
-
-            <div className="k" style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>
-              PO CUSTOMER
-            </div>
-            <div className="v" style={{ fontWeight: 600 }}>
-              {order.customer_po_number || "-"}
-            </div>
-
-            <div className="k" style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>
-              BATAS PENGIRIMAN
-            </div>
-            <div className="v" style={{ fontWeight: 600 }}>
-              {formatDateID(order.delivery_deadline)}
-            </div>
-
-            <div className="k" style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>
-              PAYMENT TERMS
-            </div>
-            <div className="v terms" style={{ color: "#c1121f", fontWeight: 800 }}>
-              {(order.customer?.terms_payment || paymentTerms || "-").toString().toUpperCase()}
-            </div>
-          </div>
-        </div>
-
-        {/* Items */}
-        <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 14, fontSize: 11 }}>
-          <thead>
-            <tr>
-              <th style={{ background: "#0b6b3a", color: "#fff", padding: 8, border: "1px solid #0b6b3a", width: 40 }}>
-                No
-              </th>
-              <th style={{ background: "#0b6b3a", color: "#fff", padding: 8, border: "1px solid #0b6b3a" }}>
-                Nama Barang
-              </th>
-              <th style={{ background: "#0b6b3a", color: "#fff", padding: 8, border: "1px solid #0b6b3a", width: 90 }}>
-                SKU
-              </th>
-              <th style={{ background: "#0b6b3a", color: "#fff", padding: 8, border: "1px solid #0b6b3a", width: 110 }}>
-                Kategori
-              </th>
-              <th style={{ background: "#0b6b3a", color: "#fff", padding: 8, border: "1px solid #0b6b3a", width: 70 }}>
-                Satuan
-              </th>
-              <th
-                style={{
-                  background: "#0b6b3a",
-                  color: "#fff",
-                  padding: 8,
-                  border: "1px solid #0b6b3a",
-                  width: 70,
-                  textAlign: "center",
-                }}
-              >
-                Qty
-              </th>
-              <th
-                style={{
-                  background: "#0b6b3a",
-                  color: "#fff",
-                  padding: 8,
-                  border: "1px solid #0b6b3a",
-                  width: 110,
-                  textAlign: "right",
-                }}
-              >
-                Harga
-              </th>
-              <th
-                style={{
-                  background: "#0b6b3a",
-                  color: "#fff",
-                  padding: 8,
-                  border: "1px solid #0b6b3a",
-                  width: 120,
-                  textAlign: "right",
-                }}
-              >
-                Subtotal
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {selectedOrderItems.map((it: any, idx: number) => (
-              <tr key={it.id}>
-                <td style={{ border: "1px solid #cfcfcf", padding: 8 }}>{idx + 1}</td>
-                <td style={{ border: "1px solid #cfcfcf", padding: 8 }}>{it.product?.name || "-"}</td>
-                <td style={{ border: "1px solid #cfcfcf", padding: 8 }}>{it.product?.sku || "-"}</td>
-                <td style={{ border: "1px solid #cfcfcf", padding: 8 }}>{it.product?.category?.name || "-"}</td>
-                <td style={{ border: "1px solid #cfcfcf", padding: 8 }}>{it.product?.unit?.name || "-"}</td>
-                <td style={{ border: "1px solid #cfcfcf", padding: 8, textAlign: "center" }}>{it.ordered_qty}</td>
-                <td style={{ border: "1px solid #cfcfcf", padding: 8, textAlign: "right" }}>
-                  {formatCurrency(it.unit_price)}
-                </td>
-                <td style={{ border: "1px solid #cfcfcf", padding: 8, textAlign: "right" }}>
-                  {formatCurrency(it.subtotal ?? it.unit_price * it.ordered_qty - (it.discount || 0))}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {/* Totals right */}
-        <div className="totals" style={{ marginTop: 10, fontSize: 11 }}>
-          <div className="line" style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}>
-            <div className="k" style={{ color: "#444" }}>
-              Subtotal
-            </div>
-            <div className="v" style={{ fontWeight: 700 }}>
-              {formatCurrency(order.total_amount || 0)}
-            </div>
-          </div>
-          <div className="line" style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}>
-            <div className="k" style={{ color: "#444" }}>
-              Tax ({order.tax_rate || 0}%)
-            </div>
-            <div className="v" style={{ fontWeight: 700 }}>
-              {formatCurrency(tax)}
-            </div>
-          </div>
-
-          <div
-            className="grand"
-            style={{
-              marginTop: 8,
-              borderTop: "2px solid #2a2a2a",
-              paddingTop: 8,
-              display: "flex",
-              justifyContent: "space-between",
-            }}
-          >
-            <div className="k" style={{ fontWeight: 800, fontSize: 14 }}>
-              Grand Total
-            </div>
-            <div className="v" style={{ fontWeight: 900, fontSize: 14 }}>
-              {formatCurrency(order.grand_total || 0)}
-            </div>
-          </div>
-        </div>
-
-        {/* Ship to + Catatan */}
-        <div
-          className="addr-notes"
-          style={{ marginTop: 12, border: "1px solid #2a2a2a", display: "grid", gridTemplateColumns: "1fr 1fr" }}
-        >
-          <div className="cell" style={{ padding: 10, minHeight: 70 }}>
-            <div className="head" style={{ fontSize: 10, fontWeight: 800, color: "#444" }}>
-              SHIP TO ADDRESS/ALAMAT PENGIRIMAN:
-            </div>
-            <div className="body" style={{ marginTop: 8, fontSize: 11 }}>
-              {order.ship_to_address || shipToAddress || "-"}
-            </div>
-          </div>
-          <div className="cell" style={{ padding: 10, minHeight: 70, borderLeft: "1px solid #2a2a2a" }}>
-            <div className="head" style={{ fontSize: 10, fontWeight: 800, color: "#444" }}>
-              CATATAN :
-            </div>
-            <div className="body" style={{ marginTop: 8, fontSize: 11 }}>
-              {order.notes || "-"}
-            </div>
-          </div>
-        </div>
-
-        {/* Sign boxes */}
-        <div
-          className="sign"
-          style={{ marginTop: 16, border: "1px solid #2a2a2a", display: "grid", gridTemplateColumns: "repeat(4, 1fr)" }}
-        >
-          {["Pemohon,", "Finance,", "Purchasing,", "Menyetujui,"].map((role, i) => (
-            <div
-              key={role}
-              className="s"
-              style={{
-                minHeight: 125,
-                borderRight: i === 3 ? "none" : "1px solid #2a2a2a",
-                padding: 10,
-                fontSize: 11,
-                position: "relative",
-              }}
-            >
-              <div className="date" style={{ fontSize: 11, marginBottom: 10 }}>
-                Date:
-              </div>
-              <div className="role" style={{ marginTop: 8 }}>
-                {role}
-              </div>
-              <div
-                className="line"
-                style={{ position: "absolute", left: 10, right: 10, bottom: 12, borderTop: "1px solid #2a2a2a" }}
-              />
-              <div
-                className="name"
-                style={{
-                  position: "absolute",
-                  left: 10,
-                  right: 10,
-                  bottom: 0,
-                  textAlign: "center",
-                  transform: "translateY(8px)",
-                  fontSize: 11,
-                }}
-              >
-                (……………..…........………)
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  // ======= END PDF TEMPLATE =======
-
+  // ===== RENDER =====
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -1198,18 +911,21 @@ export default function SalesOrder() {
                                 <Eye className="w-4 h-4 mr-2" />
                                 {language === "en" ? "View Details" : "Lihat Detail"}
                               </DropdownMenuItem>
+
                               {order.po_document_url && (
-                                <DropdownMenuItem onClick={() => handleViewPoDocument(order)} disabled={isOpeningPoDoc}>
+                                <DropdownMenuItem onClick={() => openDocument(order)} disabled={isOpeningPoDoc}>
                                   <FileText className="w-4 h-4 mr-2" />
                                   {language === "en" ? "View Document" : "Lihat Dokumen"}
                                 </DropdownMenuItem>
                               )}
+
                               {showEdit && (
                                 <DropdownMenuItem onClick={() => handleEdit(order)}>
                                   <Edit className="w-4 h-4 mr-2" />
                                   {t("common.edit")}
                                 </DropdownMenuItem>
                               )}
+
                               {showApprove && (
                                 <DropdownMenuItem
                                   className="text-success"
@@ -1222,6 +938,7 @@ export default function SalesOrder() {
                                   Approve
                                 </DropdownMenuItem>
                               )}
+
                               {showCancel && (
                                 <DropdownMenuItem
                                   className="text-destructive"
@@ -1234,6 +951,7 @@ export default function SalesOrder() {
                                   Cancel
                                 </DropdownMenuItem>
                               )}
+
                               {showDelete && (
                                 <DropdownMenuItem
                                   className="text-destructive"
@@ -1275,16 +993,18 @@ export default function SalesOrder() {
           </DialogHeader>
 
           <div className="space-y-6 py-4">
-            {/* Header */}
+            {/* Header Row 1 */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label>{language === "en" ? "SO Number" : "No. SO"} *</Label>
                 <Input value={soNumber} disabled={!isEditMode} className={!isEditMode ? "bg-muted font-mono" : ""} />
               </div>
+
               <div className="space-y-2">
                 <Label>{language === "en" ? "Order Date" : "Tanggal Order"} *</Label>
                 <Input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} />
               </div>
+
               <div className="space-y-2">
                 <Label>Customer *</Label>
                 <Select value={customerId} onValueChange={handleCustomerChange}>
@@ -1292,7 +1012,7 @@ export default function SalesOrder() {
                     <SelectValue placeholder={language === "en" ? "Select customer" : "Pilih customer"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {customers.map((c: any) => (
+                    {customers.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.name}
                       </SelectItem>
@@ -1300,47 +1020,71 @@ export default function SalesOrder() {
                   </SelectContent>
                 </Select>
               </div>
+
               <div className="space-y-2">
                 <Label>{language === "en" ? "Customer PO Number" : "No. PO Customer"} *</Label>
                 <Input
-                  placeholder="e.g., PO-0001"
+                  placeholder="e.g., PO-Cust-001"
                   value={customerPoNumber}
                   onChange={(e) => setCustomerPoNumber(e.target.value)}
                 />
               </div>
             </div>
 
+            {/* Header Row 2 */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label>{language === "en" ? "Sales Name" : "Nama Sales"} *</Label>
                 <Input value={salesName} onChange={(e) => setSalesName(e.target.value)} />
               </div>
+
               <div className="space-y-2">
                 <Label>{language === "en" ? "Allocation Type" : "Tipe Alokasi"} *</Label>
-                <Select value={allocationType} onValueChange={setAllocationType}>
+                <Select value={allocationType} onValueChange={(v) => setAllocationType(v as any)}>
                   <SelectTrigger>
                     <SelectValue placeholder={language === "en" ? "Select type" : "Pilih tipe"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {allocationTypes.map((x) => (
-                      <SelectItem key={x} value={x}>
-                        {x}
+                    {allocationTypes.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+
               <div className="space-y-2">
                 <Label>{language === "en" ? "Project/Instansi" : "Proyek/Instansi"} *</Label>
                 <Input value={projectInstansi} onChange={(e) => setProjectInstansi(e.target.value)} />
               </div>
+
               <div className="space-y-2">
                 <Label>{language === "en" ? "Delivery Deadline" : "Batas Pengiriman"} *</Label>
                 <Input type="date" value={deliveryDeadline} onChange={(e) => setDeliveryDeadline(e.target.value)} />
               </div>
             </div>
 
-            {/* Shipping + Notes */}
+            {/* Auto-filled */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>PIC</Label>
+                <Input value={customerPic} onChange={(e) => setCustomerPic(e.target.value)} className="bg-muted/50" />
+              </div>
+              <div className="space-y-2">
+                <Label>{language === "en" ? "Phone" : "Telepon"}</Label>
+                <Input
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  className="bg-muted/50"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{language === "en" ? "Payment Terms" : "Termin Pembayaran"}</Label>
+                <Input value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} className="bg-muted/50" />
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{language === "en" ? "Ship To Address" : "Alamat Pengiriman"}</Label>
@@ -1352,12 +1096,12 @@ export default function SalesOrder() {
               </div>
             </div>
 
-            {/* PO Doc */}
+            {/* PO Document */}
             <div className="space-y-2">
               <Label>{language === "en" ? "PO Document" : "Dokumen PO"}</Label>
               <div className="flex gap-2">
                 <Input
-                  value={poDocumentUrl ? decodeURIComponent(poDocumentUrl.split("?")[0].split("/").pop() || "") : ""}
+                  value={poDocumentUrl ? poDocumentUrl.split("?")[0].split("/").pop() || "" : ""}
                   disabled
                   placeholder={language === "en" ? "Upload PO document" : "Upload dokumen PO"}
                   className="bg-muted flex-1"
@@ -1385,6 +1129,11 @@ export default function SalesOrder() {
                   onChange={handleFileUpload}
                 />
               </div>
+              <p className="text-xs text-muted-foreground">
+                {language === "en"
+                  ? "Tip: keep the file path (po_document_key) for reliable open."
+                  : "Tip: simpan path (po_document_key) agar fitur View Document selalu berhasil."}
+              </p>
             </div>
 
             {/* Items */}
@@ -1401,7 +1150,7 @@ export default function SalesOrder() {
                       />
                     </SelectTrigger>
                     <SelectContent>
-                      {(products as any[])
+                      {products
                         .filter((p) => p.is_active)
                         .map((p) => (
                           <SelectItem key={p.id} value={p.id}>
@@ -1425,7 +1174,9 @@ export default function SalesOrder() {
                       <TableHead className="text-center">{language === "en" ? "Stock" : "Stok"}</TableHead>
                       <TableHead className="text-right">{language === "en" ? "Unit Price" : "Harga"}</TableHead>
                       <TableHead className="text-center">Qty</TableHead>
-                      <TableHead className="text-right">{language === "en" ? "Discount" : "Diskon"}</TableHead>
+                      <TableHead className="text-right">
+                        {language === "en" ? "Line Discount" : "Diskon Item"}
+                      </TableHead>
                       <TableHead className="text-right">Subtotal</TableHead>
                       <TableHead />
                     </TableRow>
@@ -1438,7 +1189,7 @@ export default function SalesOrder() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      orderItems.map((it, idx) => (
+                      orderItems.map((it, index) => (
                         <TableRow key={it.product_id}>
                           <TableCell className="font-medium">{it.product_name}</TableCell>
                           <TableCell>{it.sku}</TableCell>
@@ -1454,33 +1205,33 @@ export default function SalesOrder() {
                           <TableCell className="text-right">
                             <Input
                               type="number"
-                              min="0"
+                              min={0}
                               value={it.unit_price}
-                              onChange={(e) => handleItemChange(idx, "unit_price", parseFloat(e.target.value) || 0)}
+                              onChange={(e) => handleItemChange(index, "unit_price", safeNumber(e.target.value, 0))}
                               className="w-28 text-right"
                             />
                           </TableCell>
                           <TableCell>
                             <Input
                               type="number"
-                              min="1"
+                              min={1}
                               value={it.ordered_qty}
-                              onChange={(e) => handleItemChange(idx, "ordered_qty", parseInt(e.target.value) || 1)}
+                              onChange={(e) => handleItemChange(index, "ordered_qty", safeNumber(e.target.value, 1))}
                               className="w-20 text-center"
                             />
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="text-right">
                             <Input
                               type="number"
-                              min="0"
+                              min={0}
                               value={it.discount}
-                              onChange={(e) => handleItemChange(idx, "discount", parseFloat(e.target.value) || 0)}
-                              className="w-24 text-right"
+                              onChange={(e) => handleItemChange(index, "discount", safeNumber(e.target.value, 0))}
+                              className="w-28 text-right"
                             />
                           </TableCell>
                           <TableCell className="text-right font-medium">{formatCurrency(it.subtotal)}</TableCell>
                           <TableCell>
-                            <Button variant="ghost" size="iconSm" onClick={() => handleRemoveItem(idx)}>
+                            <Button variant="ghost" size="iconSm" onClick={() => handleRemoveItem(index)}>
                               <Trash2 className="w-4 h-4 text-destructive" />
                             </Button>
                           </TableCell>
@@ -1489,6 +1240,12 @@ export default function SalesOrder() {
                     )}
                   </TableBody>
                 </Table>
+
+                <p className="text-xs text-muted-foreground mt-3">
+                  {language === "en"
+                    ? "Line Discount is a nominal discount per item row. Header Discount (below) applies after all items."
+                    : "Diskon Item adalah diskon nominal per baris item. Diskon (Header) di bawah diterapkan setelah total semua item."}
+                </p>
               </CardContent>
             </Card>
 
@@ -1497,22 +1254,22 @@ export default function SalesOrder() {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>{language === "en" ? "Discount" : "Diskon"}</Label>
+                    <Label>{language === "en" ? "Header Discount" : "Diskon (Header)"}</Label>
                     <Input
                       type="number"
-                      min="0"
-                      value={discount}
-                      onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
+                      min={0}
+                      value={headerDiscount}
+                      onChange={(e) => setHeaderDiscount(safeNumber(e.target.value, 0))}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>{language === "en" ? "Tax Rate (%)" : "Tarif Pajak (%)"}</Label>
                     <Input
                       type="number"
-                      min="0"
-                      max="100"
+                      min={0}
+                      max={100}
                       value={taxRate}
-                      onChange={(e) => setTaxRate(parseFloat(e.target.value) || 0)}
+                      onChange={(e) => setTaxRate(safeNumber(e.target.value, 0))}
                     />
                   </div>
                 </div>
@@ -1520,9 +1277,9 @@ export default function SalesOrder() {
                   <Label>{language === "en" ? "Shipping Cost" : "Biaya Pengiriman"}</Label>
                   <Input
                     type="number"
-                    min="0"
+                    min={0}
                     value={shippingCost}
-                    onChange={(e) => setShippingCost(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => setShippingCost(safeNumber(e.target.value, 0))}
                   />
                 </div>
               </div>
@@ -1531,25 +1288,27 @@ export default function SalesOrder() {
                 <CardContent className="p-4 space-y-2">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Subtotal</span>
-                    <span className="font-medium">{formatCurrency(subtotal)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{language === "en" ? "Discount" : "Diskon"}</span>
-                    <span className="font-medium text-destructive">-{formatCurrency(discount)}</span>
+                    <span className="font-medium">{formatCurrency(totals.itemsSubtotal)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">
-                      {language === "en" ? "Tax" : "Pajak"} ({taxRate}%)
+                      {language === "en" ? "Header Discount" : "Diskon (Header)"}
                     </span>
-                    <span className="font-medium">{formatCurrency(taxAmount)}</span>
+                    <span className="font-medium text-destructive">-{formatCurrency(totals.headerDisc)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      {language === "en" ? "Tax" : "Pajak"} ({clampNumber(taxRate, 0, 100)}%)
+                    </span>
+                    <span className="font-medium">{formatCurrency(totals.tax)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">{language === "en" ? "Shipping" : "Pengiriman"}</span>
-                    <span className="font-medium">{formatCurrency(shippingCost)}</span>
+                    <span className="font-medium">{formatCurrency(totals.ship)}</span>
                   </div>
                   <div className="border-t pt-2 flex justify-between">
                     <span className="font-bold">Grand Total</span>
-                    <span className="font-bold text-lg">{formatCurrency(grandTotal)}</span>
+                    <span className="font-bold text-lg">{formatCurrency(totals.grandTotal)}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -1582,7 +1341,7 @@ export default function SalesOrder() {
         </DialogContent>
       </Dialog>
 
-      {/* Approve */}
+      {/* Approve Dialog */}
       <AlertDialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1607,7 +1366,7 @@ export default function SalesOrder() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Cancel */}
+      {/* Cancel Dialog */}
       <AlertDialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1632,7 +1391,7 @@ export default function SalesOrder() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete */}
+      {/* Delete Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1657,18 +1416,18 @@ export default function SalesOrder() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Detail */}
+      {/* Detail Dialog */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center justify-between">
               <DialogTitle>{language === "en" ? "Sales Order Details" : "Detail Sales Order"}</DialogTitle>
-              <div className="flex gap-2 flex-wrap justify-end">
+              <div className="flex gap-2">
                 {selectedOrder?.po_document_url && (
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => selectedOrder && handleViewPoDocument(selectedOrder)}
+                    onClick={() => selectedOrder && openDocument(selectedOrder)}
                     disabled={isOpeningPoDoc}
                   >
                     {isOpeningPoDoc ? (
@@ -1696,7 +1455,38 @@ export default function SalesOrder() {
                   )}
                   {language === "en" ? "Download" : "Unduh"}
                 </Button>
-                <Button variant="outline" size="sm" onClick={handlePrint} disabled={itemsLoading}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // simple print: open new tab with html
+                    if (!printRef.current || !selectedOrder) return;
+                    const w = window.open("", "_blank");
+                    if (!w) return;
+                    w.document.write(`
+                      <!DOCTYPE html>
+                      <html>
+                        <head>
+                          <title>Sales Order - ${selectedOrder.sales_order_number}</title>
+                          <meta charset="utf-8" />
+                          <style>
+                            * { box-sizing: border-box; }
+                            body { font-family: Arial, sans-serif; padding: 16px; color: #111; }
+                            @page { margin: 12mm; }
+                          </style>
+                        </head>
+                        <body>
+                          ${printRef.current.innerHTML}
+                          <script>
+                            window.onload = function() { window.print(); window.onafterprint = function(){ window.close(); } }
+                          </script>
+                        </body>
+                      </html>
+                    `);
+                    w.document.close();
+                  }}
+                  disabled={itemsLoading}
+                >
                   <Printer className="w-4 h-4 mr-2" />
                   {language === "en" ? "Print" : "Cetak"}
                 </Button>
@@ -1764,31 +1554,38 @@ export default function SalesOrder() {
                         <TableHead>{language === "en" ? "Unit" : "Satuan"}</TableHead>
                         <TableHead className="text-center">Qty</TableHead>
                         <TableHead className="text-right">{language === "en" ? "Price" : "Harga"}</TableHead>
+                        <TableHead className="text-right">{language === "en" ? "Line Disc" : "Disc Item"}</TableHead>
                         <TableHead className="text-right">Subtotal</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {selectedOrderItems.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={8} className="text-center py-4 text-muted-foreground">
+                          <TableCell colSpan={9} className="text-center py-4 text-muted-foreground">
                             {language === "en" ? "No items found" : "Tidak ada item"}
                           </TableCell>
                         </TableRow>
                       ) : (
-                        selectedOrderItems.map((it: any, idx: number) => (
-                          <TableRow key={it.id}>
-                            <TableCell>{idx + 1}</TableCell>
-                            <TableCell className="font-medium">{it.product?.name}</TableCell>
-                            <TableCell>{it.product?.sku || "-"}</TableCell>
-                            <TableCell>{it.product?.category?.name || "-"}</TableCell>
-                            <TableCell>{it.product?.unit?.name || "-"}</TableCell>
-                            <TableCell className="text-center">{it.ordered_qty}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(it.unit_price)}</TableCell>
-                            <TableCell className="text-right">
-                              {formatCurrency(it.subtotal ?? it.unit_price * it.ordered_qty - (it.discount || 0))}
-                            </TableCell>
-                          </TableRow>
-                        ))
+                        selectedOrderItems.map((item: any, index: number) => {
+                          const lineSubtotal = safeNumber(
+                            item.subtotal,
+                            safeNumber(item.unit_price, 0) * safeNumber(item.ordered_qty, 0) -
+                              safeNumber(item.discount, 0),
+                          );
+                          return (
+                            <TableRow key={item.id}>
+                              <TableCell>{index + 1}</TableCell>
+                              <TableCell className="font-medium">{item.product?.name}</TableCell>
+                              <TableCell>{item.product?.sku || "-"}</TableCell>
+                              <TableCell>{item.product?.category?.name || "-"}</TableCell>
+                              <TableCell>{item.product?.unit?.name || "-"}</TableCell>
+                              <TableCell className="text-center">{item.ordered_qty}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(item.unit_price)}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(item.discount || 0)}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(lineSubtotal)}</TableCell>
+                            </TableRow>
+                          );
+                        })
                       )}
                     </TableBody>
                   </Table>
@@ -1805,9 +1602,227 @@ export default function SalesOrder() {
         </DialogContent>
       </Dialog>
 
-      {/* Hidden PDF/Print DOM */}
+      {/* Hidden Print Content (PDF template - mirip file kamu) */}
       <div className="hidden">
-        <div ref={printRef}>{selectedOrder && <PdfTemplate order={selectedOrder} />}</div>
+        <div ref={printRef}>
+          {selectedOrder && (
+            <div style={{ fontFamily: "Arial, sans-serif", fontSize: "11px", color: "#111" }}>
+              {/* Top: Logo + Right Title block */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  {/* Put your logo in /public/kemika-logo.png */}
+                  <img src="/kemika-logo.png" alt="Kemika" style={{ height: "42px", objectFit: "contain" }} />
+                </div>
+
+                {/* IMPORTANT: SALES ORDER sejajar dengan Sales Order No. */}
+                <div style={{ textAlign: "right", minWidth: "300px" }}>
+                  <div style={{ fontSize: "20px", fontWeight: 700, letterSpacing: 0.5 }}>SALES ORDER</div>
+                  <div style={{ height: "6px" }} />
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "120px 10px 1fr",
+                      gap: "6px",
+                      justifyContent: "end",
+                    }}
+                  >
+                    <div style={{ textAlign: "left", fontSize: "11px" }}>Sales Order No.</div>
+                    <div>:</div>
+                    <div style={{ fontWeight: 700 }}>{selectedOrder.sales_order_number}</div>
+
+                    <div style={{ textAlign: "left", fontSize: "11px" }}>SO Date</div>
+                    <div>:</div>
+                    <div style={{ fontWeight: 700 }}>{formatDateID(selectedOrder.order_date)}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Allocation row */}
+              <div style={{ marginTop: "10px" }}>
+                <span style={{ fontSize: "11px" }}>TIPE ALOKASI : </span>
+                <span style={{ color: "#b91c1c", fontWeight: 700 }}>
+                  {String(selectedOrder.allocation_type || "").toUpperCase()}
+                </span>
+              </div>
+
+              {/* Divider */}
+              <div style={{ marginTop: "8px", borderTop: "2px solid #111" }} />
+
+              {/* Info rows */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "10px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", rowGap: "8px", columnGap: "10px" }}>
+                  <div style={{ color: "#333" }}>SALES</div>
+                  <div style={{ fontWeight: 700 }}>{selectedOrder.sales_name}</div>
+
+                  <div style={{ color: "#333" }}>CUSTOMER</div>
+                  <div style={{ fontWeight: 700 }}>{selectedOrder.customer?.name || "-"}</div>
+
+                  <div style={{ color: "#333" }}>PIC</div>
+                  <div style={{ fontWeight: 700 }}>{selectedOrder.customer?.pic || "-"}</div>
+
+                  <div style={{ color: "#333" }}>PHONE</div>
+                  <div style={{ fontWeight: 700 }}>{selectedOrder.customer?.phone || "-"}</div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", rowGap: "8px", columnGap: "10px" }}>
+                  <div style={{ color: "#333" }}>TANGGAL</div>
+                  <div style={{ fontWeight: 700 }}>{formatDateID(selectedOrder.order_date)}</div>
+
+                  <div style={{ color: "#333" }}>PO CUSTOMER</div>
+                  <div style={{ fontWeight: 700 }}>{selectedOrder.customer_po_number}</div>
+
+                  <div style={{ color: "#333" }}>BATAS PENGIRIMAN</div>
+                  <div style={{ fontWeight: 700 }}>{formatDateID(selectedOrder.delivery_deadline)}</div>
+
+                  <div style={{ color: "#333" }}>PAYMENT TERMS</div>
+                  <div style={{ fontWeight: 700, color: "#b91c1c" }}>
+                    {(selectedOrder.customer?.terms_payment || "-").toString().toUpperCase()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Items table (black borders) */}
+              <div style={{ marginTop: "12px" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #111" }}>
+                  <thead>
+                    <tr style={{ background: "#0b6b3a", color: "white" }}>
+                      {["No", "Nama Barang", "SKU", "Kategori", "Satuan", "Qty", "Harga", "Subtotal"].map((h) => (
+                        <th
+                          key={h}
+                          style={{
+                            border: "1px solid #111",
+                            padding: "8px",
+                            fontSize: "11px",
+                            textAlign:
+                              h === "Harga" || h === "Subtotal"
+                                ? "right"
+                                : h === "Qty" || h === "No"
+                                  ? "center"
+                                  : "left",
+                          }}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedOrderItems?.map((it: any, idx: number) => {
+                      const lineSubtotal = safeNumber(
+                        it.subtotal,
+                        safeNumber(it.unit_price, 0) * safeNumber(it.ordered_qty, 0) - safeNumber(it.discount, 0),
+                      );
+                      return (
+                        <tr key={it.id}>
+                          <td style={{ border: "1px solid #111", padding: "8px", textAlign: "center" }}>{idx + 1}</td>
+                          <td style={{ border: "1px solid #111", padding: "8px" }}>{it.product?.name || "-"}</td>
+                          <td style={{ border: "1px solid #111", padding: "8px" }}>{it.product?.sku || "-"}</td>
+                          <td style={{ border: "1px solid #111", padding: "8px" }}>
+                            {it.product?.category?.name || "-"}
+                          </td>
+                          <td style={{ border: "1px solid #111", padding: "8px" }}>{it.product?.unit?.name || "-"}</td>
+                          <td style={{ border: "1px solid #111", padding: "8px", textAlign: "center" }}>
+                            {it.ordered_qty}
+                          </td>
+                          <td style={{ border: "1px solid #111", padding: "8px", textAlign: "right" }}>
+                            {formatCurrency(it.unit_price)}
+                          </td>
+                          <td style={{ border: "1px solid #111", padding: "8px", textAlign: "right" }}>
+                            {formatCurrency(lineSubtotal)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Totals area */}
+              <div style={{ marginTop: "12px", display: "grid", gridTemplateColumns: "1fr 260px", gap: "10px" }}>
+                <div />
+                <div style={{ borderTop: "1px solid #111", paddingTop: "8px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                    <span>Subtotal</span>
+                    <b>{formatCurrency(selectedOrder.total_amount)}</b>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                    <span>Tax ({selectedOrder.tax_rate}%)</span>
+                    <b>
+                      {formatCurrency(
+                        ((safeNumber(selectedOrder.total_amount, 0) - safeNumber(selectedOrder.discount, 0)) *
+                          safeNumber(selectedOrder.tax_rate, 0)) /
+                          100,
+                      )}
+                    </b>
+                  </div>
+
+                  <div
+                    style={{
+                      borderTop: "2px solid #111",
+                      marginTop: "8px",
+                      paddingTop: "8px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <span style={{ fontSize: "13px", fontWeight: 700 }}>Grand Total</span>
+                    <span style={{ fontSize: "13px", fontWeight: 700 }}>
+                      {formatCurrency(selectedOrder.grand_total)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Address + Notes (black border) */}
+              <div style={{ marginTop: "12px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0px" }}>
+                <div style={{ border: "1px solid #111", padding: "10px", minHeight: "70px" }}>
+                  <div style={{ fontWeight: 700, fontSize: "10px", marginBottom: "6px", color: "#333" }}>
+                    SHIP TO ADDRESS/ALAMAT PENGIRIMAN:
+                  </div>
+                  <div style={{ fontSize: "10px" }}>{selectedOrder.ship_to_address || "-"}</div>
+                </div>
+                <div style={{ border: "1px solid #111", borderLeft: "0px", padding: "10px", minHeight: "70px" }}>
+                  <div style={{ fontWeight: 700, fontSize: "10px", marginBottom: "6px", color: "#333" }}>CATATAN :</div>
+                  <div style={{ fontSize: "10px" }}>{selectedOrder.notes || "-"}</div>
+                </div>
+              </div>
+
+              {/* Sign boxes (black border) */}
+              <div style={{ marginTop: "16px", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0px" }}>
+                {[{ role: "Pemohon," }, { role: "Finance," }, { role: "Purchasing," }, { role: "Menyetujui," }].map(
+                  (box, i) => (
+                    <div key={i} style={{ border: "1px solid #111", padding: "10px", minHeight: "120px" }}>
+                      <div style={{ fontSize: "10px", marginBottom: "14px" }}>Date:</div>
+                      <div style={{ fontSize: "10px", marginBottom: "70px" }}>{box.role}</div>
+                      <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                      <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
+                        (.................................)
+                      </div>
+                    </div>
+                  ),
+                )}
+              </div>
+
+              {/* Print datetime bottom-left */}
+              <div style={{ marginTop: "10px", fontSize: "9px", color: "#333" }}>
+                Print: {formatDateTimeID(new Date())}
+              </div>
+
+              {/* Optional digital signature */}
+              {selectedOrder.status !== "draft" && (selectedOrder as any).approved_at && (
+                <div style={{ marginTop: "10px", padding: "10px", border: "1px solid #111" }}>
+                  <div style={{ fontWeight: 700, display: "flex", gap: "6px", alignItems: "center" }}>
+                    <span>✓</span> DIGITAL SIGNATURE
+                  </div>
+                  <div style={{ fontSize: "10px", marginTop: "6px" }}>
+                    Approved By: {(selectedOrder as any).approved_by || "System"} | Approval Date:{" "}
+                    {formatDateID((selectedOrder as any).approved_at)}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* PDF Preview Dialog */}
@@ -1817,11 +1832,9 @@ export default function SalesOrder() {
             <DialogTitle>{language === "en" ? "PDF Preview" : "Preview PDF"}</DialogTitle>
           </DialogHeader>
 
-          {selectedOrder && (
-            <div className="bg-white text-black p-6 rounded-lg border">
-              <PdfTemplate order={selectedOrder} />
-            </div>
-          )}
+          <div className="bg-white p-4 rounded border">
+            <div dangerouslySetInnerHTML={{ __html: printRef.current?.innerHTML || "" }} />
+          </div>
 
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setIsPdfPreviewOpen(false)}>
@@ -1835,7 +1848,31 @@ export default function SalesOrder() {
               )}
               {language === "en" ? "Download PDF" : "Unduh PDF"}
             </Button>
-            <Button onClick={handlePrint}>
+            <Button
+              onClick={() => {
+                // Print from preview uses same logic as detail print
+                if (!printRef.current || !selectedOrder) return;
+                const w = window.open("", "_blank");
+                if (!w) return;
+                w.document.write(`
+                  <!DOCTYPE html>
+                  <html>
+                    <head>
+                      <title>Sales Order - ${selectedOrder.sales_order_number}</title>
+                      <meta charset="utf-8" />
+                      <style>*{box-sizing:border-box} body{font-family:Arial,sans-serif;padding:16px;color:#111} @page{margin:12mm}</style>
+                    </head>
+                    <body>
+                      ${printRef.current.innerHTML}
+                      <script>
+                        window.onload=function(){window.print();window.onafterprint=function(){window.close();}}
+                      </script>
+                    </body>
+                  </html>
+                `);
+                w.document.close();
+              }}
+            >
               <Printer className="w-4 h-4 mr-2" />
               {language === "en" ? "Print" : "Cetak"}
             </Button>
