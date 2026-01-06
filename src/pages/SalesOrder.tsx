@@ -1610,8 +1610,7 @@ export default function SalesOrder() {
               {/* Top: Logo + Right Title block */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div>
-                  {/* Put your logo in /public/kemika-logo.png */}
-                  <img src="/kemika-logo.png" alt="Kemika" style={{ height: "42px", objectFit: "contain" }} />
+                  <img src="/logo-kemika.png" alt="Kemika" style={{ height: "42px", objectFit: "contain" }} />
                 </div>
 
                 {/* IMPORTANT: SALES ORDER sejajar dengan Sales Order No. */}
