@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import html2pdf from "html2pdf.js";
 import {
   Plus,
@@ -69,7 +69,7 @@ import { uploadFile, getSignedUrl } from "@/lib/storage";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-const LOGO_SRC = "/logo-kemika.png";
+const LOGO_SRC = "/logo-kemika.png"; // taruh file di /public/logo-kemika.png
 
 const statusConfig: Record<
   string,
@@ -92,49 +92,14 @@ interface OrderItem {
   category: string;
   unit_price: number;
   ordered_qty: number;
-
-  // DISABLE item discount; keep for schema compatibility
   discount: number;
-
   subtotal: number;
   stock_available: number;
-}
-
-function extractStoragePathFromDocumentsUrl(url: string): string | null {
-  // goal: return path inside bucket "documents", e.g. "sales-orders/xxx.pdf"
-  try {
-    if (!url) return null;
-
-    // if plain path already
-    if (!url.startsWith("http")) {
-      return url.replace(/^\/+/, "");
-    }
-
-    // signed/public: .../storage/v1/object/(sign|public)/documents/<path>?...
-    const m1 = url.match(/\/storage\/v1\/object\/(?:sign|public)\/documents\/(.+?)(?:\?|$)/);
-    if (m1?.[1]) return decodeURIComponent(m1[1]);
-
-    // some supabase URLs: .../storage/v1/object/documents/<path>
-    const m2 = url.match(/\/storage\/v1\/object\/documents\/(.+?)(?:\?|$)/);
-    if (m2?.[1]) return decodeURIComponent(m2[1]);
-
-    // if url contains "/documents/" anywhere
-    const idx = url.indexOf("/documents/");
-    if (idx >= 0) {
-      const part = url.substring(idx + "/documents/".length);
-      return decodeURIComponent(part.split("?")[0]);
-    }
-
-    return null;
-  } catch {
-    return null;
-  }
 }
 
 export default function SalesOrder() {
   const { t, language } = useLanguage();
   const { user } = useAuth();
-
   const { salesOrders, loading, refetch } = useSalesOrders();
   const { customers } = useCustomers();
   const { products } = useProducts();
@@ -171,6 +136,7 @@ export default function SalesOrder() {
 
   const printRef = useRef<HTMLDivElement>(null);
 
+  // Detail items
   const { items: selectedOrderItems, loading: itemsLoading } = useSalesOrderItems(selectedOrder?.id || null);
 
   // Form state
@@ -185,8 +151,8 @@ export default function SalesOrder() {
   const [shipToAddress, setShipToAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [poDocumentUrl, setPoDocumentUrl] = useState("");
+  const [poDocumentKey, setPoDocumentKey] = useState("");
 
-  // ONLY ONE DISCOUNT (order-level)
   const [discount, setDiscount] = useState(0);
   const [taxRate, setTaxRate] = useState(11);
   const [shippingCost, setShippingCost] = useState(0);
@@ -199,6 +165,7 @@ export default function SalesOrder() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
 
+  // permissions approve
   const canApprove = useMemo(() => {
     if (!user) return false;
     if (user.role === "super_admin") return true;
@@ -214,12 +181,15 @@ export default function SalesOrder() {
 
   const formatDateID = (dateStr?: string | null) => {
     if (!dateStr) return "";
-    return new Date(dateStr).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
   };
 
   const formatDateShort = (dateStr?: string | null) => {
     if (!dateStr) return "";
-    return new Date(dateStr).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+    const d = new Date(dateStr);
+    // contoh di PDF: "6 Jan 2026"
+    return d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
   };
 
   const filteredOrders = useMemo(() => {
@@ -274,7 +244,6 @@ export default function SalesOrder() {
         if (lastYearMonth === currentYearMonth) sequence = parseInt(match[2], 10) + 1;
       }
     }
-
     setSoNumber(`SOR-${year}${month}-${String(sequence).padStart(4, "0")}`);
   };
 
@@ -290,6 +259,7 @@ export default function SalesOrder() {
     setShipToAddress("");
     setNotes("");
     setPoDocumentUrl("");
+    setPoDocumentKey("");
     setDiscount(0);
     setTaxRate(11);
     setShippingCost(0);
@@ -310,7 +280,7 @@ export default function SalesOrder() {
 
   const handleCustomerChange = (newId: string) => {
     setCustomerId(newId);
-    const c: any = customers.find((x: any) => x.id === newId);
+    const c = customers.find((x) => x.id === newId);
     if (c) {
       setCustomerPic(c.pic || "");
       setCustomerPhone(c.phone || "");
@@ -331,11 +301,10 @@ export default function SalesOrder() {
     setShipToAddress(order.ship_to_address || "");
     setNotes(order.notes || "");
     setPoDocumentUrl(order.po_document_url || "");
-
+    setPoDocumentKey("");
     setDiscount(order.discount || 0);
     setTaxRate(order.tax_rate || 11);
     setShippingCost(order.shipping_cost || 0);
-
     setEditingOrderId(order.id);
     setIsEditMode(true);
 
@@ -350,25 +319,24 @@ export default function SalesOrder() {
       const items: OrderItem[] = [];
       for (const it of data as any[]) {
         const stock = await getProductStock(it.product_id);
-        const qty = it.ordered_qty || 0;
-        const price = it.unit_price || 0;
         items.push({
           product_id: it.product_id,
           product_name: it.product?.name || "",
           sku: it.product?.sku || "-",
           unit: it.product?.unit?.name || "-",
           category: it.product?.category?.name || "-",
-          unit_price: price,
-          ordered_qty: qty,
-          discount: 0, // DISABLE item discount
-          subtotal: qty * price,
+          unit_price: it.unit_price,
+          ordered_qty: it.ordered_qty,
+          discount: it.discount || 0,
+          subtotal: it.ordered_qty * it.unit_price - (it.discount || 0),
           stock_available: stock,
         });
       }
       setOrderItems(items);
     }
 
-    const c: any = customers.find((x: any) => x.id === order.customer_id);
+    // set auto-filled (optional)
+    const c = customers.find((x) => x.id === order.customer_id);
     if (c) {
       setCustomerPic(c.pic || "");
       setCustomerPhone(c.phone || "");
@@ -381,12 +349,11 @@ export default function SalesOrder() {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setIsUploading(true);
     const result = await uploadFile(file, "documents", "sales-orders");
-
     if (result) {
       setPoDocumentUrl(result.url);
+      setPoDocumentKey(result.path);
       toast.success(language === "en" ? "Document uploaded successfully" : "Dokumen berhasil diupload");
     } else {
       toast.error(language === "en" ? "Failed to upload document" : "Gagal upload dokumen");
@@ -396,7 +363,7 @@ export default function SalesOrder() {
 
   const handleAddProduct = async () => {
     if (!selectedProductId) return;
-    const p: any = products.find((x: any) => x.id === selectedProductId);
+    const p = products.find((x: any) => x.id === selectedProductId);
     if (!p) return;
 
     if (orderItems.some((it) => it.product_id === selectedProductId)) {
@@ -406,8 +373,6 @@ export default function SalesOrder() {
 
     const stockAvailable = await getProductStock(selectedProductId);
 
-    const price = p.selling_price || p.purchase_price || 0;
-
     setOrderItems((prev) => [
       ...prev,
       {
@@ -416,14 +381,13 @@ export default function SalesOrder() {
         sku: p.sku || "-",
         unit: p.unit?.name || "-",
         category: p.category?.name || "-",
-        unit_price: price,
+        unit_price: p.selling_price || p.purchase_price || 0,
         ordered_qty: 1,
-        discount: 0, // DISABLE item discount
-        subtotal: 1 * price,
+        discount: 0,
+        subtotal: p.selling_price || p.purchase_price || 0,
         stock_available: stockAvailable,
       },
     ]);
-
     setSelectedProductId("");
   };
 
@@ -431,16 +395,11 @@ export default function SalesOrder() {
     setOrderItems((prev) =>
       prev.map((it, i) => {
         if (i !== index) return it;
-
-        const next = { ...it } as OrderItem;
-
-        if (field === "ordered_qty") next.ordered_qty = value;
-        if (field === "unit_price") next.unit_price = value;
-
-        // DISABLE item discount; subtotal always qty*price
-        next.discount = 0;
-        next.subtotal = (next.ordered_qty || 0) * (next.unit_price || 0);
-
+        const next = { ...it, [field]: value } as OrderItem;
+        const qty = field === "ordered_qty" ? value : it.ordered_qty;
+        const price = field === "unit_price" ? value : it.unit_price;
+        const disc = field === "discount" ? value : it.discount;
+        next.subtotal = qty * price - disc;
         return next;
       }),
     );
@@ -451,18 +410,11 @@ export default function SalesOrder() {
   };
 
   const calculateTotals = () => {
-    const subtotal = orderItems.reduce((sum, it) => sum + (it.subtotal || 0), 0);
-
-    const safeDiscount = Math.max(0, discount || 0);
-    const totalAfterDiscount = Math.max(0, subtotal - safeDiscount);
-
-    const safeTaxRate = Math.max(0, taxRate || 0);
-    const taxAmount = totalAfterDiscount * (safeTaxRate / 100);
-
-    const safeShipping = Math.max(0, shippingCost || 0);
-    const grandTotal = totalAfterDiscount + taxAmount + safeShipping;
-
-    return { subtotal, totalAfterDiscount, taxAmount, grandTotal };
+    const subtotal = orderItems.reduce((sum, it) => sum + it.subtotal, 0);
+    const totalAfterDiscount = subtotal - discount;
+    const taxAmount = totalAfterDiscount * (taxRate / 100);
+    const grandTotal = totalAfterDiscount + taxAmount + shippingCost;
+    return { subtotal, taxAmount, grandTotal };
   };
 
   const handleSave = async () => {
@@ -486,15 +438,7 @@ export default function SalesOrder() {
     }
 
     setIsSaving(true);
-
     const { subtotal, grandTotal } = calculateTotals();
-
-    const itemsPayload = orderItems.map((it) => ({
-      product_id: it.product_id,
-      unit_price: it.unit_price,
-      ordered_qty: it.ordered_qty,
-      discount: 0, // item discount DISABLED
-    }));
 
     if (isEditMode && editingOrderId) {
       const result = await updateSalesOrder(
@@ -512,12 +456,17 @@ export default function SalesOrder() {
           notes: notes || null,
           po_document_url: poDocumentUrl || null,
           total_amount: subtotal,
-          discount: Math.max(0, discount || 0), // ONLY ONE DISCOUNT
-          tax_rate: Math.max(0, taxRate || 0),
-          shipping_cost: Math.max(0, shippingCost || 0),
+          discount: discount,
+          tax_rate: taxRate,
+          shipping_cost: shippingCost,
           grand_total: grandTotal,
         },
-        itemsPayload,
+        orderItems.map((it) => ({
+          product_id: it.product_id,
+          unit_price: it.unit_price,
+          ordered_qty: it.ordered_qty,
+          discount: it.discount,
+        })),
       );
 
       if (result.success) {
@@ -527,9 +476,7 @@ export default function SalesOrder() {
         setEditingOrderId(null);
         resetForm();
         refetch();
-      } else {
-        toast.error(result.error || "Failed to update");
-      }
+      } else toast.error(result.error || "Failed to update");
     } else {
       const result = await createSalesOrder(
         {
@@ -546,15 +493,20 @@ export default function SalesOrder() {
           po_document_url: poDocumentUrl || null,
           status: "draft",
           total_amount: subtotal,
-          discount: Math.max(0, discount || 0), // ONLY ONE DISCOUNT
-          tax_rate: Math.max(0, taxRate || 0),
-          shipping_cost: Math.max(0, shippingCost || 0),
+          discount: discount,
+          tax_rate: taxRate,
+          shipping_cost: shippingCost,
           grand_total: grandTotal,
           created_by: null,
           approved_by: null,
           approved_at: null,
         },
-        itemsPayload,
+        orderItems.map((it) => ({
+          product_id: it.product_id,
+          unit_price: it.unit_price,
+          ordered_qty: it.ordered_qty,
+          discount: it.discount,
+        })),
       );
 
       if (result.success) {
@@ -562,9 +514,7 @@ export default function SalesOrder() {
         setIsDialogOpen(false);
         resetForm();
         refetch();
-      } else {
-        toast.error(result.error || "Failed to create Sales Order");
-      }
+      } else toast.error(result.error || "Failed to create Sales Order");
     }
 
     setIsSaving(false);
@@ -627,30 +577,25 @@ export default function SalesOrder() {
       toast.error(language === "en" ? "No document attached" : "Tidak ada dokumen terlampir");
       return;
     }
-
     setIsOpeningPoDoc(true);
     try {
       const url = order.po_document_url;
+      let path = url;
 
-      // 1) try extract storage path
-      const storagePath = extractStoragePathFromDocumentsUrl(url);
-
-      // 2) if we can sign => open signed URL
-      if (storagePath) {
-        const signed = await getSignedUrl(storagePath, "documents", 3600);
-        if (signed) {
-          window.open(signed, "_blank");
-          setIsOpeningPoDoc(false);
-          return;
-        }
+      if (url.includes("/storage/v1/object/")) {
+        const pathMatch = url.match(/\/storage\/v1\/object\/(?:sign|public)\/documents\/(.+?)(?:\?|$)/);
+        if (pathMatch) path = decodeURIComponent(pathMatch[1]);
+      } else if (!url.startsWith("http")) {
+        path = url;
+      } else if (url.includes(".supabase.co/storage/")) {
+        const pathMatch = url.match(/\/storage\/v1\/object\/(?:sign|public)\/documents\/(.+?)(?:\?|$)/);
+        if (pathMatch) path = decodeURIComponent(pathMatch[1]);
       }
 
-      // 3) fallback open directly (for public / already signed)
-      if (url.startsWith("http")) {
-        window.open(url, "_blank");
-      } else {
-        toast.error(language === "en" ? "Failed to open document" : "Gagal membuka dokumen");
-      }
+      const signedUrl = await getSignedUrl(path, "documents", 3600);
+      if (signedUrl) window.open(signedUrl, "_blank");
+      else if (url.startsWith("http")) window.open(url, "_blank");
+      else toast.error(language === "en" ? "Failed to open document" : "Gagal membuka dokumen");
     } catch (e) {
       console.error(e);
       toast.error(language === "en" ? "Failed to open document" : "Gagal membuka dokumen");
@@ -668,6 +613,7 @@ export default function SalesOrder() {
 
     setIsDownloadingPdf(true);
     try {
+      // pakai html2pdf dari HTML template yang sama dengan preview
       const element = printRef.current;
 
       const opt = {
@@ -692,6 +638,7 @@ export default function SalesOrder() {
     if (!selectedOrder || !printRef.current) return;
 
     const html = printRef.current.innerHTML;
+
     const w = window.open("", "_blank");
     if (!w) return;
 
@@ -704,6 +651,63 @@ export default function SalesOrder() {
         <style>
           * { box-sizing: border-box; }
           body { font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 18mm; color: #111; }
+          .row { display:flex; justify-content:space-between; align-items:flex-start; }
+          .top-left { display:flex; flex-direction:column; gap:4px; }
+          .logo-wrap { display:flex; align-items:flex-start; gap:8px; }
+          .logo { height: 44px; object-fit: contain; }
+          .title-right { text-align:right; }
+          .title-right h1 { margin:0; font-size: 20px; letter-spacing: .5px; }
+          .title-right .meta { margin-top:6px; font-size: 11px; line-height: 1.6; }
+          .meta-row { display:flex; gap:10px; justify-content:flex-end; }
+          .meta-row .k { width: 92px; text-align:left; color:#444; }
+          .meta-row .sep { width: 10px; text-align:center; color:#444; }
+          .meta-row .v { width: 120px; text-align:left; font-weight: 600; }
+
+          .allocation { margin-top: 10px; font-size: 11px; }
+          .allocation .label { color:#444; }
+          .allocation .value { font-weight: 700; color: #c1121f; } /* merah */
+          .hr { border-top: 2px solid #2a2a2a; margin: 10px 0 14px; }
+
+          .info { display:grid; grid-template-columns: 1fr 1fr; gap: 18px; font-size: 11px; }
+          .box { display:grid; grid-template-columns: 120px 1fr; row-gap: 10px; column-gap: 10px; }
+          .box .k { color:#444; text-transform: uppercase; font-size: 10px; }
+          .box .v { font-weight: 600; }
+          .terms { color:#c1121f; font-weight: 800; } /* merah */
+          .muted { color:#444; font-weight: 600; }
+
+          table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 11px; }
+          thead th {
+            background: #0b6b3a; color: #fff; padding: 8px 8px;
+            border: 1px solid #0b6b3a; text-align: left;
+          }
+          tbody td {
+            border: 1px solid #cfcfcf; padding: 8px 8px;
+          }
+          .tc { text-align:center; }
+          .tr { text-align:right; }
+
+          .totals { margin-top: 10px; font-size: 11px; }
+          .totals .line { display:flex; justify-content:space-between; padding: 3px 0; }
+          .totals .k { color:#444; }
+          .totals .v { font-weight: 700; }
+          .grand { margin-top: 8px; border-top: 2px solid #2a2a2a; padding-top: 8px; }
+          .grand .k { font-weight: 800; font-size: 14px; }
+          .grand .v { font-weight: 900; font-size: 14px; }
+
+          .addr-notes { margin-top: 12px; border: 1px solid #2a2a2a; display:grid; grid-template-columns: 1fr 1fr; }
+          .addr-notes .cell { padding: 10px; min-height: 70px; }
+          .addr-notes .cell + .cell { border-left: 1px solid #2a2a2a; }
+          .cell .head { font-size: 10px; font-weight: 800; color:#444; }
+          .cell .body { margin-top: 8px; font-size: 11px; }
+
+          .sign { margin-top: 16px; border: 1px solid #2a2a2a; display:grid; grid-template-columns: repeat(4, 1fr); }
+          .sign .s { min-height: 125px; border-right: 1px solid #2a2a2a; padding: 10px; font-size: 11px; }
+          .sign .s:last-child { border-right: none; }
+          .sign .date { font-size: 11px; margin-bottom: 10px; }
+          .sign .role { margin-top: 8px; }
+          .sign .line { position: absolute; left: 10px; right: 10px; bottom: 12px; border-top: 1px solid #2a2a2a; }
+          .sign .name { position:absolute; left:10px; right:10px; bottom: 0; text-align:center; transform: translateY(8px); font-size: 11px; }
+
           @page { size: A4; margin: 12mm; }
           @media print { body { padding: 0; } }
         </style>
@@ -721,35 +725,43 @@ export default function SalesOrder() {
 
   const { subtotal, taxAmount, grandTotal } = calculateTotals();
 
-  // ===== PDF TEMPLATE (same as before, but totals now include ONLY ONE DISCOUNT) =====
+  // ======= PDF TEMPLATE (mirip contoh) =======
   const PdfTemplate = ({ order }: { order: SalesOrderHeader }) => {
     const alloc = (order.allocation_type || "").toUpperCase();
-
-    const safeDiscount = Math.max(0, order.discount || 0);
-    const afterDisc = Math.max(0, (order.total_amount || 0) - safeDiscount);
-    const tax = afterDisc * (Math.max(0, order.tax_rate || 0) / 100);
+    const tax = ((order.total_amount - (order.discount || 0)) * (order.tax_rate || 0)) / 100;
 
     return (
       <div style={{ fontFamily: "Arial, Helvetica, sans-serif", color: "#111", width: "100%" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <img src={LOGO_SRC} alt="Kemika" style={{ height: 44, objectFit: "contain" }} />
+        {/* TOP */}
+        <div className="row" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div className="top-left" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div className="logo-wrap" style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+              <img src={LOGO_SRC} alt="Kemika" className="logo" style={{ height: 44, objectFit: "contain" }} />
+            </div>
           </div>
 
-          <div style={{ textAlign: "right" }}>
+          <div className="title-right" style={{ textAlign: "right" }}>
             <h1 style={{ margin: 0, fontSize: 20, letterSpacing: 0.5 }}>SALES ORDER</h1>
-            <div style={{ marginTop: 6, fontSize: 11, lineHeight: 1.6 }}>
-              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                <div style={{ width: 92, textAlign: "left", color: "#444" }}>Sales Order No.</div>
-                <div style={{ width: 10, textAlign: "center", color: "#444" }}>:</div>
-                <div style={{ width: 120, textAlign: "left", fontWeight: 600 }}>
+            <div className="meta" style={{ marginTop: 6, fontSize: 11, lineHeight: 1.6 }}>
+              <div className="meta-row" style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <div className="k" style={{ width: 92, textAlign: "left", color: "#444" }}>
+                  Sales Order No.
+                </div>
+                <div className="sep" style={{ width: 10, textAlign: "center", color: "#444" }}>
+                  :
+                </div>
+                <div className="v" style={{ width: 120, textAlign: "left", fontWeight: 600 }}>
                   {order.sales_order_number?.replace("SOR", "PO") || order.sales_order_number}
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                <div style={{ width: 92, textAlign: "left", color: "#444" }}>SO Date</div>
-                <div style={{ width: 10, textAlign: "center", color: "#444" }}>:</div>
-                <div style={{ width: 120, textAlign: "left", fontWeight: 600 }}>
+              <div className="meta-row" style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <div className="k" style={{ width: 92, textAlign: "left", color: "#444" }}>
+                  SO Date
+                </div>
+                <div className="sep" style={{ width: 10, textAlign: "center", color: "#444" }}>
+                  :
+                </div>
+                <div className="v" style={{ width: 120, textAlign: "left", fontWeight: 600 }}>
                   {formatDateShort(order.order_date)}
                 </div>
               </div>
@@ -757,46 +769,86 @@ export default function SalesOrder() {
           </div>
         </div>
 
-        <div style={{ marginTop: 10, fontSize: 11 }}>
-          <span style={{ color: "#444" }}>TIPE ALOKASI</span>
-          <span style={{ color: "#444", fontWeight: 600 }}> : </span>
-          <span style={{ fontWeight: 700, color: "#c1121f" }}>{alloc}</span>
+        {/* Allocation */}
+        <div className="allocation" style={{ marginTop: 10, fontSize: 11 }}>
+          <span className="label" style={{ color: "#444" }}>
+            TIPE ALOKASI
+          </span>
+          <span className="muted" style={{ color: "#444", fontWeight: 600 }}>
+            {" "}
+            :{" "}
+          </span>
+          <span className="value" style={{ fontWeight: 700, color: "#c1121f" }}>
+            {alloc}
+          </span>
         </div>
 
-        <div style={{ borderTop: "2px solid #2a2a2a", margin: "10px 0 14px" }} />
+        <div className="hr" style={{ borderTop: "2px solid #2a2a2a", margin: "10px 0 14px" }} />
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, fontSize: 11 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", rowGap: 10, columnGap: 10 }}>
-            <div style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>SALES</div>
-            <div style={{ fontWeight: 600 }}>{order.sales_name || "-"}</div>
+        {/* Info 2 columns */}
+        <div className="info" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, fontSize: 11 }}>
+          <div className="box" style={{ display: "grid", gridTemplateColumns: "120px 1fr", rowGap: 10, columnGap: 10 }}>
+            <div className="k" style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>
+              SALES
+            </div>
+            <div className="v" style={{ fontWeight: 600 }}>
+              {order.sales_name || "-"}
+            </div>
 
-            <div style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>CUSTOMER</div>
-            <div style={{ fontWeight: 600 }}>{order.customer?.name || "-"}</div>
+            <div className="k" style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>
+              CUSTOMER
+            </div>
+            <div className="v" style={{ fontWeight: 600 }}>
+              {order.customer?.name || "-"}
+            </div>
 
-            <div style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>PIC</div>
-            <div style={{ fontWeight: 600 }}>{order.customer?.pic || customerPic || "-"}</div>
+            <div className="k" style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>
+              PIC
+            </div>
+            <div className="v" style={{ fontWeight: 600 }}>
+              {order.customer?.pic || customerPic || "-"}
+            </div>
 
-            <div style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>PHONE</div>
-            <div style={{ fontWeight: 600 }}>{order.customer?.phone || customerPhone || "-"}</div>
+            <div className="k" style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>
+              PHONE
+            </div>
+            <div className="v" style={{ fontWeight: 600 }}>
+              {order.customer?.phone || customerPhone || "-"}
+            </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", rowGap: 10, columnGap: 10 }}>
-            <div style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>TANGGAL</div>
-            <div style={{ fontWeight: 600 }}>{formatDateID(order.order_date)}</div>
+          <div className="box" style={{ display: "grid", gridTemplateColumns: "120px 1fr", rowGap: 10, columnGap: 10 }}>
+            <div className="k" style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>
+              TANGGAL
+            </div>
+            <div className="v" style={{ fontWeight: 600 }}>
+              {formatDateID(order.order_date)}
+            </div>
 
-            <div style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>PO CUSTOMER</div>
-            <div style={{ fontWeight: 600 }}>{order.customer_po_number || "-"}</div>
+            <div className="k" style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>
+              PO CUSTOMER
+            </div>
+            <div className="v" style={{ fontWeight: 600 }}>
+              {order.customer_po_number || "-"}
+            </div>
 
-            <div style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>BATAS PENGIRIMAN</div>
-            <div style={{ fontWeight: 600 }}>{formatDateID(order.delivery_deadline)}</div>
+            <div className="k" style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>
+              BATAS PENGIRIMAN
+            </div>
+            <div className="v" style={{ fontWeight: 600 }}>
+              {formatDateID(order.delivery_deadline)}
+            </div>
 
-            <div style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>PAYMENT TERMS</div>
-            <div style={{ color: "#c1121f", fontWeight: 800 }}>
+            <div className="k" style={{ color: "#444", textTransform: "uppercase", fontSize: 10 }}>
+              PAYMENT TERMS
+            </div>
+            <div className="v terms" style={{ color: "#c1121f", fontWeight: 800 }}>
               {(order.customer?.terms_payment || paymentTerms || "-").toString().toUpperCase()}
             </div>
           </div>
         </div>
 
+        {/* Items */}
         <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 14, fontSize: 11 }}>
           <thead>
             <tr>
@@ -866,32 +918,34 @@ export default function SalesOrder() {
                   {formatCurrency(it.unit_price)}
                 </td>
                 <td style={{ border: "1px solid #cfcfcf", padding: 8, textAlign: "right" }}>
-                  {formatCurrency(it.subtotal ?? it.unit_price * it.ordered_qty)}
+                  {formatCurrency(it.subtotal ?? it.unit_price * it.ordered_qty - (it.discount || 0))}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
 
-        <div style={{ marginTop: 10, fontSize: 11 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}>
-            <div style={{ color: "#444" }}>Subtotal</div>
-            <div style={{ fontWeight: 700 }}>{formatCurrency(order.total_amount || 0)}</div>
-          </div>
-
-          {safeDiscount > 0 && (
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}>
-              <div style={{ color: "#444" }}>Discount</div>
-              <div style={{ fontWeight: 700 }}>-{formatCurrency(safeDiscount)}</div>
+        {/* Totals right */}
+        <div className="totals" style={{ marginTop: 10, fontSize: 11 }}>
+          <div className="line" style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}>
+            <div className="k" style={{ color: "#444" }}>
+              Subtotal
             </div>
-          )}
-
-          <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}>
-            <div style={{ color: "#444" }}>Tax ({order.tax_rate || 0}%)</div>
-            <div style={{ fontWeight: 700 }}>{formatCurrency(tax)}</div>
+            <div className="v" style={{ fontWeight: 700 }}>
+              {formatCurrency(order.total_amount || 0)}
+            </div>
+          </div>
+          <div className="line" style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}>
+            <div className="k" style={{ color: "#444" }}>
+              Tax ({order.tax_rate || 0}%)
+            </div>
+            <div className="v" style={{ fontWeight: 700 }}>
+              {formatCurrency(tax)}
+            </div>
           </div>
 
           <div
+            className="grand"
             style={{
               marginTop: 8,
               borderTop: "2px solid #2a2a2a",
@@ -900,28 +954,47 @@ export default function SalesOrder() {
               justifyContent: "space-between",
             }}
           >
-            <div style={{ fontWeight: 800, fontSize: 14 }}>Grand Total</div>
-            <div style={{ fontWeight: 900, fontSize: 14 }}>{formatCurrency(order.grand_total || 0)}</div>
+            <div className="k" style={{ fontWeight: 800, fontSize: 14 }}>
+              Grand Total
+            </div>
+            <div className="v" style={{ fontWeight: 900, fontSize: 14 }}>
+              {formatCurrency(order.grand_total || 0)}
+            </div>
           </div>
         </div>
 
-        <div style={{ marginTop: 12, border: "1px solid #2a2a2a", display: "grid", gridTemplateColumns: "1fr 1fr" }}>
-          <div style={{ padding: 10, minHeight: 70 }}>
-            <div style={{ fontSize: 10, fontWeight: 800, color: "#444" }}>SHIP TO ADDRESS/ALAMAT PENGIRIMAN:</div>
-            <div style={{ marginTop: 8, fontSize: 11 }}>{order.ship_to_address || "-"}</div>
-          </div>
-          <div style={{ padding: 10, minHeight: 70, borderLeft: "1px solid #2a2a2a" }}>
-            <div style={{ fontSize: 10, fontWeight: 800, color: "#444" }}>CATATAN :</div>
-            <div style={{ marginTop: 8, fontSize: 11 }}>{order.notes || "-"}</div>
-          </div>
-        </div>
-
+        {/* Ship to + Catatan */}
         <div
+          className="addr-notes"
+          style={{ marginTop: 12, border: "1px solid #2a2a2a", display: "grid", gridTemplateColumns: "1fr 1fr" }}
+        >
+          <div className="cell" style={{ padding: 10, minHeight: 70 }}>
+            <div className="head" style={{ fontSize: 10, fontWeight: 800, color: "#444" }}>
+              SHIP TO ADDRESS/ALAMAT PENGIRIMAN:
+            </div>
+            <div className="body" style={{ marginTop: 8, fontSize: 11 }}>
+              {order.ship_to_address || shipToAddress || "-"}
+            </div>
+          </div>
+          <div className="cell" style={{ padding: 10, minHeight: 70, borderLeft: "1px solid #2a2a2a" }}>
+            <div className="head" style={{ fontSize: 10, fontWeight: 800, color: "#444" }}>
+              CATATAN :
+            </div>
+            <div className="body" style={{ marginTop: 8, fontSize: 11 }}>
+              {order.notes || "-"}
+            </div>
+          </div>
+        </div>
+
+        {/* Sign boxes */}
+        <div
+          className="sign"
           style={{ marginTop: 16, border: "1px solid #2a2a2a", display: "grid", gridTemplateColumns: "repeat(4, 1fr)" }}
         >
           {["Pemohon,", "Finance,", "Purchasing,", "Menyetujui,"].map((role, i) => (
             <div
               key={role}
+              className="s"
               style={{
                 minHeight: 125,
                 borderRight: i === 3 ? "none" : "1px solid #2a2a2a",
@@ -930,10 +1003,18 @@ export default function SalesOrder() {
                 position: "relative",
               }}
             >
-              <div style={{ fontSize: 11, marginBottom: 10 }}>Date:</div>
-              <div style={{ marginTop: 8 }}>{role}</div>
-              <div style={{ position: "absolute", left: 10, right: 10, bottom: 12, borderTop: "1px solid #2a2a2a" }} />
+              <div className="date" style={{ fontSize: 11, marginBottom: 10 }}>
+                Date:
+              </div>
+              <div className="role" style={{ marginTop: 8 }}>
+                {role}
+              </div>
               <div
+                className="line"
+                style={{ position: "absolute", left: 10, right: 10, bottom: 12, borderTop: "1px solid #2a2a2a" }}
+              />
+              <div
+                className="name"
                 style={{
                   position: "absolute",
                   left: 10,
@@ -953,7 +1034,7 @@ export default function SalesOrder() {
     );
   };
 
-  // ===== END PDF TEMPLATE =====
+  // ======= END PDF TEMPLATE =======
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -1117,21 +1198,18 @@ export default function SalesOrder() {
                                 <Eye className="w-4 h-4 mr-2" />
                                 {language === "en" ? "View Details" : "Lihat Detail"}
                               </DropdownMenuItem>
-
                               {order.po_document_url && (
                                 <DropdownMenuItem onClick={() => handleViewPoDocument(order)} disabled={isOpeningPoDoc}>
                                   <FileText className="w-4 h-4 mr-2" />
                                   {language === "en" ? "View Document" : "Lihat Dokumen"}
                                 </DropdownMenuItem>
                               )}
-
                               {showEdit && (
                                 <DropdownMenuItem onClick={() => handleEdit(order)}>
                                   <Edit className="w-4 h-4 mr-2" />
                                   {t("common.edit")}
                                 </DropdownMenuItem>
                               )}
-
                               {showApprove && (
                                 <DropdownMenuItem
                                   className="text-success"
@@ -1144,7 +1222,6 @@ export default function SalesOrder() {
                                   Approve
                                 </DropdownMenuItem>
                               )}
-
                               {showCancel && (
                                 <DropdownMenuItem
                                   className="text-destructive"
@@ -1157,7 +1234,6 @@ export default function SalesOrder() {
                                   Cancel
                                 </DropdownMenuItem>
                               )}
-
                               {showDelete && (
                                 <DropdownMenuItem
                                   className="text-destructive"
@@ -1183,7 +1259,7 @@ export default function SalesOrder() {
         </CardContent>
       </Card>
 
-      {/* Create/Edit */}
+      {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
@@ -1199,6 +1275,7 @@ export default function SalesOrder() {
           </DialogHeader>
 
           <div className="space-y-6 py-4">
+            {/* Header */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label>{language === "en" ? "SO Number" : "No. SO"} *</Label>
@@ -1215,7 +1292,7 @@ export default function SalesOrder() {
                     <SelectValue placeholder={language === "en" ? "Select customer" : "Pilih customer"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {(customers as any[]).map((c) => (
+                    {customers.map((c: any) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.name}
                       </SelectItem>
@@ -1226,9 +1303,9 @@ export default function SalesOrder() {
               <div className="space-y-2">
                 <Label>{language === "en" ? "Customer PO Number" : "No. PO Customer"} *</Label>
                 <Input
+                  placeholder="e.g., PO-0001"
                   value={customerPoNumber}
                   onChange={(e) => setCustomerPoNumber(e.target.value)}
-                  placeholder="e.g., PO-0001"
                 />
               </div>
             </div>
@@ -1263,6 +1340,7 @@ export default function SalesOrder() {
               </div>
             </div>
 
+            {/* Shipping + Notes */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{language === "en" ? "Ship To Address" : "Alamat Pengiriman"}</Label>
@@ -1274,6 +1352,7 @@ export default function SalesOrder() {
               </div>
             </div>
 
+            {/* PO Doc */}
             <div className="space-y-2">
               <Label>{language === "en" ? "PO Document" : "Dokumen PO"}</Label>
               <div className="flex gap-2">
@@ -1287,7 +1366,14 @@ export default function SalesOrder() {
                   {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                 </Button>
                 {poDocumentUrl && (
-                  <Button variant="outline" size="icon" onClick={() => setPoDocumentUrl("")}>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      setPoDocumentUrl("");
+                      setPoDocumentKey("");
+                    }}
+                  >
                     <X className="w-4 h-4" />
                   </Button>
                 )}
@@ -1339,15 +1425,15 @@ export default function SalesOrder() {
                       <TableHead className="text-center">{language === "en" ? "Stock" : "Stok"}</TableHead>
                       <TableHead className="text-right">{language === "en" ? "Unit Price" : "Harga"}</TableHead>
                       <TableHead className="text-center">Qty</TableHead>
+                      <TableHead className="text-right">{language === "en" ? "Discount" : "Diskon"}</TableHead>
                       <TableHead className="text-right">Subtotal</TableHead>
                       <TableHead />
                     </TableRow>
                   </TableHeader>
-
                   <TableBody>
                     {orderItems.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                           {language === "en" ? "No products added" : "Belum ada produk ditambahkan"}
                         </TableCell>
                       </TableRow>
@@ -1374,13 +1460,22 @@ export default function SalesOrder() {
                               className="w-28 text-right"
                             />
                           </TableCell>
-                          <TableCell className="text-center">
+                          <TableCell>
                             <Input
                               type="number"
                               min="1"
                               value={it.ordered_qty}
                               onChange={(e) => handleItemChange(idx, "ordered_qty", parseInt(e.target.value) || 1)}
                               className="w-20 text-center"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min="0"
+                              value={it.discount}
+                              onChange={(e) => handleItemChange(idx, "discount", parseFloat(e.target.value) || 0)}
+                              className="w-24 text-right"
                             />
                           </TableCell>
                           <TableCell className="text-right font-medium">{formatCurrency(it.subtotal)}</TableCell>
@@ -1397,7 +1492,7 @@ export default function SalesOrder() {
               </CardContent>
             </Card>
 
-            {/* Totals (ONLY ONE DISCOUNT) */}
+            {/* Totals */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -1440,7 +1535,7 @@ export default function SalesOrder() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">{language === "en" ? "Discount" : "Diskon"}</span>
-                    <span className="font-medium text-destructive">-{formatCurrency(Math.max(0, discount || 0))}</span>
+                    <span className="font-medium text-destructive">-{formatCurrency(discount)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">
@@ -1620,6 +1715,84 @@ export default function SalesOrder() {
                   <p className="text-sm text-muted-foreground">{language === "en" ? "Date" : "Tanggal"}</p>
                   <p className="font-medium">{formatDateID(selectedOrder.order_date)}</p>
                 </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Customer</p>
+                  <p className="font-medium">{selectedOrder.customer?.name}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{language === "en" ? "Customer PO" : "PO Customer"}</p>
+                  <p className="font-medium">{selectedOrder.customer_po_number}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Sales</p>
+                  <p className="font-medium">{selectedOrder.sales_name}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    {language === "en" ? "Delivery Deadline" : "Batas Pengiriman"}
+                  </p>
+                  <p className="font-medium">{formatDateID(selectedOrder.delivery_deadline)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{t("common.status")}</p>
+                  <Badge variant={statusConfig[selectedOrder.status]?.variant || "draft"}>
+                    {language === "en"
+                      ? statusConfig[selectedOrder.status]?.label
+                      : statusConfig[selectedOrder.status]?.labelId}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Grand Total</p>
+                  <p className="font-medium text-primary">{formatCurrency(selectedOrder.grand_total)}</p>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-semibold mb-3">{language === "en" ? "Order Items" : "Item Pesanan"}</h4>
+                {itemsLoading ? (
+                  <div className="flex justify-center py-4">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">#</TableHead>
+                        <TableHead>{language === "en" ? "Product" : "Produk"}</TableHead>
+                        <TableHead>SKU</TableHead>
+                        <TableHead>{language === "en" ? "Category" : "Kategori"}</TableHead>
+                        <TableHead>{language === "en" ? "Unit" : "Satuan"}</TableHead>
+                        <TableHead className="text-center">Qty</TableHead>
+                        <TableHead className="text-right">{language === "en" ? "Price" : "Harga"}</TableHead>
+                        <TableHead className="text-right">Subtotal</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedOrderItems.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center py-4 text-muted-foreground">
+                            {language === "en" ? "No items found" : "Tidak ada item"}
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        selectedOrderItems.map((it: any, idx: number) => (
+                          <TableRow key={it.id}>
+                            <TableCell>{idx + 1}</TableCell>
+                            <TableCell className="font-medium">{it.product?.name}</TableCell>
+                            <TableCell>{it.product?.sku || "-"}</TableCell>
+                            <TableCell>{it.product?.category?.name || "-"}</TableCell>
+                            <TableCell>{it.product?.unit?.name || "-"}</TableCell>
+                            <TableCell className="text-center">{it.ordered_qty}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(it.unit_price)}</TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrency(it.subtotal ?? it.unit_price * it.ordered_qty - (it.discount || 0))}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                )}
               </div>
             </div>
           )}
@@ -1637,7 +1810,7 @@ export default function SalesOrder() {
         <div ref={printRef}>{selectedOrder && <PdfTemplate order={selectedOrder} />}</div>
       </div>
 
-      {/* PDF Preview */}
+      {/* PDF Preview Dialog */}
       <Dialog open={isPdfPreviewOpen} onOpenChange={setIsPdfPreviewOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
