@@ -366,22 +366,21 @@ export default function StockOut() {
         }
 
         // Update SO item qty_delivered (AFTER all batch processing for this item)
+        // Note: qty_remaining is a GENERATED column, so we only update qty_delivered
         const { data: soItem, error: soItemFetchError } = await supabase
           .from('sales_order_items')
-          .select('qty_delivered, ordered_qty')
+          .select('qty_delivered')
           .eq('id', item.sales_order_item_id)
           .single();
 
         if (soItemFetchError) throw soItemFetchError;
 
         const newQtyDelivered = (soItem?.qty_delivered || 0) + item.qty_out;
-        const newQtyRemaining = Math.max(0, (soItem?.ordered_qty || item.qty_ordered) - newQtyDelivered);
         
         const { error: soItemUpdateError } = await supabase
           .from('sales_order_items')
           .update({ 
             qty_delivered: newQtyDelivered,
-            qty_remaining: newQtyRemaining,
           })
           .eq('id', item.sales_order_item_id);
 
