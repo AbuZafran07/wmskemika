@@ -1,5 +1,6 @@
-import React, { useState, useRef, useMemo } from 'react';
-import { Plus, Search, Eye, Edit, MoreHorizontal, Printer, Trash2, Loader2, Upload, X, AlertTriangle, CheckCircle, XCircle, Archive, List, FileText } from 'lucide-react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
+import { Plus, Search, Eye, Edit, MoreHorizontal, Printer, Trash2, Loader2, Upload, X, AlertTriangle, CheckCircle, XCircle, Archive, List, FileText, Download, PenLine } from 'lucide-react';
+import html2pdf from 'html2pdf.js';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -119,8 +120,11 @@ export default function SalesOrder() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isOpeningPoDoc, setIsOpeningPoDoc] = useState(false);
+  const [isPdfPreviewOpen, setIsPdfPreviewOpen] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const printRef = useRef<HTMLDivElement>(null);
+  const pdfPreviewRef = useRef<HTMLDivElement>(null);
 
   // Fetch items for detail view
   const { items: selectedOrderItems, loading: itemsLoading } = useSalesOrderItems(selectedOrder?.id || null);
@@ -660,6 +664,34 @@ export default function SalesOrder() {
     }
   };
 
+  const handlePreviewPDF = () => {
+    if (!selectedOrder) return;
+    setIsPdfPreviewOpen(true);
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!selectedOrder || !printRef.current) return;
+    
+    setIsDownloadingPdf(true);
+    try {
+      const element = printRef.current;
+      const opt = {
+        margin: [15, 15, 15, 15] as [number, number, number, number],
+        filename: `SalesOrder_${selectedOrder.sales_order_number}.pdf`,
+        image: { type: 'jpeg' as const, quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
+      };
+      
+      await html2pdf().set(opt).from(element).save();
+      toast.success(language === 'en' ? 'PDF downloaded successfully' : 'PDF berhasil diunduh');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast.error(language === 'en' ? 'Failed to download PDF' : 'Gagal mengunduh PDF');
+    }
+    setIsDownloadingPdf(false);
+  };
+
   const handleExportPDF = () => {
     if (!selectedOrder || !printRef.current) return;
     
@@ -700,6 +732,10 @@ export default function SalesOrder() {
             .signature-box .date-line { font-size: 10px; color: #666; margin-bottom: 50px; }
             .signature-box .role { font-size: 10px; margin-bottom: 60px; }
             .signature-box .line { border-bottom: 1px solid #333; margin: 0 10px; padding-top: 5px; font-size: 10px; }
+            .signature-box .approved-info { color: #059669; font-weight: bold; }
+            .digital-signature { margin-top: 30px; padding: 15px; border: 2px solid #059669; border-radius: 8px; background: #f0fdf4; }
+            .digital-signature h4 { color: #059669; margin-bottom: 10px; font-size: 12px; }
+            .digital-signature p { font-size: 10px; margin: 3px 0; }
             @media print { 
               body { padding: 20px; } 
               @page { margin: 15mm; }
@@ -1331,9 +1367,17 @@ export default function SalesOrder() {
                     {language === 'en' ? 'View Document' : 'Lihat Dokumen'}
                   </Button>
                 )}
+                <Button variant="outline" size="sm" onClick={handlePreviewPDF} disabled={itemsLoading}>
+                  <Eye className="w-4 h-4 mr-2" />
+                  {language === 'en' ? 'Preview' : 'Preview'}
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleDownloadPDF} disabled={itemsLoading || isDownloadingPdf}>
+                  {isDownloadingPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                  {language === 'en' ? 'Download' : 'Unduh'}
+                </Button>
                 <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={itemsLoading}>
                   <Printer className="w-4 h-4 mr-2" />
-                  {language === 'en' ? 'Print / PDF' : 'Cetak / PDF'}
+                  {language === 'en' ? 'Print' : 'Cetak'}
                 </Button>
               </div>
             </div>
@@ -1610,6 +1654,21 @@ export default function SalesOrder() {
                 </div>
               )}
 
+              {/* Digital Signature for Approved Orders */}
+              {selectedOrder.status !== 'draft' && selectedOrder.approved_at && (
+                <div className="digital-signature">
+                  <h4>✓ DIGITAL SIGNATURE / TANDA TANGAN DIGITAL</h4>
+                  <p><strong>{language === 'en' ? 'Approved By' : 'Disetujui Oleh'}:</strong> {selectedOrder.approved_by || 'System'}</p>
+                  <p><strong>{language === 'en' ? 'Approval Date' : 'Tanggal Persetujuan'}:</strong> {formatDate(selectedOrder.approved_at)}</p>
+                  <p><strong>Status:</strong> {selectedOrder.status.toUpperCase()}</p>
+                  <p style={{ fontSize: '8px', marginTop: '8px', color: '#666' }}>
+                    {language === 'en' 
+                      ? 'This document has been digitally approved and is valid without physical signature.' 
+                      : 'Dokumen ini telah disetujui secara digital dan sah tanpa tanda tangan fisik.'}
+                  </p>
+                </div>
+              )}
+
               {/* Signature Section */}
               <div className="signature-section">
                 <div className="signature-box">
@@ -1628,15 +1687,166 @@ export default function SalesOrder() {
                   <div className="line">(……………..…........………)</div>
                 </div>
                 <div className="signature-box">
-                  <div className="date-line">Date:</div>
+                  <div className="date-line">Date:{selectedOrder.approved_at ? ` ${formatDate(selectedOrder.approved_at)}` : ''}</div>
                   <div className="role">Menyetujui,</div>
-                  <div className="line">(……………..…........………)</div>
+                  {selectedOrder.approved_by ? (
+                    <div className="line approved-info">({selectedOrder.approved_by})</div>
+                  ) : (
+                    <div className="line">(……………..…........………)</div>
+                  )}
                 </div>
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* PDF Preview Dialog */}
+      <Dialog open={isPdfPreviewOpen} onOpenChange={setIsPdfPreviewOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{language === 'en' ? 'PDF Preview' : 'Preview PDF'}</DialogTitle>
+          </DialogHeader>
+          
+          {selectedOrder && (
+            <div className="bg-white text-black p-8 rounded-lg border" style={{ fontFamily: 'Arial, sans-serif', fontSize: '11px' }}>
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #1a365d', paddingBottom: '15px', marginBottom: '20px' }}>
+                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1a365d' }}>Kemika</div>
+                <div style={{ fontSize: '18px', fontWeight: 'bold' }}>SALES ORDER</div>
+              </div>
+
+              {/* Info Section - Row 1 */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px', marginBottom: '15px', padding: '10px', background: '#f8f9fa', borderRadius: '4px' }}>
+                <div>
+                  <div style={{ fontSize: '9px', color: '#666', textTransform: 'uppercase', fontWeight: 'bold' }}>Sales Order No.</div>
+                  <div style={{ fontWeight: '500' }}>{selectedOrder.sales_order_number}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '9px', color: '#666', textTransform: 'uppercase', fontWeight: 'bold' }}>Tipe Alokasi</div>
+                  <div style={{ fontWeight: '500' }}>{selectedOrder.allocation_type.toUpperCase()}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '9px', color: '#666', textTransform: 'uppercase', fontWeight: 'bold' }}>SO Date</div>
+                  <div style={{ fontWeight: '500' }}>{formatDate(selectedOrder.order_date)}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '9px', color: '#666', textTransform: 'uppercase', fontWeight: 'bold' }}>Batas Pengiriman</div>
+                  <div style={{ fontWeight: '500' }}>{formatDate(selectedOrder.delivery_deadline)}</div>
+                </div>
+              </div>
+
+              {/* Info Section - Row 2 */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px', marginBottom: '15px', padding: '10px', background: '#f8f9fa', borderRadius: '4px' }}>
+                <div>
+                  <div style={{ fontSize: '9px', color: '#666', textTransform: 'uppercase', fontWeight: 'bold' }}>Sales</div>
+                  <div style={{ fontWeight: '500' }}>{selectedOrder.sales_name}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '9px', color: '#666', textTransform: 'uppercase', fontWeight: 'bold' }}>Customer</div>
+                  <div style={{ fontWeight: '500' }}>{selectedOrder.customer?.name}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '9px', color: '#666', textTransform: 'uppercase', fontWeight: 'bold' }}>PO Customer</div>
+                  <div style={{ fontWeight: '500' }}>{selectedOrder.customer_po_number}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '9px', color: '#666', textTransform: 'uppercase', fontWeight: 'bold' }}>Proyek/Instansi</div>
+                  <div style={{ fontWeight: '500' }}>{selectedOrder.project_instansi}</div>
+                </div>
+              </div>
+
+              {/* Items Table */}
+              <table style={{ width: '100%', borderCollapse: 'collapse', margin: '15px 0' }}>
+                <thead>
+                  <tr>
+                    <th style={{ border: '1px solid #ddd', padding: '8px', background: '#1a365d', color: 'white', fontSize: '10px', width: '30px' }}>#</th>
+                    <th style={{ border: '1px solid #ddd', padding: '8px', background: '#1a365d', color: 'white', fontSize: '10px', textAlign: 'left' }}>Nama Barang</th>
+                    <th style={{ border: '1px solid #ddd', padding: '8px', background: '#1a365d', color: 'white', fontSize: '10px', width: '80px' }}>SKU</th>
+                    <th style={{ border: '1px solid #ddd', padding: '8px', background: '#1a365d', color: 'white', fontSize: '10px', width: '60px', textAlign: 'center' }}>Qty</th>
+                    <th style={{ border: '1px solid #ddd', padding: '8px', background: '#1a365d', color: 'white', fontSize: '10px', width: '100px', textAlign: 'right' }}>Harga</th>
+                    <th style={{ border: '1px solid #ddd', padding: '8px', background: '#1a365d', color: 'white', fontSize: '10px', width: '100px', textAlign: 'right' }}>Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedOrderItems.map((item, index) => (
+                    <tr key={item.id}>
+                      <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'center', fontSize: '10px' }}>{index + 1}</td>
+                      <td style={{ border: '1px solid #ddd', padding: '8px', fontSize: '10px' }}>{item.product?.name}</td>
+                      <td style={{ border: '1px solid #ddd', padding: '8px', fontSize: '10px' }}>{item.product?.sku || '-'}</td>
+                      <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'center', fontSize: '10px' }}>{item.ordered_qty}</td>
+                      <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right', fontSize: '10px' }}>{formatCurrency(item.unit_price)}</td>
+                      <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right', fontSize: '10px' }}>{formatCurrency(item.subtotal || (item.unit_price * item.ordered_qty) - (item.discount || 0))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Summary */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+                <div style={{ width: '280px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: '11px' }}>
+                    <span>Subtotal:</span>
+                    <span>{formatCurrency(selectedOrder.total_amount)}</span>
+                  </div>
+                  {selectedOrder.discount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: '11px' }}>
+                      <span>Discount:</span>
+                      <span>-{formatCurrency(selectedOrder.discount)}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: '11px' }}>
+                    <span>Tax ({selectedOrder.tax_rate}%):</span>
+                    <span>{formatCurrency((selectedOrder.total_amount - selectedOrder.discount) * selectedOrder.tax_rate / 100)}</span>
+                  </div>
+                  {selectedOrder.shipping_cost > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: '11px' }}>
+                      <span>Pengiriman:</span>
+                      <span>{formatCurrency(selectedOrder.shipping_cost)}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: '13px', fontWeight: 'bold', borderTop: '2px solid #333', marginTop: '5px' }}>
+                    <span>Grand Total:</span>
+                    <span>{formatCurrency(selectedOrder.grand_total)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Digital Signature for Approved Orders */}
+              {selectedOrder.status !== 'draft' && selectedOrder.approved_at && (
+                <div style={{ marginTop: '30px', padding: '15px', border: '2px solid #059669', borderRadius: '8px', background: '#f0fdf4' }}>
+                  <h4 style={{ color: '#059669', marginBottom: '10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <PenLine className="w-4 h-4" />
+                    {language === 'en' ? 'DIGITAL SIGNATURE' : 'TANDA TANGAN DIGITAL'}
+                  </h4>
+                  <p style={{ fontSize: '10px', margin: '3px 0' }}><strong>{language === 'en' ? 'Approved By' : 'Disetujui Oleh'}:</strong> {selectedOrder.approved_by || 'System'}</p>
+                  <p style={{ fontSize: '10px', margin: '3px 0' }}><strong>{language === 'en' ? 'Approval Date' : 'Tanggal Persetujuan'}:</strong> {formatDate(selectedOrder.approved_at)}</p>
+                  <p style={{ fontSize: '10px', margin: '3px 0' }}><strong>Status:</strong> {selectedOrder.status.toUpperCase()}</p>
+                  <p style={{ fontSize: '8px', marginTop: '8px', color: '#666' }}>
+                    {language === 'en' 
+                      ? 'This document has been digitally approved and is valid without physical signature.' 
+                      : 'Dokumen ini telah disetujui secara digital dan sah tanpa tanda tangan fisik.'}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setIsPdfPreviewOpen(false)}>
+              {language === 'en' ? 'Close' : 'Tutup'}
+            </Button>
+            <Button variant="outline" onClick={handleDownloadPDF} disabled={isDownloadingPdf}>
+              {isDownloadingPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+              {language === 'en' ? 'Download PDF' : 'Unduh PDF'}
+            </Button>
+            <Button onClick={handleExportPDF}>
+              <Printer className="w-4 h-4 mr-2" />
+              {language === 'en' ? 'Print' : 'Cetak'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
