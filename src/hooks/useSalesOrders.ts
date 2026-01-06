@@ -35,6 +35,10 @@ export interface SalesOrderHeader {
     id: string;
     name: string;
     code: string;
+    pic: string | null;
+    phone: string | null;
+    terms_payment: string | null;
+    address: string | null;
   };
 }
 
@@ -77,7 +81,7 @@ export function useSalesOrders() {
       .from('sales_order_headers')
       .select(`
         *,
-        customer:customers(id, name, code)
+        customer:customers(id, name, code, pic, phone, terms_payment, address)
       `)
       .eq('is_deleted', false)
       .order('created_at', { ascending: false });
