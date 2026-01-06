@@ -155,6 +155,8 @@ export default function SalesOrder() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [isOpeningPoDoc, setIsOpeningPoDoc] = useState(false);
+  const [documentViewerUrl, setDocumentViewerUrl] = useState<string | null>(null);
+  const [isDocumentViewerOpen, setIsDocumentViewerOpen] = useState(false);
 
   const [isPdfPreviewOpen, setIsPdfPreviewOpen] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
@@ -468,7 +470,8 @@ export default function SalesOrder() {
       if (possibleKey) {
         const signed = await getSignedUrl(possibleKey, "documents", 3600);
         if (signed) {
-          window.open(signed, "_blank", "noopener,noreferrer");
+          setDocumentViewerUrl(signed);
+          setIsDocumentViewerOpen(true);
           setIsOpeningPoDoc(false);
           return;
         }
@@ -476,14 +479,16 @@ export default function SalesOrder() {
         // fallback to supabase native signed url (just in case lib wrapper mismatch)
         const { data, error } = await supabase.storage.from("documents").createSignedUrl(possibleKey, 3600);
         if (!error && data?.signedUrl) {
-          window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+          setDocumentViewerUrl(data.signedUrl);
+          setIsDocumentViewerOpen(true);
           setIsOpeningPoDoc(false);
           return;
         }
       }
 
-      // 3) last fallback: open raw url
-      window.open(rawUrl, "_blank", "noopener,noreferrer");
+      // 3) last fallback: open raw url in dialog
+      setDocumentViewerUrl(rawUrl);
+      setIsDocumentViewerOpen(true);
     } catch (err) {
       console.error(err);
       toast.error(language === "en" ? "Failed to open document" : "Gagal membuka dokumen");
@@ -1876,6 +1881,52 @@ export default function SalesOrder() {
               {language === "en" ? "Print" : "Cetak"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Document Viewer Dialog */}
+      <Dialog open={isDocumentViewerOpen} onOpenChange={setIsDocumentViewerOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] p-0">
+          <DialogHeader className="p-4 pb-2">
+            <div className="flex items-center justify-between">
+              <DialogTitle>{language === "en" ? "View Document" : "Lihat Dokumen"}</DialogTitle>
+              <div className="flex gap-2">
+                {documentViewerUrl && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (documentViewerUrl) {
+                        const link = document.createElement("a");
+                        link.href = documentViewerUrl;
+                        link.download = "document";
+                        link.target = "_blank";
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      }
+                    }}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    {language === "en" ? "Download" : "Unduh"}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="w-full h-[75vh] border-t">
+            {documentViewerUrl ? (
+              <iframe
+                src={documentViewerUrl}
+                className="w-full h-full"
+                title="Document Viewer"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                {language === "en" ? "No document to display" : "Tidak ada dokumen untuk ditampilkan"}
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
