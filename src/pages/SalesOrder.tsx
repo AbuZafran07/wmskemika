@@ -143,6 +143,14 @@ export default function SalesOrder() {
   const [shippingCost, setShippingCost] = useState(0);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [selectedProductId, setSelectedProductId] = useState('');
+  
+  // Auto-fill fields from customer
+  const [customerPic, setCustomerPic] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [paymentTerms, setPaymentTerms] = useState('');
+  
+  // Validation touched state
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   // Check if user can approve orders
   const canApprove = useMemo(() => {
@@ -246,6 +254,40 @@ export default function SalesOrder() {
     setShippingCost(0);
     setOrderItems([]);
     setSelectedProductId('');
+    setCustomerPic('');
+    setCustomerPhone('');
+    setPaymentTerms('');
+    setTouched({});
+  };
+  
+  // Auto-fill customer data when customer is selected
+  const handleCustomerChange = (newCustomerId: string) => {
+    setCustomerId(newCustomerId);
+    setTouched(prev => ({ ...prev, customerId: true }));
+    
+    const customer = customers.find(c => c.id === newCustomerId);
+    if (customer) {
+      setCustomerPic(customer.pic || '');
+      setCustomerPhone(customer.phone || '');
+      setPaymentTerms(customer.terms_payment || '');
+      // Auto-fill shipping address from customer address (editable)
+      if (!shipToAddress) {
+        setShipToAddress(customer.address || '');
+      }
+    }
+  };
+  
+  // Validation helpers
+  const getFieldError = (field: string, value: string | number) => {
+    if (!touched[field]) return null;
+    if (!value || (typeof value === 'string' && !value.trim())) {
+      return language === 'en' ? 'This field is required' : 'Field ini wajib diisi';
+    }
+    return null;
+  };
+  
+  const markTouched = (field: string) => {
+    setTouched(prev => ({ ...prev, [field]: true }));
   };
 
   const handleOpenDialog = async () => {
@@ -557,15 +599,26 @@ export default function SalesOrder() {
 
     setIsOpeningPoDoc(true);
     try {
-      // Extract path from URL or use directly
       const url = order.po_document_url;
       let path = url;
       
-      // If it's a full URL, extract the path portion
+      // Try multiple patterns to extract the file path
+      // Pattern 1: /storage/v1/object/sign/documents/path or /storage/v1/object/public/documents/path
       if (url.includes('/storage/v1/object/')) {
         const pathMatch = url.match(/\/storage\/v1\/object\/(?:sign|public)\/documents\/(.+?)(?:\?|$)/);
         if (pathMatch) {
-          path = pathMatch[1];
+          path = decodeURIComponent(pathMatch[1]);
+        }
+      }
+      // Pattern 2: Direct path without URL prefix (e.g., sales-orders/timestamp-filename.pdf)
+      else if (!url.startsWith('http')) {
+        path = url;
+      }
+      // Pattern 3: Full supabase URL pattern
+      else if (url.includes('.supabase.co/storage/')) {
+        const pathMatch = url.match(/\/storage\/v1\/object\/(?:sign|public)\/documents\/(.+?)(?:\?|$)/);
+        if (pathMatch) {
+          path = decodeURIComponent(pathMatch[1]);
         }
       }
 
@@ -575,8 +628,12 @@ export default function SalesOrder() {
       if (signedUrl) {
         window.open(signedUrl, '_blank');
       } else {
-        // Fallback to original URL if signing fails
-        window.open(url, '_blank');
+        // If signing fails but we have a URL, try opening it directly
+        if (url.startsWith('http')) {
+          window.open(url, '_blank');
+        } else {
+          toast.error(language === 'en' ? 'Failed to open document' : 'Gagal membuka dokumen');
+        }
       }
     } catch (error) {
       console.error('Error opening document:', error);
@@ -617,28 +674,36 @@ export default function SalesOrder() {
           <title>Sales Order - ${selectedOrder.sales_order_number}</title>
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; color: #333; font-size: 12px; }
-            .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 15px; margin-bottom: 20px; }
-            .company-name { font-size: 18px; font-weight: bold; color: #1a365d; }
-            .document-title { font-size: 16px; margin-top: 10px; font-weight: 600; }
-            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
-            .info-item label { font-size: 10px; color: #666; text-transform: uppercase; display: block; margin-bottom: 2px; }
-            .info-item p { font-weight: 500; }
-            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background: #f5f5f5; font-weight: 600; font-size: 11px; }
+            body { font-family: Arial, sans-serif; padding: 30px; color: #333; font-size: 11px; }
+            .pdf-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1a365d; padding-bottom: 15px; margin-bottom: 20px; }
+            .company-logo { font-size: 24px; font-weight: bold; color: #1a365d; }
+            .document-title { font-size: 18px; font-weight: bold; text-align: right; }
+            .info-section { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 4px; }
+            .info-box { }
+            .info-box label { font-size: 9px; color: #666; text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 3px; }
+            .info-box p { font-weight: 500; font-size: 11px; }
+            table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 10px; }
+            th { background: #1a365d; color: white; font-weight: 600; text-transform: uppercase; }
             .text-right { text-align: right; }
             .text-center { text-align: center; }
-            .summary { margin-top: 20px; border-top: 1px solid #ddd; padding-top: 15px; }
-            .summary-row { display: flex; justify-content: space-between; padding: 5px 0; }
-            .summary-row.total { font-weight: bold; font-size: 14px; border-top: 2px solid #333; margin-top: 10px; padding-top: 10px; }
-            .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; }
-            .badge-draft { background: #e2e8f0; color: #475569; }
-            .badge-approved { background: #dcfce7; color: #166534; }
-            .badge-pending { background: #fef3c7; color: #92400e; }
-            .badge-success { background: #d1fae5; color: #065f46; }
-            .badge-cancelled { background: #fee2e2; color: #991b1b; }
-            @media print { body { padding: 0; } }
+            .summary-section { display: flex; justify-content: flex-end; margin-top: 20px; }
+            .summary-box { width: 280px; }
+            .summary-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 11px; }
+            .summary-row.total { font-weight: bold; font-size: 13px; border-top: 2px solid #333; margin-top: 5px; padding-top: 8px; }
+            .address-section { margin: 20px 0; padding: 10px; background: #f8f9fa; border-radius: 4px; }
+            .address-section label { font-size: 9px; color: #666; text-transform: uppercase; font-weight: bold; }
+            .notes-section { margin: 15px 0; padding: 10px; border: 1px dashed #ccc; border-radius: 4px; }
+            .notes-section label { font-size: 9px; color: #666; text-transform: uppercase; font-weight: bold; }
+            .signature-section { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 60px; text-align: center; }
+            .signature-box { }
+            .signature-box .date-line { font-size: 10px; color: #666; margin-bottom: 50px; }
+            .signature-box .role { font-size: 10px; margin-bottom: 60px; }
+            .signature-box .line { border-bottom: 1px solid #333; margin: 0 10px; padding-top: 5px; font-size: 10px; }
+            @media print { 
+              body { padding: 20px; } 
+              @page { margin: 15mm; }
+            }
           </style>
         </head>
         <body>
@@ -872,9 +937,14 @@ export default function SalesOrder() {
                 <Input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>Customer *</Label>
-                <Select value={customerId} onValueChange={setCustomerId}>
-                  <SelectTrigger>
+                <Label className="flex items-center gap-1">
+                  Customer *
+                  {getFieldError('customerId', customerId) && (
+                    <span className="text-destructive text-xs">({getFieldError('customerId', customerId)})</span>
+                  )}
+                </Label>
+                <Select value={customerId} onValueChange={handleCustomerChange}>
+                  <SelectTrigger className={getFieldError('customerId', customerId) ? 'border-destructive' : ''}>
                     <SelectValue placeholder={language === 'en' ? 'Select customer' : 'Pilih customer'} />
                   </SelectTrigger>
                   <SelectContent>
@@ -885,20 +955,47 @@ export default function SalesOrder() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>{language === 'en' ? 'Customer PO Number' : 'No. PO Customer'} *</Label>
-                <Input placeholder="e.g., CUST-PO-001" value={customerPoNumber} onChange={(e) => setCustomerPoNumber(e.target.value)} />
+                <Label className="flex items-center gap-1">
+                  {language === 'en' ? 'Customer PO Number' : 'No. PO Customer'} *
+                  {getFieldError('customerPoNumber', customerPoNumber) && (
+                    <span className="text-destructive text-xs">({getFieldError('customerPoNumber', customerPoNumber)})</span>
+                  )}
+                </Label>
+                <Input 
+                  placeholder="e.g., CUST-PO-001" 
+                  value={customerPoNumber} 
+                  onChange={(e) => setCustomerPoNumber(e.target.value)} 
+                  onBlur={() => markTouched('customerPoNumber')}
+                  className={getFieldError('customerPoNumber', customerPoNumber) ? 'border-destructive' : ''}
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
-                <Label>{language === 'en' ? 'Sales Name' : 'Nama Sales'} *</Label>
-                <Input placeholder={language === 'en' ? 'Enter sales name' : 'Nama sales'} value={salesName} onChange={(e) => setSalesName(e.target.value)} />
+                <Label className="flex items-center gap-1">
+                  {language === 'en' ? 'Sales Name' : 'Nama Sales'} *
+                  {getFieldError('salesName', salesName) && (
+                    <span className="text-destructive text-xs">({getFieldError('salesName', salesName)})</span>
+                  )}
+                </Label>
+                <Input 
+                  placeholder={language === 'en' ? 'Enter sales name' : 'Nama sales'} 
+                  value={salesName} 
+                  onChange={(e) => setSalesName(e.target.value)} 
+                  onBlur={() => markTouched('salesName')}
+                  className={getFieldError('salesName', salesName) ? 'border-destructive' : ''}
+                />
               </div>
               <div className="space-y-2">
-                <Label>{language === 'en' ? 'Allocation Type' : 'Tipe Alokasi'} *</Label>
-                <Select value={allocationType} onValueChange={setAllocationType}>
-                  <SelectTrigger>
+                <Label className="flex items-center gap-1">
+                  {language === 'en' ? 'Allocation Type' : 'Tipe Alokasi'} *
+                  {getFieldError('allocationType', allocationType) && (
+                    <span className="text-destructive text-xs">({getFieldError('allocationType', allocationType)})</span>
+                  )}
+                </Label>
+                <Select value={allocationType} onValueChange={(v) => { setAllocationType(v); markTouched('allocationType'); }}>
+                  <SelectTrigger className={getFieldError('allocationType', allocationType) ? 'border-destructive' : ''}>
                     <SelectValue placeholder={language === 'en' ? 'Select type' : 'Pilih tipe'} />
                   </SelectTrigger>
                   <SelectContent>
@@ -909,12 +1006,65 @@ export default function SalesOrder() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>{language === 'en' ? 'Project/Instansi' : 'Proyek/Instansi'} *</Label>
-                <Input placeholder={language === 'en' ? 'Enter project name' : 'Nama proyek'} value={projectInstansi} onChange={(e) => setProjectInstansi(e.target.value)} />
+                <Label className="flex items-center gap-1">
+                  {language === 'en' ? 'Project/Instansi' : 'Proyek/Instansi'} *
+                  {getFieldError('projectInstansi', projectInstansi) && (
+                    <span className="text-destructive text-xs">({getFieldError('projectInstansi', projectInstansi)})</span>
+                  )}
+                </Label>
+                <Input 
+                  placeholder={language === 'en' ? 'Enter project name' : 'Nama proyek'} 
+                  value={projectInstansi} 
+                  onChange={(e) => setProjectInstansi(e.target.value)} 
+                  onBlur={() => markTouched('projectInstansi')}
+                  className={getFieldError('projectInstansi', projectInstansi) ? 'border-destructive' : ''}
+                />
               </div>
               <div className="space-y-2">
-                <Label>{language === 'en' ? 'Delivery Deadline' : 'Batas Pengiriman'} *</Label>
-                <Input type="date" value={deliveryDeadline} onChange={(e) => setDeliveryDeadline(e.target.value)} />
+                <Label className="flex items-center gap-1">
+                  {language === 'en' ? 'Delivery Deadline' : 'Batas Pengiriman'} *
+                  {getFieldError('deliveryDeadline', deliveryDeadline) && (
+                    <span className="text-destructive text-xs">({getFieldError('deliveryDeadline', deliveryDeadline)})</span>
+                  )}
+                </Label>
+                <Input 
+                  type="date" 
+                  value={deliveryDeadline} 
+                  onChange={(e) => setDeliveryDeadline(e.target.value)} 
+                  onBlur={() => markTouched('deliveryDeadline')}
+                  className={getFieldError('deliveryDeadline', deliveryDeadline) ? 'border-destructive' : ''}
+                />
+              </div>
+            </div>
+            
+            {/* Auto-filled customer info */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>PIC</Label>
+                <Input 
+                  value={customerPic} 
+                  onChange={(e) => setCustomerPic(e.target.value)}
+                  placeholder={language === 'en' ? 'Auto-filled from customer' : 'Otomatis dari customer'}
+                  className="bg-muted/50"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{language === 'en' ? 'Phone' : 'Telepon'}</Label>
+                <Input 
+                  value={customerPhone} 
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  placeholder={language === 'en' ? 'Auto-filled from customer' : 'Otomatis dari customer'}
+                  className="bg-muted/50"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{language === 'en' ? 'Payment Terms' : 'Termin Pembayaran'}</Label>
+                <Input 
+                  value={paymentTerms} 
+                  onChange={(e) => setPaymentTerms(e.target.value)}
+                  placeholder={language === 'en' ? 'Auto-filled from customer' : 'Otomatis dari customer'}
+                  className="bg-muted/50"
+                />
               </div>
             </div>
 
@@ -1311,59 +1461,89 @@ export default function SalesOrder() {
         </DialogContent>
       </Dialog>
 
-      {/* Hidden Print Content */}
+      {/* Hidden Print Content - Kemika Format */}
       <div className="hidden">
         <div ref={printRef}>
           {selectedOrder && (
             <div>
-              <div className="header">
-                <p className="company-name">PT. KEMIKA KARYA PRATAMA</p>
-                <p style={{ fontSize: '11px', color: '#666' }}>Jl. Industri Raya No. 123, Jakarta</p>
-                <p className="document-title">SALES ORDER</p>
+              {/* Header */}
+              <div className="pdf-header">
+                <div>
+                  <div className="company-logo">Kemika</div>
+                </div>
+                <div className="document-title">SALES ORDER</div>
               </div>
 
-              <div className="info-grid">
-                <div className="info-item">
-                  <label>No. SO</label>
+              {/* Info Section - Row 1 */}
+              <div className="info-section">
+                <div className="info-box">
+                  <label>Sales Order No.</label>
                   <p>{selectedOrder.sales_order_number}</p>
                 </div>
-                <div className="info-item">
+                <div className="info-box">
+                  <label>Tipe Alokasi</label>
+                  <p>{selectedOrder.allocation_type.toUpperCase()}</p>
+                </div>
+                <div className="info-box">
+                  <label>SO Date</label>
+                  <p>{formatDate(selectedOrder.order_date)}</p>
+                </div>
+                <div className="info-box">
                   <label>Tanggal</label>
                   <p>{formatDate(selectedOrder.order_date)}</p>
                 </div>
-                <div className="info-item">
-                  <label>Customer</label>
-                  <p>{selectedOrder.customer?.name}</p>
-                </div>
-                <div className="info-item">
-                  <label>PO Customer</label>
-                  <p>{selectedOrder.customer_po_number}</p>
-                </div>
-                <div className="info-item">
+              </div>
+
+              {/* Info Section - Row 2 */}
+              <div className="info-section">
+                <div className="info-box">
                   <label>Sales</label>
                   <p>{selectedOrder.sales_name}</p>
                 </div>
-                <div className="info-item">
+                <div className="info-box">
+                  <label>Customer</label>
+                  <p>{selectedOrder.customer?.name}</p>
+                </div>
+                <div className="info-box">
+                  <label>PO Customer</label>
+                  <p>{selectedOrder.customer_po_number}</p>
+                </div>
+                <div className="info-box">
                   <label>Batas Pengiriman</label>
                   <p>{formatDate(selectedOrder.delivery_deadline)}</p>
                 </div>
-                <div className="info-item">
-                  <label>Status</label>
-                  <span className={`badge badge-${statusConfig[selectedOrder.status]?.variant}`}>
-                    {statusConfig[selectedOrder.status]?.labelId}
-                  </span>
+              </div>
+
+              {/* Info Section - Row 3 */}
+              <div className="info-section">
+                <div className="info-box">
+                  <label>PIC</label>
+                  <p>{selectedOrder.customer?.pic || '-'}</p>
+                </div>
+                <div className="info-box">
+                  <label>Phone</label>
+                  <p>{selectedOrder.customer?.phone || '-'}</p>
+                </div>
+                <div className="info-box">
+                  <label>Payment Terms</label>
+                  <p>{selectedOrder.customer?.terms_payment || '-'}</p>
+                </div>
+                <div className="info-box">
+                  <label>Proyek/Instansi</label>
+                  <p>{selectedOrder.project_instansi}</p>
                 </div>
               </div>
 
+              {/* Items Table */}
               <table>
                 <thead>
                   <tr>
-                    <th style={{ width: '40px' }}>#</th>
+                    <th style={{ width: '30px' }}>#</th>
                     <th>Nama Barang</th>
-                    <th>SKU</th>
-                    <th>Kategori</th>
-                    <th>Satuan</th>
-                    <th className="text-center" style={{ width: '60px' }}>Qty</th>
+                    <th style={{ width: '80px' }}>SKU</th>
+                    <th style={{ width: '100px' }}>Kategori</th>
+                    <th style={{ width: '60px' }}>Satuan</th>
+                    <th className="text-center" style={{ width: '50px' }}>Qty</th>
                     <th className="text-right" style={{ width: '100px' }}>Harga</th>
                     <th className="text-right" style={{ width: '100px' }}>Subtotal</th>
                   </tr>
@@ -1371,7 +1551,7 @@ export default function SalesOrder() {
                 <tbody>
                   {selectedOrderItems.map((item, index) => (
                     <tr key={item.id}>
-                      <td>{index + 1}</td>
+                      <td className="text-center">{index + 1}</td>
                       <td>{item.product?.name}</td>
                       <td>{item.product?.sku || '-'}</td>
                       <td>{item.product?.category?.name || '-'}</td>
@@ -1384,52 +1564,73 @@ export default function SalesOrder() {
                 </tbody>
               </table>
 
-              {selectedOrder.notes && (
-                <div style={{ marginBottom: '15px' }}>
-                  <p style={{ fontSize: '10px', color: '#666', textTransform: 'uppercase' }}>Catatan</p>
-                  <p style={{ fontSize: '12px' }}>{selectedOrder.notes}</p>
-                </div>
-              )}
-
-              <div className="summary">
-                <div className="summary-row">
-                  <span>Subtotal</span>
-                  <span>{formatCurrency(selectedOrder.total_amount)}</span>
-                </div>
-                {selectedOrder.discount > 0 && (
+              {/* Summary */}
+              <div className="summary-section">
+                <div className="summary-box">
                   <div className="summary-row">
-                    <span>Discount</span>
-                    <span>-{formatCurrency(selectedOrder.discount)}</span>
+                    <span>Subtotal:</span>
+                    <span>{formatCurrency(selectedOrder.total_amount)}</span>
                   </div>
-                )}
-                <div className="summary-row">
-                  <span>Tax ({selectedOrder.tax_rate}%)</span>
-                  <span>{formatCurrency((selectedOrder.total_amount - selectedOrder.discount) * selectedOrder.tax_rate / 100)}</span>
-                </div>
-                {selectedOrder.shipping_cost > 0 && (
+                  {selectedOrder.discount > 0 && (
+                    <div className="summary-row">
+                      <span>Discount:</span>
+                      <span>-{formatCurrency(selectedOrder.discount)}</span>
+                    </div>
+                  )}
                   <div className="summary-row">
-                    <span>Pengiriman</span>
-                    <span>{formatCurrency(selectedOrder.shipping_cost)}</span>
+                    <span>Tax ({selectedOrder.tax_rate}%):</span>
+                    <span>{formatCurrency((selectedOrder.total_amount - selectedOrder.discount) * selectedOrder.tax_rate / 100)}</span>
                   </div>
-                )}
-                <div className="summary-row total">
-                  <span>Grand Total</span>
-                  <span>{formatCurrency(selectedOrder.grand_total)}</span>
+                  {selectedOrder.shipping_cost > 0 && (
+                    <div className="summary-row">
+                      <span>Pengiriman:</span>
+                      <span>{formatCurrency(selectedOrder.shipping_cost)}</span>
+                    </div>
+                  )}
+                  <div className="summary-row total">
+                    <span>Grand Total:</span>
+                    <span>{formatCurrency(selectedOrder.grand_total)}</span>
+                  </div>
                 </div>
               </div>
 
-              <div className="footer">
-                <div>
-                  <p style={{ fontSize: '10px', color: '#666' }}>Dibuat oleh</p>
-                  <div className="signature">Staff Sales</div>
+              {/* Ship To Address */}
+              {selectedOrder.ship_to_address && (
+                <div className="address-section">
+                  <label>SHIP TO ADDRESS/ALAMAT PENGIRIMAN:</label>
+                  <p style={{ marginTop: '5px' }}>{selectedOrder.ship_to_address}</p>
                 </div>
-                <div>
-                  <p style={{ fontSize: '10px', color: '#666' }}>Disetujui oleh</p>
-                  <div className="signature">Manager</div>
+              )}
+
+              {/* Notes */}
+              {selectedOrder.notes && (
+                <div className="notes-section">
+                  <label>CATATAN:</label>
+                  <p style={{ marginTop: '5px' }}>{selectedOrder.notes}</p>
                 </div>
-                <div>
-                  <p style={{ fontSize: '10px', color: '#666' }}>Diterima oleh</p>
-                  <div className="signature">Customer</div>
+              )}
+
+              {/* Signature Section */}
+              <div className="signature-section">
+                <div className="signature-box">
+                  <div className="date-line">Date:</div>
+                  <div className="role">Pemohon,</div>
+                  <div className="line">(……………..…........………)</div>
+                </div>
+                <div className="signature-box">
+                  <div className="date-line">Date:</div>
+                  <div className="role">Finance,</div>
+                  <div className="line">(……………..…........………)</div>
+                </div>
+                <div className="signature-box">
+                  <div className="date-line">Date:</div>
+                  <div className="role">Purchasing,</div>
+                  <div className="line">(……………..…........………)</div>
+                </div>
+                <div className="signature-box">
+                  <div className="date-line">Date:</div>
+                  <div className="role">Menyetujui,</div>
+                  <div className="line">(……………..…........………)</div>
                 </div>
               </div>
             </div>
