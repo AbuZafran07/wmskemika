@@ -72,6 +72,7 @@ export default function StockIn() {
 
   const fetchPlanOrders = useCallback(async () => {
     setLoadingPlanOrders(true);
+
     const { data, error } = await supabase
       .from("plan_order_headers")
       .select(
@@ -89,6 +90,7 @@ export default function StockIn() {
     } else {
       setPlanOrders(data || []);
     }
+
     setLoadingPlanOrders(false);
   }, [language]);
 
@@ -206,6 +208,7 @@ export default function StockIn() {
     } else {
       toast.error(language === "en" ? "Failed to upload file" : "Gagal upload file");
     }
+
     setIsUploading(false);
   };
 
@@ -216,8 +219,8 @@ export default function StockIn() {
 
   /**
    * Find existing inventory batch safely.
-   * Avoid maybeSingle() because if duplicates exist, it throws "multiple rows" error.
-   * Match on (product_id, batch_no, expired_date NULL/equals) to prevent mixing expiry.
+   * Avoid maybeSingle() because it throws if duplicates exist.
+   * Match on (product_id, batch_no, expired_date NULL/equals).
    */
   const findExistingBatch = async (productId: string, batchNo: string, expiredDate: string | null) => {
     let q = supabase
@@ -233,6 +236,7 @@ export default function StockIn() {
 
     const { data, error } = await q;
     if (error) throw error;
+
     return data && data.length > 0 ? data[0] : null;
   };
 
@@ -242,7 +246,7 @@ export default function StockIn() {
       return;
     }
 
-    // REQUIRED by your prompt: delivery note must be uploaded
+    // REQUIRED: delivery note must be uploaded (as per your business rule)
     if (!deliveryNoteUrl) {
       toast.error(language === "en" ? "Please upload Delivery Note" : "Harap upload Surat Jalan");
       return;
@@ -277,13 +281,8 @@ export default function StockIn() {
     }
 
     setIsSaving(true);
-    try {
-      // auth user (for created_by if your tables require it)
-      const { data: authData, error: authErr } = await supabase.auth.getUser();
-      if (authErr) throw authErr;
-      const user = authData?.user;
-      if (!user) throw new Error("Not authenticated");
 
+    try {
       // 1) Create stock in header
       const { data: headerData, error: headerError } = await supabase
         .from("stock_in_headers")
@@ -293,8 +292,6 @@ export default function StockIn() {
           received_date: receivedDate,
           notes: notes || null,
           delivery_note_url: deliveryNoteUrl,
-          // if your table has these columns, they help RLS:
-          created_by: user.id,
         })
         .select("id")
         .single();
@@ -309,7 +306,6 @@ export default function StockIn() {
         qty_received: Number(item.qty_received) || 0,
         batch_no: item.batch_no.trim(),
         expired_date: item.expired_date ? item.expired_date : null,
-        created_by: user.id,
       }));
 
       const { error: itemsError } = await supabase.from("stock_in_items").insert(stockInItemsPayload);
@@ -328,8 +324,8 @@ export default function StockIn() {
             .from("inventory_batches")
             .update({
               qty_on_hand: (Number(existingBatch.qty_on_hand) || 0) + qty,
-              expired_date: exp, // keep consistent
-              updated_by: user.id,
+              // keep consistent (optional)
+              expired_date: exp,
             })
             .eq("id", existingBatch.id);
 
@@ -340,7 +336,6 @@ export default function StockIn() {
             batch_no: batchNo,
             qty_on_hand: qty,
             expired_date: exp,
-            created_by: user.id,
           });
 
           if (batchInsertError) throw batchInsertError;
@@ -355,7 +350,6 @@ export default function StockIn() {
           reference_id: headerData.id,
           reference_number: stockInNumber,
           notes: `Received from ${selectedPlanOrder?.plan_number}`,
-          created_by: user.id,
         });
 
         if (txError) throw txError;
@@ -379,7 +373,6 @@ export default function StockIn() {
           .update({
             qty_received: newQtyReceived,
             qty_remaining: newQtyRemaining,
-            updated_by: user.id,
           })
           .eq("id", item.plan_order_item_id);
 
@@ -398,15 +391,15 @@ export default function StockIn() {
       const newStatus = (remainingItems?.length || 0) === 0 ? "received" : "partially_received";
       const { error: statusError } = await supabase
         .from("plan_order_headers")
-        .update({
-          status: newStatus,
-          updated_by: user.id,
-        })
+        .update({ status: newStatus })
         .eq("id", selectedPlanOrderId);
 
       if (statusError) throw statusError;
 
-      // 5) Audit log (do not block success if audit fails due to RLS)
+      // 5) Audit log (best-effort)
+      const { data: authData } = await supabase.auth.getUser();
+      const user = authData?.user;
+
       const itemsSummary = validItems.map((it) => ({
         product_name: it.product_name,
         qty_received: Number(it.qty_received) || 0,
@@ -420,8 +413,8 @@ export default function StockIn() {
         ref_table: "stock_in_headers",
         ref_id: headerData.id,
         ref_no: stockInNumber,
-        user_id: user.id,
-        user_email: user.email,
+        user_id: user?.id,
+        user_email: user?.email,
         new_data: {
           stock_in_number: stockInNumber,
           plan_order_number: selectedPlanOrder?.plan_number,
@@ -439,10 +432,10 @@ export default function StockIn() {
 
       toast.success(language === "en" ? "Stock In saved successfully" : "Stock In berhasil disimpan");
 
-      // refresh list so PO that becomes "received" disappears (archive behavior)
+      // Refresh list so PO becomes "archived" (disappears from dropdown when status = received)
       await fetchPlanOrders();
 
-      // clear UI
+      // Clear UI
       setSelectedPlanOrderId("");
       setSelectedPlanOrder(null);
       setItems([]);
@@ -484,6 +477,7 @@ export default function StockIn() {
             </p>
           </div>
         </div>
+
         <Button
           variant="outline"
           size="sm"
@@ -602,6 +596,7 @@ export default function StockIn() {
                   onChange={handleFileUpload}
                 />
               </div>
+
               {deliveryNoteUrl ? (
                 <p className="text-xs text-muted-foreground">
                   {language === "en" ? "Delivery note uploaded." : "Surat jalan sudah terupload."}
