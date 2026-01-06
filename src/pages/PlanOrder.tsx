@@ -1375,10 +1375,14 @@ export default function PlanOrder() {
         <div ref={printRef}>
           {selectedOrder && (
             <div>
-              <div className="header">
-                <p className="company-name">PT. KEMIKA KARYA PRATAMA</p>
-                <p style={{ fontSize: '11px', color: '#666' }}>Jl. Industri Raya No. 123, Jakarta</p>
-                <p className="document-title">PLAN ORDER</p>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px", borderBottom: "2px solid #16a34a", paddingBottom: "15px" }}>
+                <div>
+                  <img src="/logo-kemika.png" alt="Kemika" style={{ height: "42px", objectFit: "contain" }} />
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <p style={{ fontWeight: "bold", fontSize: "16px", color: "#16a34a", margin: 0 }}>PLAN ORDER</p>
+                  <p style={{ fontSize: "12px", margin: "4px 0 0 0" }}>{selectedOrder.plan_number}</p>
+                </div>
               </div>
 
               <div className="info-grid">
