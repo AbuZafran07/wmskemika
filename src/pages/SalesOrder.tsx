@@ -249,11 +249,11 @@ export default function SalesOrder() {
   };
 
   const handleOpenDialog = async () => {
-    await generateSoNumber();
     resetForm();
     setOrderDate(new Date().toISOString().split('T')[0]);
     setIsEditMode(false);
     setEditingOrderId(null);
+    await generateSoNumber();
     setIsDialogOpen(true);
   };
 
