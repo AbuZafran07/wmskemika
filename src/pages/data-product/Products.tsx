@@ -48,6 +48,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useProducts, useCategories, useUnits, useSuppliers, Product } from '@/hooks/useMasterData';
 import { supabase } from '@/integrations/supabase/client';
 import { uploadFile } from '@/lib/storage';
+import { ProductImage } from '@/components/ProductImage';
 import { toast } from 'sonner';
 
 interface ProductFormData {
@@ -155,7 +156,8 @@ export default function Products() {
     const result = await uploadFile(file, 'product-photos', 'products');
     
     if (result) {
-      setFormData(prev => ({ ...prev, photo_url: result.url }));
+      // Store the path, not the URL - we'll generate signed URLs when displaying
+      setFormData(prev => ({ ...prev, photo_url: result.path }));
       toast.success(language === 'en' ? 'Photo uploaded successfully' : 'Foto berhasil diupload');
     } else {
       toast.error(language === 'en' ? 'Failed to upload photo' : 'Gagal upload foto');
@@ -321,17 +323,12 @@ export default function Products() {
                   filteredProducts.map((product) => (
                     <TableRow key={product.id}>
                       <TableCell>
-                        {product.photo_url ? (
-                          <img 
-                            src={product.photo_url} 
-                            alt={product.name}
-                            className="w-10 h-10 rounded object-cover"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded bg-muted flex items-center justify-center">
-                            <ImageIcon className="w-5 h-5 text-muted-foreground" />
-                          </div>
-                        )}
+                        <ProductImage 
+                          photoUrl={product.photo_url} 
+                          alt={product.name}
+                          className="w-10 h-10 rounded object-cover"
+                          fallbackClassName="w-10 h-10 rounded bg-muted flex items-center justify-center"
+                        />
                       </TableCell>
                       <TableCell className="font-medium">{product.sku || '-'}</TableCell>
                       <TableCell>
@@ -400,10 +397,11 @@ export default function Products() {
               <div className="flex items-center gap-4">
                 {formData.photo_url ? (
                   <div className="relative">
-                    <img 
-                      src={formData.photo_url} 
+                    <ProductImage 
+                      photoUrl={formData.photo_url} 
                       alt="Product"
                       className="w-24 h-24 rounded-lg object-cover"
+                      fallbackClassName="w-24 h-24 rounded-lg bg-muted flex items-center justify-center"
                     />
                     <button
                       type="button"
@@ -599,10 +597,11 @@ export default function Products() {
           {viewingProduct && (
             <div className="space-y-4">
               {viewingProduct.photo_url && (
-                <img 
-                  src={viewingProduct.photo_url} 
+                <ProductImage 
+                  photoUrl={viewingProduct.photo_url} 
                   alt={viewingProduct.name}
                   className="w-full h-48 rounded-lg object-cover"
+                  fallbackClassName="w-full h-48 rounded-lg bg-muted flex items-center justify-center"
                 />
               )}
               <div className="grid grid-cols-2 gap-4 text-sm">
