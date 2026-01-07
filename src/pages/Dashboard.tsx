@@ -52,6 +52,7 @@ interface RecentActivity {
   id: string;
   type: 'inbound' | 'outbound' | 'adjustment';
   desc: string;
+  productName: string;
   time: string;
   qty: string;
 }
@@ -283,17 +284,27 @@ export default function Dashboard() {
       }));
       setCategoryData(catData);
 
-      // Recent activity
+      // Recent activity - fetch with product names
       const { data: recentTx } = await supabase
         .from('stock_transactions')
         .select('id, transaction_type, quantity, reference_number, created_at, product_id')
         .order('created_at', { ascending: false })
         .limit(5);
 
+      // Get product names for recent transactions
+      const recentProductIds = [...new Set((recentTx || []).map(tx => tx.product_id))];
+      const { data: recentProducts } = recentProductIds.length > 0
+        ? await supabase.from('products').select('id, name').in('id', recentProductIds)
+        : { data: [] };
+
+      const recentProductMap: Record<string, string> = {};
+      (recentProducts || []).forEach(p => { recentProductMap[p.id] = p.name; });
+
       const activities: RecentActivity[] = (recentTx || []).map(tx => ({
         id: tx.id,
         type: tx.transaction_type === 'in' ? 'inbound' : tx.transaction_type === 'out' ? 'outbound' : 'adjustment',
         desc: tx.reference_number || `${tx.transaction_type} transaction`,
+        productName: recentProductMap[tx.product_id] || 'Unknown Product',
         time: new Date(tx.created_at).toLocaleString('id-ID'),
         qty: `${tx.quantity > 0 ? '+' : ''}${tx.quantity} units`,
       }));
@@ -604,8 +615,8 @@ export default function Dashboard() {
                       {activity.type === 'inbound' ? <ArrowDownToLine className="w-4 h-4" /> : activity.type === 'outbound' ? <ArrowUpFromLine className="w-4 h-4" /> : <Package className="w-4 h-4" />}
                     </div>
                     <div>
-                      <p className="text-sm font-medium">{activity.desc}</p>
-                      <p className="text-xs text-muted-foreground">{activity.time}</p>
+                      <p className="text-sm font-medium">{activity.productName}</p>
+                      <p className="text-xs text-muted-foreground">{activity.desc} • {activity.time}</p>
                     </div>
                   </div>
                   <span className={`text-sm font-medium ${activity.qty.startsWith('+') ? 'text-success' : 'text-info'}`}>{activity.qty}</span>
