@@ -309,126 +309,42 @@ export default function StockOut() {
     setIsSaving(true);
 
     try {
-      // 1. Create stock out header
-      const { data: headerData, error: headerError } = await supabase
-        .from('stock_out_headers')
-        .insert({
-          stock_out_number: stockOutNumber,
-          sales_order_id: selectedSalesOrderId,
-          delivery_date: deliveryDate,
-          notes: notes || null,
-          delivery_note_url: deliveryNoteUrl || null,
-        })
-        .select()
-        .single();
+      // Build header data for RPC
+      const headerPayload = {
+        stock_out_number: stockOutNumber,
+        sales_order_id: selectedSalesOrderId,
+        delivery_date: deliveryDate,
+        notes: notes || null,
+        delivery_note_url: deliveryNoteUrl || null,
+      };
 
-      if (headerError) throw headerError;
-
-      // 2. Create stock out items and update inventory
-      for (const item of validItems) {
-        for (const batch of item.batches.filter(b => b.qty_out > 0)) {
-          // Insert stock out item
-          await supabase
-            .from('stock_out_items')
-            .insert({
-              stock_out_id: headerData.id,
-              sales_order_item_id: item.sales_order_item_id,
-              product_id: item.product_id,
-              batch_id: batch.batch_id,
-              qty_out: batch.qty_out,
-            });
-
-          // Update inventory batch
-          const { data: currentBatch } = await supabase
-            .from('inventory_batches')
-            .select('qty_on_hand')
-            .eq('id', batch.batch_id)
-            .single();
-
-          await supabase
-            .from('inventory_batches')
-            .update({ qty_on_hand: (currentBatch?.qty_on_hand || 0) - batch.qty_out })
-            .eq('id', batch.batch_id);
-
-          // Create stock transaction
-          await supabase
-            .from('stock_transactions')
-            .insert({
-              product_id: item.product_id,
-              batch_id: batch.batch_id,
-              transaction_type: 'out',
-              quantity: -batch.qty_out,
-              reference_type: 'stock_out',
-              reference_id: headerData.id,
-              reference_number: stockOutNumber,
-              notes: `Delivered to ${selectedSalesOrder?.customer?.name}`,
-            });
-        }
-
-        // Update SO item qty_delivered (AFTER all batch processing for this item)
-        // Note: qty_remaining is a GENERATED column, so we only update qty_delivered
-        const { data: soItem, error: soItemFetchError } = await supabase
-          .from('sales_order_items')
-          .select('qty_delivered')
-          .eq('id', item.sales_order_item_id)
-          .single();
-
-        if (soItemFetchError) throw soItemFetchError;
-
-        const newQtyDelivered = (soItem?.qty_delivered || 0) + item.qty_out;
-        
-        const { error: soItemUpdateError } = await supabase
-          .from('sales_order_items')
-          .update({ 
-            qty_delivered: newQtyDelivered,
-          })
-          .eq('id', item.sales_order_item_id);
-
-        if (soItemUpdateError) throw soItemUpdateError;
-      }
-
-      // 3. Check if sales order is fully delivered
-      const { data: remainingItems } = await supabase
-        .from('sales_order_items')
-        .select('qty_remaining')
-        .eq('sales_order_id', selectedSalesOrderId)
-        .gt('qty_remaining', 0);
-
-      const newStatus = (remainingItems?.length || 0) === 0 ? 'delivered' : 'partially_delivered';
-      await supabase
-        .from('sales_order_headers')
-        .update({ status: newStatus })
-        .eq('id', selectedSalesOrderId);
-
-      // 4. Create audit log entry
-      const { data: { user } } = await supabase.auth.getUser();
-      const itemsSummary = validItems.map(item => ({
-        product_name: item.product_name,
-        qty_out: item.qty_out,
-        batches: item.batches.filter(b => b.qty_out > 0).map(b => ({ batch_no: b.batch_no, qty: b.qty_out })),
+      // Build items data for RPC - each item with its batches and total qty
+      const itemsPayload = validItems.map(item => ({
+        sales_order_item_id: item.sales_order_item_id,
+        product_id: item.product_id,
+        total_qty_out: item.qty_out,
+        batches: item.batches
+          .filter(b => b.qty_out > 0)
+          .map(b => ({
+            batch_id: b.batch_id,
+            qty_out: b.qty_out,
+            notes: `Delivered to ${selectedSalesOrder?.customer?.name}`,
+          })),
       }));
 
-      await supabase
-        .from('audit_logs')
-        .insert({
-          action: 'STOCK_OUT_CREATE',
-          module: 'stock_out',
-          ref_table: 'stock_out_headers',
-          ref_id: headerData.id,
-          ref_no: stockOutNumber,
-          user_id: user?.id,
-          user_email: user?.email,
-          new_data: {
-            stock_out_number: stockOutNumber,
-            sales_order_number: selectedSalesOrder?.sales_order_number,
-            sales_order_id: selectedSalesOrderId,
-            customer: selectedSalesOrder?.customer?.name,
-            delivery_date: deliveryDate,
-            items: itemsSummary,
-            total_items: validItems.length,
-            total_qty_out: validItems.reduce((sum, i) => sum + i.qty_out, 0),
-          },
+      // Call RPC function - entire operation is atomic (transactional)
+      const { data: result, error: rpcError } = await supabase
+        .rpc('stock_out_create', {
+          header_data: headerPayload,
+          items_data: itemsPayload,
         });
+
+      if (rpcError) throw rpcError;
+      
+      const rpcResult = result as { success: boolean; error?: string; id?: string };
+      if (!rpcResult?.success) {
+        throw new Error(rpcResult?.error || 'Unknown error occurred');
+      }
 
       toast.success(language === 'en' ? 'Stock Out saved successfully' : 'Stock Out berhasil disimpan');
 
@@ -442,9 +358,10 @@ export default function StockOut() {
       setDeliveryNoteFileName('');
       setDeliveryDate(new Date().toISOString().split('T')[0]);
       await generateStockOutNumber();
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error(language === 'en' ? 'Failed to save Stock Out' : 'Gagal menyimpan Stock Out');
+      const errorMessage = error?.message || (language === 'en' ? 'Failed to save Stock Out' : 'Gagal menyimpan Stock Out');
+      toast.error(errorMessage);
     }
 
     setIsSaving(false);
