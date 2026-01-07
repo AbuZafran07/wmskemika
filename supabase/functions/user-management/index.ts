@@ -92,16 +92,30 @@ serve(async (req) => {
 
     switch (action) {
       case "list": {
+        console.log("Fetching users list...");
+        
         const { data: authUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-        if (listError) throw listError;
+        if (listError) {
+          console.error("Error listing auth users:", listError);
+          throw listError;
+        }
+        console.log("Found auth users:", authUsers?.users?.length || 0);
 
         const { data: roles, error: rolesError } = await supabaseAdmin.from("user_roles").select("user_id, role");
-        if (rolesError) throw rolesError;
+        if (rolesError) {
+          console.error("Error fetching roles:", rolesError);
+          throw rolesError;
+        }
+        console.log("Found roles:", roles?.length || 0);
 
         const { data: profiles, error: profilesError } = await supabaseAdmin
           .from("profiles")
           .select("id, full_name, is_active");
-        if (profilesError) throw profilesError;
+        if (profilesError) {
+          console.error("Error fetching profiles:", profilesError);
+          throw profilesError;
+        }
+        console.log("Found profiles:", profiles?.length || 0);
 
         const users = authUsers.users.map((u) => {
           const userRoles = roles?.filter((r) => r.user_id === u.id) || [];
@@ -116,6 +130,7 @@ serve(async (req) => {
           };
         });
 
+        console.log("Returning users:", users.length);
         result = { users };
         break;
       }
