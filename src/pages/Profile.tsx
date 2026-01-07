@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { User, Mail, Shield, Camera, Save, Loader2 } from 'lucide-react';
+import { User, Mail, Shield, Camera, Save, Loader2, Lock, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,6 +23,15 @@ export default function Profile() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showCropper, setShowCropper] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Get signed URL for avatar on mount
   React.useEffect(() => {
@@ -135,6 +144,63 @@ export default function Profile() {
       toast.error(language === 'en' ? 'Failed to update profile' : 'Gagal memperbarui profil');
     }
     setIsSaving(false);
+  };
+
+  const handleChangePassword = async () => {
+    // Validate inputs
+    if (!currentPassword) {
+      toast.error(language === 'en' ? 'Please enter your current password' : 'Masukkan password saat ini');
+      return;
+    }
+    if (!newPassword) {
+      toast.error(language === 'en' ? 'Please enter a new password' : 'Masukkan password baru');
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error(language === 'en' ? 'Password must be at least 6 characters' : 'Password minimal 6 karakter');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error(language === 'en' ? 'Passwords do not match' : 'Password tidak cocok');
+      return;
+    }
+    if (currentPassword === newPassword) {
+      toast.error(language === 'en' ? 'New password must be different from current password' : 'Password baru harus berbeda dari password saat ini');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      // First verify current password by re-authenticating
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user?.email || '',
+        password: currentPassword
+      });
+
+      if (signInError) {
+        toast.error(language === 'en' ? 'Current password is incorrect' : 'Password saat ini salah');
+        setIsChangingPassword(false);
+        return;
+      }
+
+      // Update password
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (updateError) throw updateError;
+
+      // Clear form
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      
+      toast.success(language === 'en' ? 'Password changed successfully' : 'Password berhasil diubah');
+    } catch (error) {
+      console.error('Error changing password:', error);
+      toast.error(language === 'en' ? 'Failed to change password' : 'Gagal mengubah password');
+    }
+    setIsChangingPassword(false);
   };
 
   const getRoleBadgeVariant = (role: string) => {
@@ -303,6 +369,113 @@ export default function Profile() {
                 <Save className="w-4 h-4 mr-2" />
               )}
               {language === 'en' ? 'Save Changes' : 'Simpan Perubahan'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Change Password Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Lock className="w-5 h-5" />
+            {language === 'en' ? 'Change Password' : 'Ubah Password'}
+          </CardTitle>
+          <CardDescription>
+            {language === 'en' 
+              ? 'Update your password to keep your account secure'
+              : 'Perbarui password untuk menjaga keamanan akun Anda'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Current Password */}
+          <div className="space-y-2">
+            <Label htmlFor="currentPassword">
+              {language === 'en' ? 'Current Password' : 'Password Saat Ini'}
+            </Label>
+            <div className="relative">
+              <Input
+                id="currentPassword"
+                type={showCurrentPassword ? 'text' : 'password'}
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder={language === 'en' ? 'Enter current password' : 'Masukkan password saat ini'}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          {/* New Password */}
+          <div className="space-y-2">
+            <Label htmlFor="newPassword">
+              {language === 'en' ? 'New Password' : 'Password Baru'}
+            </Label>
+            <div className="relative">
+              <Input
+                id="newPassword"
+                type={showNewPassword ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder={language === 'en' ? 'Enter new password' : 'Masukkan password baru'}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {language === 'en' ? 'Minimum 6 characters' : 'Minimal 6 karakter'}
+            </p>
+          </div>
+
+          {/* Confirm Password */}
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">
+              {language === 'en' ? 'Confirm New Password' : 'Konfirmasi Password Baru'}
+            </Label>
+            <div className="relative">
+              <Input
+                id="confirmPassword"
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder={language === 'en' ? 'Confirm new password' : 'Konfirmasi password baru'}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Change Password Button */}
+          <div className="flex justify-end pt-2">
+            <Button 
+              onClick={handleChangePassword} 
+              disabled={isChangingPassword || !currentPassword || !newPassword || !confirmPassword}
+              variant="secondary"
+            >
+              {isChangingPassword ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Lock className="w-4 h-4 mr-2" />
+              )}
+              {language === 'en' ? 'Change Password' : 'Ubah Password'}
             </Button>
           </div>
         </CardContent>
