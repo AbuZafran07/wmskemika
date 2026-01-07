@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo } from 'react';
 import DOMPurify from 'dompurify';
-import { Plus, Search, Eye, Edit, MoreHorizontal, CheckCircle, XCircle, Loader2, Upload, ArrowLeft, Trash2, Printer, Archive, List, Download } from 'lucide-react';
+import { Plus, Search, Eye, Edit, MoreHorizontal, CheckCircle, XCircle, Loader2, Upload, ArrowLeft, Trash2, Printer, Archive, List, Download, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -136,6 +136,10 @@ export default function PlanOrder() {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const printRef = useRef<HTMLDivElement>(null);
+
+  // Stock In history for the selected order
+  const [stockInHistory, setStockInHistory] = useState<any[]>([]);
+  const [stockInHistoryLoading, setStockInHistoryLoading] = useState(false);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -538,9 +542,40 @@ export default function PlanOrder() {
     setSelectedOrder(null);
   };
 
-  const handleViewDetail = (order: PlanOrderHeader) => {
+  const handleViewDetail = async (order: PlanOrderHeader) => {
     setSelectedOrder(order);
     setIsDetailDialogOpen(true);
+    
+    // Fetch stock in history for this plan order
+    setStockInHistoryLoading(true);
+    try {
+      const { data: stockIns, error } = await supabase
+        .from('stock_in_headers')
+        .select(`
+          id,
+          stock_in_number,
+          received_date,
+          notes,
+          created_at,
+          stock_in_items (
+            id,
+            qty_received,
+            batch_no,
+            expired_date,
+            product:products (name, sku)
+          )
+        `)
+        .eq('plan_order_id', order.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setStockInHistory(stockIns || []);
+    } catch (err) {
+      console.error('Failed to fetch stock in history:', err);
+      setStockInHistory([]);
+    } finally {
+      setStockInHistoryLoading(false);
+    }
   };
 
   const handleEdit = (order: PlanOrderHeader) => {
@@ -1364,6 +1399,62 @@ export default function PlanOrder() {
                   <span className="text-primary">{formatCurrency(selectedOrder.grand_total)}</span>
                 </div>
               </div>
+
+              {/* Stock In History */}
+              {selectedOrder.status !== 'draft' && (
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <Package className="w-4 h-4" />
+                    {language === 'en' ? 'Stock In History' : 'Riwayat Stock In'}
+                  </h4>
+                  {stockInHistoryLoading ? (
+                    <div className="flex justify-center py-4">
+                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                    </div>
+                  ) : stockInHistory.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      {language === 'en' ? 'No stock in records yet' : 'Belum ada riwayat stock in'}
+                    </p>
+                  ) : (
+                    <div className="space-y-4">
+                      {stockInHistory.map((si: any) => (
+                        <Card key={si.id} className="border">
+                          <CardHeader className="py-3 px-4">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <p className="font-semibold text-sm">{si.stock_in_number}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {formatDate(si.received_date)}
+                                </p>
+                              </div>
+                              <Badge variant="success">
+                                {si.stock_in_items?.reduce((sum: number, item: any) => sum + (item.qty_received || 0), 0)} {language === 'en' ? 'items received' : 'item diterima'}
+                              </Badge>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="py-2 px-4">
+                            <div className="text-xs space-y-1">
+                              {si.stock_in_items?.map((item: any, idx: number) => (
+                                <div key={item.id || idx} className="flex justify-between">
+                                  <span className="text-muted-foreground">
+                                    {item.product?.name || '-'} (Batch: {item.batch_no || '-'})
+                                  </span>
+                                  <span className="font-medium">{item.qty_received}</span>
+                                </div>
+                              ))}
+                            </div>
+                            {si.notes && (
+                              <p className="text-xs text-muted-foreground mt-2 italic">
+                                {language === 'en' ? 'Notes' : 'Catatan'}: {si.notes}
+                              </p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
