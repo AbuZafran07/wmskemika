@@ -73,8 +73,8 @@ const allRoles: UserRole[] = ['super_admin', 'admin', 'finance', 'purchasing', '
 
 export default function UserManagement() {
   const { t, language } = useLanguage();
-  const { user: currentUser, hasPermission } = useAuth();
-  
+  const { user: currentUser, session, isLoading: authLoading, hasPermission } = useAuth();
+
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -150,32 +150,47 @@ export default function UserManagement() {
   };
 
   const getInvokeHeaders = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
-    return token ? { Authorization: `Bearer ${token}` } : undefined;
+    const token = session?.access_token ?? (await supabase.auth.getSession()).data.session?.access_token;
+
+    if (!token) {
+      throw new Error(language === 'en' ? 'Please sign in again.' : 'Silakan login ulang.');
+    }
+
+    return { Authorization: `Bearer ${token}` };
   };
 
   const extractInvokeErrorMessage = async (err: unknown) => {
-    if (err instanceof FunctionsHttpError || err instanceof FunctionsRelayError) {
-      const res = err.context;
-      try {
-        const cloned = res.clone();
-        const contentType = cloned.headers.get('content-type') || '';
+    const fallback = language === 'en' ? 'Operation failed' : 'Operasi gagal';
 
-        if (contentType.includes('application/json')) {
-          const body = await cloned.json();
-          if (body?.error && typeof body.error === 'string') return body.error;
-        } else {
-          const text = (await cloned.text()).trim();
-          if (text) return text;
+    if (err instanceof FunctionsHttpError || err instanceof FunctionsRelayError) {
+      const res: Response | undefined = (err as any).context;
+      const statusLabel = res ? `${res.status} ${res.statusText || ''}`.trim() : '';
+
+      let bodyMessage = '';
+      if (res) {
+        try {
+          const cloned = res.clone();
+          const contentType = cloned.headers.get('content-type') || '';
+
+          if (contentType.includes('application/json')) {
+            const body = await cloned.json();
+            if (body?.error && typeof body.error === 'string') bodyMessage = body.error;
+            else bodyMessage = JSON.stringify(body);
+          } else {
+            const text = (await cloned.text()).trim();
+            if (text) bodyMessage = text;
+          }
+        } catch {
+          // ignore
         }
-      } catch {
-        // ignore
       }
+
+      const finalMsg = bodyMessage || (err instanceof Error ? err.message : fallback);
+      return statusLabel ? `${statusLabel}: ${finalMsg}` : finalMsg;
     }
 
     if (err instanceof Error) return err.message;
-    return language === 'en' ? 'Operation failed' : 'Operasi gagal';
+    return fallback;
   };
 
   const invokeUserManagement = async (payload: Record<string, unknown>) => {
@@ -204,10 +219,11 @@ export default function UserManagement() {
   };
 
   useEffect(() => {
-    if (hasPermission(['super_admin'])) {
+    if (authLoading) return;
+    if (currentUser?.role === 'super_admin' && session?.access_token) {
       fetchUsers();
     }
-  }, []);
+  }, [authLoading, currentUser?.role, session?.access_token]);
 
   const resetForm = () => {
     setFormEmail('');
