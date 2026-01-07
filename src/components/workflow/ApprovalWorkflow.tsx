@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, Loader2, Shield, Clock, User } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, Shield, Clock, Ban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -291,5 +291,127 @@ export function ApprovalInfo({
         {language === 'en' ? 'on' : 'pada'} {new Date(approvedAt).toLocaleDateString('id-ID')}
       </span>
     </div>
+  );
+}
+
+// Cancel workflow component with required reason
+interface CancelWorkflowProps {
+  type: 'plan_order' | 'sales_order';
+  orderId: string;
+  orderNumber: string;
+  currentStatus: string;
+  onStatusChange: () => void;
+}
+
+export function CancelWorkflow({
+  type,
+  orderId,
+  orderNumber,
+  currentStatus,
+  onStatusChange,
+}: CancelWorkflowProps) {
+  const { language } = useLanguage();
+  const { user } = useAuth();
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const tableName = type === 'plan_order' ? 'plan_order_headers' : 'sales_order_headers';
+
+  const canCancel = () => {
+    if (!user) return false;
+    // Only draft or approved orders can be cancelled
+    if (currentStatus !== 'draft' && currentStatus !== 'approved') return false;
+    // Super admin and admin can cancel
+    if (user.role === 'super_admin' || user.role === 'admin') return true;
+    return false;
+  };
+
+  const handleCancel = async () => {
+    if (!cancelReason.trim()) {
+      toast.error(language === 'en' ? 'Please provide a cancellation reason' : 'Harap berikan alasan pembatalan');
+      return;
+    }
+
+    setIsLoading(true);
+
+    const { error } = await supabase
+      .from(tableName)
+      .update({
+        status: 'cancelled',
+        notes: cancelReason,
+      })
+      .eq('id', orderId);
+
+    if (error) {
+      toast.error(getUserFriendlyError(error, 'Failed to cancel order. Please try again.'));
+    } else {
+      toast.success(language === 'en' ? `${orderNumber} cancelled successfully` : `${orderNumber} berhasil dibatalkan`);
+      onStatusChange();
+    }
+
+    setIsLoading(false);
+    setIsCancelDialogOpen(false);
+    setCancelReason('');
+  };
+
+  if (!canCancel()) {
+    return null;
+  }
+
+  return (
+    <>
+      <Button 
+        size="sm" 
+        variant="outline"
+        className="text-warning border-warning hover:bg-warning/10"
+        onClick={() => setIsCancelDialogOpen(true)}
+        disabled={isLoading}
+      >
+        {isLoading && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+        {!isLoading && <Ban className="w-4 h-4 mr-1" />}
+        {language === 'en' ? 'Cancel Order' : 'Batalkan Order'}
+      </Button>
+
+      {/* Cancel Dialog */}
+      <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'en' ? 'Cancel Order' : 'Batalkan Order'}
+            </DialogTitle>
+            <DialogDescription>
+              {language === 'en' 
+                ? `Are you sure you want to cancel ${orderNumber}? This action cannot be undone.`
+                : `Apakah Anda yakin ingin membatalkan ${orderNumber}? Tindakan ini tidak dapat dibatalkan.`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{language === 'en' ? 'Cancellation Reason' : 'Alasan Pembatalan'} *</Label>
+              <Textarea
+                placeholder={language === 'en' ? 'Enter reason for cancellation...' : 'Masukkan alasan pembatalan...'}
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCancelDialogOpen(false)} disabled={isLoading}>
+              {language === 'en' ? 'Close' : 'Tutup'}
+            </Button>
+            <Button 
+              variant="warning" 
+              onClick={handleCancel} 
+              disabled={isLoading || !cancelReason.trim()}
+            >
+              {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {language === 'en' ? 'Confirm Cancel' : 'Konfirmasi Batalkan'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
