@@ -141,10 +141,10 @@ export default function UserManagement() {
     if (!/\d/.test(password)) {
       return language === 'en' ? 'Password must contain at least one number' : 'Password harus mengandung minimal 1 angka';
     }
-    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+    if (!/[!@#$%^&*()\-_+=\[\]{};':"\\|,.<>\/?~`]/.test(password)) {
       return language === 'en'
         ? 'Password must contain at least one special character'
-        : 'Password harus mengandung minimal 1 karakter spesial (!@#$%^&*)';
+        : 'Password harus mengandung minimal 1 karakter spesial (!@#$%^&*-_)';
     }
     return null;
   };

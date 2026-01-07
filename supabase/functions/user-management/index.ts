@@ -29,8 +29,8 @@ function isValidPassword(password: string): { valid: boolean; message?: string }
   if (!/\d/.test(password)) {
     return { valid: false, message: 'Password must contain at least one number' };
   }
-  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
-    return { valid: false, message: 'Password must contain at least one special character' };
+  if (!/[!@#$%^&*()\-_+=\[\]{};':"\\|,.<>\/?~`]/.test(password)) {
+    return { valid: false, message: 'Password must contain at least one special character (!@#$%^&*-_)' };
   }
   return { valid: true };
 }
