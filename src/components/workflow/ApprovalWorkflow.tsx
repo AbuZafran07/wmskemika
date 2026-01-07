@@ -151,8 +151,7 @@ export function ApprovalWorkflow({
           <>
             <Button 
               size="sm" 
-              variant="outline" 
-              className="text-success border-success hover:bg-success/10"
+              className="bg-success text-success-foreground hover:bg-success/90"
               onClick={() => setIsApproveDialogOpen(true)}
             >
               <CheckCircle className="w-4 h-4 mr-1" />
