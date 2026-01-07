@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { User, Mail, Shield, Camera, Save, Loader2, Upload } from 'lucide-react';
+import { User, Mail, Shield, Camera, Save, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +10,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { ImageCropper } from '@/components/ImageCropper';
+import { validateImageFile, formatFileSize } from '@/lib/imageUtils';
 
 export default function Profile() {
   const { user, refreshUser } = useAuth();
@@ -18,6 +20,8 @@ export default function Profile() {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [showCropper, setShowCropper] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Get signed URL for avatar on mount
@@ -41,29 +45,39 @@ export default function Profile() {
     getAvatarUrl();
   }, [user?.avatar]);
 
-  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !user?.id) return;
 
     // Validate file
-    if (!file.type.startsWith('image/')) {
-      toast.error(language === 'en' ? 'Please select an image file' : 'Pilih file gambar');
-      return;
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error(language === 'en' ? 'Image must be less than 2MB' : 'Gambar harus kurang dari 2MB');
+    const validation = validateImageFile(file, language as 'en' | 'id');
+    if (!validation.valid) {
+      toast.error(validation.error);
       return;
     }
 
+    // Show cropper
+    setSelectedFile(file);
+    setShowCropper(true);
+    
+    // Reset input so same file can be selected again
+    event.target.value = '';
+  };
+
+  const handleCropComplete = async (blob: Blob) => {
+    if (!user?.id) return;
+
     setIsUploading(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/avatar.${fileExt}`;
+      const fileName = `${user.id}/avatar.webp`;
 
       // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(fileName, file, { upsert: true });
+        .upload(fileName, blob, { 
+          upsert: true,
+          contentType: 'image/webp'
+        });
 
       if (uploadError) throw uploadError;
 
@@ -75,24 +89,31 @@ export default function Profile() {
 
       if (updateError) throw updateError;
 
-      // Get new signed URL
+      // Get new signed URL with cache busting
       const { data } = await supabase.storage
         .from('avatars')
         .createSignedUrl(fileName, 3600);
       
       if (data?.signedUrl) {
-        setAvatarUrl(data.signedUrl);
+        setAvatarUrl(data.signedUrl + '&t=' + Date.now());
       }
 
       // Refresh user context
       await refreshUser();
 
-      toast.success(language === 'en' ? 'Photo updated successfully' : 'Foto berhasil diperbarui');
+      const sizeInfo = formatFileSize(blob.size);
+      toast.success(
+        language === 'en' 
+          ? `Photo updated successfully (${sizeInfo})` 
+          : `Foto berhasil diperbarui (${sizeInfo})`
+      );
     } catch (error) {
       console.error('Error uploading photo:', error);
       toast.error(language === 'en' ? 'Failed to upload photo' : 'Gagal mengunggah foto');
+    } finally {
+      setIsUploading(false);
+      setSelectedFile(null);
     }
-    setIsUploading(false);
   };
 
   const handleSave = async () => {
@@ -187,9 +208,9 @@ export default function Profile() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp,image/gif"
                 className="hidden"
-                onChange={handlePhotoUpload}
+                onChange={handleFileSelect}
               />
             </div>
             <div>
@@ -202,6 +223,19 @@ export default function Profile() {
               </p>
             </div>
           </div>
+
+          {/* Image Cropper Dialog */}
+          <ImageCropper
+            open={showCropper}
+            onClose={() => {
+              setShowCropper(false);
+              setSelectedFile(null);
+            }}
+            file={selectedFile}
+            onCropComplete={handleCropComplete}
+            aspectRatio={1}
+            outputSize={256}
+          />
 
           {/* Form */}
           <div className="grid gap-4">
