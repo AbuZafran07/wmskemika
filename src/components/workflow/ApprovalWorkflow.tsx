@@ -194,7 +194,11 @@ export function ApprovalWorkflow({
             <AlertDialogCancel disabled={isLoading}>
               {language === 'en' ? 'Cancel' : 'Batal'}
             </AlertDialogCancel>
-            <AlertDialogAction onClick={handleApprove} disabled={isLoading}>
+            <AlertDialogAction 
+              onClick={handleApprove} 
+              disabled={isLoading}
+              className="bg-success text-success-foreground hover:bg-success/90"
+            >
               {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {language === 'en' ? 'Approve' : 'Setujui'}
             </AlertDialogAction>
