@@ -17,7 +17,6 @@ import {
   List,
   FileText,
   Download,
-  PenLine,
   Package,
 } from "lucide-react";
 import html2pdf from "html2pdf.js";
@@ -84,9 +83,17 @@ const statusConfig: Record<
 };
 
 const allocationTypes = ["Selling", "Sample", "Stock", "Project"] as const;
-
 type AllocationType = (typeof allocationTypes)[number];
 
+/**
+ * ✅ DISCOUNT RULE (OPSI A)
+ * - Diskon hanya per item (Line Discount)
+ * - Input diskon hanya PERSENTASE (%)
+ * - Sistem auto hitung Diskon (Rp) per item
+ * - Tidak ada Header Discount (hapus dari UI & kalkulasi)
+ * - Summary menampilkan Total Discount (Rp) = jumlah diskon semua item
+ * - DB: sales_order_items.discount tetap disimpan sebagai NOMINAL (Rp)
+ */
 interface OrderItem {
   product_id: string;
   product_name: string;
@@ -95,8 +102,11 @@ interface OrderItem {
   category: string;
   unit_price: number;
   ordered_qty: number;
-  discount: number; // per-line discount (nominal)
-  subtotal: number; // computed: qty*price - line discount
+
+  discount_pct: number; // input user (%)
+  discount_nominal: number; // computed (Rp)
+
+  subtotal: number; // computed: qty*price - discount_nominal
   stock_available: number;
 }
 
@@ -171,6 +181,7 @@ export default function SalesOrder() {
   // Stock Out history for the selected order
   const [stockOutHistory, setStockOutHistory] = useState<any[]>([]);
   const [stockOutHistoryLoading, setStockOutHistoryLoading] = useState(false);
+
   // === Form state ===
   const [soNumber, setSoNumber] = useState("");
   const [orderDate, setOrderDate] = useState(new Date().toISOString().split("T")[0]);
@@ -183,8 +194,9 @@ export default function SalesOrder() {
   const [shipToAddress, setShipToAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [poDocumentUrl, setPoDocumentUrl] = useState("");
-  const [poDocumentKey, setPoDocumentKey] = useState(""); // penting: simpan path untuk signed url
-  const [headerDiscount, setHeaderDiscount] = useState(0); // discount bawah (nominal)
+  const [poDocumentKey, setPoDocumentKey] = useState(""); // simpan path untuk signed url
+
+  // ✅ headerDiscount dihapus
   const [taxRate, setTaxRate] = useState(11);
   const [shippingCost, setShippingCost] = useState(0);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
@@ -247,26 +259,22 @@ export default function SalesOrder() {
       .order("created_at", { ascending: false })
       .limit(1);
 
-    if (error) {
-      console.error(error);
-      // fallback
-      const date = new Date();
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      setSoNumber(`SO-${year}${month}-0001`);
-      return;
-    }
-
     const date = new Date();
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
 
+    if (error) {
+      console.error(error);
+      setSoNumber(`SO-${year}${month}-0001`);
+      return;
+    }
+
     let sequence = 1;
     if (data && data.length > 0) {
       const lastNumber = data[0].sales_order_number;
-      const match = lastNumber.match(/SO[R]?[-\/](\d{6,8})[-\/](\d+)/i);
+      const match = lastNumber.match(/SO[-\/](\d{6})[-\/](\d+)/i);
       if (match) {
-        const lastYearMonth = match[1].slice(0, 6);
+        const lastYearMonth = match[1];
         const currentYearMonth = `${year}${month}`;
         if (lastYearMonth === currentYearMonth) {
           sequence = parseInt(match[2], 10) + 1;
@@ -274,7 +282,7 @@ export default function SalesOrder() {
       }
     }
 
-    setSoNumber(`PO-${year}${month}-${String(sequence).padStart(4, "0")}`);
+    setSoNumber(`SO-${year}${month}-${String(sequence).padStart(4, "0")}`);
   };
 
   const resetForm = () => {
@@ -290,7 +298,6 @@ export default function SalesOrder() {
     setNotes("");
     setPoDocumentUrl("");
     setPoDocumentKey("");
-    setHeaderDiscount(0);
     setTaxRate(11);
     setShippingCost(0);
     setOrderItems([]);
@@ -319,38 +326,46 @@ export default function SalesOrder() {
     }
   };
 
-  // === ITEMS: CONNECT DISCOUNT -> SUBTOTAL ===
-  const recomputeLineSubtotal = (qty: number, price: number, disc: number) => {
+  // === ITEMS: DISCOUNT % -> NOMINAL + SUBTOTAL ===
+  const recomputeLine = (qty: number, price: number, discPct: number) => {
     const q = clampNumber(safeNumber(qty, 0), 0, 1_000_000_000);
     const p = clampNumber(safeNumber(price, 0), 0, 1_000_000_000_000);
-    const d = clampNumber(safeNumber(disc, 0), 0, q * p); // diskon tidak boleh > nilai line
+    const pct = clampNumber(safeNumber(discPct, 0), 0, 100);
+
+    const gross = q * p;
+    const discNominal = clampNumber((gross * pct) / 100, 0, gross);
+    const subtotal = gross - discNominal;
+
     return {
       qty: q,
       price: p,
-      disc: d,
-      subtotal: q * p - d,
+      discount_pct: pct,
+      discount_nominal: discNominal,
+      subtotal,
     };
   };
 
   const handleItemChange = (
     index: number,
-    field: keyof Pick<OrderItem, "ordered_qty" | "unit_price" | "discount">,
+    field: keyof Pick<OrderItem, "ordered_qty" | "unit_price" | "discount_pct">,
     value: number,
   ) => {
     setOrderItems((prev) =>
       prev.map((item, i) => {
         if (i !== index) return item;
-        const next = { ...item, [field]: value } as OrderItem;
 
-        const calc = recomputeLineSubtotal(
-          field === "ordered_qty" ? value : next.ordered_qty,
-          field === "unit_price" ? value : next.unit_price,
-          field === "discount" ? value : next.discount,
-        );
+        const next = { ...item } as OrderItem;
+
+        const nextQty = field === "ordered_qty" ? value : next.ordered_qty;
+        const nextPrice = field === "unit_price" ? value : next.unit_price;
+        const nextPct = field === "discount_pct" ? value : next.discount_pct;
+
+        const calc = recomputeLine(nextQty, nextPrice, nextPct);
 
         next.ordered_qty = calc.qty;
         next.unit_price = calc.price;
-        next.discount = calc.disc;
+        next.discount_pct = calc.discount_pct;
+        next.discount_nominal = calc.discount_nominal;
         next.subtotal = calc.subtotal;
 
         return next;
@@ -375,7 +390,7 @@ export default function SalesOrder() {
     const stockAvailable = await getProductStock(selectedProductId);
     const price = safeNumber(p.selling_price || p.purchase_price, 0);
 
-    const calc = recomputeLineSubtotal(1, price, 0);
+    const calc = recomputeLine(1, price, 0);
 
     const newItem: OrderItem = {
       product_id: p.id,
@@ -385,7 +400,8 @@ export default function SalesOrder() {
       category: p.category?.name || "-",
       unit_price: calc.price,
       ordered_qty: calc.qty,
-      discount: calc.disc,
+      discount_pct: calc.discount_pct,
+      discount_nominal: calc.discount_nominal,
       subtotal: calc.subtotal,
       stock_available: stockAvailable,
     };
@@ -394,27 +410,28 @@ export default function SalesOrder() {
     setSelectedProductId("");
   };
 
-  // === TOTALS: LINE DISCOUNT + HEADER DISCOUNT CONNECTED ===
+  // === TOTALS: ONLY LINE DISCOUNT ===
   const totals = useMemo(() => {
-    const itemsSubtotal = orderItems.reduce((sum, it) => sum + safeNumber(it.subtotal, 0), 0);
+    const grossSubtotal = orderItems.reduce(
+      (sum, it) => sum + safeNumber(it.ordered_qty, 0) * safeNumber(it.unit_price, 0),
+      0,
+    );
+    const totalDiscount = orderItems.reduce((sum, it) => sum + safeNumber(it.discount_nominal, 0), 0);
+    const netSubtotal = grossSubtotal - totalDiscount;
 
-    const headerDisc = clampNumber(safeNumber(headerDiscount, 0), 0, itemsSubtotal);
-    const afterHeaderDiscount = itemsSubtotal - headerDisc;
-
-    const tax = afterHeaderDiscount * (clampNumber(safeNumber(taxRate, 0), 0, 100) / 100);
+    const tax = netSubtotal * (clampNumber(safeNumber(taxRate, 0), 0, 100) / 100);
     const ship = clampNumber(safeNumber(shippingCost, 0), 0, 1_000_000_000_000);
-
-    const grandTotal = afterHeaderDiscount + tax + ship;
+    const grandTotal = netSubtotal + tax + ship;
 
     return {
-      itemsSubtotal,
-      headerDisc,
-      afterHeaderDiscount,
+      grossSubtotal,
+      totalDiscount,
+      netSubtotal,
       tax,
       ship,
       grandTotal,
     };
-  }, [orderItems, headerDiscount, taxRate, shippingCost]);
+  }, [orderItems, taxRate, shippingCost]);
 
   // === FILE UPLOAD ===
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -426,7 +443,7 @@ export default function SalesOrder() {
       const result = await uploadFile(file, "documents", "sales-orders");
       if (result) {
         setPoDocumentUrl(result.url);
-        setPoDocumentKey(result.path); // <- ini yang paling aman buat view
+        setPoDocumentKey(result.path);
         toast.success(language === "en" ? "Document uploaded successfully" : "Dokumen berhasil diupload");
       } else {
         toast.error(language === "en" ? "Failed to upload document" : "Gagal upload dokumen");
@@ -438,22 +455,14 @@ export default function SalesOrder() {
     setIsUploading(false);
   };
 
-  // === VIEW DOCUMENT FIX (SIGNED URL + FALLBACK) ===
+  // === VIEW DOCUMENT (SIGNED URL) ===
   const extractStoragePathFromUrl = (url: string): string | null => {
     if (!url) return null;
-
-    // If it's already a plain path
     if (!url.startsWith("http")) return url;
-
-    // supabase storage url patterns
-    // .../storage/v1/object/public/<bucket>/<path>
-    // .../storage/v1/object/sign/<bucket>/<path>?token=...
     try {
       const m = url.match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+?)(?:\?|$)/);
       if (m && m[2]) return decodeURIComponent(m[2]);
-    } catch {
-      // ignore
-    }
+    } catch {}
     return null;
   };
 
@@ -466,12 +475,10 @@ export default function SalesOrder() {
 
     setIsOpeningPoDoc(true);
     try {
-      // 1) prefer saved key (path)
       const possibleKey =
-        // @ts-ignore (some projects store this)
+        // @ts-ignore
         (order.po_document_key as string | undefined) || poDocumentKey || extractStoragePathFromUrl(rawUrl);
 
-      // 2) try signed url if we have path
       if (possibleKey) {
         const signed = await getSignedUrl(possibleKey, "documents", 3600);
         if (signed) {
@@ -481,7 +488,6 @@ export default function SalesOrder() {
           return;
         }
 
-        // fallback to supabase native signed url (just in case lib wrapper mismatch)
         const { data, error } = await supabase.storage.from("documents").createSignedUrl(possibleKey, 3600);
         if (!error && data?.signedUrl) {
           setDocumentViewerUrl(data.signedUrl);
@@ -491,7 +497,6 @@ export default function SalesOrder() {
         }
       }
 
-      // 3) last fallback: open raw url in dialog
       setDocumentViewerUrl(rawUrl);
       setIsDocumentViewerOpen(true);
     } catch (err) {
@@ -520,7 +525,8 @@ export default function SalesOrder() {
     // @ts-ignore
     setPoDocumentKey(order.po_document_key || "");
 
-    setHeaderDiscount(safeNumber(order.discount, 0));
+    // ✅ header discount sudah tidak dipakai lagi (abaikan order.discount untuk input UI)
+
     setTaxRate(safeNumber(order.tax_rate, 11));
     setShippingCost(safeNumber(order.shipping_cost, 0));
 
@@ -544,8 +550,13 @@ export default function SalesOrder() {
       const stock = await getProductStock(it.product_id);
       const qty = safeNumber(it.ordered_qty, 0);
       const price = safeNumber(it.unit_price, 0);
-      const disc = safeNumber(it.discount, 0);
-      const calc = recomputeLineSubtotal(qty, price, disc);
+
+      // DB discount = nominal (Rp)
+      const discNominal = clampNumber(safeNumber(it.discount, 0), 0, qty * price);
+      const gross = qty * price;
+      const discPct = gross > 0 ? (discNominal / gross) * 100 : 0;
+
+      const calc = recomputeLine(qty, price, discPct);
 
       mapped.push({
         product_id: it.product_id,
@@ -555,7 +566,8 @@ export default function SalesOrder() {
         category: it.product?.category?.name || "-",
         unit_price: calc.price,
         ordered_qty: calc.qty,
-        discount: calc.disc,
+        discount_pct: calc.discount_pct,
+        discount_nominal: calc.discount_nominal,
         subtotal: calc.subtotal,
         stock_available: stock,
       });
@@ -575,7 +587,6 @@ export default function SalesOrder() {
   };
 
   const handleSave = async () => {
-    // basic validation
     if (!customerId || !customerPoNumber || !salesName || !allocationType || !projectInstansi || !deliveryDeadline) {
       toast.error(language === "en" ? "Please fill all required fields" : "Harap isi semua field wajib");
       return;
@@ -611,14 +622,15 @@ export default function SalesOrder() {
         ship_to_address: shipToAddress || null,
         notes: notes || null,
         po_document_url: poDocumentUrl || null,
-        // @ts-ignore (if column exists)
+        // @ts-ignore
         po_document_key: poDocumentKey || null,
 
-        // IMPORTANT:
-        // total_amount = subtotal items (already includes per-line discount)
-        total_amount: totals.itemsSubtotal,
-        // discount = header discount (nominal)
-        discount: totals.headerDisc,
+        // ✅ total_amount sekarang = net subtotal (sesudah diskon item)
+        total_amount: totals.netSubtotal,
+
+        // ✅ discount header dipakai sebagai Total Discount (Rp)
+        discount: totals.totalDiscount,
+
         tax_rate: clampNumber(safeNumber(taxRate, 11), 0, 100),
         shipping_cost: clampNumber(safeNumber(shippingCost, 0), 0, 1_000_000_000_000),
         grand_total: totals.grandTotal,
@@ -628,7 +640,8 @@ export default function SalesOrder() {
         product_id: it.product_id,
         unit_price: it.unit_price,
         ordered_qty: it.ordered_qty,
-        discount: it.discount, // per-line discount
+        // DB: nominal Rp
+        discount: it.discount_nominal,
       }));
 
       if (isEditMode && editingOrderId) {
@@ -720,13 +733,14 @@ export default function SalesOrder() {
   const handleViewDetail = async (order: SalesOrderHeader) => {
     setSelectedOrder(order);
     setIsDetailDialogOpen(true);
-    
+
     // Fetch stock out history for this sales order
     setStockOutHistoryLoading(true);
     try {
       const { data: stockOuts, error } = await supabase
-        .from('stock_out_headers')
-        .select(`
+        .from("stock_out_headers")
+        .select(
+          `
           id,
           stock_out_number,
           delivery_date,
@@ -738,14 +752,15 @@ export default function SalesOrder() {
             product:products (name, sku),
             batch:inventory_batches (batch_no)
           )
-        `)
-        .eq('sales_order_id', order.id)
-        .order('created_at', { ascending: false });
+        `,
+        )
+        .eq("sales_order_id", order.id)
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       setStockOutHistory(stockOuts || []);
     } catch (err) {
-      console.error('Failed to fetch stock out history:', err);
+      console.error("Failed to fetch stock out history:", err);
       setStockOutHistory([]);
     } finally {
       setStockOutHistoryLoading(false);
@@ -782,7 +797,6 @@ export default function SalesOrder() {
   // === INIT: when dialog opened create number ===
   useEffect(() => {
     if (isDialogOpen && !isEditMode) {
-      // ensure number exists
       if (!soNumber) generateSoNumber();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1214,17 +1228,24 @@ export default function SalesOrder() {
                       <TableHead className="text-center">{language === "en" ? "Stock" : "Stok"}</TableHead>
                       <TableHead className="text-right">{language === "en" ? "Unit Price" : "Harga"}</TableHead>
                       <TableHead className="text-center">Qty</TableHead>
+
+                      {/* ✅ hanya % input */}
                       <TableHead className="text-right">
-                        {language === "en" ? "Line Discount" : "Diskon Item"}
+                        {language === "en" ? "Line Discount (%)" : "Diskon Item (%)"}
                       </TableHead>
+
+                      {/* (opsional tampil) */}
+                      <TableHead className="text-right">{language === "en" ? "Disc (Rp)" : "Diskon (Rp)"}</TableHead>
+
                       <TableHead className="text-right">Subtotal</TableHead>
                       <TableHead />
                     </TableRow>
                   </TableHeader>
+
                   <TableBody>
                     {orderItems.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                           {language === "en" ? "No products added" : "Belum ada produk ditambahkan"}
                         </TableCell>
                       </TableRow>
@@ -1242,6 +1263,7 @@ export default function SalesOrder() {
                               <AlertTriangle className="w-4 h-4 text-warning inline ml-1" />
                             )}
                           </TableCell>
+
                           <TableCell className="text-right">
                             <Input
                               type="number"
@@ -1251,6 +1273,7 @@ export default function SalesOrder() {
                               className="w-28 text-right"
                             />
                           </TableCell>
+
                           <TableCell>
                             <Input
                               type="number"
@@ -1260,16 +1283,24 @@ export default function SalesOrder() {
                               className="w-20 text-center"
                             />
                           </TableCell>
+
                           <TableCell className="text-right">
                             <Input
                               type="number"
                               min={0}
-                              value={it.discount}
-                              onChange={(e) => handleItemChange(index, "discount", safeNumber(e.target.value, 0))}
+                              max={100}
+                              value={it.discount_pct}
+                              onChange={(e) => handleItemChange(index, "discount_pct", safeNumber(e.target.value, 0))}
                               className="w-28 text-right"
                             />
                           </TableCell>
+
+                          <TableCell className="text-right font-medium text-destructive">
+                            -{formatCurrency(it.discount_nominal)}
+                          </TableCell>
+
                           <TableCell className="text-right font-medium">{formatCurrency(it.subtotal)}</TableCell>
+
                           <TableCell>
                             <Button variant="ghost" size="iconSm" onClick={() => handleRemoveItem(index)}>
                               <Trash2 className="w-4 h-4 text-destructive" />
@@ -1283,25 +1314,16 @@ export default function SalesOrder() {
 
                 <p className="text-xs text-muted-foreground mt-3">
                   {language === "en"
-                    ? "Line Discount is a nominal discount per item row. Header Discount (below) applies after all items."
-                    : "Diskon Item adalah diskon nominal per baris item. Diskon (Header) di bawah diterapkan setelah total semua item."}
+                    ? "Discount is per item line (%). System automatically calculates discount (Rp) and subtotal."
+                    : "Diskon hanya per item (%). Sistem otomatis menghitung diskon (Rp) dan subtotal."}
                 </p>
               </CardContent>
             </Card>
 
-            {/* Totals */}
+            {/* Totals (NO header discount input) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>{language === "en" ? "Header Discount" : "Diskon (Header)"}</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={headerDiscount}
-                      onChange={(e) => setHeaderDiscount(safeNumber(e.target.value, 0))}
-                    />
-                  </div>
                   <div className="space-y-2">
                     <Label>{language === "en" ? "Tax Rate (%)" : "Tarif Pajak (%)"}</Label>
                     <Input
@@ -1312,40 +1334,54 @@ export default function SalesOrder() {
                       onChange={(e) => setTaxRate(safeNumber(e.target.value, 0))}
                     />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>{language === "en" ? "Shipping Cost" : "Biaya Pengiriman"}</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={shippingCost}
-                    onChange={(e) => setShippingCost(safeNumber(e.target.value, 0))}
-                  />
+                  <div className="space-y-2">
+                    <Label>{language === "en" ? "Shipping Cost" : "Biaya Pengiriman"}</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={shippingCost}
+                      onChange={(e) => setShippingCost(safeNumber(e.target.value, 0))}
+                    />
+                  </div>
                 </div>
               </div>
 
               <Card className="bg-muted/50">
                 <CardContent className="p-4 space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Subtotal</span>
-                    <span className="font-medium">{formatCurrency(totals.itemsSubtotal)}</span>
+                    <span className="text-muted-foreground">
+                      {language === "en" ? "Subtotal (Gross)" : "Subtotal (Kotor)"}
+                    </span>
+                    <span className="font-medium">{formatCurrency(totals.grossSubtotal)}</span>
                   </div>
+
+                  {/* ✅ sesuai permintaan: tampilkan Total Discount (Rp) */}
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">
-                      {language === "en" ? "Header Discount" : "Diskon (Header)"}
+                      {language === "en" ? "Total Discount" : "Total Diskon"}
                     </span>
-                    <span className="font-medium text-destructive">-{formatCurrency(totals.headerDisc)}</span>
+                    <span className="font-medium text-destructive">-{formatCurrency(totals.totalDiscount)}</span>
                   </div>
+
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      {language === "en" ? "Subtotal (Net)" : "Subtotal (Bersih)"}
+                    </span>
+                    <span className="font-medium">{formatCurrency(totals.netSubtotal)}</span>
+                  </div>
+
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">
                       {language === "en" ? "Tax" : "Pajak"} ({clampNumber(taxRate, 0, 100)}%)
                     </span>
                     <span className="font-medium">{formatCurrency(totals.tax)}</span>
                   </div>
+
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">{language === "en" ? "Shipping" : "Pengiriman"}</span>
                     <span className="font-medium">{formatCurrency(totals.ship)}</span>
                   </div>
+
                   <div className="border-t pt-2 flex justify-between">
                     <span className="font-bold">Grand Total</span>
                     <span className="font-bold text-lg">{formatCurrency(totals.grandTotal)}</span>
@@ -1478,7 +1514,7 @@ export default function SalesOrder() {
                     {language === "en" ? "View Document" : "Lihat Dokumen"}
                   </Button>
                 )}
-                <Button variant="outline" size="sm" onClick={handlePreviewPDF} disabled={itemsLoading}>
+                <Button variant="outline" size="sm" onClick={() => setIsPdfPreviewOpen(true)} disabled={itemsLoading}>
                   <Eye className="w-4 h-4 mr-2" />
                   {language === "en" ? "Preview" : "Preview"}
                 </Button>
@@ -1499,7 +1535,6 @@ export default function SalesOrder() {
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    // simple print: open new tab with html
                     if (!printRef.current || !selectedOrder) return;
                     const w = window.open("", "_blank");
                     if (!w) return;
@@ -1594,7 +1629,7 @@ export default function SalesOrder() {
                         <TableHead>{language === "en" ? "Unit" : "Satuan"}</TableHead>
                         <TableHead className="text-center">Qty</TableHead>
                         <TableHead className="text-right">{language === "en" ? "Price" : "Harga"}</TableHead>
-                        <TableHead className="text-right">{language === "en" ? "Line Disc" : "Disc Item"}</TableHead>
+                        <TableHead className="text-right">{language === "en" ? "Disc (Rp)" : "Diskon (Rp)"}</TableHead>
                         <TableHead className="text-right">Subtotal</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1607,11 +1642,12 @@ export default function SalesOrder() {
                         </TableRow>
                       ) : (
                         selectedOrderItems.map((item: any, index: number) => {
-                          const lineSubtotal = safeNumber(
-                            item.subtotal,
-                            safeNumber(item.unit_price, 0) * safeNumber(item.ordered_qty, 0) -
-                              safeNumber(item.discount, 0),
-                          );
+                          const qty = safeNumber(item.ordered_qty, 0);
+                          const price = safeNumber(item.unit_price, 0);
+                          const gross = qty * price;
+                          const discNominal = safeNumber(item.discount, 0);
+                          const lineSubtotal = gross - discNominal;
+
                           return (
                             <TableRow key={item.id}>
                               <TableCell>{index + 1}</TableCell>
@@ -1619,9 +1655,9 @@ export default function SalesOrder() {
                               <TableCell>{item.product?.sku || "-"}</TableCell>
                               <TableCell>{item.product?.category?.name || "-"}</TableCell>
                               <TableCell>{item.product?.unit?.name || "-"}</TableCell>
-                              <TableCell className="text-center">{item.ordered_qty}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(item.unit_price)}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(item.discount || 0)}</TableCell>
+                              <TableCell className="text-center">{qty}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(price)}</TableCell>
+                              <TableCell className="text-right">-{formatCurrency(discNominal)}</TableCell>
                               <TableCell className="text-right">{formatCurrency(lineSubtotal)}</TableCell>
                             </TableRow>
                           );
@@ -1632,8 +1668,10 @@ export default function SalesOrder() {
                 )}
               </div>
 
-              {/* Stock Out History Section */}
-              {(selectedOrder.status === 'approved' || selectedOrder.status === 'partial' || selectedOrder.status === 'partially_delivered' || selectedOrder.status === 'delivered') && (
+              {(selectedOrder.status === "approved" ||
+                selectedOrder.status === "partial" ||
+                selectedOrder.status === "partially_delivered" ||
+                selectedOrder.status === "delivered") && (
                 <div className="mt-6 pt-6 border-t">
                   <h4 className="font-semibold mb-3 flex items-center gap-2">
                     <Package className="w-4 h-4" />
@@ -1655,12 +1693,11 @@ export default function SalesOrder() {
                             <div className="flex justify-between items-center">
                               <div>
                                 <p className="font-semibold text-sm">{so.stock_out_number}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {formatDateID(so.delivery_date)}
-                                </p>
+                                <p className="text-xs text-muted-foreground">{formatDateID(so.delivery_date)}</p>
                               </div>
                               <Badge variant="success">
-                                {so.stock_out_items?.reduce((sum: number, item: any) => sum + (item.qty_out || 0), 0)} {language === "en" ? "items delivered" : "item terkirim"}
+                                {so.stock_out_items?.reduce((sum: number, item: any) => sum + (item.qty_out || 0), 0)}{" "}
+                                {language === "en" ? "items delivered" : "item terkirim"}
                               </Badge>
                             </div>
                           </CardHeader>
@@ -1669,7 +1706,7 @@ export default function SalesOrder() {
                               {so.stock_out_items?.map((item: any, idx: number) => (
                                 <div key={item.id || idx} className="flex justify-between">
                                   <span className="text-muted-foreground">
-                                    {item.product?.name || '-'} ({item.batch?.batch_no || '-'})
+                                    {item.product?.name || "-"} ({item.batch?.batch_no || "-"})
                                   </span>
                                   <span className="font-medium">{item.qty_out}</span>
                                 </div>
@@ -1698,7 +1735,7 @@ export default function SalesOrder() {
         </DialogContent>
       </Dialog>
 
-      {/* Hidden Print Content (PDF template - mirip file kamu) */}
+      {/* Hidden Print Content */}
       <div className="hidden">
         <div ref={printRef}>
           {selectedOrder && (
@@ -1709,7 +1746,6 @@ export default function SalesOrder() {
                   <img src="/logo-kemika.png" alt="Kemika" style={{ height: "42px", objectFit: "contain" }} />
                 </div>
 
-                {/* IMPORTANT: SALES ORDER sejajar dengan Sales Order No. */}
                 <div style={{ textAlign: "right", minWidth: "300px" }}>
                   <div style={{ fontSize: "20px", fontWeight: 700, letterSpacing: 0.5 }}>SALES ORDER</div>
                   <div style={{ height: "6px" }} />
@@ -1740,7 +1776,6 @@ export default function SalesOrder() {
                 </span>
               </div>
 
-              {/* Divider */}
               <div style={{ marginTop: "8px", borderTop: "2px solid #111" }} />
 
               {/* Info rows */}
@@ -1776,12 +1811,23 @@ export default function SalesOrder() {
                 </div>
               </div>
 
-              {/* Items table (black borders) */}
+              {/* ✅ Items table PDF includes discount */}
               <div style={{ marginTop: "12px" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #111" }}>
                   <thead>
                     <tr style={{ background: "#0b6b3a", color: "white" }}>
-                      {["No", "Nama Barang", "SKU", "Kategori", "Satuan", "Qty", "Harga", "Subtotal"].map((h) => (
+                      {[
+                        "No",
+                        "Nama Barang",
+                        "SKU",
+                        "Kategori",
+                        "Satuan",
+                        "Qty",
+                        "Harga",
+                        "Disc (%)",
+                        "Disc (Rp)",
+                        "Subtotal",
+                      ].map((h) => (
                         <th
                           key={h}
                           style={{
@@ -1789,11 +1835,12 @@ export default function SalesOrder() {
                             padding: "8px",
                             fontSize: "11px",
                             textAlign:
-                              h === "Harga" || h === "Subtotal"
+                              h === "Harga" || h === "Subtotal" || h === "Disc (%)" || h === "Disc (Rp)"
                                 ? "right"
                                 : h === "Qty" || h === "No"
                                   ? "center"
                                   : "left",
+                            whiteSpace: "nowrap",
                           }}
                         >
                           {h}
@@ -1803,10 +1850,13 @@ export default function SalesOrder() {
                   </thead>
                   <tbody>
                     {selectedOrderItems?.map((it: any, idx: number) => {
-                      const lineSubtotal = safeNumber(
-                        it.subtotal,
-                        safeNumber(it.unit_price, 0) * safeNumber(it.ordered_qty, 0) - safeNumber(it.discount, 0),
-                      );
+                      const qty = safeNumber(it.ordered_qty, 0);
+                      const price = safeNumber(it.unit_price, 0);
+                      const gross = qty * price;
+                      const discNominal = clampNumber(safeNumber(it.discount, 0), 0, gross);
+                      const discPct = gross > 0 ? Math.round((discNominal / gross) * 10000) / 100 : 0;
+                      const lineSubtotal = gross - discNominal;
+
                       return (
                         <tr key={it.id}>
                           <td style={{ border: "1px solid #111", padding: "8px", textAlign: "center" }}>{idx + 1}</td>
@@ -1816,11 +1866,13 @@ export default function SalesOrder() {
                             {it.product?.category?.name || "-"}
                           </td>
                           <td style={{ border: "1px solid #111", padding: "8px" }}>{it.product?.unit?.name || "-"}</td>
-                          <td style={{ border: "1px solid #111", padding: "8px", textAlign: "center" }}>
-                            {it.ordered_qty}
-                          </td>
+                          <td style={{ border: "1px solid #111", padding: "8px", textAlign: "center" }}>{qty}</td>
                           <td style={{ border: "1px solid #111", padding: "8px", textAlign: "right" }}>
-                            {formatCurrency(it.unit_price)}
+                            {formatCurrency(price)}
+                          </td>
+                          <td style={{ border: "1px solid #111", padding: "8px", textAlign: "right" }}>{discPct}%</td>
+                          <td style={{ border: "1px solid #111", padding: "8px", textAlign: "right" }}>
+                            -{formatCurrency(discNominal)}
                           </td>
                           <td style={{ border: "1px solid #111", padding: "8px", textAlign: "right" }}>
                             {formatCurrency(lineSubtotal)}
@@ -1832,43 +1884,66 @@ export default function SalesOrder() {
                 </table>
               </div>
 
-              {/* Totals area */}
+              {/* Totals area PDF */}
               <div style={{ marginTop: "12px", display: "grid", gridTemplateColumns: "1fr 260px", gap: "10px" }}>
                 <div />
                 <div style={{ borderTop: "1px solid #111", paddingTop: "8px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                    <span>Subtotal</span>
-                    <b>{formatCurrency(selectedOrder.total_amount)}</b>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                    <span>Tax ({selectedOrder.tax_rate}%)</span>
-                    <b>
-                      {formatCurrency(
-                        ((safeNumber(selectedOrder.total_amount, 0) - safeNumber(selectedOrder.discount, 0)) *
-                          safeNumber(selectedOrder.tax_rate, 0)) /
-                          100,
-                      )}
-                    </b>
-                  </div>
+                  {(() => {
+                    const grossSubtotal = (selectedOrderItems || []).reduce((sum: number, it: any) => {
+                      const qty = safeNumber(it.ordered_qty, 0);
+                      const price = safeNumber(it.unit_price, 0);
+                      return sum + qty * price;
+                    }, 0);
 
-                  <div
-                    style={{
-                      borderTop: "2px solid #111",
-                      marginTop: "8px",
-                      paddingTop: "8px",
-                      display: "flex",
-                      justifyContent: "space-between",
-                    }}
-                  >
-                    <span style={{ fontSize: "13px", fontWeight: 700 }}>Grand Total</span>
-                    <span style={{ fontSize: "13px", fontWeight: 700 }}>
-                      {formatCurrency(selectedOrder.grand_total)}
-                    </span>
-                  </div>
+                    const totalDiscount = safeNumber(selectedOrder.discount, 0);
+                    const netSubtotal = grossSubtotal - totalDiscount;
+                    const tax = (netSubtotal * safeNumber(selectedOrder.tax_rate, 0)) / 100;
+                    const ship = safeNumber(selectedOrder.shipping_cost, 0);
+
+                    return (
+                      <>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                          <span>Subtotal (Gross)</span>
+                          <b>{formatCurrency(grossSubtotal)}</b>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                          <span>Total Discount</span>
+                          <b>-{formatCurrency(totalDiscount)}</b>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                          <span>Subtotal (Net)</span>
+                          <b>{formatCurrency(netSubtotal)}</b>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                          <span>Tax ({selectedOrder.tax_rate}%)</span>
+                          <b>{formatCurrency(tax)}</b>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                          <span>Shipping</span>
+                          <b>{formatCurrency(ship)}</b>
+                        </div>
+
+                        <div
+                          style={{
+                            borderTop: "2px solid #111",
+                            marginTop: "8px",
+                            paddingTop: "8px",
+                            display: "flex",
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          <span style={{ fontSize: "13px", fontWeight: 700 }}>Grand Total</span>
+                          <span style={{ fontSize: "13px", fontWeight: 700 }}>
+                            {formatCurrency(selectedOrder.grand_total)}
+                          </span>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
 
-              {/* Address + Notes (black border) */}
+              {/* Address + Notes */}
               <div style={{ marginTop: "12px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0px" }}>
                 <div style={{ border: "1px solid #111", padding: "10px", minHeight: "70px" }}>
                   <div style={{ fontWeight: 700, fontSize: "10px", marginBottom: "6px", color: "#333" }}>
@@ -1882,7 +1957,7 @@ export default function SalesOrder() {
                 </div>
               </div>
 
-              {/* Sign boxes (black border) */}
+              {/* Sign boxes */}
               <div style={{ marginTop: "16px", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0px" }}>
                 {[{ role: "Pemohon," }, { role: "Finance," }, { role: "Purchasing," }, { role: "Menyetujui," }].map(
                   (box, i) => (
@@ -1898,23 +1973,9 @@ export default function SalesOrder() {
                 )}
               </div>
 
-              {/* Print datetime bottom-left */}
               <div style={{ marginTop: "10px", fontSize: "9px", color: "#333" }}>
                 Print: {formatDateTimeID(new Date())}
               </div>
-
-              {/* Optional digital signature */}
-              {selectedOrder.status !== "draft" && (selectedOrder as any).approved_at && (
-                <div style={{ marginTop: "10px", padding: "10px", border: "1px solid #111" }}>
-                  <div style={{ fontWeight: 700, display: "flex", gap: "6px", alignItems: "center" }}>
-                    <span>✓</span> DIGITAL SIGNATURE
-                  </div>
-                  <div style={{ fontSize: "10px", marginTop: "6px" }}>
-                    Approved By: {(selectedOrder as any).approved_by || "System"} | Approval Date:{" "}
-                    {formatDateID((selectedOrder as any).approved_at)}
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -1945,7 +2006,6 @@ export default function SalesOrder() {
             </Button>
             <Button
               onClick={() => {
-                // Print from preview uses same logic as detail print
                 if (!printRef.current || !selectedOrder) return;
                 const w = window.open("", "_blank");
                 if (!w) return;
@@ -2007,11 +2067,7 @@ export default function SalesOrder() {
           </DialogHeader>
           <div className="w-full h-[75vh] border-t">
             {documentViewerUrl ? (
-              <iframe
-                src={documentViewerUrl}
-                className="w-full h-full"
-                title="Document Viewer"
-              />
+              <iframe src={documentViewerUrl} className="w-full h-full" title="Document Viewer" />
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground">
                 {language === "en" ? "No document to display" : "Tidak ada dokumen untuk ditampilkan"}
