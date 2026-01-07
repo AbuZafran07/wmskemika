@@ -541,101 +541,105 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Top Products Widget */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">
-              {productViewMode === 'best' 
-                ? (language === 'en' ? 'Best Selling Products' : 'Produk Terlaris')
-                : (language === 'en' ? 'Slowest Moving Products' : 'Produk Pergerakan Lambat')
-              }
-            </CardTitle>
-            <div className="flex rounded-lg border border-border overflow-hidden">
-              <button
-                onClick={() => setProductViewMode('best')}
-                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
-                  productViewMode === 'best'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-background text-muted-foreground hover:bg-muted'
-                }`}
-              >
-                {language === 'en' ? 'Best Selling' : 'Terlaris'}
-              </button>
-              <button
-                onClick={() => setProductViewMode('slow')}
-                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
-                  productViewMode === 'slow'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-background text-muted-foreground hover:bg-muted'
-                }`}
-              >
-                {language === 'en' ? 'Slowest' : 'Lambat'}
-              </button>
+      {/* Top Products & Recent Activity - Side by Side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top Products Widget */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg">
+                {productViewMode === 'best' 
+                  ? (language === 'en' ? 'Best Selling Products' : 'Produk Terlaris')
+                  : (language === 'en' ? 'Slowest Moving Products' : 'Produk Pergerakan Lambat')
+                }
+              </CardTitle>
+              <div className="flex rounded-lg border border-border overflow-hidden">
+                <button
+                  onClick={() => setProductViewMode('best')}
+                  className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                    productViewMode === 'best'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-background text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  {language === 'en' ? 'Best Selling' : 'Terlaris'}
+                </button>
+                <button
+                  onClick={() => setProductViewMode('slow')}
+                  className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                    productViewMode === 'slow'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-background text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  {language === 'en' ? 'Slowest' : 'Lambat'}
+                </button>
+              </div>
             </div>
-          </div>
-          <CardDescription>
-            {language === 'en' ? 'Based on stock out transactions in the last 30 days' : 'Berdasarkan transaksi keluar dalam 30 hari terakhir'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {(productViewMode === 'best' ? bestSellingProducts : slowestMovingProducts).length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Package className="w-10 h-10 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">{language === 'en' ? 'No data available' : 'Data tidak tersedia'}</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {(productViewMode === 'best' ? bestSellingProducts : slowestMovingProducts).map((product, idx) => (
-                <div key={product.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                      idx === 0 ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
-                    }`}>
-                      {idx + 1}
-                    </div>
-                    <div>
-                      <p className="font-medium text-sm">{product.name}</p>
-                      <p className="text-xs text-muted-foreground">{product.sku || '-'}</p>
-                    </div>
-                  </div>
-                  <Badge variant={productViewMode === 'best' ? 'success' : 'pending'}>
-                    {product.totalQty.toLocaleString()} {language === 'en' ? 'units' : 'unit'}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">{t('dashboard.recentActivity')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {recentActivity.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">{language === 'en' ? 'No recent activity' : 'Tidak ada aktivitas terkini'}</p>
+            <CardDescription>
+              {language === 'en' ? 'Based on stock out transactions in the last 30 days' : 'Berdasarkan transaksi keluar dalam 30 hari terakhir'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {(productViewMode === 'best' ? bestSellingProducts : slowestMovingProducts).length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Package className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">{language === 'en' ? 'No data available' : 'Data tidak tersedia'}</p>
+              </div>
             ) : (
-              recentActivity.map(activity => (
-                <div key={activity.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${activity.type === 'inbound' ? 'bg-success/10 text-success' : activity.type === 'outbound' ? 'bg-info/10 text-info' : 'bg-warning/10 text-warning'}`}>
-                      {activity.type === 'inbound' ? <ArrowDownToLine className="w-4 h-4" /> : activity.type === 'outbound' ? <ArrowUpFromLine className="w-4 h-4" /> : <Package className="w-4 h-4" />}
+              <div className="space-y-3">
+                {(productViewMode === 'best' ? bestSellingProducts : slowestMovingProducts).map((product, idx) => (
+                  <div key={product.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+                        idx === 0 ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {idx + 1}
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">{product.name}</p>
+                        <p className="text-xs text-muted-foreground">{product.sku || '-'}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">{activity.productName}</p>
-                      <p className="text-xs text-muted-foreground">{activity.desc} • {activity.time}</p>
-                    </div>
+                    <Badge variant={productViewMode === 'best' ? 'success' : 'pending'}>
+                      {product.totalQty.toLocaleString()} {language === 'en' ? 'units' : 'unit'}
+                    </Badge>
                   </div>
-                  <span className={`text-sm font-medium ${activity.qty.startsWith('+') ? 'text-success' : 'text-info'}`}>{activity.qty}</span>
-                </div>
-              ))
+                ))}
+              </div>
             )}
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        {/* Recent Activity Widget */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">{t('dashboard.recentActivity')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {recentActivity.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">{language === 'en' ? 'No recent activity' : 'Tidak ada aktivitas terkini'}</p>
+              ) : (
+                recentActivity.map(activity => (
+                  <div key={activity.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${activity.type === 'inbound' ? 'bg-success/10 text-success' : activity.type === 'outbound' ? 'bg-info/10 text-info' : 'bg-warning/10 text-warning'}`}>
+                        {activity.type === 'inbound' ? <ArrowDownToLine className="w-4 h-4" /> : activity.type === 'outbound' ? <ArrowUpFromLine className="w-4 h-4" /> : <Package className="w-4 h-4" />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{activity.productName}</p>
+                        <p className="text-xs text-muted-foreground">{activity.desc} • {activity.time}</p>
+                      </div>
+                    </div>
+                    <span className={`text-sm font-medium ${activity.qty.startsWith('+') ? 'text-success' : 'text-info'}`}>{activity.qty}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
