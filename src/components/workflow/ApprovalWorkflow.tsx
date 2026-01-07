@@ -153,17 +153,20 @@ export function ApprovalWorkflow({
               size="sm" 
               className="bg-success text-success-foreground hover:bg-success/90"
               onClick={() => setIsApproveDialogOpen(true)}
+              disabled={isLoading}
             >
-              <CheckCircle className="w-4 h-4 mr-1" />
+              {isLoading && isApproveDialogOpen && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+              {!(isLoading && isApproveDialogOpen) && <CheckCircle className="w-4 h-4 mr-1" />}
               {language === 'en' ? 'Approve' : 'Setujui'}
             </Button>
             <Button 
               size="sm" 
-              variant="outline" 
-              className="text-destructive border-destructive hover:bg-destructive/10"
+              variant="destructive"
               onClick={() => setIsRejectDialogOpen(true)}
+              disabled={isLoading}
             >
-              <XCircle className="w-4 h-4 mr-1" />
+              {isLoading && isRejectDialogOpen && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+              {!(isLoading && isRejectDialogOpen) && <XCircle className="w-4 h-4 mr-1" />}
               {language === 'en' ? 'Reject' : 'Tolak'}
             </Button>
           </>
