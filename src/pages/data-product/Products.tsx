@@ -167,7 +167,9 @@ export default function Products() {
 
   const generateBarcode = () => {
     const timestamp = Date.now().toString().slice(-10);
-    const random = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+    const randomArray = new Uint8Array(1);
+    crypto.getRandomValues(randomArray);
+    const random = (randomArray[0] % 100).toString().padStart(2, '0');
     return `899${timestamp}${random}`;
   };
 
