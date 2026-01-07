@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { User, Mail, Shield, Camera, Save, Loader2 } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { User, Mail, Shield, Camera, Save, Loader2, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,10 +12,88 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export default function Profile() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { language } = useLanguage();
   const [fullName, setFullName] = useState(user?.name || '');
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Get signed URL for avatar on mount
+  React.useEffect(() => {
+    const getAvatarUrl = async () => {
+      if (user?.avatar) {
+        // If it's already a full URL, use it directly
+        if (user.avatar.startsWith('http')) {
+          setAvatarUrl(user.avatar);
+          return;
+        }
+        // Otherwise get signed URL
+        const { data } = await supabase.storage
+          .from('avatars')
+          .createSignedUrl(user.avatar, 3600);
+        if (data?.signedUrl) {
+          setAvatarUrl(data.signedUrl);
+        }
+      }
+    };
+    getAvatarUrl();
+  }, [user?.avatar]);
+
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user?.id) return;
+
+    // Validate file
+    if (!file.type.startsWith('image/')) {
+      toast.error(language === 'en' ? 'Please select an image file' : 'Pilih file gambar');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error(language === 'en' ? 'Image must be less than 2MB' : 'Gambar harus kurang dari 2MB');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/avatar.${fileExt}`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Update profile with avatar path
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: fileName, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      // Get new signed URL
+      const { data } = await supabase.storage
+        .from('avatars')
+        .createSignedUrl(fileName, 3600);
+      
+      if (data?.signedUrl) {
+        setAvatarUrl(data.signedUrl);
+      }
+
+      // Refresh user context
+      if (refreshUser) await refreshUser();
+
+      toast.success(language === 'en' ? 'Photo updated successfully' : 'Foto berhasil diperbarui');
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      toast.error(language === 'en' ? 'Failed to upload photo' : 'Gagal mengunggah foto');
+    }
+    setIsUploading(false);
+  };
 
   const handleSave = async () => {
     if (!user?.id) return;
@@ -29,6 +107,7 @@ export default function Profile() {
 
       if (error) throw error;
 
+      if (refreshUser) await refreshUser();
       toast.success(language === 'en' ? 'Profile updated successfully' : 'Profil berhasil diperbarui');
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -85,19 +164,42 @@ export default function Profile() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Avatar */}
+          {/* Avatar with Upload */}
           <div className="flex items-center gap-4">
-            <Avatar className="w-20 h-20">
-              <AvatarImage src={user?.avatar} alt={user?.name} />
-              <AvatarFallback className="text-2xl bg-primary/10 text-primary">
-                {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-              </AvatarFallback>
-            </Avatar>
+            <div className="relative group">
+              <Avatar className="w-20 h-20">
+                <AvatarImage src={avatarUrl || undefined} alt={user?.name} />
+                <AvatarFallback className="text-2xl bg-primary/10 text-primary">
+                  {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                </AvatarFallback>
+              </Avatar>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              >
+                {isUploading ? (
+                  <Loader2 className="w-6 h-6 text-white animate-spin" />
+                ) : (
+                  <Camera className="w-6 h-6 text-white" />
+                )}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handlePhotoUpload}
+              />
+            </div>
             <div>
               <h3 className="font-semibold text-lg">{user?.name}</h3>
               <Badge variant={getRoleBadgeVariant(user?.role || '')}>
                 {getRoleLabel(user?.role || '')}
               </Badge>
+              <p className="text-xs text-muted-foreground mt-1">
+                {language === 'en' ? 'Click photo to change' : 'Klik foto untuk mengubah'}
+              </p>
             </div>
           </div>
 
