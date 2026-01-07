@@ -129,22 +129,8 @@ export default function UserManagement() {
   };
 
   const validatePassword = (password: string): string | null => {
-    if (password.length < 12) {
-      return language === 'en' ? 'Password must be at least 12 characters' : 'Password minimal 12 karakter';
-    }
-    if (!/[a-z]/.test(password)) {
-      return language === 'en' ? 'Password must contain at least one lowercase letter' : 'Password harus mengandung minimal 1 huruf kecil';
-    }
-    if (!/[A-Z]/.test(password)) {
-      return language === 'en' ? 'Password must contain at least one uppercase letter' : 'Password harus mengandung minimal 1 huruf besar';
-    }
-    if (!/\d/.test(password)) {
-      return language === 'en' ? 'Password must contain at least one number' : 'Password harus mengandung minimal 1 angka';
-    }
-    if (!/[!@#$%^&*()\-_+=\[\]{};':"\\|,.<>\/?~`]/.test(password)) {
-      return language === 'en'
-        ? 'Password must contain at least one special character'
-        : 'Password harus mengandung minimal 1 karakter spesial (!@#$%^&*-_)';
+    if (password.length < 6) {
+      return language === 'en' ? 'Password must be at least 6 characters' : 'Password minimal 6 karakter';
     }
     return null;
   };
