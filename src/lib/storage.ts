@@ -72,26 +72,59 @@ export async function getSignedUrl(
 }
 
 /**
- * Gets a signed URL for viewing a file, with role-based access check.
- * For documents bucket, verifies user is authenticated.
+ * Gets a signed URL for viewing a file, with authentication check.
+ * Both buckets now require authentication since product-photos is private.
  */
 export async function getSecureFileUrl(
   path: string,
   bucket: 'product-photos' | 'documents'
 ): Promise<string | null> {
   try {
-    // For documents, verify user is authenticated
-    if (bucket === 'documents') {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.error('User not authenticated - cannot access documents');
-        return null;
-      }
+    // Both buckets now require authentication
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.error('User not authenticated - cannot access files');
+      return null;
     }
 
     return await getSignedUrl(path, bucket);
   } catch (error) {
     console.error('Failed to get secure file URL:', error);
+    return null;
+  }
+}
+
+/**
+ * Gets a signed URL for a product photo.
+ * Use this for displaying product images in the UI.
+ */
+export async function getProductPhotoUrl(photoUrlOrPath: string): Promise<string | null> {
+  if (!photoUrlOrPath) return null;
+  
+  try {
+    // If it's already a signed URL (contains 'token='), return as-is but it may be expired
+    // If it's a full URL that's not a signed URL, try to extract the path
+    // If it's just a path, use it directly
+    
+    let path = photoUrlOrPath;
+    
+    // Check if it's a Supabase storage URL and extract the path
+    if (photoUrlOrPath.includes('/storage/v1/object/')) {
+      // Extract path from URL like: .../storage/v1/object/public/product-photos/products/...
+      const match = photoUrlOrPath.match(/\/product-photos\/(.+?)(?:\?|$)/);
+      if (match) {
+        path = match[1];
+      }
+    }
+    
+    // If the path still contains the bucket name prefix, remove it
+    if (path.startsWith('product-photos/')) {
+      path = path.replace('product-photos/', '');
+    }
+    
+    return await getSignedUrl(path, 'product-photos');
+  } catch (error) {
+    console.error('Failed to get product photo URL:', error);
     return null;
   }
 }
@@ -121,15 +154,17 @@ export async function deleteFile(
 }
 
 /**
- * Gets the public URL for product photos (backward compatibility).
- * For new code, prefer getSignedUrl for better security.
+ * Gets the public URL for files.
+ * NOTE: This will NOT work for private buckets (product-photos is now private).
+ * Use getSignedUrl or getProductPhotoUrl instead.
  * 
- * @deprecated Use getSignedUrl instead for better security
+ * @deprecated Both buckets are now private. Use getSignedUrl or getProductPhotoUrl instead.
  */
 export function getPublicUrl(
   path: string,
   bucket: 'product-photos' | 'documents'
 ): string {
+  console.warn('getPublicUrl is deprecated. Both buckets are now private. Use getSignedUrl or getProductPhotoUrl instead.');
   const { data } = supabase.storage
     .from(bucket)
     .getPublicUrl(path);
