@@ -18,6 +18,7 @@ import {
   FileText,
   Download,
   PenLine,
+  Package,
 } from "lucide-react";
 import html2pdf from "html2pdf.js";
 
@@ -166,6 +167,9 @@ export default function SalesOrder() {
 
   const { items: selectedOrderItems, loading: itemsLoading } = useSalesOrderItems(selectedOrder?.id || null);
 
+  // Stock Out history for the selected order
+  const [stockOutHistory, setStockOutHistory] = useState<any[]>([]);
+  const [stockOutHistoryLoading, setStockOutHistoryLoading] = useState(false);
   // === Form state ===
   const [soNumber, setSoNumber] = useState("");
   const [orderDate, setOrderDate] = useState(new Date().toISOString().split("T")[0]);
@@ -712,9 +716,39 @@ export default function SalesOrder() {
     setSelectedOrder(null);
   };
 
-  const handleViewDetail = (order: SalesOrderHeader) => {
+  const handleViewDetail = async (order: SalesOrderHeader) => {
     setSelectedOrder(order);
     setIsDetailDialogOpen(true);
+    
+    // Fetch stock out history for this sales order
+    setStockOutHistoryLoading(true);
+    try {
+      const { data: stockOuts, error } = await supabase
+        .from('stock_out_headers')
+        .select(`
+          id,
+          stock_out_number,
+          delivery_date,
+          notes,
+          created_at,
+          stock_out_items (
+            id,
+            qty_out,
+            product:products (name, sku),
+            batch:inventory_batches (batch_no)
+          )
+        `)
+        .eq('sales_order_id', order.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setStockOutHistory(stockOuts || []);
+    } catch (err) {
+      console.error('Failed to fetch stock out history:', err);
+      setStockOutHistory([]);
+    } finally {
+      setStockOutHistoryLoading(false);
+    }
   };
 
   // === PDF ===
@@ -1596,6 +1630,62 @@ export default function SalesOrder() {
                   </Table>
                 )}
               </div>
+
+              {/* Stock Out History Section */}
+              {(selectedOrder.status === 'approved' || selectedOrder.status === 'partial' || selectedOrder.status === 'partially_delivered' || selectedOrder.status === 'delivered') && (
+                <div className="mt-6 pt-6 border-t">
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <Package className="w-4 h-4" />
+                    {language === "en" ? "Stock Out History" : "Riwayat Stock Out"}
+                  </h4>
+                  {stockOutHistoryLoading ? (
+                    <div className="flex justify-center py-4">
+                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                    </div>
+                  ) : stockOutHistory.length === 0 ? (
+                    <div className="text-center py-4 text-muted-foreground">
+                      {language === "en" ? "No stock out records yet" : "Belum ada riwayat stock out"}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {stockOutHistory.map((so: any) => (
+                        <Card key={so.id} className="border">
+                          <CardHeader className="py-3 px-4">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <p className="font-semibold text-sm">{so.stock_out_number}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {formatDateID(so.delivery_date)}
+                                </p>
+                              </div>
+                              <Badge variant="success">
+                                {so.stock_out_items?.reduce((sum: number, item: any) => sum + (item.qty_out || 0), 0)} {language === "en" ? "items delivered" : "item terkirim"}
+                              </Badge>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="py-2 px-4">
+                            <div className="text-xs space-y-1">
+                              {so.stock_out_items?.map((item: any, idx: number) => (
+                                <div key={item.id || idx} className="flex justify-between">
+                                  <span className="text-muted-foreground">
+                                    {item.product?.name || '-'} ({item.batch?.batch_no || '-'})
+                                  </span>
+                                  <span className="font-medium">{item.qty_out}</span>
+                                </div>
+                              ))}
+                            </div>
+                            {so.notes && (
+                              <p className="text-xs text-muted-foreground mt-2 italic">
+                                {language === "en" ? "Notes" : "Catatan"}: {so.notes}
+                              </p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
