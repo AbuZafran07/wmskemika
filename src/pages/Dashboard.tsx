@@ -236,8 +236,8 @@ export default function Dashboard() {
 
       let inbound30 = 0, outbound30 = 0;
       (transactions || []).forEach(t => {
-        if (t.transaction_type === 'in') inbound30 += t.quantity;
-        else if (t.transaction_type === 'out') outbound30 += t.quantity;
+        if (t.transaction_type === 'inbound') inbound30 += t.quantity;
+        else if (t.transaction_type === 'outbound') outbound30 += Math.abs(t.quantity);
       });
 
       setStats({
@@ -263,8 +263,8 @@ export default function Dashboard() {
         });
         movementData.push({
           day: dayName,
-          inbound: dayTransactions.filter(t => t.transaction_type === 'in').reduce((s, t) => s + t.quantity, 0),
-          outbound: dayTransactions.filter(t => t.transaction_type === 'out').reduce((s, t) => s + t.quantity, 0),
+          inbound: dayTransactions.filter(t => t.transaction_type === 'inbound').reduce((s, t) => s + t.quantity, 0),
+          outbound: dayTransactions.filter(t => t.transaction_type === 'outbound').reduce((s, t) => s + Math.abs(t.quantity), 0),
         });
       }
       setStockMovement(movementData);
@@ -302,7 +302,7 @@ export default function Dashboard() {
 
       const activities: RecentActivity[] = (recentTx || []).map(tx => ({
         id: tx.id,
-        type: tx.transaction_type === 'in' ? 'inbound' : tx.transaction_type === 'out' ? 'outbound' : 'adjustment',
+        type: tx.transaction_type === 'inbound' ? 'inbound' : tx.transaction_type === 'outbound' ? 'outbound' : 'adjustment',
         desc: tx.reference_number || `${tx.transaction_type} transaction`,
         productName: recentProductMap[tx.product_id] || 'Unknown Product',
         time: new Date(tx.created_at).toLocaleString('id-ID'),
@@ -314,7 +314,7 @@ export default function Dashboard() {
       const { data: outTransactions } = await supabase
         .from('stock_transactions')
         .select('product_id, quantity')
-        .eq('transaction_type', 'out')
+        .eq('transaction_type', 'outbound')
         .gte('created_at', thirtyDaysAgo.toISOString());
 
       // Aggregate by product
@@ -323,17 +323,20 @@ export default function Dashboard() {
         productQty[tx.product_id] = (productQty[tx.product_id] || 0) + Math.abs(tx.quantity);
       });
 
-      // Get product details
-      const productIds = Object.keys(productQty);
-      const { data: productDetails } = productIds.length > 0 
-        ? await supabase.from('products').select('id, name, sku').in('id', productIds)
-        : { data: [] };
+      // Get all active products for slowest moving (including those without transactions)
+      const { data: allActiveProducts } = await supabase
+        .from('products')
+        .select('id, name, sku')
+        .is('deleted_at', null)
+        .eq('is_active', true);
 
+      // Create product map from all products
       const productMap: Record<string, { name: string; sku: string | null }> = {};
-      (productDetails || []).forEach(p => { productMap[p.id] = { name: p.name, sku: p.sku }; });
+      (allActiveProducts || []).forEach(p => { productMap[p.id] = { name: p.name, sku: p.sku }; });
 
-      // Create sorted lists
-      const productMovements: ProductMovement[] = productIds.map(id => ({
+      // Create product movements for products with transactions
+      const productsWithTx = Object.keys(productQty);
+      const productMovements: ProductMovement[] = productsWithTx.map(id => ({
         id,
         name: productMap[id]?.name || 'Unknown',
         sku: productMap[id]?.sku || null,
@@ -344,8 +347,15 @@ export default function Dashboard() {
       const bestSelling = [...productMovements].sort((a, b) => b.totalQty - a.totalQty).slice(0, 5);
       setBestSellingProducts(bestSelling);
 
-      // Slowest moving = lowest qty (but > 0)
-      const slowest = [...productMovements].sort((a, b) => a.totalQty - b.totalQty).slice(0, 5);
+      // Slowest moving = include products with 0 transactions first, then lowest qty
+      const allProductMovements: ProductMovement[] = (allActiveProducts || []).map(p => ({
+        id: p.id,
+        name: p.name,
+        sku: p.sku,
+        totalQty: productQty[p.id] || 0,
+      }));
+      
+      const slowest = [...allProductMovements].sort((a, b) => a.totalQty - b.totalQty).slice(0, 5);
       setSlowestMovingProducts(slowest);
 
       setLoading(false);
