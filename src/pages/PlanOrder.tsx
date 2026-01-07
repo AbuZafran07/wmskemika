@@ -1,4 +1,5 @@
 import React, { useState, useRef, useMemo } from 'react';
+import DOMPurify from 'dompurify';
 import { Plus, Search, Eye, Edit, MoreHorizontal, CheckCircle, XCircle, Loader2, Upload, ArrowLeft, Trash2, Printer, Archive, List, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -310,7 +311,7 @@ export default function PlanOrder() {
           </style>
         </head>
         <body>
-          ${printContent.innerHTML}
+          ${DOMPurify.sanitize(printContent.innerHTML)}
           <script>
             window.onload = function() { 
               window.print(); 

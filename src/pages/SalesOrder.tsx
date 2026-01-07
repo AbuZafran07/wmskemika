@@ -21,6 +21,7 @@ import {
   Package,
 } from "lucide-react";
 import html2pdf from "html2pdf.js";
+import DOMPurify from "dompurify";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1515,7 +1516,7 @@ export default function SalesOrder() {
                           </style>
                         </head>
                         <body>
-                          ${printRef.current.innerHTML}
+                          ${DOMPurify.sanitize(printRef.current.innerHTML)}
                           <script>
                             window.onload = function() { window.print(); window.onafterprint = function(){ window.close(); } }
                           </script>
@@ -1927,7 +1928,7 @@ export default function SalesOrder() {
           </DialogHeader>
 
           <div className="bg-white p-4 rounded border">
-            <div dangerouslySetInnerHTML={{ __html: printRef.current?.innerHTML || "" }} />
+            <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(printRef.current?.innerHTML || "") }} />
           </div>
 
           <DialogFooter className="gap-2">
@@ -1957,7 +1958,7 @@ export default function SalesOrder() {
                       <style>*{box-sizing:border-box} body{font-family:Arial,sans-serif;padding:16px;color:#111} @page{margin:12mm}</style>
                     </head>
                     <body>
-                      ${printRef.current.innerHTML}
+                      ${DOMPurify.sanitize(printRef.current.innerHTML)}
                       <script>
                         window.onload=function(){window.print();window.onafterprint=function(){window.close();}}
                       </script>
