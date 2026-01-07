@@ -85,7 +85,7 @@ export default function Profile() {
       }
 
       // Refresh user context
-      if (refreshUser) await refreshUser();
+      await refreshUser();
 
       toast.success(language === 'en' ? 'Photo updated successfully' : 'Foto berhasil diperbarui');
     } catch (error) {
@@ -107,7 +107,7 @@ export default function Profile() {
 
       if (error) throw error;
 
-      if (refreshUser) await refreshUser();
+      await refreshUser();
       toast.success(language === 'en' ? 'Profile updated successfully' : 'Profil berhasil diperbarui');
     } catch (error) {
       console.error('Error updating profile:', error);

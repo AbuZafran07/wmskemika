@@ -20,6 +20,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   hasPermission: (allowedRoles: UserRole[]) => boolean;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -163,6 +164,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return allowedRoles.includes(user.role);
   };
 
+  const refreshUser = async () => {
+    if (session?.user) {
+      const appUser = await fetchUserProfile(session.user.id, session.user.email || '');
+      setUser(appUser);
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -171,7 +179,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoading, 
       login, 
       logout, 
-      hasPermission 
+      hasPermission,
+      refreshUser
     }}>
       {children}
     </AuthContext.Provider>
