@@ -13,6 +13,16 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import RealtimeActivityFeed from '@/components/dashboard/RealtimeActivityFeed';
+import { OnlinePresence } from '@/components/dashboard/OnlinePresence';
+import { ChatWidget } from '@/components/dashboard/ChatWidget';
+import { RealtimeChannel } from '@supabase/supabase-js';
+
+interface OnlineUser {
+  id: string;
+  email: string;
+  name: string;
+  avatar_url: string | null;
+}
 
 interface DashboardStats {
   totalProducts: number;
@@ -129,6 +139,7 @@ export default function Dashboard() {
   const { t, language } = useLanguage();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
     totalProducts: 0, totalSuppliers: 0, totalCustomers: 0,
     lowStockItems: 0, stockValue: 0, inbound30Days: 0, outbound30Days: 0,
@@ -142,6 +153,48 @@ export default function Dashboard() {
   const [bestSellingProducts, setBestSellingProducts] = useState<ProductMovement[]>([]);
   const [slowestMovingProducts, setSlowestMovingProducts] = useState<ProductMovement[]>([]);
   const [productViewMode, setProductViewMode] = useState<'best' | 'slow'>('best');
+
+  // Online presence tracking
+  useEffect(() => {
+    if (!user) return;
+
+    const presenceChannel = supabase.channel('dashboard-presence', {
+      config: {
+        presence: {
+          key: user.id,
+        },
+      },
+    });
+
+    presenceChannel
+      .on('presence', { event: 'sync' }, () => {
+        const state = presenceChannel.presenceState();
+        const users: OnlineUser[] = [];
+        
+        Object.keys(state).forEach((key) => {
+          const presences = state[key] as unknown as OnlineUser[];
+          if (presences && presences.length > 0) {
+            users.push(presences[0]);
+          }
+        });
+        
+        setOnlineUsers(users);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await presenceChannel.track({
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            avatar_url: user.avatar || null,
+          });
+        }
+      });
+
+    return () => {
+      presenceChannel.unsubscribe();
+    };
+  }, [user]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -374,8 +427,18 @@ export default function Dashboard() {
         <p className="text-muted-foreground">{language === 'en' ? "Here's what's happening with your warehouse today." : 'Berikut yang terjadi di gudang Anda hari ini.'}</p>
       </div>
 
-      {/* Real-time Activity Feed */}
-      <RealtimeActivityFeed />
+      {/* Real-time Activity Feed & Online Presence */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <div className="lg:col-span-3">
+          <RealtimeActivityFeed />
+        </div>
+        <div className="lg:col-span-1">
+          <OnlinePresence />
+        </div>
+      </div>
+
+      {/* Chat Widget */}
+      <ChatWidget onlineUsers={onlineUsers} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title={t('dashboard.totalProducts')} value={stats.totalProducts.toLocaleString()} icon={Package} color="primary" loading={loading} />
