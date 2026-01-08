@@ -1,17 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, AlertTriangle, Calendar, Package, CheckCircle, FileText, ClipboardList, Volume2, VolumeX, Filter, RefreshCw } from 'lucide-react';
+import { Bell, AlertTriangle, Calendar, Package, CheckCircle, FileText, ClipboardList, Volume2, VolumeX, Filter, RefreshCw, BellRing, BellOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useNotifications, Notification } from '@/hooks/useNotifications';
+import { useNotifications, type Notification as NotificationType } from '@/hooks/useNotifications';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { id as idLocale, enUS } from 'date-fns/locale';
+import { toast } from 'sonner';
 
 export default function Notifications() {
   const navigate = useNavigate();
@@ -25,13 +26,23 @@ export default function Notifications() {
     fetchNotifications,
     soundEnabled,
     toggleSound,
+    pushEnabled,
+    togglePush,
+    requestPushPermission,
     playNotificationSound
   } = useNotifications();
 
   const [filterType, setFilterType] = useState<string>('all');
   const [filterRead, setFilterRead] = useState<string>('all');
+  const [pushPermission, setPushPermission] = useState<NotificationPermission>('default');
 
-  const getNotificationIcon = (type: Notification['type']) => {
+  useEffect(() => {
+    if ('Notification' in window) {
+      setPushPermission(Notification.permission);
+    }
+  }, []);
+
+  const getNotificationIcon = (type: NotificationType['type']) => {
     switch (type) {
       case 'low_stock':
         return <Package className="w-5 h-5 text-warning" />;
@@ -52,7 +63,7 @@ export default function Notifications() {
     }
   };
 
-  const getTypeBadge = (type: Notification['type']) => {
+  const getTypeBadge = (type: NotificationType['type']) => {
     const variants: Record<string, { variant: 'default' | 'destructive' | 'outline' | 'secondary'; label: string }> = {
       low_stock: { variant: 'outline', label: language === 'en' ? 'Low Stock' : 'Stok Rendah' },
       expiring_soon: { variant: 'outline', label: language === 'en' ? 'Expiring' : 'Kadaluarsa' },
@@ -67,7 +78,7 @@ export default function Notifications() {
     return <Badge variant={config.variant} className="text-xs">{config.label}</Badge>;
   };
 
-  const getNotificationBg = (type: Notification['type'], read: boolean) => {
+  const getNotificationBg = (type: NotificationType['type'], read: boolean) => {
     if (read) return 'bg-muted/30';
     switch (type) {
       case 'expired':
@@ -86,7 +97,7 @@ export default function Notifications() {
     }
   };
 
-  const handleNotificationClick = (notif: Notification) => {
+  const handleNotificationClick = (notif: NotificationType) => {
     markAsRead(notif.id);
     if (notif.type === 'low_stock') {
       navigate('/data-stock');
@@ -149,54 +160,135 @@ export default function Notifications() {
         </div>
       </div>
 
-      {/* Sound Settings */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-            {language === 'en' ? 'Sound Settings' : 'Pengaturan Suara'}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="sound-toggle">
-                {language === 'en' ? 'Enable sound alerts' : 'Aktifkan peringatan suara'}
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                {language === 'en' 
-                  ? 'Play sound for important notifications like expired or low stock'
-                  : 'Mainkan suara untuk notifikasi penting seperti kadaluarsa atau stok rendah'}
-              </p>
+      {/* Notification Settings */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Sound Settings */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+              {language === 'en' ? 'Sound Settings' : 'Pengaturan Suara'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="sound-toggle">
+                  {language === 'en' ? 'Enable sound alerts' : 'Aktifkan peringatan suara'}
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  {language === 'en' 
+                    ? 'Play sound for important notifications'
+                    : 'Mainkan suara untuk notifikasi penting'}
+                </p>
+              </div>
+              <Switch 
+                id="sound-toggle"
+                checked={soundEnabled} 
+                onCheckedChange={toggleSound}
+              />
             </div>
-            <Switch 
-              id="sound-toggle"
-              checked={soundEnabled} 
-              onCheckedChange={toggleSound}
-            />
-          </div>
-          
-          {soundEnabled && (
-            <div className="flex flex-wrap gap-2 pt-2 border-t">
-              <span className="text-sm text-muted-foreground mr-2">
-                {language === 'en' ? 'Test sounds:' : 'Tes suara:'}
-              </span>
-              <Button variant="outline" size="sm" onClick={() => testSound('critical')}>
-                <AlertTriangle className="w-4 h-4 mr-1 text-destructive" />
-                Critical
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => testSound('warning')}>
-                <Calendar className="w-4 h-4 mr-1 text-warning" />
-                Warning
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => testSound('info')}>
-                <Bell className="w-4 h-4 mr-1 text-info" />
-                Info
-              </Button>
+            
+            {soundEnabled && (
+              <div className="flex flex-wrap gap-2 pt-2 border-t">
+                <span className="text-sm text-muted-foreground mr-2">
+                  {language === 'en' ? 'Test sounds:' : 'Tes suara:'}
+                </span>
+                <Button variant="outline" size="sm" onClick={() => testSound('critical')}>
+                  <AlertTriangle className="w-4 h-4 mr-1 text-destructive" />
+                  Critical
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => testSound('warning')}>
+                  <Calendar className="w-4 h-4 mr-1 text-warning" />
+                  Warning
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => testSound('info')}>
+                  <Bell className="w-4 h-4 mr-1 text-info" />
+                  Info
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Push Notification Settings */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              {pushEnabled ? <BellRing className="w-5 h-5" /> : <BellOff className="w-5 h-5" />}
+              {language === 'en' ? 'Push Notifications' : 'Notifikasi Push'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="push-toggle">
+                  {language === 'en' ? 'Enable browser notifications' : 'Aktifkan notifikasi browser'}
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  {language === 'en' 
+                    ? 'Get alerts even when the app is in background'
+                    : 'Dapatkan peringatan meski aplikasi di background'}
+                </p>
+              </div>
+              <Switch 
+                id="push-toggle"
+                checked={pushEnabled} 
+                onCheckedChange={togglePush}
+              />
             </div>
-          )}
-        </CardContent>
-      </Card>
+
+            {pushPermission !== 'granted' && (
+              <div className="pt-2 border-t">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full"
+                  onClick={async () => {
+                    const granted = await requestPushPermission();
+                    if (granted) {
+                      setPushPermission('granted');
+                      toast.success(language === 'en' ? 'Push notifications enabled!' : 'Notifikasi push diaktifkan!');
+                    } else {
+                      toast.error(language === 'en' ? 'Permission denied' : 'Izin ditolak');
+                    }
+                  }}
+                >
+                  <BellRing className="w-4 h-4 mr-2" />
+                  {pushPermission === 'denied' 
+                    ? (language === 'en' ? 'Permission denied - check browser settings' : 'Izin ditolak - cek pengaturan browser')
+                    : (language === 'en' ? 'Request permission' : 'Minta izin')}
+                </Button>
+                {pushPermission === 'default' && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {language === 'en' 
+                      ? 'You need to allow browser notifications to receive push alerts'
+                      : 'Anda perlu mengizinkan notifikasi browser untuk menerima peringatan push'}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {pushPermission === 'granted' && pushEnabled && (
+              <div className="pt-2 border-t">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    new window.Notification('🔔 Test Notification', {
+                      body: language === 'en' ? 'Push notifications are working!' : 'Notifikasi push berfungsi!',
+                      icon: '/logo-kemika.png',
+                    });
+                  }}
+                >
+                  <Bell className="w-4 h-4 mr-1" />
+                  {language === 'en' ? 'Test push notification' : 'Tes notifikasi push'}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Filters */}
       <Card>

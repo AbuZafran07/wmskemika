@@ -27,14 +27,12 @@ const playNotificationSound = (type: 'critical' | 'warning' | 'info') => {
     gainNode.connect(audioContext.destination);
     
     if (type === 'critical') {
-      // High urgency - two beeps
       oscillator.frequency.value = 880;
       gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
       oscillator.start(audioContext.currentTime);
       oscillator.stop(audioContext.currentTime + 0.15);
       
-      // Second beep
       setTimeout(() => {
         const osc2 = audioContext.createOscillator();
         const gain2 = audioContext.createGain();
@@ -47,14 +45,12 @@ const playNotificationSound = (type: 'critical' | 'warning' | 'info') => {
         osc2.stop(audioContext.currentTime + 0.15);
       }, 200);
     } else if (type === 'warning') {
-      // Medium urgency - single beep
       oscillator.frequency.value = 660;
       gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
       oscillator.start(audioContext.currentTime);
       oscillator.stop(audioContext.currentTime + 0.2);
     } else {
-      // Info - soft chime
       oscillator.frequency.value = 520;
       gainNode.gain.setValueAtTime(0.15, audioContext.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
@@ -66,6 +62,30 @@ const playNotificationSound = (type: 'critical' | 'warning' | 'info') => {
   }
 };
 
+// Browser push notification utility
+const sendBrowserNotification = async (
+  title: string, 
+  body: string, 
+  options?: { tag?: string; requireInteraction?: boolean }
+) => {
+  if (!('Notification' in window)) return;
+  
+  if (Notification.permission === 'granted') {
+    const notification = new Notification(title, {
+      body,
+      icon: '/logo-kemika.png',
+      tag: options?.tag,
+      requireInteraction: options?.requireInteraction ?? false,
+    });
+    
+    if (!options?.requireInteraction) {
+      setTimeout(() => notification.close(), 5000);
+    }
+    
+    return notification;
+  }
+};
+
 export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,11 +94,32 @@ export function useNotifications() {
     const saved = localStorage.getItem('notification_sound_enabled');
     return saved !== null ? JSON.parse(saved) : true;
   });
+  const [pushEnabled, setPushEnabled] = useState(() => {
+    const saved = localStorage.getItem('push_notifications_enabled');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
   const previousNotifIds = useRef<Set<string>>(new Set());
 
   const toggleSound = useCallback((enabled: boolean) => {
     setSoundEnabled(enabled);
     localStorage.setItem('notification_sound_enabled', JSON.stringify(enabled));
+  }, []);
+
+  const togglePush = useCallback((enabled: boolean) => {
+    setPushEnabled(enabled);
+    localStorage.setItem('push_notifications_enabled', JSON.stringify(enabled));
+  }, []);
+
+  const requestPushPermission = useCallback(async () => {
+    if (!('Notification' in window)) return false;
+    
+    try {
+      const result = await Notification.requestPermission();
+      return result === 'granted';
+    } catch (error) {
+      console.error('Error requesting notification permission:', error);
+      return false;
+    }
   }, []);
 
   const fetchNotifications = useCallback(async () => {
@@ -247,21 +288,40 @@ export function useNotifications() {
         return b.createdAt.getTime() - a.createdAt.getTime();
       });
 
-      // Check for new notifications and play sound
+      // Check for new notifications and play sound / push notification
       const currentIds = new Set(notifs.map(n => n.id));
       const newNotifs = notifs.filter(n => !previousNotifIds.current.has(n.id));
       
-      if (newNotifs.length > 0 && previousNotifIds.current.size > 0 && soundEnabled) {
+      if (newNotifs.length > 0 && previousNotifIds.current.size > 0) {
         // Determine sound type based on notification priority
         const hasCritical = newNotifs.some(n => n.type === 'expired' || n.type === 'low_stock');
         const hasWarning = newNotifs.some(n => n.type === 'expiring_soon' || n.type === 'approval_pending');
         
-        if (hasCritical) {
-          playNotificationSound('critical');
-        } else if (hasWarning) {
-          playNotificationSound('warning');
-        } else {
-          playNotificationSound('info');
+        if (soundEnabled) {
+          if (hasCritical) {
+            playNotificationSound('critical');
+          } else if (hasWarning) {
+            playNotificationSound('warning');
+          } else {
+            playNotificationSound('info');
+          }
+        }
+
+        // Send browser push notifications for critical alerts
+        if (pushEnabled && 'Notification' in window && Notification.permission === 'granted') {
+          newNotifs.forEach(n => {
+            if (n.type === 'expired' || n.type === 'low_stock' || n.type === 'approval_pending') {
+              const icon = n.type === 'expired' ? '🚨' : n.type === 'low_stock' ? '⚠️' : '🔔';
+              sendBrowserNotification(
+                `${icon} ${n.title}`,
+                n.message,
+                { 
+                  tag: n.id, 
+                  requireInteraction: n.type === 'expired' || n.type === 'approval_pending' 
+                }
+              );
+            }
+          });
         }
       }
       
@@ -272,7 +332,7 @@ export function useNotifications() {
       console.error('Error fetching notifications:', error);
     }
     setLoading(false);
-  }, [soundEnabled]);
+  }, [soundEnabled, pushEnabled]);
 
   // Setup real-time subscriptions
   useEffect(() => {
@@ -391,6 +451,9 @@ export function useNotifications() {
     markAllAsRead,
     soundEnabled,
     toggleSound,
+    pushEnabled,
+    togglePush,
+    requestPushPermission,
     playNotificationSound,
   };
 }
