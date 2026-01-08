@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, Search, Filter, MoreHorizontal, Edit, Trash2, Loader2 } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Plus, Search, Filter, MoreHorizontal, Edit, Trash2, Loader2, Download, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -43,6 +43,7 @@ import { useCategories, Category } from '@/hooks/useMasterData';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getUserFriendlyError, ErrorMessages } from '@/lib/errorHandler';
+import { exportToCSV, parseCSV, readFileAsText, downloadCSVTemplate } from '@/lib/csvUtils';
 
 interface CategoryFormData {
   code: string;
@@ -69,6 +70,90 @@ export default function Categories() {
   const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
   const [formData, setFormData] = useState<CategoryFormData>(initialFormData);
   const [isSaving, setIsSaving] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExport = () => {
+    exportToCSV(
+      categories,
+      [
+        { key: 'code', header: language === 'en' ? 'Code' : 'Kode' },
+        { key: 'name', header: language === 'en' ? 'Name' : 'Nama' },
+        { key: 'description', header: language === 'en' ? 'Description' : 'Deskripsi' },
+        { key: 'is_active', header: 'Status', getValue: (item) => item.is_active ? 'Active' : 'Inactive' },
+      ],
+      'categories'
+    );
+    toast.success(language === 'en' ? 'Export successful' : 'Ekspor berhasil');
+  };
+
+  const handleDownloadTemplate = () => {
+    downloadCSVTemplate(
+      [
+        { header: language === 'en' ? 'Code' : 'Kode', example: 'CAT-001' },
+        { header: language === 'en' ? 'Name' : 'Nama', example: 'Chemical' },
+        { header: language === 'en' ? 'Description' : 'Deskripsi', example: 'Chemical products' },
+        { header: 'Status', example: 'Active' },
+      ],
+      'categories'
+    );
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    try {
+      const content = await readFileAsText(file);
+      const rows = parseCSV(content);
+      
+      if (rows.length === 0) {
+        toast.error(language === 'en' ? 'No data found in file' : 'Tidak ada data dalam file');
+        return;
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const row of rows) {
+        const code = row[language === 'en' ? 'Code' : 'Kode'] || row['Code'] || row['Kode'];
+        const name = row[language === 'en' ? 'Name' : 'Nama'] || row['Name'] || row['Nama'];
+        const description = row[language === 'en' ? 'Description' : 'Deskripsi'] || row['Description'] || row['Deskripsi'];
+        const status = row['Status']?.toLowerCase();
+
+        if (!code || !name) {
+          errorCount++;
+          continue;
+        }
+
+        const { error } = await supabase.from('categories').insert({
+          code: code.toUpperCase(),
+          name,
+          description: description || null,
+          is_active: status !== 'inactive',
+        });
+
+        if (error) {
+          errorCount++;
+        } else {
+          successCount++;
+        }
+      }
+
+      toast.success(
+        language === 'en'
+          ? `Import complete: ${successCount} success, ${errorCount} failed`
+          : `Impor selesai: ${successCount} berhasil, ${errorCount} gagal`
+      );
+      refetch();
+    } catch (error) {
+      toast.error(language === 'en' ? 'Failed to import file' : 'Gagal mengimpor file');
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const filteredCategories = categories.filter(category =>
     category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -171,10 +256,41 @@ export default function Categories() {
             {language === 'en' ? 'Manage product categories' : 'Kelola kategori produk'}
           </p>
         </div>
-        <Button size="sm" onClick={handleAdd}>
-          <Plus className="w-4 h-4 mr-2" />
-          {t('common.add')} {language === 'en' ? 'Category' : 'Kategori'}
-        </Button>
+        <div className="flex gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={handleImport}
+          />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" disabled={isImporting}>
+                {isImporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                {t('common.import')}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                <Upload className="w-4 h-4 mr-2" />
+                {language === 'en' ? 'Import CSV' : 'Impor CSV'}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleDownloadTemplate}>
+                <Download className="w-4 h-4 mr-2" />
+                {language === 'en' ? 'Download Template' : 'Unduh Template'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button variant="outline" size="sm" onClick={handleExport}>
+            <Download className="w-4 h-4 mr-2" />
+            {t('common.export')}
+          </Button>
+          <Button size="sm" onClick={handleAdd}>
+            <Plus className="w-4 h-4 mr-2" />
+            {t('common.add')} {language === 'en' ? 'Category' : 'Kategori'}
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
