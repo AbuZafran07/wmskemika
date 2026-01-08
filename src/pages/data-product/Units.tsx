@@ -134,14 +134,23 @@ export default function Units() {
           };
         }
 
-        if (dupInfo?.isDuplicate) {
+        if (dupInfo?.isDuplicate && dupInfo.duplicateType === 'database') {
+          const existingUnit = units.find(u => u.code.toLowerCase() === code.toLowerCase());
           return {
             rowIndex: index + 2,
             data: { code, name, description: getColumnValue(row, ['Description', 'Deskripsi']), status: row['Status'] || '' },
             status: 'duplicate' as const,
-            message: dupInfo.duplicateType === 'database' 
-              ? (language === 'en' ? 'Already exists in database' : 'Sudah ada di database')
-              : (language === 'en' ? 'Duplicate in CSV file' : 'Duplikat dalam file CSV'),
+            message: language === 'en' ? 'Code exists (can update)' : 'Kode sudah ada (dapat diupdate)',
+            existingId: existingUnit?.id,
+          };
+        }
+
+        if (dupInfo?.isDuplicate && dupInfo.duplicateType === 'csv') {
+          return {
+            rowIndex: index + 2,
+            data: { code, name, description: getColumnValue(row, ['Description', 'Deskripsi']), status: row['Status'] || '' },
+            status: 'error' as const,
+            message: language === 'en' ? 'Duplicate code in CSV' : 'Kode duplikat dalam CSV',
           };
         }
 
@@ -162,12 +171,14 @@ export default function Units() {
     }
   };
 
-  const handleConfirmImport = async () => {
+  const handleConfirmImport = async (enableUpsert: boolean) => {
     setIsImporting(true);
-    let successCount = 0;
+    let insertCount = 0;
+    let updateCount = 0;
     let errorCount = 0;
 
     const validRows = previewRows.filter(r => r.status === 'valid');
+    const duplicateRows = enableUpsert ? previewRows.filter(r => r.status === 'duplicate' && r.existingId) : [];
 
     for (const previewRow of validRows) {
       const row = parsedData[previewRow.rowIndex - 2];
@@ -186,15 +197,36 @@ export default function Units() {
       if (error) {
         errorCount++;
       } else {
-        successCount++;
+        insertCount++;
       }
     }
 
-    toast.success(
-      language === 'en'
-        ? `Import complete: ${successCount} success, ${errorCount} failed`
-        : `Impor selesai: ${successCount} berhasil, ${errorCount} gagal`
-    );
+    for (const previewRow of duplicateRows) {
+      const row = parsedData[previewRow.rowIndex - 2];
+      const name = getColumnValue(row, ['Name', 'Nama']);
+      const description = getColumnValue(row, ['Description', 'Deskripsi']);
+      const status = row['Status']?.toLowerCase();
+
+      const { error } = await supabase.from('units')
+        .update({
+          name,
+          description: description || null,
+          is_active: status !== 'inactive',
+        })
+        .eq('id', previewRow.existingId!);
+
+      if (error) {
+        errorCount++;
+      } else {
+        updateCount++;
+      }
+    }
+
+    const message = language === 'en'
+      ? `Import complete: ${insertCount} inserted, ${updateCount} updated, ${errorCount} failed`
+      : `Impor selesai: ${insertCount} ditambahkan, ${updateCount} diupdate, ${errorCount} gagal`;
+    
+    toast.success(message);
     
     setIsPreviewOpen(false);
     setPreviewRows([]);

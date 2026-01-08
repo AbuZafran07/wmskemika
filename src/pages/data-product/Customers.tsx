@@ -178,14 +178,23 @@ export default function Customers() {
           };
         }
 
-        if (code && dupInfo?.isDuplicate) {
+        if (code && dupInfo?.isDuplicate && dupInfo.duplicateType === 'database') {
+          const existingCustomer = customers.find(c => c.code.toLowerCase() === code.toLowerCase());
           return {
             rowIndex: index + 2,
             data: { code, name, type: getColumnValue(row, ['Type', 'Tipe']), city: getColumnValue(row, ['City', 'Kota']) },
             status: 'duplicate' as const,
-            message: dupInfo.duplicateType === 'database' 
-              ? (language === 'en' ? 'Code already exists in database' : 'Kode sudah ada di database')
-              : (language === 'en' ? 'Duplicate code in CSV file' : 'Kode duplikat dalam file CSV'),
+            message: language === 'en' ? 'Code exists (can update)' : 'Kode sudah ada (dapat diupdate)',
+            existingId: existingCustomer?.id,
+          };
+        }
+
+        if (code && dupInfo?.isDuplicate && dupInfo.duplicateType === 'csv') {
+          return {
+            rowIndex: index + 2,
+            data: { code, name, type: getColumnValue(row, ['Type', 'Tipe']), city: getColumnValue(row, ['City', 'Kota']) },
+            status: 'error' as const,
+            message: language === 'en' ? 'Duplicate code in CSV' : 'Kode duplikat dalam CSV',
           };
         }
 
@@ -207,12 +216,14 @@ export default function Customers() {
     }
   };
 
-  const handleConfirmImport = async () => {
+  const handleConfirmImport = async (enableUpsert: boolean) => {
     setIsImporting(true);
-    let successCount = 0;
+    let insertCount = 0;
+    let updateCount = 0;
     let errorCount = 0;
 
     const validRows = previewRows.filter(r => r.status === 'valid');
+    const duplicateRows = enableUpsert ? previewRows.filter(r => r.status === 'duplicate' && r.existingId) : [];
 
     for (const previewRow of validRows) {
       const row = parsedData[previewRow.rowIndex - 2];
@@ -249,15 +260,52 @@ export default function Customers() {
       if (error) {
         errorCount++;
       } else {
-        successCount++;
+        insertCount++;
       }
     }
 
-    toast.success(
-      language === 'en'
-        ? `Import complete: ${successCount} success, ${errorCount} failed`
-        : `Impor selesai: ${successCount} berhasil, ${errorCount} gagal`
-    );
+    for (const previewRow of duplicateRows) {
+      const row = parsedData[previewRow.rowIndex - 2];
+      const name = getColumnValue(row, ['Name', 'Nama']);
+      const customer_type = getColumnValue(row, ['Type', 'Tipe']);
+      const pic = row['PIC'];
+      const jabatan = getColumnValue(row, ['Position', 'Jabatan']);
+      const phone = getColumnValue(row, ['Phone', 'Telepon']);
+      const email = row['Email'];
+      const npwp = row['NPWP'];
+      const terms_payment = getColumnValue(row, ['Payment Terms', 'Termin Pembayaran']);
+      const address = getColumnValue(row, ['Address', 'Alamat']);
+      const city = getColumnValue(row, ['City', 'Kota']);
+      const status = row['Status']?.toLowerCase();
+
+      const { error } = await supabase.from('customers')
+        .update({
+          name,
+          customer_type: customer_type || null,
+          pic: pic || null,
+          jabatan: jabatan || null,
+          phone: phone || null,
+          email: email || null,
+          npwp: npwp || null,
+          terms_payment: terms_payment || null,
+          address: address || null,
+          city: city || null,
+          is_active: status !== 'inactive',
+        })
+        .eq('id', previewRow.existingId!);
+
+      if (error) {
+        errorCount++;
+      } else {
+        updateCount++;
+      }
+    }
+
+    const message = language === 'en'
+      ? `Import complete: ${insertCount} inserted, ${updateCount} updated, ${errorCount} failed`
+      : `Impor selesai: ${insertCount} ditambahkan, ${updateCount} diupdate, ${errorCount} gagal`;
+    
+    toast.success(message);
     
     setIsPreviewOpen(false);
     setPreviewRows([]);

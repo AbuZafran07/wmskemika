@@ -161,14 +161,23 @@ export default function Suppliers() {
           };
         }
 
-        if (code && dupInfo?.isDuplicate) {
+        if (code && dupInfo?.isDuplicate && dupInfo.duplicateType === 'database') {
+          const existingSupplier = suppliers.find(s => s.code.toLowerCase() === code.toLowerCase());
           return {
             rowIndex: index + 2,
             data: { code, name, contact: getColumnValue(row, ['Contact Person', 'Kontak']), city: getColumnValue(row, ['City', 'Kota']) },
             status: 'duplicate' as const,
-            message: dupInfo.duplicateType === 'database' 
-              ? (language === 'en' ? 'Code already exists in database' : 'Kode sudah ada di database')
-              : (language === 'en' ? 'Duplicate code in CSV file' : 'Kode duplikat dalam file CSV'),
+            message: language === 'en' ? 'Code exists (can update)' : 'Kode sudah ada (dapat diupdate)',
+            existingId: existingSupplier?.id,
+          };
+        }
+
+        if (code && dupInfo?.isDuplicate && dupInfo.duplicateType === 'csv') {
+          return {
+            rowIndex: index + 2,
+            data: { code, name, contact: getColumnValue(row, ['Contact Person', 'Kontak']), city: getColumnValue(row, ['City', 'Kota']) },
+            status: 'error' as const,
+            message: language === 'en' ? 'Duplicate code in CSV' : 'Kode duplikat dalam CSV',
           };
         }
 
@@ -190,12 +199,14 @@ export default function Suppliers() {
     }
   };
 
-  const handleConfirmImport = async () => {
+  const handleConfirmImport = async (enableUpsert: boolean) => {
     setIsImporting(true);
-    let successCount = 0;
+    let insertCount = 0;
+    let updateCount = 0;
     let errorCount = 0;
 
     const validRows = previewRows.filter(r => r.status === 'valid');
+    const duplicateRows = enableUpsert ? previewRows.filter(r => r.status === 'duplicate' && r.existingId) : [];
 
     for (const previewRow of validRows) {
       const row = parsedData[previewRow.rowIndex - 2];
@@ -228,15 +239,48 @@ export default function Suppliers() {
       if (error) {
         errorCount++;
       } else {
-        successCount++;
+        insertCount++;
       }
     }
 
-    toast.success(
-      language === 'en'
-        ? `Import complete: ${successCount} success, ${errorCount} failed`
-        : `Impor selesai: ${successCount} berhasil, ${errorCount} gagal`
-    );
+    for (const previewRow of duplicateRows) {
+      const row = parsedData[previewRow.rowIndex - 2];
+      const name = getColumnValue(row, ['Name', 'Nama']);
+      const contact_person = getColumnValue(row, ['Contact Person', 'Kontak']);
+      const phone = getColumnValue(row, ['Phone', 'Telepon']);
+      const email = row['Email'];
+      const npwp = row['NPWP'];
+      const terms_payment = getColumnValue(row, ['Payment Terms', 'Termin Pembayaran']);
+      const address = getColumnValue(row, ['Address', 'Alamat']);
+      const city = getColumnValue(row, ['City', 'Kota']);
+      const status = row['Status']?.toLowerCase();
+
+      const { error } = await supabase.from('suppliers')
+        .update({
+          name,
+          contact_person: contact_person || null,
+          phone: phone || null,
+          email: email || null,
+          npwp: npwp || null,
+          terms_payment: terms_payment || null,
+          address: address || null,
+          city: city || null,
+          is_active: status !== 'inactive',
+        })
+        .eq('id', previewRow.existingId!);
+
+      if (error) {
+        errorCount++;
+      } else {
+        updateCount++;
+      }
+    }
+
+    const message = language === 'en'
+      ? `Import complete: ${insertCount} inserted, ${updateCount} updated, ${errorCount} failed`
+      : `Impor selesai: ${insertCount} ditambahkan, ${updateCount} diupdate, ${errorCount} gagal`;
+    
+    toast.success(message);
     
     setIsPreviewOpen(false);
     setPreviewRows([]);

@@ -195,14 +195,23 @@ export default function Products() {
           };
         }
 
-        if (sku && dupInfo?.isDuplicate) {
+        if (sku && dupInfo?.isDuplicate && dupInfo.duplicateType === 'database') {
+          const existingProduct = products.find(p => p.sku?.toLowerCase() === sku.toLowerCase());
           return {
             rowIndex: index + 2,
             data: { sku, name, category: category.name, unit: unit.name },
             status: 'duplicate' as const,
-            message: dupInfo.duplicateType === 'database' 
-              ? (language === 'en' ? 'SKU already exists' : 'SKU sudah ada')
-              : (language === 'en' ? 'Duplicate SKU in CSV' : 'SKU duplikat dalam CSV'),
+            message: language === 'en' ? 'SKU already exists (can update)' : 'SKU sudah ada (dapat diupdate)',
+            existingId: existingProduct?.id,
+          };
+        }
+
+        if (sku && dupInfo?.isDuplicate && dupInfo.duplicateType === 'csv') {
+          return {
+            rowIndex: index + 2,
+            data: { sku, name, category: category.name, unit: unit.name },
+            status: 'error' as const,
+            message: language === 'en' ? 'Duplicate SKU in CSV file' : 'SKU duplikat dalam file CSV',
           };
         }
 
@@ -223,13 +232,17 @@ export default function Products() {
     }
   };
 
-  const handleConfirmImport = async () => {
+  const handleConfirmImport = async (enableUpsert: boolean) => {
     setIsImporting(true);
-    let successCount = 0;
+    let insertCount = 0;
+    let updateCount = 0;
     let errorCount = 0;
 
+    // Get rows to process based on upsert setting
     const validRows = previewRows.filter(r => r.status === 'valid');
+    const duplicateRows = enableUpsert ? previewRows.filter(r => r.status === 'duplicate' && r.existingId) : [];
 
+    // Insert new rows
     for (const previewRow of validRows) {
       const row = parsedData[previewRow.rowIndex - 2];
       const sku = row['SKU'];
@@ -266,15 +279,55 @@ export default function Products() {
       if (error) {
         errorCount++;
       } else {
-        successCount++;
+        insertCount++;
       }
     }
 
-    toast.success(
-      language === 'en'
-        ? `Import complete: ${successCount} success, ${errorCount} failed`
-        : `Impor selesai: ${successCount} berhasil, ${errorCount} gagal`
-    );
+    // Update existing rows if upsert enabled
+    for (const previewRow of duplicateRows) {
+      const row = parsedData[previewRow.rowIndex - 2];
+      const name = getColumnValue(row, ['Product Name', 'Nama Produk']);
+      const categoryCode = getColumnValue(row, ['Category Code', 'Kode Kategori']);
+      const unitCode = getColumnValue(row, ['Unit Code', 'Kode Satuan']);
+      const supplierCode = row['Supplier Code'];
+      const purchase_price = getColumnValue(row, ['Purchase Price', 'Harga Beli']);
+      const selling_price = getColumnValue(row, ['Selling Price', 'Harga Jual']);
+      const min_stock = getColumnValue(row, ['Min Stock', 'Stok Min']);
+      const max_stock = getColumnValue(row, ['Max Stock', 'Stok Maks']);
+      const location_rack = getColumnValue(row, ['Location', 'Lokasi']);
+      const status = row['Status']?.toLowerCase();
+
+      const category = categories.find(c => c.code.toLowerCase() === categoryCode?.toLowerCase());
+      const unit = units.find(u => u.code.toLowerCase() === unitCode?.toLowerCase());
+      const supplier = suppliers.find(s => s.code.toLowerCase() === supplierCode?.toLowerCase());
+
+      const { error } = await supabase.from('products')
+        .update({
+          name,
+          category_id: category!.id,
+          unit_id: unit!.id,
+          supplier_id: supplier!.id,
+          purchase_price: parseFloat(purchase_price),
+          selling_price: selling_price ? parseFloat(selling_price) : null,
+          min_stock: parseInt(min_stock) || 0,
+          max_stock: max_stock ? parseInt(max_stock) : null,
+          location_rack: location_rack || null,
+          is_active: status !== 'inactive',
+        })
+        .eq('id', previewRow.existingId!);
+
+      if (error) {
+        errorCount++;
+      } else {
+        updateCount++;
+      }
+    }
+
+    const message = language === 'en'
+      ? `Import complete: ${insertCount} inserted, ${updateCount} updated, ${errorCount} failed`
+      : `Impor selesai: ${insertCount} ditambahkan, ${updateCount} diupdate, ${errorCount} gagal`;
+    
+    toast.success(message);
     
     setIsPreviewOpen(false);
     setPreviewRows([]);
@@ -445,7 +498,7 @@ export default function Products() {
             type="file"
             accept=".csv"
             className="hidden"
-            onChange={handleCsvImport}
+            onChange={handleFileSelect}
           />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -881,6 +934,27 @@ export default function Products() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Import Preview Dialog */}
+      <ImportPreviewDialog
+        isOpen={isPreviewOpen}
+        onClose={() => {
+          setIsPreviewOpen(false);
+          setPreviewRows([]);
+          setParsedData([]);
+        }}
+        onConfirm={handleConfirmImport}
+        title={language === 'en' ? 'Preview Import Products' : 'Preview Impor Produk'}
+        rows={previewRows}
+        columns={[
+          { key: 'sku', header: 'SKU' },
+          { key: 'name', header: language === 'en' ? 'Name' : 'Nama' },
+          { key: 'category', header: language === 'en' ? 'Category' : 'Kategori' },
+          { key: 'unit', header: language === 'en' ? 'Unit' : 'Satuan' },
+        ]}
+        isImporting={isImporting}
+        showUpsertOption={true}
+      />
     </div>
   );
 }
