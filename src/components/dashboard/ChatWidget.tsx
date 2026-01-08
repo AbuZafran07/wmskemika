@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { MessageCircle, Send, X, Maximize2, Minimize2, Clock, Smile } from 'lucide-react';
+import { MessageCircle, Send, X, Maximize2, Minimize2, Clock, Smile, Reply, AtSign } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
@@ -22,11 +22,14 @@ interface ChatMessage {
   is_global: boolean;
   created_at: string;
   read_at: string | null;
+  reply_to_id: string | null;
+  mentions: string[] | null;
   sender?: {
     email: string;
     full_name: string | null;
     avatar_url: string | null;
   };
+  reply_to?: ChatMessage | null;
 }
 
 interface OnlineUser {
@@ -40,7 +43,7 @@ interface TypingUser {
   id: string;
   name: string;
   isTyping: boolean;
-  chatTarget: string | null; // null = global, otherwise user id
+  chatTarget: string | null;
 }
 
 interface ChatWidgetProps {
@@ -58,10 +61,45 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
+  const [showMentionList, setShowMentionList] = useState(false);
+  const [mentionSearch, setMentionSearch] = useState('');
+  const [mentionStartIndex, setMentionStartIndex] = useState(-1);
+  const [allUsers, setAllUsers] = useState<OnlineUser[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  // Fetch all users for mentions
+  useEffect(() => {
+    const fetchUsers = async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, email, full_name, avatar_url')
+        .eq('is_active', true);
+      
+      if (data) {
+        setAllUsers(data.map(u => ({
+          id: u.id,
+          email: u.email,
+          name: u.full_name || u.email,
+          avatar_url: u.avatar_url,
+        })));
+      }
+    };
+    fetchUsers();
+  }, []);
+
+  // Filtered users for mention autocomplete
+  const filteredMentionUsers = useMemo(() => {
+    if (!mentionSearch) return allUsers.filter(u => u.id !== user?.id);
+    const search = mentionSearch.toLowerCase();
+    return allUsers.filter(u => 
+      u.id !== user?.id && 
+      (u.name.toLowerCase().includes(search) || u.email.toLowerCase().includes(search))
+    );
+  }, [allUsers, mentionSearch, user?.id]);
 
   // Fetch messages
   const fetchMessages = async () => {
@@ -88,14 +126,39 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
     }
 
     const senderIds = [...new Set(data?.map((m) => m.sender_id) || [])];
+    const replyIds = [...new Set(data?.filter(m => m.reply_to_id).map(m => m.reply_to_id) || [])];
+    
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, email, full_name, avatar_url')
       .in('id', senderIds);
 
+    // Fetch replied messages
+    let repliedMessages: ChatMessage[] = [];
+    if (replyIds.length > 0) {
+      const { data: replies } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .in('id', replyIds as string[]);
+      
+      if (replies) {
+        const replySenderIds = [...new Set(replies.map(r => r.sender_id))];
+        const { data: replyProfiles } = await supabase
+          .from('profiles')
+          .select('id, email, full_name, avatar_url')
+          .in('id', replySenderIds);
+        
+        repliedMessages = replies.map(msg => ({
+          ...msg,
+          sender: replyProfiles?.find(p => p.id === msg.sender_id),
+        }));
+      }
+    }
+
     const messagesWithSender = data?.map((msg) => ({
       ...msg,
       sender: profiles?.find((p) => p.id === msg.sender_id),
+      reply_to: repliedMessages.find(r => r.id === msg.reply_to_id) || null,
     })) || [];
 
     setMessages(messagesWithSender);
@@ -104,6 +167,14 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
       (m) => m.receiver_id === user.id && !m.read_at
     ).length;
     setUnreadCount(unread);
+
+    // Check for mentions of current user in new messages
+    const mentionedMessages = messagesWithSender.filter(
+      m => m.mentions?.includes(user.id) && m.sender_id !== user.id
+    );
+    if (mentionedMessages.length > 0) {
+      // Notification is handled by realtime subscription
+    }
   };
 
   // Setup typing indicator presence channel
@@ -153,6 +224,36 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
       .on(
         'postgres_changes',
         {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+        },
+        (payload) => {
+          const newMsg = payload.new as any;
+          // Check if user is mentioned
+          if (newMsg.mentions?.includes(user.id) && newMsg.sender_id !== user.id) {
+            // Play notification sound
+            try {
+              const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+              const oscillator = audioContext.createOscillator();
+              const gainNode = audioContext.createGain();
+              oscillator.connect(gainNode);
+              gainNode.connect(audioContext.destination);
+              oscillator.frequency.value = 800;
+              gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+              gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+              oscillator.start(audioContext.currentTime);
+              oscillator.stop(audioContext.currentTime + 0.2);
+            } catch (e) {}
+            
+            toast.info('Anda dimention dalam chat!');
+          }
+          fetchMessages();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
           event: '*',
           schema: 'public',
           table: 'chat_messages',
@@ -195,20 +296,75 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
   }, [user, selectedUser]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setNewMessage(e.target.value);
+    const value = e.target.value;
+    const cursorPosition = e.target.selectionStart || 0;
+    setNewMessage(value);
+    
+    // Check for @ mention trigger
+    const textBeforeCursor = value.slice(0, cursorPosition);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+    
+    if (lastAtIndex !== -1) {
+      const textAfterAt = textBeforeCursor.slice(lastAtIndex + 1);
+      // Check if there's no space after @
+      if (!textAfterAt.includes(' ')) {
+        setShowMentionList(true);
+        setMentionStartIndex(lastAtIndex);
+        setMentionSearch(textAfterAt);
+      } else {
+        setShowMentionList(false);
+        setMentionStartIndex(-1);
+        setMentionSearch('');
+      }
+    } else {
+      setShowMentionList(false);
+      setMentionStartIndex(-1);
+      setMentionSearch('');
+    }
     
     // Update typing status
     updateTypingStatus(true);
     
-    // Clear previous timeout
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
     
-    // Set timeout to stop typing indicator
     typingTimeoutRef.current = setTimeout(() => {
       updateTypingStatus(false);
     }, 2000);
+  };
+
+  const insertMention = (mentionUser: OnlineUser) => {
+    if (mentionStartIndex === -1) return;
+    
+    const beforeMention = newMessage.slice(0, mentionStartIndex);
+    const afterMention = newMessage.slice(mentionStartIndex + mentionSearch.length + 1);
+    const mentionText = `@${mentionUser.name.split(' ')[0]} `;
+    
+    setNewMessage(beforeMention + mentionText + afterMention);
+    setShowMentionList(false);
+    setMentionStartIndex(-1);
+    setMentionSearch('');
+    inputRef.current?.focus();
+  };
+
+  const extractMentions = (text: string): string[] => {
+    const mentionedIds: string[] = [];
+    const mentionRegex = /@(\S+)/g;
+    let match;
+    
+    while ((match = mentionRegex.exec(text)) !== null) {
+      const mentionName = match[1].toLowerCase();
+      const mentionedUser = allUsers.find(u => 
+        u.name.split(' ')[0].toLowerCase() === mentionName ||
+        u.email.split('@')[0].toLowerCase() === mentionName
+      );
+      if (mentionedUser && !mentionedIds.includes(mentionedUser.id)) {
+        mentionedIds.push(mentionedUser.id);
+      }
+    }
+    
+    return mentionedIds;
   };
 
   const sendMessage = async () => {
@@ -220,11 +376,15 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
       clearTimeout(typingTimeoutRef.current);
     }
 
-    const messageData = {
+    const mentions = extractMentions(newMessage);
+
+    const messageData: any = {
       sender_id: user.id,
       receiver_id: selectedUser?.id || null,
       message: newMessage.trim(),
       is_global: !selectedUser,
+      reply_to_id: replyingTo?.id || null,
+      mentions: mentions.length > 0 ? mentions : null,
     };
 
     const { error } = await supabase.from('chat_messages').insert(messageData);
@@ -236,12 +396,20 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
     }
 
     setNewMessage('');
+    setReplyingTo(null);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      if (showMentionList && filteredMentionUsers.length > 0) {
+        insertMention(filteredMentionUsers[0]);
+      } else {
+        sendMessage();
+      }
+    } else if (e.key === 'Escape') {
+      setShowMentionList(false);
+      setReplyingTo(null);
     }
   };
 
@@ -269,6 +437,36 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
       return format(date, 'HH:mm');
     }
     return format(date, 'dd/MM HH:mm');
+  };
+
+  const renderMessageContent = (text: string) => {
+    // Highlight mentions
+    const parts = text.split(/(@\S+)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('@')) {
+        const mentionName = part.slice(1).toLowerCase();
+        const isMentionedUser = allUsers.some(u => 
+          u.name.split(' ')[0].toLowerCase() === mentionName ||
+          u.email.split('@')[0].toLowerCase() === mentionName
+        );
+        const isCurrentUser = user && (
+          user.name?.split(' ')[0].toLowerCase() === mentionName ||
+          user.email?.split('@')[0].toLowerCase() === mentionName
+        );
+        
+        if (isMentionedUser) {
+          return (
+            <span 
+              key={i} 
+              className={`font-semibold ${isCurrentUser ? 'bg-primary/20 text-primary px-1 rounded' : 'text-primary'}`}
+            >
+              {part}
+            </span>
+          );
+        }
+      }
+      return part;
+    });
   };
 
   // Get typing users for current chat
@@ -393,7 +591,7 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
                 return (
                   <div
                     key={msg.id}
-                    className={`flex gap-2 ${isOwnMessage ? 'flex-row-reverse' : ''}`}
+                    className={`flex gap-2 ${isOwnMessage ? 'flex-row-reverse' : ''} group`}
                   >
                     {!isOwnMessage && (
                       <Avatar className="h-7 w-7 shrink-0">
@@ -419,15 +617,42 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
                             'User'}
                         </p>
                       )}
-                      <div
-                        className={`rounded-lg px-3 py-2 text-sm ${
-                          isOwnMessage
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted'
-                        }`}
-                      >
-                        {msg.message}
+                      
+                      {/* Reply preview */}
+                      {msg.reply_to && (
+                        <div className={`text-xs bg-muted/50 rounded px-2 py-1 mb-1 border-l-2 border-primary ${isOwnMessage ? 'ml-auto' : ''}`}>
+                          <p className="text-muted-foreground font-medium">
+                            {msg.reply_to.sender?.full_name || 'User'}
+                          </p>
+                          <p className="truncate text-muted-foreground">
+                            {msg.reply_to.message.slice(0, 50)}
+                            {msg.reply_to.message.length > 50 ? '...' : ''}
+                          </p>
+                        </div>
+                      )}
+                      
+                      <div className="relative">
+                        <div
+                          className={`rounded-lg px-3 py-2 text-sm ${
+                            isOwnMessage
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-muted'
+                          }`}
+                        >
+                          {renderMessageContent(msg.message)}
+                        </div>
+                        
+                        {/* Reply button */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={`absolute -top-1 ${isOwnMessage ? '-left-8' : '-right-8'} h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity`}
+                          onClick={() => setReplyingTo(msg)}
+                        >
+                          <Reply className="h-3 w-3" />
+                        </Button>
                       </div>
+                      
                       <p className="text-[10px] text-muted-foreground mt-0.5">
                         {formatMessageTime(msg.created_at)}
                       </p>
@@ -466,8 +691,58 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
           </div>
         </ScrollArea>
 
+        {/* Reply preview */}
+        {replyingTo && (
+          <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-t-lg border-l-2 border-primary mt-2">
+            <Reply className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium">
+                Membalas {replyingTo.sender?.full_name || 'User'}
+              </p>
+              <p className="text-xs text-muted-foreground truncate">
+                {replyingTo.message.slice(0, 50)}
+                {replyingTo.message.length > 50 ? '...' : ''}
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 shrink-0"
+              onClick={() => setReplyingTo(null)}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
+
+        {/* Mention autocomplete */}
+        {showMentionList && filteredMentionUsers.length > 0 && (
+          <div className="absolute bottom-20 left-3 right-3 bg-popover border rounded-lg shadow-lg max-h-32 overflow-y-auto z-10">
+            {filteredMentionUsers.slice(0, 5).map((mentionUser) => (
+              <button
+                key={mentionUser.id}
+                className="w-full flex items-center gap-2 p-2 hover:bg-muted transition-colors text-left"
+                onClick={() => insertMention(mentionUser)}
+              >
+                <Avatar className="h-6 w-6">
+                  {mentionUser.avatar_url && (
+                    <AvatarImage src={mentionUser.avatar_url} />
+                  )}
+                  <AvatarFallback className="text-xs">
+                    {getInitials(mentionUser.name)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{mentionUser.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{mentionUser.email}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Input with emoji picker */}
-        <div className="flex gap-2 mt-2">
+        <div className={`flex gap-2 ${replyingTo ? '' : 'mt-2'}`}>
           <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
             <PopoverTrigger asChild>
               <Button
@@ -494,12 +769,26 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
               />
             </PopoverContent>
           </Popover>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="shrink-0"
+            onClick={() => {
+              setNewMessage(prev => prev + '@');
+              setShowMentionList(true);
+              setMentionStartIndex(newMessage.length);
+              setMentionSearch('');
+              inputRef.current?.focus();
+            }}
+          >
+            <AtSign className="h-5 w-5" />
+          </Button>
           <Input
             ref={inputRef}
             value={newMessage}
             onChange={handleInputChange}
-            onKeyPress={handleKeyPress}
-            placeholder="Ketik pesan..."
+            onKeyDown={handleKeyPress}
+            placeholder={replyingTo ? 'Ketik balasan...' : 'Ketik pesan... (@ untuk mention)'}
             className="flex-1"
           />
           <Button
