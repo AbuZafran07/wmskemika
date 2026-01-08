@@ -109,7 +109,7 @@ export default function OutboundReport() {
   );
 
   const handleExportCSV = () => {
-    const headers = ['Stock Out No', 'Date', 'Sales Order', 'Customer', 'Product', 'SKU', 'Qty Out', 'Batch No', 'Expiry Date'];
+    const headers = ['Delivery No', 'Date', 'Sales Order', 'Customer', 'Product', 'SKU', 'Qty Out', 'Batch No', 'Expiry Date'];
     const rows: string[][] = [];
 
     filteredRecords.forEach(record => {
@@ -235,7 +235,7 @@ export default function OutboundReport() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{language === 'en' ? 'Stock Out No' : 'No. Stock Out'}</TableHead>
+                  <TableHead>{language === 'en' ? 'Delivery No' : 'No. Pengiriman'}</TableHead>
                   <TableHead>{language === 'en' ? 'Date' : 'Tanggal'}</TableHead>
                   <TableHead>{language === 'en' ? 'Sales Order' : 'Sales Order'}</TableHead>
                   <TableHead>Customer</TableHead>

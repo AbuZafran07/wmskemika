@@ -183,30 +183,30 @@ export default function StockOut() {
   }, [selectedSalesOrderId, salesOrders]);
 
   const generateStockOutNumber = async () => {
-    const { data } = await supabase
-      .from("stock_out_headers")
-      .select("stock_out_number")
-      .order("created_at", { ascending: false })
-      .limit(1);
-
     const date = new Date();
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const datePrefix = `DO/${year}${month}${day}.`;
+
+    // Get the last stock out number for today
+    const { data } = await supabase
+      .from("stock_out_headers")
+      .select("stock_out_number")
+      .like("stock_out_number", `${datePrefix}%`)
+      .order("stock_out_number", { ascending: false })
+      .limit(1);
 
     let sequence = 1;
     if (data && data.length > 0) {
       const lastNumber = data[0].stock_out_number;
-      const match = lastNumber.match(/SO-(\d{6})-(\d+)/);
+      const match = lastNumber.match(/DO\/\d{8}\.(\d+)/);
       if (match) {
-        const lastYearMonth = match[1];
-        const currentYearMonth = `${year}${month}`;
-        if (lastYearMonth === currentYearMonth) {
-          sequence = parseInt(match[2], 10) + 1;
-        }
+        sequence = parseInt(match[1], 10) + 1;
       }
     }
 
-    setStockOutNumber(`SO-${year}${month}-${String(sequence).padStart(3, "0")}`);
+    setStockOutNumber(`${datePrefix}${String(sequence).padStart(2, "0")}`);
   };
 
   const handleBatchQtyChange = (itemIndex: number, batchIndex: number, value: number) => {
