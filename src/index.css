@@ -41,8 +41,8 @@
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 220 15% 20%;
 
-    /* Sidebar muted text - visible on dark sidebar */
-    --sidebar-muted: 0 0% 70%;
+    /* Sidebar muted text - high contrast for visibility */
+    --sidebar-muted: 0 0% 55%;
 
     /* Chart */
     --chart-1: 153 100% 30%;
@@ -79,8 +79,8 @@
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 220 15% 18%;
 
-    /* Sidebar muted text - visible on dark sidebar */
-    --sidebar-muted: 0 0% 70%;
+    /* Sidebar muted text - high contrast for visibility */
+    --sidebar-muted: 0 0% 55%;
   }
 }
 

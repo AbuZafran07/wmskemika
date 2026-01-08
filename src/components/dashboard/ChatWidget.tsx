@@ -560,10 +560,10 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
     return (
       <Button
         onClick={() => setIsMinimized(false)}
-        className="fixed bottom-4 right-4 h-14 w-14 rounded-full shadow-lg z-50 p-0 overflow-hidden"
+        className="fixed bottom-4 right-4 h-14 w-14 rounded-full shadow-lg z-50 p-0 overflow-hidden bg-white hover:bg-gray-50 hover:scale-110 transition-all duration-300 ease-out border border-gray-200"
         size="icon"
       >
-        <img src={ktalkIcon} alt="K'talk" className="h-10 w-10 object-contain" />
+        <img src={ktalkIcon} alt="K'talk" className="h-12 w-12 object-contain" />
         {unreadCount > 0 && (
           <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs">
             {unreadCount}
