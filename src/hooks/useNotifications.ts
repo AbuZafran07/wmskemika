@@ -3,12 +3,15 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface Notification {
   id: string;
-  type: 'low_stock' | 'expiring_soon' | 'expired' | 'info';
+  type: 'low_stock' | 'expiring_soon' | 'expired' | 'info' | 'approval_pending' | 'approved' | 'cancelled' | 'new_order';
   title: string;
   message: string;
   productId?: string;
   productName?: string;
   batchNo?: string;
+  module?: string;
+  refId?: string;
+  refNo?: string;
   createdAt: Date;
   read: boolean;
 }
@@ -99,10 +102,89 @@ export function useNotifications() {
         });
       }
 
-      // Sort by type priority (expired > expiring_soon > low_stock)
+      // Fetch pending approval orders (Plan Orders, Sales Orders, Stock Adjustments)
+      const { data: pendingPlanOrders } = await supabase
+        .from('plan_order_headers')
+        .select('id, plan_number, created_at, status, suppliers(name)')
+        .eq('status', 'pending')
+        .is('is_deleted', false)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      const { data: pendingSalesOrders } = await supabase
+        .from('sales_order_headers')
+        .select('id, sales_order_number, created_at, status, customers(name)')
+        .eq('status', 'pending')
+        .is('is_deleted', false)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      const { data: pendingAdjustments } = await supabase
+        .from('stock_adjustments')
+        .select('id, adjustment_number, created_at, status, reason')
+        .eq('status', 'pending')
+        .is('is_deleted', false)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      // Add approval pending notifications
+      pendingPlanOrders?.forEach((order: any) => {
+        notifs.push({
+          id: `pending_po_${order.id}`,
+          type: 'approval_pending',
+          title: 'Plan Order Pending Approval',
+          message: `${order.plan_number} from ${order.suppliers?.name || 'Unknown'} awaits approval`,
+          module: 'plan_order',
+          refId: order.id,
+          refNo: order.plan_number,
+          createdAt: new Date(order.created_at),
+          read: false,
+        });
+      });
+
+      pendingSalesOrders?.forEach((order: any) => {
+        notifs.push({
+          id: `pending_so_${order.id}`,
+          type: 'approval_pending',
+          title: 'Sales Order Pending Approval',
+          message: `${order.sales_order_number} for ${order.customers?.name || 'Unknown'} awaits approval`,
+          module: 'sales_order',
+          refId: order.id,
+          refNo: order.sales_order_number,
+          createdAt: new Date(order.created_at),
+          read: false,
+        });
+      });
+
+      pendingAdjustments?.forEach((adj: any) => {
+        notifs.push({
+          id: `pending_adj_${adj.id}`,
+          type: 'approval_pending',
+          title: 'Stock Adjustment Pending Approval',
+          message: `${adj.adjustment_number} - ${adj.reason} awaits approval`,
+          module: 'stock_adjustment',
+          refId: adj.id,
+          refNo: adj.adjustment_number,
+          createdAt: new Date(adj.created_at),
+          read: false,
+        });
+      });
+
+      // Sort by priority and date
       notifs.sort((a, b) => {
-        const priority: Record<string, number> = { expired: 0, expiring_soon: 1, low_stock: 2, info: 3 };
-        return priority[a.type] - priority[b.type];
+        const priority: Record<string, number> = { 
+          expired: 0, 
+          approval_pending: 1, 
+          expiring_soon: 2, 
+          low_stock: 3, 
+          new_order: 4,
+          approved: 5,
+          cancelled: 6,
+          info: 7 
+        };
+        const priorityDiff = priority[a.type] - priority[b.type];
+        if (priorityDiff !== 0) return priorityDiff;
+        return b.createdAt.getTime() - a.createdAt.getTime();
       });
 
       setNotifications(notifs);

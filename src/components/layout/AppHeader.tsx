@@ -1,5 +1,5 @@
-import React from 'react';
-import { Menu, X, Sun, Moon, Bell, User, LogOut, Settings, ChevronDown, AlertTriangle, Calendar, Package } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Menu, X, Sun, Moon, Bell, User, LogOut, Settings, ChevronDown, AlertTriangle, Calendar, Package, CheckCircle, FileText, ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -21,8 +21,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications, Notification } from '@/hooks/useNotifications';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import logoImage from '@/assets/logo.png';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AppHeaderProps {
   onMenuClick: () => void;
@@ -35,6 +37,28 @@ export default function AppHeader({ onMenuClick, isMobileDrawerOpen }: AppHeader
   const { user, logout } = useAuth();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const navigate = useNavigate();
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  // Fetch signed URL for avatar
+  useEffect(() => {
+    const fetchAvatarUrl = async () => {
+      if (user?.avatar) {
+        try {
+          const { data } = await supabase.storage
+            .from('avatars')
+            .createSignedUrl(user.avatar, 3600);
+          if (data?.signedUrl) {
+            setAvatarUrl(data.signedUrl);
+          }
+        } catch (error) {
+          console.error('Error fetching avatar URL:', error);
+        }
+      } else {
+        setAvatarUrl(null);
+      }
+    };
+    fetchAvatarUrl();
+  }, [user?.avatar]);
 
   const handleLogout = () => {
     logout();
@@ -59,6 +83,14 @@ export default function AppHeader({ onMenuClick, isMobileDrawerOpen }: AppHeader
         return <Calendar className="w-4 h-4 text-warning" />;
       case 'expired':
         return <AlertTriangle className="w-4 h-4 text-destructive" />;
+      case 'approval_pending':
+        return <ClipboardList className="w-4 h-4 text-info" />;
+      case 'approved':
+        return <CheckCircle className="w-4 h-4 text-success" />;
+      case 'cancelled':
+        return <AlertTriangle className="w-4 h-4 text-destructive" />;
+      case 'new_order':
+        return <FileText className="w-4 h-4 text-primary" />;
       default:
         return <Bell className="w-4 h-4 text-info" />;
     }
@@ -68,10 +100,16 @@ export default function AppHeader({ onMenuClick, isMobileDrawerOpen }: AppHeader
     if (read) return 'bg-muted/30';
     switch (type) {
       case 'expired':
+      case 'cancelled':
         return 'bg-destructive/10';
       case 'low_stock':
       case 'expiring_soon':
         return 'bg-warning/10';
+      case 'approved':
+        return 'bg-success/10';
+      case 'approval_pending':
+      case 'new_order':
+        return 'bg-primary/10';
       default:
         return 'bg-info/10';
     }
@@ -83,6 +121,16 @@ export default function AppHeader({ onMenuClick, isMobileDrawerOpen }: AppHeader
       navigate('/data-stock');
     } else if (notif.type === 'expiring_soon' || notif.type === 'expired') {
       navigate('/reports/expiry');
+    } else if (notif.module === 'plan_order') {
+      navigate('/plan-order');
+    } else if (notif.module === 'sales_order') {
+      navigate('/sales-order');
+    } else if (notif.module === 'stock_adjustment') {
+      navigate('/stock-adjustment');
+    } else if (notif.module === 'stock_in') {
+      navigate('/stock-in');
+    } else if (notif.module === 'stock_out') {
+      navigate('/stock-out');
     }
   };
 
@@ -236,9 +284,12 @@ export default function AppHeader({ onMenuClick, isMobileDrawerOpen }: AppHeader
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-2 px-2">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <User className="w-4 h-4 text-primary" />
-              </div>
+              <Avatar className="w-8 h-8">
+                <AvatarImage src={avatarUrl || undefined} alt={user?.name} />
+                <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                  {user?.name?.charAt(0)?.toUpperCase() || <User className="w-4 h-4" />}
+                </AvatarFallback>
+              </Avatar>
               <div className="hidden md:flex flex-col items-start">
                 <span className="text-sm font-medium">{user?.name}</span>
                 <Badge variant={getRoleBadgeVariant(user?.role || '')} className="text-[10px] px-1.5 py-0">
