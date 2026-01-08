@@ -137,6 +137,36 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_messages: {
+        Row: {
+          created_at: string
+          id: string
+          is_global: boolean | null
+          message: string
+          read_at: string | null
+          receiver_id: string | null
+          sender_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_global?: boolean | null
+          message: string
+          read_at?: string | null
+          receiver_id?: string | null
+          sender_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_global?: boolean | null
+          message?: string
+          read_at?: string | null
+          receiver_id?: string | null
+          sender_id?: string
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           address: string | null
@@ -1147,6 +1177,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_old_chat_messages: { Args: never; Returns: undefined }
       get_user_email: { Args: { _user_id: string }; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
