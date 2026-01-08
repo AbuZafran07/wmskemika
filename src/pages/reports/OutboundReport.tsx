@@ -109,7 +109,7 @@ export default function OutboundReport() {
   );
 
   const handleExportCSV = () => {
-    const headers = [Delivery No', 'Date', 'Sales Order', 'Customer', 'Product', 'SKU', 'Qty Out', 'Batch No', 'Expiry Date'];
+    const headers = ['Delivery No', 'Date', 'Sales Order', 'Customer', 'Product', 'SKU', 'Qty Out', 'Batch No', 'Expiry Date'];
     const rows: string[][] = [];
 
     filteredRecords.forEach(record => {
