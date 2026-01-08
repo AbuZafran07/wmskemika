@@ -38,6 +38,7 @@ import ExpiryAlert from "./pages/reports/ExpiryAlert";
 import Profile from "./pages/Profile";
 
 import NotFound from "./pages/NotFound";
+import Notifications from "./pages/Notifications";
 
 const queryClient = new QueryClient();
 
@@ -74,6 +75,7 @@ const App = () => (
                   <Route path="/user-management" element={<UserManagement />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/profile" element={<Profile />} />
+                  <Route path="/notifications" element={<Notifications />} />
                   
                   {/* Reports */}
                   <Route path="/reports/stock" element={<StockReport />} />
