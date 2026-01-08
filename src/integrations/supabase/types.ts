@@ -142,30 +142,44 @@ export type Database = {
           created_at: string
           id: string
           is_global: boolean | null
+          mentions: string[] | null
           message: string
           read_at: string | null
           receiver_id: string | null
+          reply_to_id: string | null
           sender_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           is_global?: boolean | null
+          mentions?: string[] | null
           message: string
           read_at?: string | null
           receiver_id?: string | null
+          reply_to_id?: string | null
           sender_id: string
         }
         Update: {
           created_at?: string
           id?: string
           is_global?: boolean | null
+          mentions?: string[] | null
           message?: string
           read_at?: string | null
           receiver_id?: string | null
+          reply_to_id?: string | null
           sender_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       customers: {
         Row: {
