@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo } from 'react';
-import DOMPurify from 'dompurify';
+import { securePrint, printStyles } from '@/lib/printUtils';
 import { Plus, Search, Eye, Edit, MoreHorizontal, CheckCircle, XCircle, Loader2, Upload, ArrowLeft, Trash2, Printer, Archive, List, Download, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -212,123 +212,11 @@ export default function PlanOrder() {
   const handleExportPDF = () => {
     if (!selectedOrder || !printRef.current) return;
     
-    const printContent = printRef.current;
-    const printWindow = window.open('', '_blank');
-    
-    if (printWindow) {
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Plan Order - ${selectedOrder.plan_number}</title>
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { 
-              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-              padding: 20px; 
-              color: #333;
-              font-size: 12px;
-            }
-            .header { 
-              text-align: center; 
-              border-bottom: 2px solid #333; 
-              padding-bottom: 15px; 
-              margin-bottom: 20px; 
-            }
-            .company-name { font-size: 18px; font-weight: bold; color: #1a365d; }
-            .document-title { font-size: 16px; margin-top: 10px; font-weight: 600; }
-            .info-grid { 
-              display: grid; 
-              grid-template-columns: 1fr 1fr; 
-              gap: 15px; 
-              margin-bottom: 20px; 
-            }
-            .info-item label { 
-              font-size: 10px; 
-              color: #666; 
-              text-transform: uppercase; 
-              display: block;
-              margin-bottom: 2px;
-            }
-            .info-item p { font-weight: 500; }
-            table { 
-              width: 100%; 
-              border-collapse: collapse; 
-              margin: 20px 0; 
-            }
-            th, td { 
-              border: 1px solid #ddd; 
-              padding: 8px; 
-              text-align: left; 
-            }
-            th { 
-              background: #f5f5f5; 
-              font-weight: 600; 
-              font-size: 11px;
-            }
-            .text-right { text-align: right; }
-            .text-center { text-align: center; }
-            .summary { 
-              margin-top: 20px; 
-              border-top: 1px solid #ddd;
-              padding-top: 15px;
-            }
-            .summary-row { 
-              display: flex; 
-              justify-content: space-between; 
-              padding: 5px 0;
-            }
-            .summary-row.total { 
-              font-weight: bold; 
-              font-size: 14px; 
-              border-top: 2px solid #333;
-              margin-top: 10px;
-              padding-top: 10px;
-            }
-            .footer { 
-              margin-top: 40px; 
-              display: grid; 
-              grid-template-columns: 1fr 1fr 1fr; 
-              text-align: center; 
-            }
-            .signature { 
-              padding-top: 60px; 
-              border-top: 1px solid #333; 
-              margin-top: 60px;
-              width: 80%;
-              margin-left: auto;
-              margin-right: auto;
-            }
-            .badge {
-              display: inline-block;
-              padding: 2px 8px;
-              border-radius: 4px;
-              font-size: 10px;
-              font-weight: 600;
-            }
-            .badge-draft { background: #e2e8f0; color: #475569; }
-            .badge-approved { background: #dcfce7; color: #166534; }
-            .badge-pending { background: #fef3c7; color: #92400e; }
-            .badge-success { background: #d1fae5; color: #065f46; }
-            .badge-cancelled { background: #fee2e2; color: #991b1b; }
-            @media print {
-              body { padding: 0; }
-            }
-          </style>
-        </head>
-        <body>
-          ${DOMPurify.sanitize(printContent.innerHTML)}
-          <script>
-            window.onload = function() { 
-              window.print(); 
-              window.onafterprint = function() { window.close(); }
-            }
-          </script>
-        </body>
-        </html>
-      `);
-      printWindow.document.close();
-    }
+    securePrint({
+      title: `Plan Order - ${selectedOrder.plan_number}`,
+      styles: printStyles.planOrder,
+      content: printRef.current.innerHTML
+    });
   };
 
   const calculateTotals = () => {

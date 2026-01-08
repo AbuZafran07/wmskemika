@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import html2pdf from "html2pdf.js";
 import DOMPurify from "dompurify";
+import { securePrint, printStyles } from "@/lib/printUtils";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1509,29 +1510,11 @@ export default function SalesOrder() {
                   size="sm"
                   onClick={() => {
                     if (!printRef.current || !selectedOrder) return;
-                    const w = window.open("", "_blank");
-                    if (!w) return;
-                    w.document.write(`
-                      <!DOCTYPE html>
-                      <html>
-                        <head>
-                          <title>Sales Order - ${selectedOrder.sales_order_number}</title>
-                          <meta charset="utf-8" />
-                          <style>
-                            * { box-sizing: border-box; }
-                            body { font-family: Arial, sans-serif; padding: 16px; color: #111; }
-                            @page { margin: 12mm; }
-                          </style>
-                        </head>
-                        <body>
-                          ${DOMPurify.sanitize(printRef.current.innerHTML)}
-                          <script>
-                            window.onload = function() { window.print(); window.onafterprint = function(){ window.close(); } }
-                          </script>
-                        </body>
-                      </html>
-                    `);
-                    w.document.close();
+                    securePrint({
+                      title: `Sales Order - ${selectedOrder.sales_order_number}`,
+                      styles: printStyles.salesOrder,
+                      content: printRef.current.innerHTML
+                    });
                   }}
                   disabled={itemsLoading}
                 >
@@ -1980,25 +1963,11 @@ export default function SalesOrder() {
             <Button
               onClick={() => {
                 if (!printRef.current || !selectedOrder) return;
-                const w = window.open("", "_blank");
-                if (!w) return;
-                w.document.write(`
-                  <!DOCTYPE html>
-                  <html>
-                    <head>
-                      <title>Sales Order - ${selectedOrder.sales_order_number}</title>
-                      <meta charset="utf-8" />
-                      <style>*{box-sizing:border-box} body{font-family:Arial,sans-serif;padding:16px;color:#111} @page{margin:12mm}</style>
-                    </head>
-                    <body>
-                      ${DOMPurify.sanitize(printRef.current.innerHTML)}
-                      <script>
-                        window.onload=function(){window.print();window.onafterprint=function(){window.close();}}
-                      </script>
-                    </body>
-                  </html>
-                `);
-                w.document.close();
+                securePrint({
+                  title: `Sales Order - ${selectedOrder.sales_order_number}`,
+                  styles: printStyles.salesOrder,
+                  content: printRef.current.innerHTML
+                });
               }}
             >
               <Printer className="w-4 h-4 mr-2" />
