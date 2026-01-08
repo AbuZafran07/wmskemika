@@ -68,6 +68,7 @@ import {
 import { useSettings } from "@/hooks/usePlanOrders";
 import { useCustomers, useProducts } from "@/hooks/useMasterData";
 import { uploadFile, getSignedUrl } from "@/lib/storage";
+import { generateUniqueSalesOrderNumber } from "@/lib/transactionNumberUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -253,46 +254,8 @@ export default function SalesOrder() {
 
   // === NUMBER GENERATOR ===
   const generateSoNumber = async () => {
-    const { data, error } = await supabase
-      .from("sales_order_headers")
-      .select("sales_order_number")
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const dateStr = `${year}${month}${day}`;
-
-    if (error) {
-      console.error(error);
-      setSoNumber(`SO/${dateStr}.01`);
-      return;
-    }
-
-    let sequence = 1;
-    if (data && data.length > 0) {
-      const lastNumber = data[0].sales_order_number;
-      // Match format SO/YYYYMMDD.XX or old format SO-YYYYMM-XXXX
-      const newMatch = lastNumber.match(/SO\/(\d{8})\.(\d+)/i);
-      const oldMatch = lastNumber.match(/SO[-\/](\d{6})[-\/](\d+)/i);
-      
-      if (newMatch) {
-        const lastDate = newMatch[1];
-        if (lastDate === dateStr) {
-          sequence = parseInt(newMatch[2], 10) + 1;
-        }
-      } else if (oldMatch) {
-        const lastYearMonth = oldMatch[1];
-        const currentYearMonth = `${year}${month}`;
-        if (lastYearMonth === currentYearMonth) {
-          sequence = parseInt(oldMatch[2], 10) + 1;
-        }
-      }
-    }
-
-    setSoNumber(`SO/${dateStr}.${String(sequence).padStart(2, "0")}`);
+    const number = await generateUniqueSalesOrderNumber();
+    setSoNumber(number);
   };
 
   const resetForm = () => {

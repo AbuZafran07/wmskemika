@@ -12,6 +12,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadFile } from "@/lib/storage";
 import { getUserFriendlyError } from "@/lib/errorHandler";
+import { generateUniqueStockInNumber } from "@/lib/transactionNumberUtils";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
@@ -152,50 +153,9 @@ export default function StockIn() {
     fetchItems();
   }, [selectedPlanOrderId, planOrders]);
 
-  const getNextStockInNumber = async (): Promise<string> => {
-    const { data, error } = await supabase
-      .from("stock_in_headers")
-      .select("stock_in_number")
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    if (error) {
-      console.error(error);
-    }
-
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const dateStr = `${year}${month}${day}`;
-
-    let sequence = 1;
-    if (data && data.length > 0) {
-      const lastNumber = data[0].stock_in_number;
-      // Match format SI/YYYYMMDD.XX or old format SI-YYYYMM-XXX
-      const newMatch = lastNumber.match(/SI\/(\d{8})\.(\d+)/i);
-      const oldMatch = lastNumber.match(/SI-(\d{6})-(\d+)/);
-      
-      if (newMatch) {
-        const lastDate = newMatch[1];
-        if (lastDate === dateStr) {
-          sequence = parseInt(newMatch[2], 10) + 1;
-        }
-      } else if (oldMatch) {
-        const lastYearMonth = oldMatch[1];
-        const currentYearMonth = `${year}${month}`;
-        if (lastYearMonth === currentYearMonth) {
-          sequence = parseInt(oldMatch[2], 10) + 1;
-        }
-      }
-    }
-
-    return `SI/${dateStr}.${String(sequence).padStart(2, "0")}`;
-  };
-
   const generateStockInNumber = async () => {
-    const next = await getNextStockInNumber();
-    setStockInNumber(next);
+    const number = await generateUniqueStockInNumber();
+    setStockInNumber(number);
   };
 
   const handleItemChange = (index: number, field: keyof StockInItem, value: string | number) => {
