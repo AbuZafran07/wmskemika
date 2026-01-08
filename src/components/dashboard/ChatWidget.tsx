@@ -9,13 +9,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { 
-  MessageCircle, Send, X, Maximize2, Minimize2, Clock, Smile, Reply, AtSign, 
+  Send, X, Maximize2, Minimize2, Clock, Smile, Reply, AtSign, 
   Paperclip, Image, FileText, Download, Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 import { useTheme } from '@/contexts/ThemeContext';
+import ktalkIcon from '@/assets/ktalk-icon.png';
 
 interface ChatReaction {
   id: string;
@@ -559,10 +560,10 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
     return (
       <Button
         onClick={() => setIsMinimized(false)}
-        className="fixed bottom-4 right-4 h-14 w-14 rounded-full shadow-lg z-50"
+        className="fixed bottom-4 right-4 h-14 w-14 rounded-full shadow-lg z-50 p-0 overflow-hidden"
         size="icon"
       >
-        <MessageCircle className="h-6 w-6" />
+        <img src={ktalkIcon} alt="K'talk" className="h-10 w-10 object-contain" />
         {unreadCount > 0 && (
           <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs">
             {unreadCount}
@@ -576,7 +577,7 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
     <Card className={`fixed bottom-4 right-4 shadow-xl z-50 transition-all duration-300 ${isExpanded ? 'w-[500px] h-[600px]' : 'w-[350px] h-[450px]'}`}>
       <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
         <CardTitle className="flex items-center gap-2 text-base">
-          <MessageCircle className="h-5 w-5 text-primary" />
+          <img src={ktalkIcon} alt="K'talk" className="h-6 w-6 object-contain" />
           {selectedUser ? (
             <span className="flex items-center gap-2">
               <Avatar className="h-6 w-6">
