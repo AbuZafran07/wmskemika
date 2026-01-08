@@ -50,7 +50,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { uploadFile } from '@/lib/storage';
 import { ProductImage } from '@/components/ProductImage';
 import { toast } from 'sonner';
-import { exportToCSV, parseCSV, readFileAsText, downloadCSVTemplate } from '@/lib/csvUtils';
+import { exportToCSV, parseCSV, readFileAsText, downloadCSVTemplate, checkDuplicates, getColumnValue } from '@/lib/csvUtils';
+import { ImportPreviewDialog, ImportPreviewRow } from '@/components/ImportPreviewDialog';
 
 interface ProductFormData {
   sku: string;
@@ -100,6 +101,9 @@ export default function Products() {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewRows, setPreviewRows] = useState<ImportPreviewRow[]>([]);
+  const [parsedData, setParsedData] = useState<Record<string, string>[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
 
@@ -143,85 +147,140 @@ export default function Products() {
     );
   };
 
-  const handleCsvImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setIsImporting(true);
     try {
       const content = await readFileAsText(file);
       const rows = parseCSV(content);
       
       if (rows.length === 0) {
         toast.error(language === 'en' ? 'No data found in file' : 'Tidak ada data dalam file');
+        if (csvInputRef.current) csvInputRef.current.value = '';
         return;
       }
 
-      let successCount = 0;
-      let errorCount = 0;
+      const existingSkus = products.filter(p => p.sku).map(p => p.sku as string);
+      const duplicateCheck = checkDuplicates(rows, 'SKU', existingSkus);
 
-      for (const row of rows) {
-        const sku = row['SKU'];
-        const name = row[language === 'en' ? 'Product Name' : 'Nama Produk'] || row['Product Name'] || row['Nama Produk'];
-        const categoryCode = row[language === 'en' ? 'Category Code' : 'Kode Kategori'] || row['Category Code'] || row['Kode Kategori'];
-        const unitCode = row[language === 'en' ? 'Unit Code' : 'Kode Satuan'] || row['Unit Code'] || row['Kode Satuan'];
+      const preview: ImportPreviewRow[] = rows.map((row, index) => {
+        const sku = row['SKU'] || '';
+        const name = getColumnValue(row, ['Product Name', 'Nama Produk']);
+        const categoryCode = getColumnValue(row, ['Category Code', 'Kode Kategori']);
+        const unitCode = getColumnValue(row, ['Unit Code', 'Kode Satuan']);
         const supplierCode = row['Supplier Code'];
-        const purchase_price = row[language === 'en' ? 'Purchase Price' : 'Harga Beli'] || row['Purchase Price'] || row['Harga Beli'];
-        const selling_price = row[language === 'en' ? 'Selling Price' : 'Harga Jual'] || row['Selling Price'] || row['Harga Jual'];
-        const min_stock = row[language === 'en' ? 'Min Stock' : 'Stok Min'] || row['Min Stock'] || row['Stok Min'];
-        const max_stock = row[language === 'en' ? 'Max Stock' : 'Stok Maks'] || row['Max Stock'] || row['Stok Maks'];
-        const location_rack = row[language === 'en' ? 'Location' : 'Lokasi'] || row['Location'] || row['Lokasi'];
-        const status = row['Status']?.toLowerCase();
+        const purchase_price = getColumnValue(row, ['Purchase Price', 'Harga Beli']);
+        const dupInfo = duplicateCheck.get(index);
 
-        if (!name || !purchase_price) {
-          errorCount++;
-          continue;
-        }
-
-        // Find category, unit, supplier IDs
         const category = categories.find(c => c.code.toLowerCase() === categoryCode?.toLowerCase());
         const unit = units.find(u => u.code.toLowerCase() === unitCode?.toLowerCase());
         const supplier = suppliers.find(s => s.code.toLowerCase() === supplierCode?.toLowerCase());
 
+        if (!name || !purchase_price) {
+          return {
+            rowIndex: index + 2,
+            data: { sku, name, category: categoryCode, unit: unitCode },
+            status: 'error' as const,
+            message: language === 'en' ? 'Name and Purchase Price required' : 'Nama dan Harga Beli wajib',
+          };
+        }
+
         if (!category || !unit || !supplier) {
-          errorCount++;
-          continue;
+          return {
+            rowIndex: index + 2,
+            data: { sku, name, category: categoryCode, unit: unitCode },
+            status: 'error' as const,
+            message: language === 'en' ? 'Invalid category/unit/supplier code' : 'Kode kategori/satuan/supplier tidak valid',
+          };
         }
 
-        const { error } = await supabase.from('products').insert({
-          sku: sku || null,
-          barcode: generateBarcode(),
-          name,
-          category_id: category.id,
-          unit_id: unit.id,
-          supplier_id: supplier.id,
-          purchase_price: parseFloat(purchase_price),
-          selling_price: selling_price ? parseFloat(selling_price) : null,
-          min_stock: parseInt(min_stock) || 0,
-          max_stock: max_stock ? parseInt(max_stock) : null,
-          location_rack: location_rack || null,
-          is_active: status !== 'inactive',
-        });
-
-        if (error) {
-          errorCount++;
-        } else {
-          successCount++;
+        if (sku && dupInfo?.isDuplicate) {
+          return {
+            rowIndex: index + 2,
+            data: { sku, name, category: category.name, unit: unit.name },
+            status: 'duplicate' as const,
+            message: dupInfo.duplicateType === 'database' 
+              ? (language === 'en' ? 'SKU already exists' : 'SKU sudah ada')
+              : (language === 'en' ? 'Duplicate SKU in CSV' : 'SKU duplikat dalam CSV'),
+          };
         }
-      }
 
-      toast.success(
-        language === 'en'
-          ? `Import complete: ${successCount} success, ${errorCount} failed`
-          : `Impor selesai: ${successCount} berhasil, ${errorCount} gagal`
-      );
-      refetch();
+        return {
+          rowIndex: index + 2,
+          data: { sku: sku || '(none)', name, category: category.name, unit: unit.name },
+          status: 'valid' as const,
+        };
+      });
+
+      setParsedData(rows);
+      setPreviewRows(preview);
+      setIsPreviewOpen(true);
     } catch (error) {
-      toast.error(language === 'en' ? 'Failed to import file' : 'Gagal mengimpor file');
+      toast.error(language === 'en' ? 'Failed to read file' : 'Gagal membaca file');
     } finally {
-      setIsImporting(false);
       if (csvInputRef.current) csvInputRef.current.value = '';
     }
+  };
+
+  const handleConfirmImport = async () => {
+    setIsImporting(true);
+    let successCount = 0;
+    let errorCount = 0;
+
+    const validRows = previewRows.filter(r => r.status === 'valid');
+
+    for (const previewRow of validRows) {
+      const row = parsedData[previewRow.rowIndex - 2];
+      const sku = row['SKU'];
+      const name = getColumnValue(row, ['Product Name', 'Nama Produk']);
+      const categoryCode = getColumnValue(row, ['Category Code', 'Kode Kategori']);
+      const unitCode = getColumnValue(row, ['Unit Code', 'Kode Satuan']);
+      const supplierCode = row['Supplier Code'];
+      const purchase_price = getColumnValue(row, ['Purchase Price', 'Harga Beli']);
+      const selling_price = getColumnValue(row, ['Selling Price', 'Harga Jual']);
+      const min_stock = getColumnValue(row, ['Min Stock', 'Stok Min']);
+      const max_stock = getColumnValue(row, ['Max Stock', 'Stok Maks']);
+      const location_rack = getColumnValue(row, ['Location', 'Lokasi']);
+      const status = row['Status']?.toLowerCase();
+
+      const category = categories.find(c => c.code.toLowerCase() === categoryCode?.toLowerCase());
+      const unit = units.find(u => u.code.toLowerCase() === unitCode?.toLowerCase());
+      const supplier = suppliers.find(s => s.code.toLowerCase() === supplierCode?.toLowerCase());
+
+      const { error } = await supabase.from('products').insert({
+        sku: sku || null,
+        barcode: generateBarcode(),
+        name,
+        category_id: category!.id,
+        unit_id: unit!.id,
+        supplier_id: supplier!.id,
+        purchase_price: parseFloat(purchase_price),
+        selling_price: selling_price ? parseFloat(selling_price) : null,
+        min_stock: parseInt(min_stock) || 0,
+        max_stock: max_stock ? parseInt(max_stock) : null,
+        location_rack: location_rack || null,
+        is_active: status !== 'inactive',
+      });
+
+      if (error) {
+        errorCount++;
+      } else {
+        successCount++;
+      }
+    }
+
+    toast.success(
+      language === 'en'
+        ? `Import complete: ${successCount} success, ${errorCount} failed`
+        : `Impor selesai: ${successCount} berhasil, ${errorCount} gagal`
+    );
+    
+    setIsPreviewOpen(false);
+    setPreviewRows([]);
+    setParsedData([]);
+    refetch();
+    setIsImporting(false);
   };
 
   const formatCurrency = (value: number) => {

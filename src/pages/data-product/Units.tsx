@@ -42,7 +42,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useUnits, Unit } from '@/hooks/useMasterData';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { exportToCSV, parseCSV, readFileAsText, downloadCSVTemplate } from '@/lib/csvUtils';
+import { exportToCSV, parseCSV, readFileAsText, downloadCSVTemplate, checkDuplicates, getColumnValue } from '@/lib/csvUtils';
+import { ImportPreviewDialog, ImportPreviewRow } from '@/components/ImportPreviewDialog';
 
 interface UnitFormData {
   code: string;
@@ -70,6 +71,9 @@ export default function Units() {
   const [formData, setFormData] = useState<UnitFormData>(initialFormData);
   const [isSaving, setIsSaving] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewRows, setPreviewRows] = useState<ImportPreviewRow[]>([]);
+  const [parsedData, setParsedData] = useState<Record<string, string>[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = () => {
@@ -98,60 +102,105 @@ export default function Units() {
     );
   };
 
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setIsImporting(true);
     try {
       const content = await readFileAsText(file);
       const rows = parseCSV(content);
       
       if (rows.length === 0) {
         toast.error(language === 'en' ? 'No data found in file' : 'Tidak ada data dalam file');
+        if (fileInputRef.current) fileInputRef.current.value = '';
         return;
       }
 
-      let successCount = 0;
-      let errorCount = 0;
+      const codeField = language === 'en' ? 'Code' : 'Kode';
+      const existingCodes = units.map(u => u.code);
+      const duplicateCheck = checkDuplicates(rows, codeField, existingCodes);
 
-      for (const row of rows) {
-        const code = row[language === 'en' ? 'Code' : 'Kode'] || row['Code'] || row['Kode'];
-        const name = row[language === 'en' ? 'Name' : 'Nama'] || row['Name'] || row['Nama'];
-        const description = row[language === 'en' ? 'Description' : 'Deskripsi'] || row['Description'] || row['Deskripsi'];
-        const status = row['Status']?.toLowerCase();
+      const preview: ImportPreviewRow[] = rows.map((row, index) => {
+        const code = getColumnValue(row, ['Code', 'Kode']);
+        const name = getColumnValue(row, ['Name', 'Nama']);
+        const dupInfo = duplicateCheck.get(index);
 
         if (!code || !name) {
-          errorCount++;
-          continue;
+          return {
+            rowIndex: index + 2,
+            data: { code, name, description: getColumnValue(row, ['Description', 'Deskripsi']), status: row['Status'] || '' },
+            status: 'error' as const,
+            message: language === 'en' ? 'Code and Name are required' : 'Kode dan Nama wajib diisi',
+          };
         }
 
-        const { error } = await supabase.from('units').insert({
-          code: code.toUpperCase(),
-          name,
-          description: description || null,
-          is_active: status !== 'inactive',
-        });
-
-        if (error) {
-          errorCount++;
-        } else {
-          successCount++;
+        if (dupInfo?.isDuplicate) {
+          return {
+            rowIndex: index + 2,
+            data: { code, name, description: getColumnValue(row, ['Description', 'Deskripsi']), status: row['Status'] || '' },
+            status: 'duplicate' as const,
+            message: dupInfo.duplicateType === 'database' 
+              ? (language === 'en' ? 'Already exists in database' : 'Sudah ada di database')
+              : (language === 'en' ? 'Duplicate in CSV file' : 'Duplikat dalam file CSV'),
+          };
         }
-      }
 
-      toast.success(
-        language === 'en'
-          ? `Import complete: ${successCount} success, ${errorCount} failed`
-          : `Impor selesai: ${successCount} berhasil, ${errorCount} gagal`
-      );
-      refetch();
+        return {
+          rowIndex: index + 2,
+          data: { code, name, description: getColumnValue(row, ['Description', 'Deskripsi']), status: row['Status'] || '' },
+          status: 'valid' as const,
+        };
+      });
+
+      setParsedData(rows);
+      setPreviewRows(preview);
+      setIsPreviewOpen(true);
     } catch (error) {
-      toast.error(language === 'en' ? 'Failed to import file' : 'Gagal mengimpor file');
+      toast.error(language === 'en' ? 'Failed to read file' : 'Gagal membaca file');
     } finally {
-      setIsImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  const handleConfirmImport = async () => {
+    setIsImporting(true);
+    let successCount = 0;
+    let errorCount = 0;
+
+    const validRows = previewRows.filter(r => r.status === 'valid');
+
+    for (const previewRow of validRows) {
+      const row = parsedData[previewRow.rowIndex - 2];
+      const code = getColumnValue(row, ['Code', 'Kode']);
+      const name = getColumnValue(row, ['Name', 'Nama']);
+      const description = getColumnValue(row, ['Description', 'Deskripsi']);
+      const status = row['Status']?.toLowerCase();
+
+      const { error } = await supabase.from('units').insert({
+        code: code.toUpperCase(),
+        name,
+        description: description || null,
+        is_active: status !== 'inactive',
+      });
+
+      if (error) {
+        errorCount++;
+      } else {
+        successCount++;
+      }
+    }
+
+    toast.success(
+      language === 'en'
+        ? `Import complete: ${successCount} success, ${errorCount} failed`
+        : `Impor selesai: ${successCount} berhasil, ${errorCount} gagal`
+    );
+    
+    setIsPreviewOpen(false);
+    setPreviewRows([]);
+    setParsedData([]);
+    refetch();
+    setIsImporting(false);
   };
 
   const filteredUnits = units.filter(unit =>
@@ -261,7 +310,7 @@ export default function Units() {
             type="file"
             accept=".csv"
             className="hidden"
-            onChange={handleImport}
+            onChange={handleFileSelect}
           />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -453,6 +502,26 @@ export default function Units() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Import Preview Dialog */}
+      <ImportPreviewDialog
+        isOpen={isPreviewOpen}
+        onClose={() => {
+          setIsPreviewOpen(false);
+          setPreviewRows([]);
+          setParsedData([]);
+        }}
+        onConfirm={handleConfirmImport}
+        title={language === 'en' ? 'Preview Import Units' : 'Preview Impor Satuan'}
+        rows={previewRows}
+        columns={[
+          { key: 'code', header: language === 'en' ? 'Code' : 'Kode' },
+          { key: 'name', header: language === 'en' ? 'Name' : 'Nama' },
+          { key: 'description', header: language === 'en' ? 'Description' : 'Deskripsi' },
+          { key: 'status', header: 'Status' },
+        ]}
+        isImporting={isImporting}
+      />
     </div>
   );
 }

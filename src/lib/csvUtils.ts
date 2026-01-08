@@ -6,6 +6,13 @@ export interface CSVColumn<T> {
   getValue?: (item: T) => string | number;
 }
 
+export interface ValidationResult {
+  isValid: boolean;
+  isDuplicate: boolean;
+  hasWarning: boolean;
+  message?: string;
+}
+
 // Export data to CSV
 export function exportToCSV<T>(
   data: T[],
@@ -146,4 +153,55 @@ export function downloadCSVTemplate(
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(link.href);
+}
+
+// Check for duplicates in CSV data
+export function checkDuplicates(
+  rows: Record<string, string>[],
+  keyField: string,
+  existingCodes: string[]
+): Map<number, { isDuplicate: boolean; duplicateType: 'csv' | 'database' | null }> {
+  const result = new Map<number, { isDuplicate: boolean; duplicateType: 'csv' | 'database' | null }>();
+  const seenCodes = new Map<string, number>(); // code -> first row index
+  
+  const existingCodesLower = new Set(existingCodes.map(c => c.toLowerCase()));
+  
+  rows.forEach((row, index) => {
+    const code = row[keyField]?.toLowerCase();
+    
+    if (!code) {
+      result.set(index, { isDuplicate: false, duplicateType: null });
+      return;
+    }
+    
+    // Check if duplicate in database
+    if (existingCodesLower.has(code)) {
+      result.set(index, { isDuplicate: true, duplicateType: 'database' });
+      return;
+    }
+    
+    // Check if duplicate within CSV
+    if (seenCodes.has(code)) {
+      result.set(index, { isDuplicate: true, duplicateType: 'csv' });
+      return;
+    }
+    
+    seenCodes.set(code, index);
+    result.set(index, { isDuplicate: false, duplicateType: null });
+  });
+  
+  return result;
+}
+
+// Get column value with multiple possible header names
+export function getColumnValue(
+  row: Record<string, string>,
+  possibleHeaders: string[]
+): string {
+  for (const header of possibleHeaders) {
+    if (row[header] !== undefined && row[header] !== '') {
+      return row[header];
+    }
+  }
+  return '';
 }
