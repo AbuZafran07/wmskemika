@@ -166,21 +166,31 @@ export default function StockIn() {
     const date = new Date();
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const dateStr = `${year}${month}${day}`;
 
     let sequence = 1;
     if (data && data.length > 0) {
       const lastNumber = data[0].stock_in_number;
-      const match = lastNumber.match(/SI-(\d{6})-(\d+)/);
-      if (match) {
-        const lastYearMonth = match[1];
+      // Match format SI/YYYYMMDD.XX or old format SI-YYYYMM-XXX
+      const newMatch = lastNumber.match(/SI\/(\d{8})\.(\d+)/i);
+      const oldMatch = lastNumber.match(/SI-(\d{6})-(\d+)/);
+      
+      if (newMatch) {
+        const lastDate = newMatch[1];
+        if (lastDate === dateStr) {
+          sequence = parseInt(newMatch[2], 10) + 1;
+        }
+      } else if (oldMatch) {
+        const lastYearMonth = oldMatch[1];
         const currentYearMonth = `${year}${month}`;
         if (lastYearMonth === currentYearMonth) {
-          sequence = parseInt(match[2], 10) + 1;
+          sequence = parseInt(oldMatch[2], 10) + 1;
         }
       }
     }
 
-    return `SI-${year}${month}-${String(sequence).padStart(3, "0")}`;
+    return `SI/${dateStr}.${String(sequence).padStart(2, "0")}`;
   };
 
   const generateStockInNumber = async () => {
