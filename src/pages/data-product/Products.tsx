@@ -50,6 +50,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { uploadFile } from '@/lib/storage';
 import { ProductImage } from '@/components/ProductImage';
 import { toast } from 'sonner';
+import { exportToCSV, parseCSV, readFileAsText, downloadCSVTemplate } from '@/lib/csvUtils';
 
 interface ProductFormData {
   sku: string;
@@ -98,7 +99,130 @@ export default function Products() {
   const [formData, setFormData] = useState<ProductFormData>(initialFormData);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExport = () => {
+    exportToCSV(
+      products,
+      [
+        { key: 'sku', header: 'SKU' },
+        { key: 'name', header: language === 'en' ? 'Product Name' : 'Nama Produk' },
+        { key: 'category', header: language === 'en' ? 'Category' : 'Kategori', getValue: (item) => item.category?.name || '' },
+        { key: 'unit', header: language === 'en' ? 'Unit' : 'Satuan', getValue: (item) => item.unit?.name || '' },
+        { key: 'supplier', header: 'Supplier', getValue: (item) => item.supplier?.name || '' },
+        { key: 'purchase_price', header: language === 'en' ? 'Purchase Price' : 'Harga Beli' },
+        { key: 'selling_price', header: language === 'en' ? 'Selling Price' : 'Harga Jual' },
+        { key: 'min_stock', header: language === 'en' ? 'Min Stock' : 'Stok Min' },
+        { key: 'max_stock', header: language === 'en' ? 'Max Stock' : 'Stok Maks' },
+        { key: 'location_rack', header: language === 'en' ? 'Location' : 'Lokasi' },
+        { key: 'is_active', header: 'Status', getValue: (item) => item.is_active ? 'Active' : 'Inactive' },
+      ],
+      'products'
+    );
+    toast.success(language === 'en' ? 'Export successful' : 'Ekspor berhasil');
+  };
+
+  const handleDownloadTemplate = () => {
+    downloadCSVTemplate(
+      [
+        { header: 'SKU', example: 'CHM-001' },
+        { header: language === 'en' ? 'Product Name' : 'Nama Produk', example: 'Sodium Chloride' },
+        { header: language === 'en' ? 'Category Code' : 'Kode Kategori', example: 'CAT-001' },
+        { header: language === 'en' ? 'Unit Code' : 'Kode Satuan', example: 'KG' },
+        { header: 'Supplier Code', example: 'VND2026-0001' },
+        { header: language === 'en' ? 'Purchase Price' : 'Harga Beli', example: '50000' },
+        { header: language === 'en' ? 'Selling Price' : 'Harga Jual', example: '75000' },
+        { header: language === 'en' ? 'Min Stock' : 'Stok Min', example: '10' },
+        { header: language === 'en' ? 'Max Stock' : 'Stok Maks', example: '100' },
+        { header: language === 'en' ? 'Location' : 'Lokasi', example: 'A-01' },
+        { header: 'Status', example: 'Active' },
+      ],
+      'products'
+    );
+  };
+
+  const handleCsvImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    try {
+      const content = await readFileAsText(file);
+      const rows = parseCSV(content);
+      
+      if (rows.length === 0) {
+        toast.error(language === 'en' ? 'No data found in file' : 'Tidak ada data dalam file');
+        return;
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const row of rows) {
+        const sku = row['SKU'];
+        const name = row[language === 'en' ? 'Product Name' : 'Nama Produk'] || row['Product Name'] || row['Nama Produk'];
+        const categoryCode = row[language === 'en' ? 'Category Code' : 'Kode Kategori'] || row['Category Code'] || row['Kode Kategori'];
+        const unitCode = row[language === 'en' ? 'Unit Code' : 'Kode Satuan'] || row['Unit Code'] || row['Kode Satuan'];
+        const supplierCode = row['Supplier Code'];
+        const purchase_price = row[language === 'en' ? 'Purchase Price' : 'Harga Beli'] || row['Purchase Price'] || row['Harga Beli'];
+        const selling_price = row[language === 'en' ? 'Selling Price' : 'Harga Jual'] || row['Selling Price'] || row['Harga Jual'];
+        const min_stock = row[language === 'en' ? 'Min Stock' : 'Stok Min'] || row['Min Stock'] || row['Stok Min'];
+        const max_stock = row[language === 'en' ? 'Max Stock' : 'Stok Maks'] || row['Max Stock'] || row['Stok Maks'];
+        const location_rack = row[language === 'en' ? 'Location' : 'Lokasi'] || row['Location'] || row['Lokasi'];
+        const status = row['Status']?.toLowerCase();
+
+        if (!name || !purchase_price) {
+          errorCount++;
+          continue;
+        }
+
+        // Find category, unit, supplier IDs
+        const category = categories.find(c => c.code.toLowerCase() === categoryCode?.toLowerCase());
+        const unit = units.find(u => u.code.toLowerCase() === unitCode?.toLowerCase());
+        const supplier = suppliers.find(s => s.code.toLowerCase() === supplierCode?.toLowerCase());
+
+        if (!category || !unit || !supplier) {
+          errorCount++;
+          continue;
+        }
+
+        const { error } = await supabase.from('products').insert({
+          sku: sku || null,
+          barcode: generateBarcode(),
+          name,
+          category_id: category.id,
+          unit_id: unit.id,
+          supplier_id: supplier.id,
+          purchase_price: parseFloat(purchase_price),
+          selling_price: selling_price ? parseFloat(selling_price) : null,
+          min_stock: parseInt(min_stock) || 0,
+          max_stock: max_stock ? parseInt(max_stock) : null,
+          location_rack: location_rack || null,
+          is_active: status !== 'inactive',
+        });
+
+        if (error) {
+          errorCount++;
+        } else {
+          successCount++;
+        }
+      }
+
+      toast.success(
+        language === 'en'
+          ? `Import complete: ${successCount} success, ${errorCount} failed`
+          : `Impor selesai: ${successCount} berhasil, ${errorCount} gagal`
+      );
+      refetch();
+    } catch (error) {
+      toast.error(language === 'en' ? 'Failed to import file' : 'Gagal mengimpor file');
+    } finally {
+      setIsImporting(false);
+      if (csvInputRef.current) csvInputRef.current.value = '';
+    }
+  };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -257,11 +381,32 @@ export default function Products() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
-            <Upload className="w-4 h-4 mr-2" />
-            {t('common.import')}
-          </Button>
-          <Button variant="outline" size="sm">
+          <input
+            ref={csvInputRef}
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={handleCsvImport}
+          />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" disabled={isImporting}>
+                {isImporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                {t('common.import')}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => csvInputRef.current?.click()}>
+                <Upload className="w-4 h-4 mr-2" />
+                {language === 'en' ? 'Import CSV' : 'Impor CSV'}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleDownloadTemplate}>
+                <Download className="w-4 h-4 mr-2" />
+                {language === 'en' ? 'Download Template' : 'Unduh Template'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="w-4 h-4 mr-2" />
             {t('common.export')}
           </Button>

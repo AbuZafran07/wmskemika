@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, MoreHorizontal, Edit, Trash2, Loader2, Eye } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Plus, Search, Filter, MoreHorizontal, Edit, Trash2, Loader2, Eye, Download, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -43,6 +43,7 @@ import { useSuppliers, Supplier } from '@/hooks/useMasterData';
 import { supabase } from '@/integrations/supabase/client';
 import { generateSupplierCode } from '@/lib/codeGenerator';
 import { toast } from 'sonner';
+import { exportToCSV, parseCSV, readFileAsText, downloadCSVTemplate } from '@/lib/csvUtils';
 
 interface SupplierFormData {
   code: string;
@@ -83,6 +84,116 @@ export default function Suppliers() {
   const [deletingSupplier, setDeletingSupplier] = useState<Supplier | null>(null);
   const [formData, setFormData] = useState<SupplierFormData>(initialFormData);
   const [isSaving, setIsSaving] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExport = () => {
+    exportToCSV(
+      suppliers,
+      [
+        { key: 'code', header: language === 'en' ? 'Code' : 'Kode' },
+        { key: 'name', header: language === 'en' ? 'Name' : 'Nama' },
+        { key: 'contact_person', header: language === 'en' ? 'Contact Person' : 'Kontak' },
+        { key: 'phone', header: language === 'en' ? 'Phone' : 'Telepon' },
+        { key: 'email', header: 'Email' },
+        { key: 'npwp', header: 'NPWP' },
+        { key: 'terms_payment', header: language === 'en' ? 'Payment Terms' : 'Termin Pembayaran' },
+        { key: 'address', header: language === 'en' ? 'Address' : 'Alamat' },
+        { key: 'city', header: language === 'en' ? 'City' : 'Kota' },
+        { key: 'is_active', header: 'Status', getValue: (item) => item.is_active ? 'Active' : 'Inactive' },
+      ],
+      'suppliers'
+    );
+    toast.success(language === 'en' ? 'Export successful' : 'Ekspor berhasil');
+  };
+
+  const handleDownloadTemplate = () => {
+    downloadCSVTemplate(
+      [
+        { header: language === 'en' ? 'Code' : 'Kode', example: 'VND2026-0001' },
+        { header: language === 'en' ? 'Name' : 'Nama', example: 'PT Supplier ABC' },
+        { header: language === 'en' ? 'Contact Person' : 'Kontak', example: 'John Doe' },
+        { header: language === 'en' ? 'Phone' : 'Telepon', example: '+6281234567890' },
+        { header: 'Email', example: 'supplier@example.com' },
+        { header: 'NPWP', example: '12.345.678.9-123.456' },
+        { header: language === 'en' ? 'Payment Terms' : 'Termin Pembayaran', example: 'NET 30' },
+        { header: language === 'en' ? 'Address' : 'Alamat', example: 'Jl. Contoh No. 123' },
+        { header: language === 'en' ? 'City' : 'Kota', example: 'Jakarta' },
+        { header: 'Status', example: 'Active' },
+      ],
+      'suppliers'
+    );
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    try {
+      const content = await readFileAsText(file);
+      const rows = parseCSV(content);
+      
+      if (rows.length === 0) {
+        toast.error(language === 'en' ? 'No data found in file' : 'Tidak ada data dalam file');
+        return;
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const row of rows) {
+        const code = row[language === 'en' ? 'Code' : 'Kode'] || row['Code'] || row['Kode'];
+        const name = row[language === 'en' ? 'Name' : 'Nama'] || row['Name'] || row['Nama'];
+        const contact_person = row[language === 'en' ? 'Contact Person' : 'Kontak'] || row['Contact Person'] || row['Kontak'];
+        const phone = row[language === 'en' ? 'Phone' : 'Telepon'] || row['Phone'] || row['Telepon'];
+        const email = row['Email'];
+        const npwp = row['NPWP'];
+        const terms_payment = row[language === 'en' ? 'Payment Terms' : 'Termin Pembayaran'] || row['Payment Terms'] || row['Termin Pembayaran'];
+        const address = row[language === 'en' ? 'Address' : 'Alamat'] || row['Address'] || row['Alamat'];
+        const city = row[language === 'en' ? 'City' : 'Kota'] || row['City'] || row['Kota'];
+        const status = row['Status']?.toLowerCase();
+
+        if (!name) {
+          errorCount++;
+          continue;
+        }
+
+        const autoCode = code || await generateSupplierCode();
+
+        const { error } = await supabase.from('suppliers').insert({
+          code: autoCode.toUpperCase(),
+          name,
+          contact_person: contact_person || null,
+          phone: phone || null,
+          email: email || null,
+          npwp: npwp || null,
+          terms_payment: terms_payment || null,
+          address: address || null,
+          city: city || null,
+          is_active: status !== 'inactive',
+        });
+
+        if (error) {
+          errorCount++;
+        } else {
+          successCount++;
+        }
+      }
+
+      toast.success(
+        language === 'en'
+          ? `Import complete: ${successCount} success, ${errorCount} failed`
+          : `Impor selesai: ${successCount} berhasil, ${errorCount} gagal`
+      );
+      refetch();
+    } catch (error) {
+      toast.error(language === 'en' ? 'Failed to import file' : 'Gagal mengimpor file');
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const filteredSuppliers = suppliers.filter(supplier =>
     supplier.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -203,10 +314,41 @@ export default function Suppliers() {
             {language === 'en' ? 'Manage supplier data' : 'Kelola data supplier'}
           </p>
         </div>
-        <Button size="sm" onClick={handleAdd}>
-          <Plus className="w-4 h-4 mr-2" />
-          {t('common.add')} Supplier
-        </Button>
+        <div className="flex gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={handleImport}
+          />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" disabled={isImporting}>
+                {isImporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                {t('common.import')}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                <Upload className="w-4 h-4 mr-2" />
+                {language === 'en' ? 'Import CSV' : 'Impor CSV'}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleDownloadTemplate}>
+                <Download className="w-4 h-4 mr-2" />
+                {language === 'en' ? 'Download Template' : 'Unduh Template'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button variant="outline" size="sm" onClick={handleExport}>
+            <Download className="w-4 h-4 mr-2" />
+            {t('common.export')}
+          </Button>
+          <Button size="sm" onClick={handleAdd}>
+            <Plus className="w-4 h-4 mr-2" />
+            {t('common.add')} Supplier
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
