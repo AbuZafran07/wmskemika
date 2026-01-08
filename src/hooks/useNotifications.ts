@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface Notification {
@@ -16,10 +16,70 @@ export interface Notification {
   read: boolean;
 }
 
+// Sound notification utility
+const playNotificationSound = (type: 'critical' | 'warning' | 'info') => {
+  try {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    if (type === 'critical') {
+      // High urgency - two beeps
+      oscillator.frequency.value = 880;
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.15);
+      
+      // Second beep
+      setTimeout(() => {
+        const osc2 = audioContext.createOscillator();
+        const gain2 = audioContext.createGain();
+        osc2.connect(gain2);
+        gain2.connect(audioContext.destination);
+        osc2.frequency.value = 880;
+        gain2.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gain2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+        osc2.start(audioContext.currentTime);
+        osc2.stop(audioContext.currentTime + 0.15);
+      }, 200);
+    } else if (type === 'warning') {
+      // Medium urgency - single beep
+      oscillator.frequency.value = 660;
+      gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.2);
+    } else {
+      // Info - soft chime
+      oscillator.frequency.value = 520;
+      gainNode.gain.setValueAtTime(0.15, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.1);
+    }
+  } catch (error) {
+    console.log('Audio not supported');
+  }
+};
+
 export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    const saved = localStorage.getItem('notification_sound_enabled');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+  const previousNotifIds = useRef<Set<string>>(new Set());
+
+  const toggleSound = useCallback((enabled: boolean) => {
+    setSoundEnabled(enabled);
+    localStorage.setItem('notification_sound_enabled', JSON.stringify(enabled));
+  }, []);
 
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
@@ -109,7 +169,7 @@ export function useNotifications() {
         .eq('status', 'pending')
         .is('is_deleted', false)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(20);
 
       const { data: pendingSalesOrders } = await supabase
         .from('sales_order_headers')
@@ -117,7 +177,7 @@ export function useNotifications() {
         .eq('status', 'pending')
         .is('is_deleted', false)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(20);
 
       const { data: pendingAdjustments } = await supabase
         .from('stock_adjustments')
@@ -125,7 +185,7 @@ export function useNotifications() {
         .eq('status', 'pending')
         .is('is_deleted', false)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(20);
 
       // Add approval pending notifications
       pendingPlanOrders?.forEach((order: any) => {
@@ -187,19 +247,127 @@ export function useNotifications() {
         return b.createdAt.getTime() - a.createdAt.getTime();
       });
 
+      // Check for new notifications and play sound
+      const currentIds = new Set(notifs.map(n => n.id));
+      const newNotifs = notifs.filter(n => !previousNotifIds.current.has(n.id));
+      
+      if (newNotifs.length > 0 && previousNotifIds.current.size > 0 && soundEnabled) {
+        // Determine sound type based on notification priority
+        const hasCritical = newNotifs.some(n => n.type === 'expired' || n.type === 'low_stock');
+        const hasWarning = newNotifs.some(n => n.type === 'expiring_soon' || n.type === 'approval_pending');
+        
+        if (hasCritical) {
+          playNotificationSound('critical');
+        } else if (hasWarning) {
+          playNotificationSound('warning');
+        } else {
+          playNotificationSound('info');
+        }
+      }
+      
+      previousNotifIds.current = currentIds;
       setNotifications(notifs);
       setUnreadCount(notifs.filter(n => !n.read).length);
     } catch (error) {
       console.error('Error fetching notifications:', error);
     }
     setLoading(false);
-  }, []);
+  }, [soundEnabled]);
 
+  // Setup real-time subscriptions
   useEffect(() => {
     fetchNotifications();
-    // Refresh every 5 minutes
+
+    // Subscribe to plan_order_headers changes
+    const planOrderChannel = supabase
+      .channel('plan-order-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'plan_order_headers' },
+        () => {
+          console.log('Plan order change detected');
+          fetchNotifications();
+        }
+      )
+      .subscribe();
+
+    // Subscribe to sales_order_headers changes
+    const salesOrderChannel = supabase
+      .channel('sales-order-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'sales_order_headers' },
+        () => {
+          console.log('Sales order change detected');
+          fetchNotifications();
+        }
+      )
+      .subscribe();
+
+    // Subscribe to stock_adjustments changes
+    const adjustmentChannel = supabase
+      .channel('stock-adjustment-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'stock_adjustments' },
+        () => {
+          console.log('Stock adjustment change detected');
+          fetchNotifications();
+        }
+      )
+      .subscribe();
+
+    // Subscribe to inventory_batches changes (for expiry/stock alerts)
+    const batchChannel = supabase
+      .channel('inventory-batch-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'inventory_batches' },
+        () => {
+          console.log('Inventory batch change detected');
+          fetchNotifications();
+        }
+      )
+      .subscribe();
+
+    // Subscribe to stock_in_headers changes
+    const stockInChannel = supabase
+      .channel('stock-in-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'stock_in_headers' },
+        () => {
+          console.log('Stock in change detected');
+          fetchNotifications();
+        }
+      )
+      .subscribe();
+
+    // Subscribe to stock_out_headers changes
+    const stockOutChannel = supabase
+      .channel('stock-out-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'stock_out_headers' },
+        () => {
+          console.log('Stock out change detected');
+          fetchNotifications();
+        }
+      )
+      .subscribe();
+
+    // Also keep the polling as fallback (every 5 minutes)
     const interval = setInterval(fetchNotifications, 5 * 60 * 1000);
-    return () => clearInterval(interval);
+
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(planOrderChannel);
+      supabase.removeChannel(salesOrderChannel);
+      supabase.removeChannel(adjustmentChannel);
+      supabase.removeChannel(batchChannel);
+      supabase.removeChannel(stockInChannel);
+      supabase.removeChannel(stockOutChannel);
+    };
   }, [fetchNotifications]);
 
   const markAsRead = (id: string) => {
@@ -221,5 +389,8 @@ export function useNotifications() {
     fetchNotifications,
     markAsRead,
     markAllAsRead,
+    soundEnabled,
+    toggleSound,
+    playNotificationSound,
   };
 }

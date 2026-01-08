@@ -266,17 +266,15 @@ export default function AppHeader({ onMenuClick, isMobileDrawerOpen }: AppHeader
                 </div>
               )}
             </ScrollArea>
-            {notifications.length > 0 && (
-              <div className="p-2 border-t">
-                <Button 
-                  variant="ghost" 
-                  className="w-full text-sm h-8"
-                  onClick={() => navigate('/reports/expiry')}
-                >
-                  {language === 'en' ? 'View all alerts' : 'Lihat semua peringatan'}
-                </Button>
-              </div>
-            )}
+            <div className="p-2 border-t">
+              <Button 
+                variant="ghost" 
+                className="w-full text-sm h-8"
+                onClick={() => navigate('/notifications')}
+              >
+                {language === 'en' ? 'View all notifications' : 'Lihat semua notifikasi'}
+              </Button>
+            </div>
           </PopoverContent>
         </Popover>
 
