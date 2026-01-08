@@ -68,6 +68,7 @@ import {
 } from '@/hooks/usePlanOrders';
 import { useSuppliers, useProducts, Product } from '@/hooks/useMasterData';
 import { uploadFile, getSignedUrl } from '@/lib/storage';
+import { generateUniquePlanOrderNumber } from '@/lib/transactionNumberUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -378,30 +379,8 @@ export default function PlanOrder() {
  
   const generatePlanNumber = async () => {
     setIsGeneratingNumber(true);
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const datePrefix = `PO/${year}${month}${day}.`;
-
-    // Get the last plan number for today
-    const { data } = await supabase
-      .from('plan_order_headers')
-      .select('plan_number')
-      .like('plan_number', `${datePrefix}%`)
-      .order('plan_number', { ascending: false })
-      .limit(1);
-
-    let sequence = 1;
-    if (data && data.length > 0) {
-      const lastNumber = data[0].plan_number;
-      const match = lastNumber.match(/PO\/\d{8}\.(\d+)/);
-      if (match) {
-        sequence = parseInt(match[1], 10) + 1;
-      }
-    }
-
-    setPlanNumber(`${datePrefix}${String(sequence).padStart(2, '0')}`);
+    const number = await generateUniquePlanOrderNumber();
+    setPlanNumber(number);
     setIsGeneratingNumber(false);
   };
  

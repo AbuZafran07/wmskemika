@@ -62,6 +62,7 @@ import {
   StockAdjustmentHeader,
 } from '@/hooks/useStockAdjustments';
 import { uploadFile } from '@/lib/storage';
+import { generateUniqueStockAdjustmentNumber } from '@/lib/transactionNumberUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -214,30 +215,8 @@ export default function StockAdjustment() {
   };
 
   const generateAdjustmentNumber = async () => {
-    const { data } = await supabase
-      .from('stock_adjustments')
-      .select('adjustment_number')
-      .order('created_at', { ascending: false })
-      .limit(1);
-
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    
-    let sequence = 1;
-    if (data && data.length > 0) {
-      const lastNumber = data[0].adjustment_number;
-      const match = lastNumber.match(/ADJ-(\d{6})-(\d+)/);
-      if (match) {
-        const lastYearMonth = match[1];
-        const currentYearMonth = `${year}${month}`;
-        if (lastYearMonth === currentYearMonth) {
-          sequence = parseInt(match[2], 10) + 1;
-        }
-      }
-    }
-    
-    setAdjustmentNumber(`ADJ-${year}${month}-${String(sequence).padStart(3, '0')}`);
+    const number = await generateUniqueStockAdjustmentNumber();
+    setAdjustmentNumber(number);
   };
 
   const resetForm = () => {
