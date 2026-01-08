@@ -12,6 +12,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import RealtimeActivityFeed from '@/components/dashboard/RealtimeActivityFeed';
 
 interface DashboardStats {
   totalProducts: number;
@@ -372,6 +373,9 @@ export default function Dashboard() {
         </h1>
         <p className="text-muted-foreground">{language === 'en' ? "Here's what's happening with your warehouse today." : 'Berikut yang terjadi di gudang Anda hari ini.'}</p>
       </div>
+
+      {/* Real-time Activity Feed */}
+      <RealtimeActivityFeed />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title={t('dashboard.totalProducts')} value={stats.totalProducts.toLocaleString()} icon={Package} color="primary" loading={loading} />
