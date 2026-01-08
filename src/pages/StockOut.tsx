@@ -1,31 +1,18 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, Info, Package, Building2, Upload, Loader2, X, AlertTriangle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { supabase } from '@/integrations/supabase/client';
-import { uploadFile } from '@/lib/storage';
-import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from "react";
+import { RefreshCw, Info, Package, Building2, Upload, Loader2, X, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { supabase } from "@/integrations/supabase/client";
+import { uploadFile } from "@/lib/storage";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 interface SalesOrderHeader {
   id: string;
@@ -75,35 +62,37 @@ interface StockOutItem {
 export default function StockOut() {
   const { language } = useLanguage();
   const navigate = useNavigate();
-  
+
   const [salesOrders, setSalesOrders] = useState<SalesOrderHeader[]>([]);
-  const [selectedSalesOrderId, setSelectedSalesOrderId] = useState<string>('');
+  const [selectedSalesOrderId, setSelectedSalesOrderId] = useState<string>("");
   const [selectedSalesOrder, setSelectedSalesOrder] = useState<SalesOrderHeader | null>(null);
   const [items, setItems] = useState<StockOutItem[]>([]);
   const [loadingSalesOrders, setLoadingSalesOrders] = useState(true);
   const [loadingItems, setLoadingItems] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
-  const [stockOutNumber, setStockOutNumber] = useState('');
-  const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().split('T')[0]);
-  const [notes, setNotes] = useState('');
-  const [deliveryNoteUrl, setDeliveryNoteUrl] = useState('');
-  const [deliveryNoteFileName, setDeliveryNoteFileName] = useState('');
+
+  const [stockOutNumber, setStockOutNumber] = useState("");
+  const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().split("T")[0]);
+  const [notes, setNotes] = useState("");
+  const [deliveryNoteUrl, setDeliveryNoteUrl] = useState("");
+  const [deliveryNoteFileName, setDeliveryNoteFileName] = useState("");
   const [isUploading, setIsUploading] = useState(false);
 
   const fetchSalesOrders = useCallback(async () => {
     setLoadingSalesOrders(true);
     const { data, error } = await supabase
-      .from('sales_order_headers')
-      .select(`
+      .from("sales_order_headers")
+      .select(
+        `
         id, sales_order_number, status, ship_to_address,
         customer:customers(id, name, code)
-      `)
-      .in('status', ['approved', 'partially_delivered'])
-      .order('created_at', { ascending: false });
+      `,
+      )
+      .in("status", ["approved", "partially_delivered"])
+      .order("created_at", { ascending: false });
 
     if (error) {
-      toast.error('Failed to load sales orders');
+      toast.error("Failed to load sales orders");
       console.error(error);
     } else {
       setSalesOrders(data || []);
@@ -127,25 +116,27 @@ export default function StockOut() {
 
     const fetchItems = async () => {
       setLoadingItems(true);
-      const so = salesOrders.find(s => s.id === selectedSalesOrderId);
+      const so = salesOrders.find((s) => s.id === selectedSalesOrderId);
       setSelectedSalesOrder(so || null);
 
       // Fetch SO items with remaining qty > 0
       const { data: soItems, error: soError } = await supabase
-        .from('sales_order_items')
-        .select(`
+        .from("sales_order_items")
+        .select(
+          `
           id, product_id, ordered_qty, qty_delivered, qty_remaining, unit_price,
           product:products(
             id, name, sku,
             category:categories(name),
             unit:units(name)
           )
-        `)
-        .eq('sales_order_id', selectedSalesOrderId)
-        .gt('qty_remaining', 0);
+        `,
+        )
+        .eq("sales_order_id", selectedSalesOrderId)
+        .gt("qty_remaining", 0);
 
       if (soError) {
-        toast.error('Failed to load items');
+        toast.error("Failed to load items");
         console.error(soError);
         setLoadingItems(false);
         return;
@@ -153,16 +144,16 @@ export default function StockOut() {
 
       // For each item, fetch available batches (FEFO - First Expired, First Out)
       const stockOutItems: StockOutItem[] = [];
-      
+
       for (const item of (soItems as SalesOrderItem[]) || []) {
         const { data: batches } = await supabase
-          .from('inventory_batches')
-          .select('*')
-          .eq('product_id', item.product_id)
-          .gt('qty_on_hand', 0)
-          .order('expired_date', { ascending: true, nullsFirst: false });
+          .from("inventory_batches")
+          .select("*")
+          .eq("product_id", item.product_id)
+          .gt("qty_on_hand", 0)
+          .order("expired_date", { ascending: true, nullsFirst: false });
 
-        const batchSelections: BatchSelection[] = (batches || []).map(b => ({
+        const batchSelections: BatchSelection[] = (batches || []).map((b) => ({
           batch_id: b.id,
           batch_no: b.batch_no,
           qty_available: b.qty_on_hand,
@@ -173,10 +164,10 @@ export default function StockOut() {
         stockOutItems.push({
           sales_order_item_id: item.id,
           product_id: item.product_id,
-          product_name: item.product?.name || '',
-          sku: item.product?.sku || '-',
-          category: item.product?.category?.name || '-',
-          unit: item.product?.unit?.name || '-',
+          product_name: item.product?.name || "",
+          sku: item.product?.sku || "-",
+          category: item.product?.category?.name || "-",
+          unit: item.product?.unit?.name || "-",
           qty_ordered: item.ordered_qty,
           qty_remaining: item.qty_remaining,
           qty_out: 0,
@@ -193,15 +184,15 @@ export default function StockOut() {
 
   const generateStockOutNumber = async () => {
     const { data } = await supabase
-      .from('stock_out_headers')
-      .select('stock_out_number')
-      .order('created_at', { ascending: false })
+      .from("stock_out_headers")
+      .select("stock_out_number")
+      .order("created_at", { ascending: false })
       .limit(1);
 
     const date = new Date();
     const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+
     let sequence = 1;
     if (data && data.length > 0) {
       const lastNumber = data[0].stock_out_number;
@@ -214,43 +205,47 @@ export default function StockOut() {
         }
       }
     }
-    
-    setStockOutNumber(`SO-${year}${month}-${String(sequence).padStart(3, '0')}`);
+
+    setStockOutNumber(`SO-${year}${month}-${String(sequence).padStart(3, "0")}`);
   };
 
   const handleBatchQtyChange = (itemIndex: number, batchIndex: number, value: number) => {
-    setItems(prev => prev.map((item, i) => {
-      if (i !== itemIndex) return item;
-      
-      const newBatches = item.batches.map((batch, bi) => {
-        if (bi !== batchIndex) return batch;
-        const qty = Math.min(value, batch.qty_available);
-        return { ...batch, qty_out: qty };
-      });
-      
-      const totalQtyOut = newBatches.reduce((sum, b) => sum + b.qty_out, 0);
-      
-      return { ...item, batches: newBatches, qty_out: totalQtyOut };
-    }));
+    setItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== itemIndex) return item;
+
+        const newBatches = item.batches.map((batch, bi) => {
+          if (bi !== batchIndex) return batch;
+          const qty = Math.min(value, batch.qty_available);
+          return { ...batch, qty_out: qty };
+        });
+
+        const totalQtyOut = newBatches.reduce((sum, b) => sum + b.qty_out, 0);
+
+        return { ...item, batches: newBatches, qty_out: totalQtyOut };
+      }),
+    );
   };
 
   const handleAutoAllocateFEFO = (itemIndex: number) => {
-    setItems(prev => prev.map((item, i) => {
-      if (i !== itemIndex) return item;
-      
-      let remaining = item.qty_remaining;
-      const newBatches = item.batches.map(batch => {
-        if (remaining <= 0) return { ...batch, qty_out: 0 };
-        
-        const allocate = Math.min(remaining, batch.qty_available);
-        remaining -= allocate;
-        return { ...batch, qty_out: allocate };
-      });
-      
-      const totalQtyOut = newBatches.reduce((sum, b) => sum + b.qty_out, 0);
-      
-      return { ...item, batches: newBatches, qty_out: totalQtyOut };
-    }));
+    setItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== itemIndex) return item;
+
+        let remaining = item.qty_remaining;
+        const newBatches = item.batches.map((batch) => {
+          if (remaining <= 0) return { ...batch, qty_out: 0 };
+
+          const allocate = Math.min(remaining, batch.qty_available);
+          remaining -= allocate;
+          return { ...batch, qty_out: allocate };
+        });
+
+        const totalQtyOut = newBatches.reduce((sum, b) => sum + b.qty_out, 0);
+
+        return { ...item, batches: newBatches, qty_out: totalQtyOut };
+      }),
+    );
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -258,50 +253,56 @@ export default function StockOut() {
     if (!file) return;
 
     setIsUploading(true);
-    const result = await uploadFile(file, 'documents', 'delivery-notes');
-    
+    const result = await uploadFile(file, "documents", "delivery-notes");
+
     if (result) {
       setDeliveryNoteUrl(result.url);
       setDeliveryNoteFileName(result.originalName);
-      toast.success(language === 'en' ? 'File uploaded successfully' : 'File berhasil diupload');
+      toast.success(language === "en" ? "File uploaded successfully" : "File berhasil diupload");
     } else {
-      toast.error(language === 'en' ? 'Failed to upload file' : 'Gagal upload file');
+      toast.error(language === "en" ? "Failed to upload file" : "Gagal upload file");
     }
     setIsUploading(false);
   };
 
   const handleClearDeliveryNote = () => {
-    setDeliveryNoteUrl('');
-    setDeliveryNoteFileName('');
+    setDeliveryNoteUrl("");
+    setDeliveryNoteFileName("");
   };
 
   const handleSave = async () => {
     if (!selectedSalesOrderId) {
-      toast.error(language === 'en' ? 'Please select a Sales Order' : 'Silakan pilih Sales Order');
+      toast.error(language === "en" ? "Please select a Sales Order" : "Silakan pilih Sales Order");
       return;
     }
 
-    const validItems = items.filter(item => item.qty_out > 0);
+    const validItems = items.filter((item) => item.qty_out > 0);
     if (validItems.length === 0) {
-      toast.error(language === 'en' ? 'Please enter at least one item quantity' : 'Masukkan minimal satu kuantitas item');
+      toast.error(
+        language === "en" ? "Please enter at least one item quantity" : "Masukkan minimal satu kuantitas item",
+      );
       return;
     }
 
     // Validate quantities
     for (const item of validItems) {
       if (item.qty_out > item.qty_remaining) {
-        toast.error(language === 'en' 
-          ? `Quantity out cannot exceed remaining for ${item.product_name}` 
-          : `Kuantitas keluar tidak boleh melebihi sisa untuk ${item.product_name}`);
+        toast.error(
+          language === "en"
+            ? `Quantity out cannot exceed remaining for ${item.product_name}`
+            : `Kuantitas keluar tidak boleh melebihi sisa untuk ${item.product_name}`,
+        );
         return;
       }
-      
+
       // Check if batches are selected
-      const batchesWithQty = item.batches.filter(b => b.qty_out > 0);
+      const batchesWithQty = item.batches.filter((b) => b.qty_out > 0);
       if (batchesWithQty.length === 0) {
-        toast.error(language === 'en' 
-          ? `Please select batch for ${item.product_name}` 
-          : `Silakan pilih batch untuk ${item.product_name}`);
+        toast.error(
+          language === "en"
+            ? `Please select batch for ${item.product_name}`
+            : `Silakan pilih batch untuk ${item.product_name}`,
+        );
         return;
       }
     }
@@ -319,13 +320,13 @@ export default function StockOut() {
       };
 
       // Build items data for RPC - each item with its batches and total qty
-      const itemsPayload = validItems.map(item => ({
+      const itemsPayload = validItems.map((item) => ({
         sales_order_item_id: item.sales_order_item_id,
         product_id: item.product_id,
         total_qty_out: item.qty_out,
         batches: item.batches
-          .filter(b => b.qty_out > 0)
-          .map(b => ({
+          .filter((b) => b.qty_out > 0)
+          .map((b) => ({
             batch_id: b.batch_id,
             qty_out: b.qty_out,
             notes: `Delivered to ${selectedSalesOrder?.customer?.name}`,
@@ -333,34 +334,34 @@ export default function StockOut() {
       }));
 
       // Call RPC function - entire operation is atomic (transactional)
-      const { data: result, error: rpcError } = await supabase
-        .rpc('stock_out_create', {
-          header_data: headerPayload,
-          items_data: itemsPayload,
-        });
+      const { data: result, error: rpcError } = await supabase.rpc("stock_out_create", {
+        header_data: headerPayload,
+        items_data: itemsPayload,
+      });
 
       if (rpcError) throw rpcError;
-      
+
       const rpcResult = result as { success: boolean; error?: string; id?: string };
       if (!rpcResult?.success) {
-        throw new Error(rpcResult?.error || 'Unknown error occurred');
+        throw new Error(rpcResult?.error || "Unknown error occurred");
       }
 
-      toast.success(language === 'en' ? 'Stock Out saved successfully' : 'Stock Out berhasil disimpan');
+      toast.success(language === "en" ? "Stock Out saved successfully" : "Stock Out berhasil disimpan");
 
       // Reset form + refresh list so the status/availability updates immediately
       await fetchSalesOrders();
-      setSelectedSalesOrderId('');
+      setSelectedSalesOrderId("");
       setSelectedSalesOrder(null);
       setItems([]);
-      setNotes('');
-      setDeliveryNoteUrl('');
-      setDeliveryNoteFileName('');
-      setDeliveryDate(new Date().toISOString().split('T')[0]);
+      setNotes("");
+      setDeliveryNoteUrl("");
+      setDeliveryNoteFileName("");
+      setDeliveryDate(new Date().toISOString().split("T")[0]);
       await generateStockOutNumber();
     } catch (error: any) {
       console.error(error);
-      const errorMessage = error?.message || (language === 'en' ? 'Failed to save Stock Out' : 'Gagal menyimpan Stock Out');
+      const errorMessage =
+        error?.message || (language === "en" ? "Failed to save Stock Out" : "Gagal menyimpan Stock Out");
       toast.error(errorMessage);
     }
 
@@ -368,8 +369,8 @@ export default function StockOut() {
   };
 
   const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString('id-ID');
+    if (!dateStr) return "-";
+    return new Date(dateStr).toLocaleDateString("id-ID");
   };
 
   return (
@@ -382,14 +383,23 @@ export default function StockOut() {
           </div>
           <div>
             <h1 className="text-2xl font-bold font-display">
-              Stock Out ({language === 'en' ? 'Outbound' : 'Pengiriman'})
+              Stock Out ({language === "en" ? "Outbound" : "Pengiriman"})
             </h1>
             <p className="text-muted-foreground text-sm">
-              {language === 'en' ? 'Deliver goods from approved Sales Orders with FEFO batch selection' : 'Kirim barang dari Sales Order yang disetujui dengan pemilihan batch FEFO'}
+              {language === "en"
+                ? "Deliver goods from approved Sales Orders with FEFO batch selection"
+                : "Kirim barang dari Sales Order yang disetujui dengan pemilihan batch FEFO"}
             </p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => { setSalesOrders([]); setLoadingSalesOrders(true); }}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setSalesOrders([]);
+            setLoadingSalesOrders(true);
+          }}
+        >
           <RefreshCw className="w-4 h-4 mr-2" />
           Refresh
         </Button>
@@ -401,13 +411,13 @@ export default function StockOut() {
           <div className="flex items-center gap-2">
             <Info className="w-5 h-5 text-info" />
             <CardTitle className="text-base text-info">
-              {language === 'en' ? 'Step 1: Select Sales Order' : 'Langkah 1: Pilih Sales Order'}
+              {language === "en" ? "Step 1: Select Sales Order" : "Langkah 1: Pilih Sales Order"}
             </CardTitle>
           </div>
           <CardDescription>
-            {language === 'en' 
-              ? 'Stock Out MUST be created from an approved Sales Order. Batches will be allocated using FEFO (First Expired, First Out) method.'
-              : 'Stock Out HARUS dibuat dari Sales Order yang sudah disetujui. Batch akan dialokasikan menggunakan metode FEFO (First Expired, First Out).'}
+            {language === "en"
+              ? "Stock Out MUST be created from an approved Sales Order. Batches will be allocated using FEFO (First Expired, First Out) method."
+              : "Stock Out HARUS dibuat dari Sales Order yang sudah disetujui. Batch akan dialokasikan menggunakan metode FEFO (First Expired, First Out)."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -415,13 +425,21 @@ export default function StockOut() {
             <Label>Sales Order *</Label>
             <Select value={selectedSalesOrderId} onValueChange={setSelectedSalesOrderId}>
               <SelectTrigger>
-                <SelectValue placeholder={loadingSalesOrders ? 'Loading...' : (language === 'en' ? '-- Select Sales Order --' : '-- Pilih Sales Order --')} />
+                <SelectValue
+                  placeholder={
+                    loadingSalesOrders
+                      ? "Loading..."
+                      : language === "en"
+                        ? "-- Select Sales Order --"
+                        : "-- Pilih Sales Order --"
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
-                {salesOrders.map(so => (
+                {salesOrders.map((so) => (
                   <SelectItem key={so.id} value={so.id}>
-                    {so.sales_order_number} - {so.customer?.name} 
-                    <Badge variant={so.status === 'approved' ? 'approved' : 'pending'} className="ml-2">
+                    {so.sales_order_number} - {so.customer?.name}
+                    <Badge variant={so.status === "approved" ? "approved" : "pending"} className="ml-2">
                       {so.status}
                     </Badge>
                   </SelectItem>
@@ -437,58 +455,46 @@ export default function StockOut() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <Building2 className="w-5 h-5 text-muted-foreground" />
-            <CardTitle className="text-base">{language === 'en' ? 'Outbound Header' : 'Header Pengiriman'}</CardTitle>
+            <CardTitle className="text-base">{language === "en" ? "Outbound Header" : "Header Pengiriman"}</CardTitle>
           </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <Label>{language === 'en' ? 'Stock Out Number' : 'No. Stock Out'} *</Label>
+              <Label>{language === "en" ? "Delivery Number" : "Nomor Pengiriman"} *</Label>
               <Input
                 value={stockOutNumber}
-                disabled
+                onChange={(e) => setStockOutNumber(e.target.value)}
                 className="bg-muted font-mono"
               />
             </div>
             <div className="space-y-2">
-              <Label>{language === 'en' ? 'Delivery Date' : 'Tanggal Kirim'} *</Label>
-              <Input
-                type="date"
-                value={deliveryDate}
-                onChange={(e) => setDeliveryDate(e.target.value)}
-              />
+              <Label>{language === "en" ? "Delivery Date" : "Tanggal Kirim"} *</Label>
+              <Input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>{language === 'en' ? 'Sales Order No.' : 'No. Sales Order'}</Label>
-              <Input
-                value={selectedSalesOrder?.sales_order_number || ''}
-                disabled
-                className="bg-muted"
-              />
+              <Label>{language === "en" ? "Sales Order No." : "No. Sales Order"}</Label>
+              <Input value={selectedSalesOrder?.sales_order_number || ""} disabled className="bg-muted" />
             </div>
             <div className="space-y-2">
               <Label>Customer</Label>
-              <Input
-                value={selectedSalesOrder?.customer?.name || ''}
-                disabled
-                className="bg-muted"
-              />
+              <Input value={selectedSalesOrder?.customer?.name || ""} disabled className="bg-muted" />
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             <div className="space-y-2">
-              <Label>{language === 'en' ? 'Delivery Note' : 'Surat Jalan'}</Label>
+              <Label>{language === "en" ? "Delivery Note" : "Surat Jalan"}</Label>
               <div className="flex gap-2">
                 <Input
-                  value={deliveryNoteFileName || ''}
+                  value={deliveryNoteFileName || ""}
                   disabled
-                  placeholder={language === 'en' ? 'Upload delivery note' : 'Upload surat jalan'}
+                  placeholder={language === "en" ? "Upload delivery note" : "Upload surat jalan"}
                   className="bg-muted truncate"
                   title={deliveryNoteFileName || undefined}
                 />
                 <Button
                   variant="outline"
-                  onClick={() => document.getElementById('delivery-note-input')?.click()}
+                  onClick={() => document.getElementById("delivery-note-input")?.click()}
                   disabled={isUploading}
                 >
                   {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
@@ -508,9 +514,9 @@ export default function StockOut() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>{language === 'en' ? 'Notes' : 'Catatan'}</Label>
+              <Label>{language === "en" ? "Notes" : "Catatan"}</Label>
               <Textarea
-                placeholder={language === 'en' ? 'Enter notes...' : 'Masukkan catatan...'}
+                placeholder={language === "en" ? "Enter notes..." : "Masukkan catatan..."}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}
@@ -525,7 +531,7 @@ export default function StockOut() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <Package className="w-5 h-5 text-muted-foreground" />
-            <CardTitle className="text-base">{language === 'en' ? 'Items to Deliver' : 'Item yang Dikirim'}</CardTitle>
+            <CardTitle className="text-base">{language === "en" ? "Items to Deliver" : "Item yang Dikirim"}</CardTitle>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -535,18 +541,18 @@ export default function StockOut() {
             </div>
           ) : items.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              {language === 'en' ? 'Select a Sales Order to view items' : 'Pilih Sales Order untuk melihat item'}
+              {language === "en" ? "Select a Sales Order to view items" : "Pilih Sales Order untuk melihat item"}
             </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{language === 'en' ? 'Product' : 'Produk'}</TableHead>
-                    <TableHead className="text-center">{language === 'en' ? 'Ordered' : 'Dipesan'}</TableHead>
-                    <TableHead className="text-center">{language === 'en' ? 'Remaining' : 'Sisa'}</TableHead>
-                    <TableHead>{language === 'en' ? 'Batch Selection (FEFO)' : 'Pilih Batch (FEFO)'}</TableHead>
-                    <TableHead className="text-center">{language === 'en' ? 'Qty Out' : 'Qty Keluar'}</TableHead>
+                    <TableHead>{language === "en" ? "Product" : "Produk"}</TableHead>
+                    <TableHead className="text-center">{language === "en" ? "Ordered" : "Dipesan"}</TableHead>
+                    <TableHead className="text-center">{language === "en" ? "Remaining" : "Sisa"}</TableHead>
+                    <TableHead>{language === "en" ? "Batch Selection (FEFO)" : "Pilih Batch (FEFO)"}</TableHead>
+                    <TableHead className="text-center">{language === "en" ? "Qty Out" : "Qty Keluar"}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -555,7 +561,9 @@ export default function StockOut() {
                       <TableCell>
                         <div>
                           <p className="font-medium">{item.product_name}</p>
-                          <p className="text-xs text-muted-foreground">{item.sku} | {item.category} | {item.unit}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.sku} | {item.category} | {item.unit}
+                          </p>
                         </div>
                       </TableCell>
                       <TableCell className="text-center">{item.qty_ordered}</TableCell>
@@ -567,22 +575,30 @@ export default function StockOut() {
                           {item.batches.length === 0 ? (
                             <div className="flex items-center gap-2 text-warning">
                               <AlertTriangle className="w-4 h-4" />
-                              <span className="text-sm">{language === 'en' ? 'No stock available' : 'Stok tidak tersedia'}</span>
+                              <span className="text-sm">
+                                {language === "en" ? "No stock available" : "Stok tidak tersedia"}
+                              </span>
                             </div>
                           ) : (
                             <>
-                              <Button 
-                                size="sm" 
+                              <Button
+                                size="sm"
                                 variant="outline"
                                 onClick={() => handleAutoAllocateFEFO(itemIndex)}
                                 className="mb-2"
                               >
-                                {language === 'en' ? 'Auto FEFO' : 'Otomatis FEFO'}
+                                {language === "en" ? "Auto FEFO" : "Otomatis FEFO"}
                               </Button>
                               {item.batches.map((batch, batchIndex) => (
                                 <div key={batch.batch_id} className="flex items-center gap-2 text-sm">
                                   <span className="min-w-[100px] font-mono">{batch.batch_no}</span>
-                                  <Badge variant={batch.expired_date && new Date(batch.expired_date) < new Date() ? 'cancelled' : 'secondary'}>
+                                  <Badge
+                                    variant={
+                                      batch.expired_date && new Date(batch.expired_date) < new Date()
+                                        ? "cancelled"
+                                        : "secondary"
+                                    }
+                                  >
                                     Exp: {formatDate(batch.expired_date)}
                                   </Badge>
                                   <span className="text-muted-foreground">Avail: {batch.qty_available}</span>
@@ -592,7 +608,9 @@ export default function StockOut() {
                                     max={batch.qty_available}
                                     className="w-20"
                                     value={batch.qty_out}
-                                    onChange={(e) => handleBatchQtyChange(itemIndex, batchIndex, parseInt(e.target.value) || 0)}
+                                    onChange={(e) =>
+                                      handleBatchQtyChange(itemIndex, batchIndex, parseInt(e.target.value) || 0)
+                                    }
                                   />
                                 </div>
                               ))}
@@ -601,9 +619,7 @@ export default function StockOut() {
                         </div>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant={item.qty_out > 0 ? 'success' : 'draft'}>
-                          {item.qty_out}
-                        </Badge>
+                        <Badge variant={item.qty_out > 0 ? "success" : "draft"}>{item.qty_out}</Badge>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -616,12 +632,12 @@ export default function StockOut() {
 
       {/* Actions */}
       <div className="flex justify-end gap-4">
-        <Button variant="outline" onClick={() => navigate('/stock-out')}>
-          {language === 'en' ? 'Cancel' : 'Batal'}
+        <Button variant="outline" onClick={() => navigate("/stock-out")}>
+          {language === "en" ? "Cancel" : "Batal"}
         </Button>
         <Button onClick={handleSave} disabled={isSaving || items.length === 0}>
           {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-          {language === 'en' ? 'Save Stock Out' : 'Simpan Stock Out'}
+          {language === "en" ? "Save Stock Out" : "Simpan Stock Out"}
         </Button>
       </div>
     </div>
