@@ -41,8 +41,8 @@
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 220 15% 20%;
 
-    /* 🔥 FIX UTAMA */
-    --sidebar-muted: 0 0% 100%; /* PUTIH penuh */
+    /* Sidebar muted text - visible on dark sidebar */
+    --sidebar-muted: 0 0% 70%;
 
     /* Chart */
     --chart-1: 153 100% 30%;
@@ -79,8 +79,8 @@
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 220 15% 18%;
 
-    /* 🔥 FIX UTAMA */
-    --sidebar-muted: 0 0% 100%; /* PUTIH penuh */
+    /* Sidebar muted text - visible on dark sidebar */
+    --sidebar-muted: 0 0% 70%;
   }
 }
 
