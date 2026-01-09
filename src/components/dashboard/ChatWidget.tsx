@@ -564,10 +564,10 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
     return (
       <Button
         onClick={() => setIsMinimized(false)}
-        className={`fixed bottom-4 right-4 h-16 w-16 rounded-full shadow-lg z-50 p-0 overflow-hidden bg-white border border-gray-200 transition-all duration-300 ease-out hover:scale-110 hover:shadow-[0_0_20px_rgba(59,130,246,0.5)] ${unreadCount > 0 ? "animate-bounce" : ""}`}
+        className={`fixed bottom-4 right-4 h-14 w-14 rounded-full shadow-lg z-50 p-0 overflow-hidden bg-white border border-gray-200 transition-all duration-300 ease-out hover:scale-110 hover:shadow-[0_0_20px_rgba(59,130,246,0.5)] ${unreadCount > 0 ? "animate-bounce" : ""}`}
         size="icon"
       >
-        <img src={ktalkIcon} alt="K'talk" className="h-full w-full object-contain" />
+        <img src={ktalkIcon} alt="K'talk" className="h-full w-full object-cover" />
         {unreadCount > 0 && (
           <Badge
             variant="destructive"
@@ -585,7 +585,7 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
       className={`fixed bottom-4 right-4 shadow-xl z-50 transition-all duration-300 ${isExpanded ? "w-[500px] h-[600px]" : "w-[350px] h-[450px]"}`}
     >
       <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-        <CardTitle className="flex items-center gap-3 text-base">
+        <CardTitle className="flex items-center gap-2 text-base">
           <img src={ktalkIcon} alt="K'talk" className="h-9 w-9 object-contain" />
           {selectedUser ? (
             <span className="flex items-center gap-2">
