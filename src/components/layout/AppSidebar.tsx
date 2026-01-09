@@ -27,27 +27,41 @@ import {
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+import { canAccessMenu, MenuKey } from "@/lib/permissions";
 
 interface MenuItem {
   key: string;
+  menuKey?: MenuKey; // Maps to permission system
   labelKey: string;
   icon: React.ElementType;
   href?: string;
   subLabelKey?: string;
   children?: MenuItem[];
-  roles?: string[];
 }
 
+/**
+ * Menu structure with permission keys
+ * Settings and User Management only visible to super_admin
+ */
 const menuItems: { groupKey: string; items: MenuItem[] }[] = [
   {
     groupKey: "menu.summary",
-    items: [{ key: "dashboard", labelKey: "menu.dashboard", icon: LayoutDashboard, href: "/dashboard" }],
+    items: [
+      { 
+        key: "dashboard", 
+        menuKey: "dashboard",
+        labelKey: "menu.dashboard", 
+        icon: LayoutDashboard, 
+        href: "/dashboard" 
+      }
+    ],
   },
   {
     groupKey: "menu.transactions",
     items: [
       {
         key: "planOrder",
+        menuKey: "planOrder",
         labelKey: "menu.planOrder",
         subLabelKey: "menu.planOrderSub",
         icon: ClipboardList,
@@ -55,6 +69,7 @@ const menuItems: { groupKey: string; items: MenuItem[] }[] = [
       },
       {
         key: "stockIn",
+        menuKey: "stockIn",
         labelKey: "menu.stockIn",
         subLabelKey: "menu.stockInSub",
         icon: ArrowDownToLine,
@@ -62,6 +77,7 @@ const menuItems: { groupKey: string; items: MenuItem[] }[] = [
       },
       {
         key: "salesOrder",
+        menuKey: "salesOrder",
         labelKey: "menu.salesOrder",
         subLabelKey: "menu.salesOrderSub",
         icon: ShoppingCart,
@@ -69,12 +85,19 @@ const menuItems: { groupKey: string; items: MenuItem[] }[] = [
       },
       {
         key: "stockOut",
+        menuKey: "stockOut",
         labelKey: "menu.stockOut",
         subLabelKey: "menu.stockOutSub",
         icon: ArrowUpFromLine,
         href: "/stock-out",
       },
-      { key: "stockAdjustment", labelKey: "menu.stockAdjustment", icon: Settings2, href: "/stock-adjustment" },
+      { 
+        key: "stockAdjustment", 
+        menuKey: "stockAdjustment",
+        labelKey: "menu.stockAdjustment", 
+        icon: Settings2, 
+        href: "/stock-adjustment" 
+      },
     ],
   },
   {
@@ -85,40 +108,46 @@ const menuItems: { groupKey: string; items: MenuItem[] }[] = [
         labelKey: "menu.dataProduct",
         icon: Package,
         children: [
-          { key: "products", labelKey: "menu.products", icon: Boxes, href: "/data-product/products" },
-          { key: "categories", labelKey: "menu.categories", icon: Tags, href: "/data-product/categories" },
-          { key: "units", labelKey: "menu.units", icon: Ruler, href: "/data-product/units" },
-          { key: "suppliers", labelKey: "menu.suppliers", icon: Building2, href: "/data-product/suppliers" },
-          { key: "customers", labelKey: "menu.customers", icon: UserCircle, href: "/data-product/customers" },
+          { key: "products", menuKey: "products", labelKey: "menu.products", icon: Boxes, href: "/data-product/products" },
+          { key: "categories", menuKey: "categories", labelKey: "menu.categories", icon: Tags, href: "/data-product/categories" },
+          { key: "units", menuKey: "units", labelKey: "menu.units", icon: Ruler, href: "/data-product/units" },
+          { key: "suppliers", menuKey: "suppliers", labelKey: "menu.suppliers", icon: Building2, href: "/data-product/suppliers" },
+          { key: "customers", menuKey: "customers", labelKey: "menu.customers", icon: UserCircle, href: "/data-product/customers" },
         ],
       },
-      { key: "dataStock", labelKey: "menu.dataStock", icon: Database, href: "/data-stock" },
+      { 
+        key: "dataStock", 
+        menuKey: "dataStock",
+        labelKey: "menu.dataStock", 
+        icon: Database, 
+        href: "/data-stock" 
+      },
       {
         key: "userManagement",
+        menuKey: "userManagement",
         labelKey: "menu.userManagement",
         icon: Users,
         href: "/user-management",
-        roles: ["super_admin"],
       },
       {
         key: "settings",
+        menuKey: "settings",
         labelKey: "menu.settings",
         icon: Settings2,
         href: "/settings",
-        roles: ["super_admin", "admin"],
       },
     ],
   },
   {
     groupKey: "menu.reports",
     items: [
-      { key: "stockReport", labelKey: "menu.stockReport", icon: FileText, href: "/reports/stock" },
-      { key: "inboundReport", labelKey: "menu.inboundReport", icon: FileBarChart, href: "/reports/inbound" },
-      { key: "outboundReport", labelKey: "menu.outboundReport", icon: FileBarChart, href: "/reports/outbound" },
-      { key: "stockMovement", labelKey: "menu.stockMovement", icon: TrendingUpDown, href: "/reports/movement" },
-      { key: "expiryAlert", labelKey: "menu.expiryAlert", icon: CalendarClock, href: "/reports/expiry" },
-      { key: "adjustmentLog", labelKey: "menu.adjustmentLog", icon: ClipboardCheck, href: "/reports/adjustment" },
-      { key: "auditLog", labelKey: "menu.auditLog", icon: History, href: "/reports/audit" },
+      { key: "stockReport", menuKey: "stockReport", labelKey: "menu.stockReport", icon: FileText, href: "/reports/stock" },
+      { key: "inboundReport", menuKey: "inboundReport", labelKey: "menu.inboundReport", icon: FileBarChart, href: "/reports/inbound" },
+      { key: "outboundReport", menuKey: "outboundReport", labelKey: "menu.outboundReport", icon: FileBarChart, href: "/reports/outbound" },
+      { key: "stockMovement", menuKey: "stockMovement", labelKey: "menu.stockMovement", icon: TrendingUpDown, href: "/reports/movement" },
+      { key: "expiryAlert", menuKey: "expiryAlert", labelKey: "menu.expiryAlert", icon: CalendarClock, href: "/reports/expiry" },
+      { key: "adjustmentLog", menuKey: "adjustmentLog", labelKey: "menu.adjustmentLog", icon: ClipboardCheck, href: "/reports/adjustment" },
+      { key: "auditLog", menuKey: "auditLog", labelKey: "menu.auditLog", icon: History, href: "/reports/audit" },
     ],
   },
 ];
@@ -134,7 +163,7 @@ const SCROLL_POSITION_KEY = "sidebar-scroll-position";
 
 export default function AppSidebar({ isMobile, isOpen, onClose, onNavigate }: AppSidebarProps) {
   const { t } = useLanguage();
-  const { hasPermission } = useAuth();
+  const { user } = useAuth();
   const location = useLocation();
   const [expandedItems, setExpandedItems] = useState<string[]>(["dataProduct"]);
   const scrollContainerRef = useRef<HTMLElement>(null);
@@ -169,15 +198,52 @@ export default function AppSidebar({ isMobile, isOpen, onClose, onNavigate }: Ap
     if (isMobile) onNavigate();
   };
 
+  /**
+   * Check if user can access a menu item
+   * HIDE items user cannot access (not disable)
+   */
+  const canAccess = (item: MenuItem): boolean => {
+    if (!user) return false;
+    
+    // If item has menuKey, check permission
+    if (item.menuKey) {
+      return canAccessMenu(user.role, item.menuKey);
+    }
+    
+    // For parent items with children, check if any child is accessible
+    if (item.children) {
+      return item.children.some(child => canAccess(child));
+    }
+    
+    return true;
+  };
+
+  /**
+   * Filter children that user can access
+   */
+  const getAccessibleChildren = (children: MenuItem[]): MenuItem[] => {
+    return children.filter(child => canAccess(child));
+  };
+
   const renderMenuItem = (item: MenuItem, depth = 0) => {
-    if (item.roles && !hasPermission(item.roles as any)) return null;
+    // HIDE menu items user cannot access
+    if (!canAccess(item)) return null;
 
     const hasChildren = item.children && item.children.length > 0;
+    
+    // For parent with children, only show if has accessible children
+    if (hasChildren) {
+      const accessibleChildren = getAccessibleChildren(item.children!);
+      if (accessibleChildren.length === 0) return null;
+    }
+    
     const isExpanded = expandedItems.includes(item.key);
     const active = item.href ? isActive(item.href) : hasChildren && isParentActive(item.children!);
     const Icon = item.icon;
 
     if (hasChildren) {
+      const accessibleChildren = getAccessibleChildren(item.children!);
+      
       return (
         <div key={item.key}>
           <button
@@ -197,7 +263,7 @@ export default function AppSidebar({ isMobile, isOpen, onClose, onNavigate }: Ap
 
           {isExpanded && (
             <div className="ml-4 mt-1 space-y-1 border-l border-sidebar-border pl-3">
-              {item.children!.map((child) => renderMenuItem(child, depth + 1))}
+              {accessibleChildren.map((child) => renderMenuItem(child, depth + 1))}
             </div>
           )}
         </div>
@@ -228,25 +294,39 @@ export default function AppSidebar({ isMobile, isOpen, onClose, onNavigate }: Ap
     );
   };
 
+  /**
+   * Filter groups that have at least one accessible item
+   */
+  const getVisibleGroups = () => {
+    return menuItems.filter(group => {
+      return group.items.some(item => canAccess(item));
+    });
+  };
+
+  const visibleGroups = getVisibleGroups();
+
   return (
     <aside className={cn("h-full sidebar-gradient sidebar-shadow flex flex-col", isMobile ? "w-full" : "w-full")}>
       {/* Navigation - scrollable */}
       <nav ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-3 space-y-6">
-        {menuItems.map((group) => (
-          <div key={group.groupKey}>
-            {/* ✅ FIX: header group dibuat putih agar terlihat di mode light/dark */}
-            <h2 className="px-3 mb-2 text-xs font-semibold text-sidebar-foreground/80 uppercase tracking-wider">
-              {t(group.groupKey)}
-            </h2>
+        {visibleGroups.map((group) => {
+          const visibleItems = group.items.filter(item => canAccess(item));
+          if (visibleItems.length === 0) return null;
+          
+          return (
+            <div key={group.groupKey}>
+              <h2 className="px-3 mb-2 text-xs font-semibold text-sidebar-foreground/80 uppercase tracking-wider">
+                {t(group.groupKey)}
+              </h2>
 
-            <div className="space-y-1">{group.items.map((item) => renderMenuItem(item))}</div>
-          </div>
-        ))}
+              <div className="space-y-1">{visibleItems.map((item) => renderMenuItem(item))}</div>
+            </div>
+          );
+        })}
       </nav>
 
       {/* Footer */}
       <div className="p-4 border-t border-sidebar-border flex-shrink-0">
-        {/* ✅ FIX: footer dibuat putih soft agar selalu terlihat */}
         <p className="text-xs text-sidebar-foreground/60 text-center">© 2026 PT. Kemika Karya Pratama</p>
       </div>
     </aside>
