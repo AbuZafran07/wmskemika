@@ -585,8 +585,8 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
       className={`fixed bottom-4 right-4 shadow-xl z-50 transition-all duration-300 ${isExpanded ? "w-[500px] h-[600px]" : "w-[350px] h-[450px]"}`}
     >
       <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <img src={ktalkIcon} alt="K'talk" className="h-6 w-6 object-contain" />
+        <CardTitle className="flex items-center gap-3 text-base">
+          <img src={ktalkIcon} alt="K'talk" className="h-9 w-9 object-contain" />
           {selectedUser ? (
             <span className="flex items-center gap-2">
               <Avatar className="h-6 w-6">
