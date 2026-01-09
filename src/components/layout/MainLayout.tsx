@@ -4,6 +4,15 @@ import AppSidebar from './AppSidebar';
 import AppHeader from './AppHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { ChatWidget } from '@/components/dashboard/ChatWidget';
+import { supabase } from '@/integrations/supabase/client';
+
+interface OnlineUser {
+  id: string;
+  email: string;
+  name: string;
+  avatar_url: string | null;
+}
 
 const SIDEBAR_WIDTH_KEY = 'sidebar-width';
 const MIN_SIDEBAR_WIDTH = 220;
@@ -11,7 +20,8 @@ const DEFAULT_SIDEBAR_WIDTH = 280;
 const MAX_SIDEBAR_WIDTH = 420;
 
 export default function MainLayout() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY);
@@ -66,6 +76,48 @@ export default function MainLayout() {
   const closeMobileDrawer = useCallback(() => {
     setIsMobileDrawerOpen(false);
   }, []);
+
+  // Online presence tracking for chat
+  useEffect(() => {
+    if (!user) return;
+
+    const presenceChannel = supabase.channel('app-presence', {
+      config: {
+        presence: {
+          key: user.id,
+        },
+      },
+    });
+
+    presenceChannel
+      .on('presence', { event: 'sync' }, () => {
+        const state = presenceChannel.presenceState();
+        const users: OnlineUser[] = [];
+        
+        Object.keys(state).forEach((key) => {
+          const presences = state[key] as unknown as OnlineUser[];
+          if (presences && presences.length > 0) {
+            users.push(presences[0]);
+          }
+        });
+        
+        setOnlineUsers(users);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await presenceChannel.track({
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            avatar_url: user.avatar || null,
+          });
+        }
+      });
+
+    return () => {
+      presenceChannel.unsubscribe();
+    };
+  }, [user]);
 
   if (isLoading) {
     return (
@@ -147,6 +199,9 @@ export default function MainLayout() {
           </div>
         </main>
       </div>
+
+      {/* Global Chat Widget */}
+      <ChatWidget onlineUsers={onlineUsers} />
     </div>
   );
 }
