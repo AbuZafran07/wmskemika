@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, Loader2, Shield, Users, Bell } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Loader2, Users, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -16,15 +16,15 @@ interface SettingsData {
 
 export default function SettingsPage() {
   const { language } = useLanguage();
-  const { user } = useAuth();
+  const { isSuperAdmin } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<SettingsData>({
     allow_admin_approve: false,
   });
 
-  // Check if user is super_admin
-  const isSuperAdmin = user?.role === 'super_admin';
+  // Access is already controlled by RouteGuard - this is additional safety
+  const canModify = isSuperAdmin();
 
   useEffect(() => {
     fetchSettings();
@@ -69,7 +69,7 @@ export default function SettingsPage() {
   };
 
   const handleSave = async () => {
-    if (!isSuperAdmin) {
+    if (!canModify) {
       toast.error(language === 'en' ? 'Only super_admin can modify settings' : 'Hanya super_admin yang dapat mengubah pengaturan');
       return;
     }
@@ -107,40 +107,8 @@ export default function SettingsPage() {
     setSaving(false);
   };
 
-  if (!isSuperAdmin) {
-    return (
-      <div className="space-y-6 animate-fade-in">
-        <div className="flex items-center gap-4">
-          <div className="p-3 rounded-xl bg-primary/10">
-            <SettingsIcon className="w-6 h-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold font-display">
-              {language === 'en' ? 'Settings' : 'Pengaturan'}
-            </h1>
-            <p className="text-muted-foreground">
-              {language === 'en' ? 'System configuration' : 'Konfigurasi sistem'}
-            </p>
-          </div>
-        </div>
-
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Shield className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">
-              {language === 'en' ? 'Access Denied' : 'Akses Ditolak'}
-            </h3>
-            <p className="text-muted-foreground">
-              {language === 'en' 
-                ? 'Only super_admin can access and modify system settings.'
-                : 'Hanya super_admin yang dapat mengakses dan mengubah pengaturan sistem.'
-              }
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  // Access is controlled by RouteGuard - if user reaches here without permission,
+  // they will be redirected to dashboard. No need for "Access Denied" screen.
 
   return (
     <div className="space-y-6 animate-fade-in">

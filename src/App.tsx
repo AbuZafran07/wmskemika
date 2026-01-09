@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { RouteGuard } from "@/components/RouteGuard";
 
 // Pages
 import Login from "./pages/Login";
@@ -56,35 +57,124 @@ const App = () => (
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 
                 <Route element={<MainLayout />}>
-                  <Route path="/dashboard" element={<Dashboard />} />
+                  {/* Dashboard - All roles */}
+                  <Route path="/dashboard" element={
+                    <RouteGuard menuKey="dashboard">
+                      <Dashboard />
+                    </RouteGuard>
+                  } />
                   
                   {/* Transactions */}
-                  <Route path="/plan-order" element={<PlanOrder />} />
-                  <Route path="/stock-in" element={<StockIn />} />
-                  <Route path="/sales-order" element={<SalesOrder />} />
-                  <Route path="/stock-out" element={<StockOut />} />
-                  <Route path="/stock-adjustment" element={<StockAdjustment />} />
+                  <Route path="/plan-order" element={
+                    <RouteGuard menuKey="planOrder">
+                      <PlanOrder />
+                    </RouteGuard>
+                  } />
+                  <Route path="/stock-in" element={
+                    <RouteGuard menuKey="stockIn">
+                      <StockIn />
+                    </RouteGuard>
+                  } />
+                  <Route path="/sales-order" element={
+                    <RouteGuard menuKey="salesOrder">
+                      <SalesOrder />
+                    </RouteGuard>
+                  } />
+                  <Route path="/stock-out" element={
+                    <RouteGuard menuKey="stockOut">
+                      <StockOut />
+                    </RouteGuard>
+                  } />
+                  <Route path="/stock-adjustment" element={
+                    <RouteGuard menuKey="stockAdjustment">
+                      <StockAdjustment />
+                    </RouteGuard>
+                  } />
                   
                   {/* Master Data */}
-                  <Route path="/data-product/products" element={<Products />} />
-                  <Route path="/data-product/categories" element={<Categories />} />
-                  <Route path="/data-product/units" element={<Units />} />
-                  <Route path="/data-product/suppliers" element={<Suppliers />} />
-                  <Route path="/data-product/customers" element={<Customers />} />
-                  <Route path="/data-stock" element={<DataStock />} />
-                  <Route path="/user-management" element={<UserManagement />} />
-                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/data-product/products" element={
+                    <RouteGuard menuKey="products">
+                      <Products />
+                    </RouteGuard>
+                  } />
+                  <Route path="/data-product/categories" element={
+                    <RouteGuard menuKey="categories">
+                      <Categories />
+                    </RouteGuard>
+                  } />
+                  <Route path="/data-product/units" element={
+                    <RouteGuard menuKey="units">
+                      <Units />
+                    </RouteGuard>
+                  } />
+                  <Route path="/data-product/suppliers" element={
+                    <RouteGuard menuKey="suppliers">
+                      <Suppliers />
+                    </RouteGuard>
+                  } />
+                  <Route path="/data-product/customers" element={
+                    <RouteGuard menuKey="customers">
+                      <Customers />
+                    </RouteGuard>
+                  } />
+                  <Route path="/data-stock" element={
+                    <RouteGuard menuKey="dataStock">
+                      <DataStock />
+                    </RouteGuard>
+                  } />
+                  
+                  {/* Admin Only - super_admin */}
+                  <Route path="/user-management" element={
+                    <RouteGuard menuKey="userManagement">
+                      <UserManagement />
+                    </RouteGuard>
+                  } />
+                  <Route path="/settings" element={
+                    <RouteGuard menuKey="settings">
+                      <SettingsPage />
+                    </RouteGuard>
+                  } />
+                  
+                  {/* Profile & Notifications - Always accessible */}
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/notifications" element={<Notifications />} />
                   
                   {/* Reports */}
-                  <Route path="/reports/stock" element={<StockReport />} />
-                  <Route path="/reports/inbound" element={<InboundReport />} />
-                  <Route path="/reports/outbound" element={<OutboundReport />} />
-                  <Route path="/reports/movement" element={<StockMovement />} />
-                  <Route path="/reports/expiry" element={<ExpiryAlert />} />
-                  <Route path="/reports/adjustment" element={<AdjustmentLog />} />
-                  <Route path="/reports/audit" element={<AuditLog />} />
+                  <Route path="/reports/stock" element={
+                    <RouteGuard menuKey="stockReport">
+                      <StockReport />
+                    </RouteGuard>
+                  } />
+                  <Route path="/reports/inbound" element={
+                    <RouteGuard menuKey="inboundReport">
+                      <InboundReport />
+                    </RouteGuard>
+                  } />
+                  <Route path="/reports/outbound" element={
+                    <RouteGuard menuKey="outboundReport">
+                      <OutboundReport />
+                    </RouteGuard>
+                  } />
+                  <Route path="/reports/movement" element={
+                    <RouteGuard menuKey="stockMovement">
+                      <StockMovement />
+                    </RouteGuard>
+                  } />
+                  <Route path="/reports/expiry" element={
+                    <RouteGuard menuKey="expiryAlert">
+                      <ExpiryAlert />
+                    </RouteGuard>
+                  } />
+                  <Route path="/reports/adjustment" element={
+                    <RouteGuard menuKey="adjustmentLog">
+                      <AdjustmentLog />
+                    </RouteGuard>
+                  } />
+                  <Route path="/reports/audit" element={
+                    <RouteGuard menuKey="auditLog">
+                      <AuditLog />
+                    </RouteGuard>
+                  } />
                 </Route>
                 
                 <Route path="*" element={<NotFound />} />
