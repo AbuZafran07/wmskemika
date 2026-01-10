@@ -1,6 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { securePrint, printStyles } from '@/lib/printUtils';
 import { Plus, Search, Eye, Edit, MoreHorizontal, CheckCircle, XCircle, Loader2, Upload, ArrowLeft, Trash2, Printer, Archive, List, Download, Package } from 'lucide-react';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -97,6 +98,9 @@ export default function PlanOrder() {
   const { products } = useProducts();
   const { allowAdminApprove } = useSettings();
   
+  // RBAC Permissions
+  const { canCreate, canEdit, canDelete, canCancel, canApproveOrder } = usePermissions();
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState('');
@@ -159,13 +163,8 @@ export default function PlanOrder() {
     });
   };
 
-  // Check if user can approve orders
-  const canApprove = useMemo(() => {
-    if (!user) return false;
-    if (user.role === 'super_admin') return true;
-    if (user.role === 'admin' && allowAdminApprove) return true;
-    return false;
-  }, [user, allowAdminApprove]);
+  // Use RBAC hook for approve permission
+  const canApprove = canApproveOrder('plan_order');
 
   // Check if order can be cancelled
   const canCancelOrder = (order: PlanOrderHeader, items: PlanOrderItem[]) => {
@@ -895,10 +894,12 @@ export default function PlanOrder() {
           <h1 className="text-2xl font-bold font-display">{t('menu.planOrder')}</h1>
           <p className="text-muted-foreground">{t('menu.planOrderSub')} - {language === 'en' ? 'Manage procurement plans' : 'Kelola rencana pembelian'}</p>
         </div>
-        <Button onClick={() => { generatePlanNumber(); setIsFormOpen(true); }}>
-          <Plus className="w-4 h-4 mr-2" />
-          {language === 'en' ? 'Create Plan Order' : 'Buat Plan Order'}
-        </Button>
+        {canCreate('plan_order') && (
+          <Button onClick={() => { generatePlanNumber(); setIsFormOpen(true); }}>
+            <Plus className="w-4 h-4 mr-2" />
+            {language === 'en' ? 'Create Plan Order' : 'Buat Plan Order'}
+          </Button>
+        )}
       </div>
 
       {/* Tabs: Active / Archived */}
@@ -1009,10 +1010,11 @@ export default function PlanOrder() {
                 ) : (
                   filteredOrders.map((order) => {
                     const status = statusConfig[order.status];
+                    // RBAC: Check permissions AND status
                     const showApprove = order.status === 'draft' && canApprove;
-                    const showCancel = order.status === 'draft' || order.status === 'approved';
-                    const showEdit = order.status === 'draft';
-                    const showDelete = order.status === 'draft';
+                    const showCancel = (order.status === 'draft' || order.status === 'approved') && canCancel('plan_order');
+                    const showEdit = order.status === 'draft' && canEdit('plan_order');
+                    const showDelete = order.status === 'draft' && canDelete('plan_order');
                     
                     return (
                       <TableRow key={order.id}>
