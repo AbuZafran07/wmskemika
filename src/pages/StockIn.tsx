@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { RefreshCw, Info, CheckCircle, AlertCircle, Package, Building2, Upload, Loader2, X } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -56,6 +57,7 @@ interface StockInItem {
 export default function StockIn() {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
+  const { canCreate, canUpload } = usePermissions();
 
   const [planOrders, setPlanOrders] = useState<PlanOrderHeader[]>([]);
   const [selectedPlanOrderId, setSelectedPlanOrderId] = useState<string>("");
@@ -558,11 +560,13 @@ export default function StockIn() {
           <AlertCircle className="w-4 h-4 mr-2" />
           {t("common.cancel")}
         </Button>
-        <Button onClick={handleSave} disabled={!selectedPlanOrderId || isSaving}>
-          {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-          <CheckCircle className="w-4 h-4 mr-2" />
-          {language === "en" ? "Save Stock In" : "Simpan Stock In"}
-        </Button>
+        {canCreate('stock_in') && (
+          <Button onClick={handleSave} disabled={!selectedPlanOrderId || isSaving}>
+            {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            <CheckCircle className="w-4 h-4 mr-2" />
+            {language === "en" ? "Save Stock In" : "Simpan Stock In"}
+          </Button>
+        )}
       </div>
     </div>
   );

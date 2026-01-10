@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Plus, Search, Filter, MoreHorizontal, Edit, Trash2, Loader2, Eye, Download, Upload } from 'lucide-react';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -75,6 +76,7 @@ const initialFormData: SupplierFormData = {
 export default function Suppliers() {
   const { t, language } = useLanguage();
   const { suppliers, loading, refetch } = useSuppliers();
+  const { canCreate, canEdit, canDelete, canUpload } = usePermissions();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -416,32 +418,36 @@ export default function Suppliers() {
             className="hidden"
             onChange={handleFileSelect}
           />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" disabled={isImporting}>
-                {isImporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
-                {t('common.import')}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
-                <Upload className="w-4 h-4 mr-2" />
-                {language === 'en' ? 'Import CSV' : 'Impor CSV'}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleDownloadTemplate}>
-                <Download className="w-4 h-4 mr-2" />
-                {language === 'en' ? 'Download Template' : 'Unduh Template'}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {canUpload('supplier') && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={isImporting}>
+                  {isImporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                  {t('common.import')}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                  <Upload className="w-4 h-4 mr-2" />
+                  {language === 'en' ? 'Import CSV' : 'Impor CSV'}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleDownloadTemplate}>
+                  <Download className="w-4 h-4 mr-2" />
+                  {language === 'en' ? 'Download Template' : 'Unduh Template'}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="w-4 h-4 mr-2" />
             {t('common.export')}
           </Button>
-          <Button size="sm" onClick={handleAdd}>
-            <Plus className="w-4 h-4 mr-2" />
-            {t('common.add')} Supplier
-          </Button>
+          {canCreate('supplier') && (
+            <Button size="sm" onClick={handleAdd}>
+              <Plus className="w-4 h-4 mr-2" />
+              {t('common.add')} Supplier
+            </Button>
+          )}
         </div>
       </div>
 
@@ -517,14 +523,18 @@ export default function Suppliers() {
                               <Eye className="w-4 h-4 mr-2" />
                               {language === 'en' ? 'View Details' : 'Lihat Detail'}
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleEdit(supplier)}>
-                              <Edit className="w-4 h-4 mr-2" />
-                              {t('common.edit')}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(supplier)}>
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              {t('common.delete')}
-                            </DropdownMenuItem>
+                            {canEdit('supplier') && (
+                              <DropdownMenuItem onClick={() => handleEdit(supplier)}>
+                                <Edit className="w-4 h-4 mr-2" />
+                                {t('common.edit')}
+                              </DropdownMenuItem>
+                            )}
+                            {canDelete('supplier') && (
+                              <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(supplier)}>
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                {t('common.delete')}
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
