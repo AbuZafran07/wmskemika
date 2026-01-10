@@ -1,8 +1,5 @@
-import React, { useState, useRef, useMemo, useEffect } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import { securePrint, printStyles } from "@/lib/printUtils";
-import html2pdf from "html2pdf.js";
-import DOMPurify from "dompurify";
-
 import {
   Plus,
   Search,
@@ -20,29 +17,23 @@ import {
   List,
   Download,
   Package,
-  FileText,
 } from "lucide-react";
-
+import { usePermissions } from "@/hooks/usePermissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,13 +44,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
-
 import {
   usePlanOrders,
   usePlanOrderItems,
@@ -73,7 +61,6 @@ import {
   PlanOrderHeader,
   PlanOrderItem,
 } from "@/hooks/usePlanOrders";
-
 import { useSuppliers, useProducts, Product } from "@/hooks/useMasterData";
 import { uploadFile, getSignedUrl } from "@/lib/storage";
 import { generateUniquePlanOrderNumber } from "@/lib/transactionNumberUtils";
@@ -108,23 +95,24 @@ export default function PlanOrder() {
   const { products } = useProducts();
   const { allowAdminApprove } = useSettings();
 
+  // RBAC Permissions
+  const { canCreate, canEdit, canDelete, canCancel, canApproveOrder } = usePermissions();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [viewMode, setViewMode] = useState<"active" | "archived">("active");
-
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-
   const [selectedOrder, setSelectedOrder] = useState<PlanOrderHeader | null>(null);
-
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
 
+  // Fetch items for selected order in detail view
   const { items: selectedOrderItems, loading: itemsLoading } = usePlanOrderItems(selectedOrder?.id || null);
 
   // Form state
@@ -139,25 +127,20 @@ export default function PlanOrder() {
   const [taxRate, setTaxRate] = useState("11");
   const [shippingCost, setShippingCost] = useState("0");
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
-
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-
   const [isOpeningPoDoc, setIsOpeningPoDoc] = useState(false);
   const [documentViewerUrl, setDocumentViewerUrl] = useState<string | null>(null);
   const [isDocumentViewerOpen, setIsDocumentViewerOpen] = useState(false);
-
-  const [isPdfPreviewOpen, setIsPdfPreviewOpen] = useState(false);
-  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const printRef = useRef<HTMLDivElement>(null);
   const [isGeneratingNumber, setIsGeneratingNumber] = useState(false);
 
-  // Stock In history
+  // Stock In history for the selected order
   const [stockInHistory, setStockInHistory] = useState<any[]>([]);
   const [stockInHistoryLoading, setStockInHistoryLoading] = useState(false);
 
@@ -177,20 +160,20 @@ export default function PlanOrder() {
     });
   };
 
-  const safeNumber = (v: any) => {
-    const n = typeof v === "number" ? v : parseFloat(String(v ?? 0));
-    return Number.isFinite(n) ? n : 0;
+  // Use RBAC hook for approve permission
+  const canApprove = canApproveOrder("plan_order");
+
+  // Check if order can be cancelled
+  const canCancelOrder = (order: PlanOrderHeader, items: PlanOrderItem[]) => {
+    if (order.status === "draft") return true;
+    if (order.status === "approved") {
+      const totalReceived = items.reduce((sum, item) => sum + (item.qty_received || 0), 0);
+      return totalReceived === 0;
+    }
+    return false;
   };
 
-  // Permissions approve
-  const canApprove = useMemo(() => {
-    if (!user) return false;
-    if (user.role === "super_admin") return true;
-    if (user.role === "admin" && allowAdminApprove) return true;
-    return false;
-  }, [user, allowAdminApprove]);
-
-  // Filter list
+  // Filter logic with status, date range, and view mode (active/archived)
   const filteredOrders = useMemo(() => {
     return planOrders.filter((order) => {
       const matchesSearch =
@@ -203,6 +186,7 @@ export default function PlanOrder() {
       const matchesDateFrom = !dateFrom || orderDate >= new Date(dateFrom);
       const matchesDateTo = !dateTo || orderDate <= new Date(dateTo);
 
+      // View mode filter: active vs archived
       const activeStatuses = ["draft", "approved", "partially_received"];
       const archivedStatuses = ["received", "cancelled"];
       const matchesViewMode =
@@ -220,22 +204,9 @@ export default function PlanOrder() {
 
   const hasActiveFilters = statusFilter !== "all" || dateFrom || dateTo;
 
-  const calculateTotals = () => {
-    const subtotal = orderItems.reduce(
-      (sum, item) => sum + safeNumber(item.unit_price) * safeNumber(item.planned_qty),
-      0,
-    );
-    const discountValue = safeNumber(discount);
-    const afterDiscount = subtotal - discountValue;
-    const taxValue = (afterDiscount * safeNumber(taxRate)) / 100;
-    const shippingValue = safeNumber(shippingCost);
-    const grandTotal = afterDiscount + taxValue + shippingValue;
-    return { subtotal, discountValue, afterDiscount, taxValue, shippingValue, grandTotal };
-  };
-
-  // --- NEW: Print/Preview/Download handlers (SalesOrder-like) ---
-  const handlePrint = () => {
+  const handleExportPDF = () => {
     if (!selectedOrder || !printRef.current) return;
+
     securePrint({
       title: `Plan Order - ${selectedOrder.plan_number}`,
       styles: printStyles.planOrder,
@@ -243,34 +214,15 @@ export default function PlanOrder() {
     });
   };
 
-  const handlePreviewPDF = () => {
-    if (!selectedOrder || !printRef.current) return;
-    setIsPdfPreviewOpen(true);
-  };
+  const calculateTotals = () => {
+    const subtotal = orderItems.reduce((sum, item) => sum + item.unit_price * item.planned_qty, 0);
+    const discountValue = parseFloat(discount) || 0;
+    const afterDiscount = subtotal - discountValue;
+    const taxValue = (afterDiscount * (parseFloat(taxRate) || 0)) / 100;
+    const shippingValue = parseFloat(shippingCost) || 0;
+    const grandTotal = afterDiscount + taxValue + shippingValue;
 
-  const handleDownloadPDF = async () => {
-    if (!selectedOrder || !printRef.current) return;
-    setIsDownloadingPdf(true);
-    try {
-      const opt: any = {
-        margin: [10, 10, 10, 10],
-        filename: `PlanOrder_${selectedOrder.plan_number}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      };
-
-      // Use sanitized HTML to reduce broken rendering
-      const temp = document.createElement("div");
-      temp.innerHTML = DOMPurify.sanitize(printRef.current.innerHTML);
-
-      await (html2pdf() as any).set(opt).from(temp).save();
-    } catch (e) {
-      console.error(e);
-      toast.error(language === "en" ? "Failed to download PDF" : "Gagal mengunduh PDF");
-    } finally {
-      setIsDownloadingPdf(false);
-    }
+    return { subtotal, discountValue, taxValue, shippingValue, grandTotal };
   };
 
   const handleViewPoDocument = async (order: PlanOrderHeader) => {
@@ -294,6 +246,7 @@ export default function PlanOrder() {
 
       if (!urlToOpen) {
         toast.error(language === "en" ? "Document not found" : "Dokumen tidak ditemukan");
+        setIsOpeningPoDoc(false);
         return;
       }
 
@@ -360,7 +313,7 @@ export default function PlanOrder() {
           };
         }
 
-        return { ...item, [field]: value } as any;
+        return { ...item, [field]: value };
       }),
     );
   };
@@ -388,7 +341,7 @@ export default function PlanOrder() {
       return;
     }
 
-    if (orderItems.some((item) => !item.product_id || safeNumber(item.planned_qty) <= 0)) {
+    if (orderItems.some((item) => !item.product_id || item.planned_qty <= 0)) {
       toast.error(language === "en" ? "Please complete all line items" : "Harap lengkapi semua item");
       return;
     }
@@ -412,8 +365,8 @@ export default function PlanOrder() {
         status: "draft",
         total_amount: subtotal,
         discount: discountValue,
-        tax_rate: safeNumber(taxRate),
-        shipping_cost: safeNumber(shippingCost),
+        tax_rate: parseFloat(taxRate) || 0,
+        shipping_cost: parseFloat(shippingCost) || 0,
         grand_total: grandTotal,
         created_by: user?.id || null,
         approved_by: null,
@@ -421,8 +374,8 @@ export default function PlanOrder() {
       },
       orderItems.map((item) => ({
         product_id: item.product_id,
-        unit_price: safeNumber(item.unit_price),
-        planned_qty: safeNumber(item.planned_qty),
+        unit_price: item.unit_price,
+        planned_qty: item.planned_qty,
         notes: item.notes,
       })),
       poDocumentKey
@@ -492,23 +445,41 @@ export default function PlanOrder() {
     setSelectedOrder(null);
   };
 
-  const fetchOrderItemsForEdit = async (orderId: string) => {
-    const { data, error } = await supabase
-      .from("plan_order_items")
-      .select(`*, product:products(id, name, sku, purchase_price)`)
-      .eq("plan_order_id", orderId);
+  const handleViewDetail = async (order: PlanOrderHeader) => {
+    setSelectedOrder(order);
+    setIsDetailDialogOpen(true);
 
-    if (!error && data) {
-      setOrderItems(
-        data.map((item: any) => ({
-          id: item.id,
-          product_id: item.product_id,
-          product: item.product,
-          unit_price: item.unit_price,
-          planned_qty: item.planned_qty,
-          notes: item.notes || "",
-        })),
-      );
+    // Fetch stock in history for this plan order
+    setStockInHistoryLoading(true);
+    try {
+      const { data: stockIns, error } = await supabase
+        .from("stock_in_headers")
+        .select(
+          `
+          id,
+          stock_in_number,
+          received_date,
+          notes,
+          created_at,
+          stock_in_items (
+            id,
+            qty_received,
+            batch_no,
+            expired_date,
+            product:products (name, sku)
+          )
+        `,
+        )
+        .eq("plan_order_id", order.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setStockInHistory(stockIns || []);
+    } catch (err) {
+      console.error("Failed to fetch stock in history:", err);
+      setStockInHistory([]);
+    } finally {
+      setStockInHistoryLoading(false);
     }
   };
 
@@ -530,13 +501,33 @@ export default function PlanOrder() {
     fetchOrderItemsForEdit(order.id);
   };
 
+  const fetchOrderItemsForEdit = async (orderId: string) => {
+    const { data, error } = await supabase
+      .from("plan_order_items")
+      .select(`*, product:products(id, name, sku, purchase_price)`)
+      .eq("plan_order_id", orderId);
+
+    if (!error && data) {
+      setOrderItems(
+        data.map((item) => ({
+          id: item.id,
+          product_id: item.product_id,
+          product: item.product,
+          unit_price: item.unit_price,
+          planned_qty: item.planned_qty,
+          notes: item.notes || "",
+        })),
+      );
+    }
+  };
+
   const handleUpdate = async () => {
     if (!editingOrderId || !planNumber || !supplierId || orderItems.length === 0) {
       toast.error(language === "en" ? "Please fill all required fields" : "Harap isi semua field wajib");
       return;
     }
 
-    if (orderItems.some((item) => !item.product_id || safeNumber(item.planned_qty) <= 0)) {
+    if (orderItems.some((item) => !item.product_id || item.planned_qty <= 0)) {
       toast.error(language === "en" ? "Please complete all line items" : "Harap lengkapi semua item");
       return;
     }
@@ -555,19 +546,20 @@ export default function PlanOrder() {
         po_document_url: poDocumentUrl,
         total_amount: subtotal,
         discount: discountValue,
-        tax_rate: safeNumber(taxRate),
-        shipping_cost: safeNumber(shippingCost),
+        tax_rate: parseFloat(taxRate) || 0,
+        shipping_cost: parseFloat(shippingCost) || 0,
         grand_total: grandTotal,
       },
       orderItems.map((item) => ({
         product_id: item.product_id,
-        unit_price: safeNumber(item.unit_price),
-        planned_qty: safeNumber(item.planned_qty),
+        unit_price: item.unit_price,
+        planned_qty: item.planned_qty,
         notes: item.notes,
       })),
     );
 
     if (result.success) {
+      // Log attachment if new one was uploaded
       if (poDocumentKey && poDocumentUrl) {
         await logPlanOrderUpload(editingOrderId, planNumber, {
           file_key: poDocumentKey,
@@ -606,46 +598,9 @@ export default function PlanOrder() {
     setSelectedOrder(null);
   };
 
-  const handleViewDetail = async (order: PlanOrderHeader) => {
-    setSelectedOrder(order);
-    setIsDetailDialogOpen(true);
-
-    setStockInHistoryLoading(true);
-    try {
-      const { data: stockIns, error } = await supabase
-        .from("stock_in_headers")
-        .select(
-          `
-          id,
-          stock_in_number,
-          received_date,
-          notes,
-          created_at,
-          stock_in_items (
-            id,
-            qty_received,
-            batch_no,
-            expired_date,
-            product:products (name, sku)
-          )
-        `,
-        )
-        .eq("plan_order_id", order.id)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setStockInHistory(stockIns || []);
-    } catch (err) {
-      console.error("Failed to fetch stock in history:", err);
-      setStockInHistory([]);
-    } finally {
-      setStockInHistoryLoading(false);
-    }
-  };
-
-  // ========= FORM VIEW =========
   const { subtotal, discountValue, taxValue, shippingValue, grandTotal } = calculateTotals();
 
+  // Form View
   if (isFormOpen) {
     return (
       <div className="space-y-6 animate-fade-in">
@@ -685,6 +640,7 @@ export default function PlanOrder() {
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
+          {/* Main Form */}
           <div className="lg:col-span-2 space-y-6">
             <Card>
               <CardHeader>
@@ -707,7 +663,6 @@ export default function PlanOrder() {
                     <Input type="date" value={planDate} onChange={(e) => setPlanDate(e.target.value)} />
                   </div>
                 </div>
-
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Supplier *</Label>
@@ -724,13 +679,11 @@ export default function PlanOrder() {
                       </SelectContent>
                     </Select>
                   </div>
-
                   <div className="space-y-2">
                     <Label>{language === "en" ? "Expected Delivery" : "Estimasi Pengiriman"}</Label>
                     <Input type="date" value={expectedDelivery} onChange={(e) => setExpectedDelivery(e.target.value)} />
                   </div>
                 </div>
-
                 <div className="space-y-2">
                   <Label>{language === "en" ? "PO Document" : "Dokumen PO"} *</Label>
                   <div className="flex items-center gap-4">
@@ -738,9 +691,11 @@ export default function PlanOrder() {
                       <div className="flex items-center gap-2 p-2 bg-muted rounded overflow-hidden">
                         <span className="text-sm truncate max-w-[250px] text-primary">
                           {(() => {
+                            // Extract filename from URL (before query params)
                             const urlPath = poDocumentUrl.split("?")[0];
                             const segments = urlPath.split("/");
                             const filename = segments[segments.length - 1];
+                            // Remove timestamp prefix if present (format: timestamp-filename.ext)
                             const timestampPattern = /^\d{13}-/;
                             return decodeURIComponent(filename.replace(timestampPattern, ""));
                           })()}
@@ -766,7 +721,6 @@ export default function PlanOrder() {
                         {language === "en" ? "Upload Document" : "Upload Dokumen"}
                       </Button>
                     )}
-
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -776,7 +730,6 @@ export default function PlanOrder() {
                     />
                   </div>
                 </div>
-
                 <div className="space-y-2">
                   <Label>{language === "en" ? "Notes" : "Catatan"}</Label>
                   <Textarea
@@ -788,6 +741,7 @@ export default function PlanOrder() {
               </CardContent>
             </Card>
 
+            {/* Line Items */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>{language === "en" ? "Order Items" : "Item Order"}</CardTitle>
@@ -852,7 +806,7 @@ export default function PlanOrder() {
                             />
                           </TableCell>
                           <TableCell className="text-right">
-                            {formatCurrency(safeNumber(item.unit_price) * safeNumber(item.planned_qty))}
+                            {formatCurrency(item.unit_price * item.planned_qty)}
                           </TableCell>
                           <TableCell>
                             <Button variant="ghost" size="iconSm" onClick={() => handleRemoveItem(item.id)}>
@@ -868,6 +822,7 @@ export default function PlanOrder() {
             </Card>
           </div>
 
+          {/* Summary */}
           <div className="space-y-6">
             <Card>
               <CardHeader>
@@ -878,7 +833,6 @@ export default function PlanOrder() {
                   <span className="text-muted-foreground">Subtotal</span>
                   <span>{formatCurrency(subtotal)}</span>
                 </div>
-
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm">Discount</Label>
@@ -891,7 +845,6 @@ export default function PlanOrder() {
                     />
                   </div>
                 </div>
-
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm">Tax (%)</Label>
@@ -908,7 +861,6 @@ export default function PlanOrder() {
                     <span>{formatCurrency(taxValue)}</span>
                   </div>
                 </div>
-
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm">{language === "en" ? "Shipping" : "Ongkir"}</Label>
@@ -921,7 +873,6 @@ export default function PlanOrder() {
                     />
                   </div>
                 </div>
-
                 <div className="border-t pt-4">
                   <div className="flex justify-between font-semibold text-lg">
                     <span>Grand Total</span>
@@ -960,9 +911,10 @@ export default function PlanOrder() {
     );
   }
 
-  // ========= LIST VIEW =========
+  // List View
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold font-display">{t("menu.planOrder")}</h1>
@@ -970,17 +922,20 @@ export default function PlanOrder() {
             {t("menu.planOrderSub")} - {language === "en" ? "Manage procurement plans" : "Kelola rencana pembelian"}
           </p>
         </div>
-        <Button
-          onClick={() => {
-            generatePlanNumber();
-            setIsFormOpen(true);
-          }}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          {language === "en" ? "Create Plan Order" : "Buat Plan Order"}
-        </Button>
+        {canCreate("plan_order") && (
+          <Button
+            onClick={() => {
+              generatePlanNumber();
+              setIsFormOpen(true);
+            }}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            {language === "en" ? "Create Plan Order" : "Buat Plan Order"}
+          </Button>
+        )}
       </div>
 
+      {/* Tabs: Active / Archived */}
       <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "active" | "archived")}>
         <TabsList>
           <TabsTrigger value="active" className="gap-2">
@@ -994,6 +949,7 @@ export default function PlanOrder() {
         </TabsList>
       </Tabs>
 
+      {/* Filters */}
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row gap-4">
@@ -1010,6 +966,7 @@ export default function PlanOrder() {
               />
             </div>
 
+            {/* Status Filter */}
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder={language === "en" ? "All Status" : "Semua Status"} />
@@ -1026,6 +983,7 @@ export default function PlanOrder() {
               </SelectContent>
             </Select>
 
+            {/* Date Range Filter */}
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="gap-2">
@@ -1057,6 +1015,7 @@ export default function PlanOrder() {
         </CardContent>
       </Card>
 
+      {/* Table */}
       <Card>
         <CardContent className="p-0">
           {loading ? (
@@ -1086,10 +1045,12 @@ export default function PlanOrder() {
                 ) : (
                   filteredOrders.map((order) => {
                     const status = statusConfig[order.status];
+                    // RBAC: Check permissions AND status
                     const showApprove = order.status === "draft" && canApprove;
-                    const showCancel = order.status === "draft" || order.status === "approved";
-                    const showEdit = order.status === "draft";
-                    const showDelete = order.status === "draft";
+                    const showCancel =
+                      (order.status === "draft" || order.status === "approved") && canCancel("plan_order");
+                    const showEdit = order.status === "draft" && canEdit("plan_order");
+                    const showDelete = order.status === "draft" && canDelete("plan_order");
 
                     return (
                       <TableRow key={order.id}>
@@ -1117,14 +1078,12 @@ export default function PlanOrder() {
                                 <Eye className="w-4 h-4 mr-2" />
                                 {language === "en" ? "View Details" : "Lihat Detail"}
                               </DropdownMenuItem>
-
                               {showEdit && (
                                 <DropdownMenuItem onClick={() => handleEdit(order)}>
                                   <Edit className="w-4 h-4 mr-2" />
                                   {t("common.edit")}
                                 </DropdownMenuItem>
                               )}
-
                               {showApprove && (
                                 <DropdownMenuItem
                                   className="text-success"
@@ -1137,7 +1096,6 @@ export default function PlanOrder() {
                                   Approve
                                 </DropdownMenuItem>
                               )}
-
                               {showCancel && (
                                 <DropdownMenuItem
                                   className="text-destructive"
@@ -1150,7 +1108,6 @@ export default function PlanOrder() {
                                   Cancel
                                 </DropdownMenuItem>
                               )}
-
                               {showDelete && (
                                 <DropdownMenuItem
                                   className="text-destructive"
@@ -1251,69 +1208,22 @@ export default function PlanOrder() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* View Detail Dialog (UPDATED: 4 buttons like SalesOrder) */}
+      {/* View Detail Dialog */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex items-center justify-between">
               <DialogTitle>{language === "en" ? "Plan Order Details" : "Detail Plan Order"}</DialogTitle>
-
-              <div className="flex flex-wrap gap-2 justify-end">
-                {/* View Document */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => selectedOrder && handleViewPoDocument(selectedOrder)}
-                  disabled={itemsLoading || isOpeningPoDoc || !selectedOrder?.po_document_url}
-                  className="gap-2"
-                  title={
-                    !selectedOrder?.po_document_url
-                      ? language === "en"
-                        ? "No document"
-                        : "Dokumen tidak ada"
-                      : undefined
-                  }
-                >
-                  {isOpeningPoDoc ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-                  {language === "en" ? "View Document" : "Lihat Dokumen"}
-                </Button>
-
-                {/* Preview */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePreviewPDF}
-                  disabled={itemsLoading}
-                  className="gap-2"
-                >
-                  <Eye className="w-4 h-4" />
-                  Preview
-                </Button>
-
-                {/* Download */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleDownloadPDF}
-                  disabled={itemsLoading || isDownloadingPdf}
-                  className="gap-2"
-                >
-                  {isDownloadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                  {language === "en" ? "Download" : "Unduh"}
-                </Button>
-
-                {/* Print */}
-                <Button variant="outline" size="sm" onClick={handlePrint} disabled={itemsLoading} className="gap-2">
-                  <Printer className="w-4 h-4" />
-                  {language === "en" ? "Print" : "Cetak"}
-                </Button>
-              </div>
+              <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={itemsLoading}>
+                <Printer className="w-4 h-4 mr-2" />
+                {language === "en" ? "Print / PDF" : "Cetak / PDF"}
+              </Button>
             </div>
           </DialogHeader>
 
           {selectedOrder && (
             <div className="space-y-6">
-              {/* Header info */}
+              {/* Order Header Info */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">{language === "en" ? "Plan Number" : "Nomor Plan"}</p>
@@ -1347,6 +1257,28 @@ export default function PlanOrder() {
                   <p className="text-sm text-muted-foreground">Grand Total</p>
                   <p className="font-medium text-primary">{formatCurrency(selectedOrder.grand_total)}</p>
                 </div>
+                {selectedOrder.po_document_url && (
+                  <div className="col-span-2">
+                    <p className="text-sm text-muted-foreground">{language === "en" ? "PO Document" : "Dokumen PO"}</p>
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0"
+                      onClick={() => handleViewPoDocument(selectedOrder)}
+                      disabled={isOpeningPoDoc}
+                    >
+                      {isOpeningPoDoc ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          {language === "en" ? "Opening..." : "Membuka..."}
+                        </>
+                      ) : (
+                        <>{language === "en" ? "View Document" : "Lihat Dokumen"}</>
+                      )}
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {selectedOrder.notes && (
@@ -1356,7 +1288,7 @@ export default function PlanOrder() {
                 </div>
               )}
 
-              {/* Items */}
+              {/* Order Items with SKU, Category, Unit */}
               <div>
                 <h4 className="font-semibold mb-3">{language === "en" ? "Order Items" : "Item Order"}</h4>
                 {itemsLoading ? (
@@ -1385,7 +1317,7 @@ export default function PlanOrder() {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        selectedOrderItems.map((item: any, index: number) => (
+                        selectedOrderItems.map((item, index) => (
                           <TableRow key={item.id}>
                             <TableCell>{index + 1}</TableCell>
                             <TableCell className="font-medium">{item.product?.name}</TableCell>
@@ -1395,9 +1327,7 @@ export default function PlanOrder() {
                             <TableCell className="text-center">{item.planned_qty}</TableCell>
                             <TableCell className="text-right">{formatCurrency(item.unit_price)}</TableCell>
                             <TableCell className="text-right">
-                              {formatCurrency(
-                                item.subtotal || safeNumber(item.unit_price) * safeNumber(item.planned_qty),
-                              )}
+                              {formatCurrency(item.subtotal || item.unit_price * item.planned_qty)}
                             </TableCell>
                           </TableRow>
                         ))
@@ -1407,13 +1337,13 @@ export default function PlanOrder() {
                 )}
               </div>
 
-              {/* Totals */}
+              {/* Summary */}
               <div className="border-t pt-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
                   <span>{formatCurrency(selectedOrder.total_amount)}</span>
                 </div>
-                {safeNumber(selectedOrder.discount) > 0 && (
+                {selectedOrder.discount > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Discount</span>
                     <span>-{formatCurrency(selectedOrder.discount)}</span>
@@ -1427,7 +1357,7 @@ export default function PlanOrder() {
                     )}
                   </span>
                 </div>
-                {safeNumber(selectedOrder.shipping_cost) > 0 && (
+                {selectedOrder.shipping_cost > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">{language === "en" ? "Shipping" : "Ongkir"}</span>
                     <span>{formatCurrency(selectedOrder.shipping_cost)}</span>
@@ -1507,279 +1437,143 @@ export default function PlanOrder() {
         </DialogContent>
       </Dialog>
 
-      {/* PDF Preview Dialog */}
-      <Dialog open={isPdfPreviewOpen} onOpenChange={setIsPdfPreviewOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <div className="flex items-center justify-between gap-2">
-              <DialogTitle>{language === "en" ? "PDF Preview" : "Preview PDF"}</DialogTitle>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={handleDownloadPDF} disabled={isDownloadingPdf}>
-                  {isDownloadingPdf ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Download className="w-4 h-4 mr-2" />
-                  )}
-                  {language === "en" ? "Download" : "Unduh"}
-                </Button>
-                <Button variant="outline" size="sm" onClick={handlePrint}>
-                  <Printer className="w-4 h-4 mr-2" />
-                  {language === "en" ? "Print" : "Cetak"}
-                </Button>
-              </div>
-            </div>
-          </DialogHeader>
-
-          <div className="bg-white rounded border p-4">
-            <div
-              dangerouslySetInnerHTML={{
-                __html: DOMPurify.sanitize(printRef.current?.innerHTML || ""),
-              }}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Hidden Print Content (SalesOrder-like Template) */}
+      {/* Hidden Print Content */}
       <div className="hidden">
         <div ref={printRef}>
           {selectedOrder && (
-            <div style={{ fontFamily: "Inter, Arial, sans-serif", fontSize: "12px", color: "#111" }}>
-              {/* Header */}
+            <div>
               <div
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "flex-start",
-                  marginBottom: "14px",
+                  marginBottom: "20px",
                   borderBottom: "2px solid #16a34a",
-                  paddingBottom: "12px",
+                  paddingBottom: "15px",
                 }}
               >
                 <div>
                   <img src="/logo-kemika.png" alt="Kemika" style={{ height: "42px", objectFit: "contain" }} />
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontWeight: 800, fontSize: "16px", color: "#16a34a", margin: 0 }}>PLAN ORDER</div>
-                  <div style={{ fontSize: "12px", marginTop: "4px" }}>
-                    <div>
-                      <span style={{ color: "#6b7280" }}>No:</span> <b>{selectedOrder.plan_number}</b>
-                    </div>
-                    <div>
-                      <span style={{ color: "#6b7280" }}>{language === "en" ? "Date" : "Tanggal"}:</span>{" "}
-                      <b>{formatDate(selectedOrder.plan_date)}</b>
-                    </div>
-                  </div>
+                  <p style={{ fontWeight: "bold", fontSize: "16px", color: "#16a34a", margin: 0 }}>PLAN ORDER</p>
+                  <p style={{ fontSize: "12px", margin: "4px 0 0 0" }}>{selectedOrder.plan_number}</p>
                 </div>
               </div>
 
-              {/* Info Grid */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "14px" }}>
-                <div style={{ border: "1px solid #e5e7eb", borderRadius: "8px", padding: "10px" }}>
-                  <div style={{ fontSize: "10px", color: "#6b7280", textTransform: "uppercase" }}>Supplier</div>
-                  <div style={{ fontWeight: 700, marginTop: "4px" }}>{selectedOrder.supplier?.name || "-"}</div>
-                  <div style={{ marginTop: "8px" }}>
-                    <div style={{ fontSize: "10px", color: "#6b7280", textTransform: "uppercase" }}>
-                      {language === "en" ? "Expected Delivery" : "Estimasi Pengiriman"}
-                    </div>
-                    <div style={{ fontWeight: 600, marginTop: "4px" }}>
-                      {selectedOrder.expected_delivery_date ? formatDate(selectedOrder.expected_delivery_date) : "-"}
-                    </div>
-                  </div>
+              <div className="info-grid">
+                <div className="info-item">
+                  <label>Nomor Plan</label>
+                  <p>{selectedOrder.plan_number}</p>
                 </div>
-
-                <div style={{ border: "1px solid #e5e7eb", borderRadius: "8px", padding: "10px" }}>
-                  <div style={{ fontSize: "10px", color: "#6b7280", textTransform: "uppercase" }}>
-                    {language === "en" ? "Status" : "Status"}
-                  </div>
-                  <div style={{ fontWeight: 700, marginTop: "4px" }}>
-                    {language === "en"
-                      ? statusConfig[selectedOrder.status]?.label
-                      : statusConfig[selectedOrder.status]?.labelId}
-                  </div>
-                  <div style={{ marginTop: "8px" }}>
-                    <div style={{ fontSize: "10px", color: "#6b7280", textTransform: "uppercase" }}>
-                      {language === "en" ? "Notes" : "Catatan"}
-                    </div>
-                    <div style={{ marginTop: "4px" }}>{selectedOrder.notes || "-"}</div>
-                  </div>
+                <div className="info-item">
+                  <label>Tanggal</label>
+                  <p>{formatDate(selectedOrder.plan_date)}</p>
+                </div>
+                <div className="info-item">
+                  <label>Supplier</label>
+                  <p>{selectedOrder.supplier?.name}</p>
+                </div>
+                <div className="info-item">
+                  <label>Estimasi Pengiriman</label>
+                  <p>{selectedOrder.expected_delivery_date ? formatDate(selectedOrder.expected_delivery_date) : "-"}</p>
+                </div>
+                <div className="info-item">
+                  <label>Status</label>
+                  <span className={`badge badge-${statusConfig[selectedOrder.status]?.variant}`}>
+                    {statusConfig[selectedOrder.status]?.labelId}
+                  </span>
                 </div>
               </div>
 
-              {/* Items Table */}
-              <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "14px" }}>
+              {selectedOrder.notes && (
+                <div style={{ marginBottom: "15px" }}>
+                  <p style={{ fontSize: "10px", color: "#666", textTransform: "uppercase" }}>Catatan</p>
+                  <p style={{ fontSize: "12px" }}>{selectedOrder.notes}</p>
+                </div>
+              )}
+
+              <table>
                 <thead>
                   <tr>
-                    <th
-                      style={{ background: "#16a34a", color: "#fff", padding: "8px", textAlign: "left", width: "40px" }}
-                    >
-                      #
-                    </th>
-                    <th style={{ background: "#16a34a", color: "#fff", padding: "8px", textAlign: "left" }}>
-                      {language === "en" ? "Product" : "Nama Barang"}
-                    </th>
-                    <th
-                      style={{ background: "#16a34a", color: "#fff", padding: "8px", textAlign: "left", width: "90px" }}
-                    >
-                      SKU
-                    </th>
-                    <th
-                      style={{
-                        background: "#16a34a",
-                        color: "#fff",
-                        padding: "8px",
-                        textAlign: "left",
-                        width: "110px",
-                      }}
-                    >
-                      {language === "en" ? "Category" : "Kategori"}
-                    </th>
-                    <th
-                      style={{ background: "#16a34a", color: "#fff", padding: "8px", textAlign: "left", width: "80px" }}
-                    >
-                      {language === "en" ? "Unit" : "Satuan"}
-                    </th>
-                    <th
-                      style={{
-                        background: "#16a34a",
-                        color: "#fff",
-                        padding: "8px",
-                        textAlign: "center",
-                        width: "60px",
-                      }}
-                    >
+                    <th style={{ width: "40px" }}>#</th>
+                    <th>Nama Barang</th>
+                    <th>SKU</th>
+                    <th>Kategori</th>
+                    <th>Satuan</th>
+                    <th className="text-center" style={{ width: "60px" }}>
                       Qty
                     </th>
-                    <th
-                      style={{
-                        background: "#16a34a",
-                        color: "#fff",
-                        padding: "8px",
-                        textAlign: "right",
-                        width: "110px",
-                      }}
-                    >
-                      {language === "en" ? "Price" : "Harga"}
+                    <th className="text-right" style={{ width: "100px" }}>
+                      Harga
                     </th>
-                    <th
-                      style={{
-                        background: "#16a34a",
-                        color: "#fff",
-                        padding: "8px",
-                        textAlign: "right",
-                        width: "120px",
-                      }}
-                    >
+                    <th className="text-right" style={{ width: "100px" }}>
                       Subtotal
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {selectedOrderItems.map((item: any, idx: number) => {
-                    const qty = safeNumber(item.planned_qty);
-                    const price = safeNumber(item.unit_price);
-                    const lineSubtotal = safeNumber(item.subtotal) || price * qty;
-                    return (
-                      <tr key={item.id}>
-                        <td style={{ border: "1px solid #e5e7eb", padding: "8px" }}>{idx + 1}</td>
-                        <td style={{ border: "1px solid #e5e7eb", padding: "8px" }}>{item.product?.name || "-"}</td>
-                        <td style={{ border: "1px solid #e5e7eb", padding: "8px" }}>{item.product?.sku || "-"}</td>
-                        <td style={{ border: "1px solid #e5e7eb", padding: "8px" }}>
-                          {item.product?.category?.name || "-"}
-                        </td>
-                        <td style={{ border: "1px solid #e5e7eb", padding: "8px" }}>
-                          {item.product?.unit?.name || "-"}
-                        </td>
-                        <td style={{ border: "1px solid #e5e7eb", padding: "8px", textAlign: "center" }}>{qty}</td>
-                        <td style={{ border: "1px solid #e5e7eb", padding: "8px", textAlign: "right" }}>
-                          {formatCurrency(price)}
-                        </td>
-                        <td style={{ border: "1px solid #e5e7eb", padding: "8px", textAlign: "right" }}>
-                          {formatCurrency(lineSubtotal)}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {selectedOrderItems.map((item, index) => (
+                    <tr key={item.id}>
+                      <td>{index + 1}</td>
+                      <td>{item.product?.name}</td>
+                      <td>{item.product?.sku || "-"}</td>
+                      <td>{item.product?.category?.name || "-"}</td>
+                      <td>{item.product?.unit?.name || "-"}</td>
+                      <td className="text-center">{item.planned_qty}</td>
+                      <td className="text-right">{formatCurrency(item.unit_price)}</td>
+                      <td className="text-right">
+                        {formatCurrency(item.subtotal || item.unit_price * item.planned_qty)}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
 
-              {/* Totals */}
-              {(() => {
-                const subtotalPrint = safeNumber(selectedOrder.total_amount);
-                const discountPrint = safeNumber(selectedOrder.discount);
-                const afterDiscount = subtotalPrint - discountPrint;
-                const taxPrint = (afterDiscount * safeNumber(selectedOrder.tax_rate)) / 100;
-                const shipPrint = safeNumber(selectedOrder.shipping_cost);
-                const grandPrint = safeNumber(selectedOrder.grand_total);
-
-                return (
-                  <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "14px" }}>
-                    <div style={{ width: "340px", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "12px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                        <span style={{ color: "#6b7280" }}>Subtotal</span>
-                        <b>{formatCurrency(subtotalPrint)}</b>
-                      </div>
-
-                      {discountPrint > 0 && (
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                          <span style={{ color: "#6b7280" }}>Discount</span>
-                          <b>-{formatCurrency(discountPrint)}</b>
-                        </div>
-                      )}
-
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                        <span style={{ color: "#6b7280" }}>Tax ({safeNumber(selectedOrder.tax_rate)}%)</span>
-                        <b>{formatCurrency(taxPrint)}</b>
-                      </div>
-
-                      {shipPrint > 0 && (
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                          <span style={{ color: "#6b7280" }}>{language === "en" ? "Shipping" : "Ongkir"}</span>
-                          <b>{formatCurrency(shipPrint)}</b>
-                        </div>
-                      )}
-
-                      <div
-                        style={{
-                          borderTop: "1px solid #e5e7eb",
-                          marginTop: "10px",
-                          paddingTop: "10px",
-                          display: "flex",
-                          justifyContent: "space-between",
-                          fontSize: "14px",
-                        }}
-                      >
-                        <span style={{ fontWeight: 800 }}>Grand Total</span>
-                        <span style={{ fontWeight: 900, color: "#16a34a" }}>{formatCurrency(grandPrint)}</span>
-                      </div>
-                    </div>
+              <div className="summary">
+                <div className="summary-row">
+                  <span>Subtotal</span>
+                  <span>{formatCurrency(selectedOrder.total_amount)}</span>
+                </div>
+                {selectedOrder.discount > 0 && (
+                  <div className="summary-row">
+                    <span>Discount</span>
+                    <span>-{formatCurrency(selectedOrder.discount)}</span>
                   </div>
-                );
-              })()}
-
-              {/* Signatures */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px", marginTop: "10px" }}>
-                {[
-                  language === "en" ? "Created By" : "Dibuat oleh",
-                  language === "en" ? "Approved By" : "Disetujui oleh",
-                  language === "en" ? "Received By" : "Diterima oleh",
-                ].map((title) => (
-                  <div
-                    key={title}
-                    style={{ border: "1px solid #e5e7eb", borderRadius: "10px", padding: "10px", height: "90px" }}
-                  >
-                    <div style={{ fontSize: "10px", color: "#6b7280", textTransform: "uppercase" }}>{title}</div>
-                    <div style={{ height: "50px" }} />
-                    <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: "6px", fontSize: "11px", color: "#111" }}>
-                      ______________________
-                    </div>
+                )}
+                <div className="summary-row">
+                  <span>Tax ({selectedOrder.tax_rate}%)</span>
+                  <span>
+                    {formatCurrency(
+                      ((selectedOrder.total_amount - selectedOrder.discount) * selectedOrder.tax_rate) / 100,
+                    )}
+                  </span>
+                </div>
+                {selectedOrder.shipping_cost > 0 && (
+                  <div className="summary-row">
+                    <span>Ongkir</span>
+                    <span>{formatCurrency(selectedOrder.shipping_cost)}</span>
                   </div>
-                ))}
+                )}
+                <div className="summary-row total">
+                  <span>Grand Total</span>
+                  <span>{formatCurrency(selectedOrder.grand_total)}</span>
+                </div>
               </div>
 
-              {/* Footer timestamp */}
-              <div style={{ marginTop: "10px", fontSize: "10px", color: "#6b7280", textAlign: "right" }}>
-                Printed: {new Date().toLocaleString("id-ID")}
+              <div className="footer">
+                <div>
+                  <p style={{ fontSize: "10px", color: "#666" }}>Dibuat oleh</p>
+                  <div className="signature">Staff Purchasing</div>
+                </div>
+                <div>
+                  <p style={{ fontSize: "10px", color: "#666" }}>Disetujui oleh</p>
+                  <div className="signature">Manager</div>
+                </div>
+                <div>
+                  <p style={{ fontSize: "10px", color: "#666" }}>Diterima oleh</p>
+                  <div className="signature">Supplier</div>
+                </div>
               </div>
             </div>
           )}
