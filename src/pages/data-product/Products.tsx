@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Plus, Search, Filter, Download, Upload, MoreHorizontal, Edit, Trash2, Eye, X, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -89,6 +90,7 @@ export default function Products() {
   const { categories } = useCategories();
   const { units } = useUnits();
   const { suppliers } = useSuppliers();
+  const { canCreate, canEdit, canDelete, canUpload } = usePermissions();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -500,32 +502,36 @@ export default function Products() {
             className="hidden"
             onChange={handleFileSelect}
           />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" disabled={isImporting}>
-                {isImporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
-                {t('common.import')}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => csvInputRef.current?.click()}>
-                <Upload className="w-4 h-4 mr-2" />
-                {language === 'en' ? 'Import CSV' : 'Impor CSV'}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleDownloadTemplate}>
-                <Download className="w-4 h-4 mr-2" />
-                {language === 'en' ? 'Download Template' : 'Unduh Template'}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {canUpload('product') && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={isImporting}>
+                  {isImporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                  {t('common.import')}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => csvInputRef.current?.click()}>
+                  <Upload className="w-4 h-4 mr-2" />
+                  {language === 'en' ? 'Import CSV' : 'Impor CSV'}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleDownloadTemplate}>
+                  <Download className="w-4 h-4 mr-2" />
+                  {language === 'en' ? 'Download Template' : 'Unduh Template'}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="w-4 h-4 mr-2" />
             {t('common.export')}
           </Button>
-          <Button size="sm" onClick={handleAdd}>
-            <Plus className="w-4 h-4 mr-2" />
-            {t('common.add')} Product
-          </Button>
+          {canCreate('product') && (
+            <Button size="sm" onClick={handleAdd}>
+              <Plus className="w-4 h-4 mr-2" />
+              {t('common.add')} Product
+            </Button>
+          )}
         </div>
       </div>
 
@@ -617,14 +623,18 @@ export default function Products() {
                               <Eye className="w-4 h-4 mr-2" />
                               {language === 'en' ? 'View Details' : 'Lihat Detail'}
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleEdit(product)}>
-                              <Edit className="w-4 h-4 mr-2" />
-                              {t('common.edit')}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(product)}>
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              {t('common.delete')}
-                            </DropdownMenuItem>
+                            {canEdit('product') && (
+                              <DropdownMenuItem onClick={() => handleEdit(product)}>
+                                <Edit className="w-4 h-4 mr-2" />
+                                {t('common.edit')}
+                              </DropdownMenuItem>
+                            )}
+                            {canDelete('product') && (
+                              <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(product)}>
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                {t('common.delete')}
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

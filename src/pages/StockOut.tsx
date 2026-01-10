@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { RefreshCw, Info, Package, Building2, Upload, Loader2, X, AlertTriangle } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -63,6 +64,7 @@ interface StockOutItem {
 export default function StockOut() {
   const { language } = useLanguage();
   const navigate = useNavigate();
+  const { canCreate, canUpload } = usePermissions();
 
   const [salesOrders, setSalesOrders] = useState<SalesOrderHeader[]>([]);
   const [selectedSalesOrderId, setSelectedSalesOrderId] = useState<string>("");
@@ -614,10 +616,12 @@ export default function StockOut() {
         <Button variant="outline" onClick={() => navigate("/stock-out")}>
           {language === "en" ? "Cancel" : "Batal"}
         </Button>
-        <Button onClick={handleSave} disabled={isSaving || items.length === 0}>
-          {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-          {language === "en" ? "Save Stock Out" : "Simpan Stock Out"}
-        </Button>
+        {canCreate('stock_out') && (
+          <Button onClick={handleSave} disabled={isSaving || items.length === 0}>
+            {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            {language === "en" ? "Save Stock Out" : "Simpan Stock Out"}
+          </Button>
+        )}
       </div>
     </div>
   );
