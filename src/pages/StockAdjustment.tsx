@@ -1,6 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { securePrint, printStyles } from '@/lib/printUtils';
 import { Plus, Search, Eye, Edit, MoreHorizontal, CheckCircle, XCircle, Loader2, Upload, ArrowLeft, Trash2, Printer, Archive, List, TrendingUp, TrendingDown } from 'lucide-react';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -89,6 +90,9 @@ export default function StockAdjustment() {
   const { batches: allBatches } = useAllBatches();
   const { allowAdminApprove } = useSettings();
   
+  // RBAC Permissions
+  const { canCreate, canEdit, canDelete, canApproveOrder } = usePermissions();
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState('');
@@ -130,13 +134,8 @@ export default function StockAdjustment() {
     });
   };
 
-  // Check if user can approve
-  const canApprove = useMemo(() => {
-    if (!user) return false;
-    if (user.role === 'super_admin') return true;
-    if (user.role === 'admin' && allowAdminApprove) return true;
-    return false;
-  }, [user, allowAdminApprove]);
+  // Use RBAC hook for approve permission (only super_admin for stock_adjustment)
+  const canApprove = canApproveOrder('stock_adjustment');
 
   // Filter logic
   const filteredAdjustments = useMemo(() => {
@@ -651,10 +650,12 @@ export default function StockAdjustment() {
           <h1 className="text-2xl font-bold font-display">{language === 'en' ? 'Stock Adjustment' : 'Penyesuaian Stok'}</h1>
           <p className="text-muted-foreground">{language === 'en' ? 'Adjust inventory with approval workflow' : 'Sesuaikan inventori dengan alur persetujuan'}</p>
         </div>
-        <Button onClick={async () => { await generateAdjustmentNumber(); setAdjustmentDate(new Date().toISOString().split('T')[0]); setIsFormOpen(true); }}>
-          <Plus className="w-4 h-4 mr-2" />
-          {language === 'en' ? 'Create Adjustment' : 'Buat Penyesuaian'}
-        </Button>
+        {canCreate('stock_adjustment') && (
+          <Button onClick={async () => { await generateAdjustmentNumber(); setAdjustmentDate(new Date().toISOString().split('T')[0]); setIsFormOpen(true); }}>
+            <Plus className="w-4 h-4 mr-2" />
+            {language === 'en' ? 'Create Adjustment' : 'Buat Penyesuaian'}
+          </Button>
+        )}
       </div>
 
       <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'active' | 'archived')}>
@@ -744,8 +745,9 @@ export default function StockAdjustment() {
               ) : (
                 filteredAdjustments.map((adj) => {
                   const config = statusConfig[adj.status] || statusConfig.draft;
-                  const canEdit = adj.status === 'draft';
-                  const canDelete = adj.status === 'draft';
+                  // RBAC: Check permissions AND status - rename to avoid shadowing
+                  const allowEdit = adj.status === 'draft' && canEdit('stock_adjustment');
+                  const allowDelete = adj.status === 'draft' && canDelete('stock_adjustment');
                   const canApproveThis = adj.status === 'draft' && canApprove;
                   
                   return (
@@ -770,7 +772,7 @@ export default function StockAdjustment() {
                               <Eye className="w-4 h-4 mr-2" />
                               {t('common.view')}
                             </DropdownMenuItem>
-                            {canEdit && (
+                            {allowEdit && (
                               <DropdownMenuItem onClick={() => handleEdit(adj)}>
                                 <Edit className="w-4 h-4 mr-2" />
                                 {t('common.edit')}
@@ -788,7 +790,7 @@ export default function StockAdjustment() {
                                 </DropdownMenuItem>
                               </>
                             )}
-                            {canDelete && (
+                            {allowDelete && (
                               <DropdownMenuItem className="text-destructive" onClick={() => { setSelectedAdjustment(adj); setIsDeleteDialogOpen(true); }}>
                                 <Trash2 className="w-4 h-4 mr-2" />
                                 {t('common.delete')}

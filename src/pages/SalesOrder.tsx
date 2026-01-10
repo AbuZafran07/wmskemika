@@ -19,6 +19,7 @@ import {
   Download,
   Package,
 } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermissions";
 import html2pdf from "html2pdf.js";
 import DOMPurify from "dompurify";
 import { securePrint, printStyles } from "@/lib/printUtils";
@@ -143,6 +144,9 @@ export default function SalesOrder() {
   const { customers } = useCustomers();
   const { products } = useProducts();
   const { allowAdminApprove } = useSettings();
+  
+  // RBAC Permissions
+  const { canCreate, canEdit, canDelete, canCancel, canApproveOrder } = usePermissions();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -209,13 +213,8 @@ export default function SalesOrder() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
 
-  // permission approve
-  const canApprove = useMemo(() => {
-    if (!user) return false;
-    if (user.role === "super_admin") return true;
-    if (user.role === "admin" && allowAdminApprove) return true;
-    return false;
-  }, [user, allowAdminApprove]);
+  // Use RBAC hook for approve permission
+  const canApprove = canApproveOrder('sales_order');
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(
@@ -787,10 +786,12 @@ export default function SalesOrder() {
             {t("menu.salesOrderSub")} - {language === "en" ? "Manage customer orders" : "Kelola pesanan customer"}
           </p>
         </div>
-        <Button onClick={handleOpenDialog}>
-          <Plus className="w-4 h-4 mr-2" />
-          {language === "en" ? "Create Sales Order" : "Buat Sales Order"}
-        </Button>
+        {canCreate('sales_order') && (
+          <Button onClick={handleOpenDialog}>
+            <Plus className="w-4 h-4 mr-2" />
+            {language === "en" ? "Create Sales Order" : "Buat Sales Order"}
+          </Button>
+        )}
       </div>
 
       {/* Tabs */}
@@ -903,10 +904,11 @@ export default function SalesOrder() {
                 ) : (
                   filteredOrders.map((order) => {
                     const status = statusConfig[order.status] || statusConfig.draft;
+                    // RBAC: Check permissions AND status
                     const showApprove = order.status === "draft" && canApprove;
-                    const showCancel = order.status === "draft" || order.status === "approved";
-                    const showEdit = order.status === "draft";
-                    const showDelete = order.status === "draft";
+                    const showCancel = (order.status === "draft" || order.status === "approved") && canCancel('sales_order');
+                    const showEdit = order.status === "draft" && canEdit('sales_order');
+                    const showDelete = order.status === "draft" && canDelete('sales_order');
 
                     return (
                       <TableRow key={order.id}>
