@@ -51,7 +51,7 @@ import { useCustomers, Customer } from '@/hooks/useMasterData';
 import { supabase } from '@/integrations/supabase/client';
 import { generateCustomerCode } from '@/lib/codeGenerator';
 import { toast } from 'sonner';
-import { exportToCSV, parseCSV, readFileAsText, downloadCSVTemplate, checkDuplicates, getColumnValue } from '@/lib/csvUtils';
+import { exportToCSV, parseCSV, readFileAsText, downloadCSVTemplate, checkDuplicates, getColumnValue, validateContactInfo } from '@/lib/csvUtils';
 import { ImportPreviewDialog, ImportPreviewRow } from '@/components/ImportPreviewDialog';
 
 interface CustomerFormData {
@@ -177,6 +177,17 @@ export default function Customers() {
             data: { code, name, type: getColumnValue(row, ['Type', 'Tipe']), city: getColumnValue(row, ['City', 'Kota']) },
             status: 'error' as const,
             message: language === 'en' ? 'Name is required' : 'Nama wajib diisi',
+          };
+        }
+
+        // Validate contact info (email & phone)
+        const contactValidation = validateContactInfo(row);
+        if (!contactValidation.isValid) {
+          return {
+            rowIndex: index + 2,
+            data: { code, name, type: getColumnValue(row, ['Type', 'Tipe']), city: getColumnValue(row, ['City', 'Kota']) },
+            status: 'error' as const,
+            message: contactValidation.errors.join('; '),
           };
         }
 

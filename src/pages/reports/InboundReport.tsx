@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Download, Filter, ArrowDownToLine, CalendarIcon, Loader2 } from 'lucide-react';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -48,6 +49,7 @@ interface StockInRecord {
 
 export default function InboundReport() {
   const { language } = useLanguage();
+  const { canUpload } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [records, setRecords] = useState<StockInRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -162,10 +164,12 @@ export default function InboundReport() {
             </p>
           </div>
         </div>
-        <Button onClick={handleExportCSV} variant="outline">
-          <Download className="w-4 h-4 mr-2" />
-          {language === 'en' ? 'Export CSV' : 'Ekspor CSV'}
-        </Button>
+        {canUpload('report') && (
+          <Button onClick={handleExportCSV} variant="outline">
+            <Download className="w-4 h-4 mr-2" />
+            {language === 'en' ? 'Export CSV' : 'Ekspor CSV'}
+          </Button>
+        )}
       </div>
 
       {/* Summary Cards */}

@@ -70,7 +70,7 @@ export const MENU_ACCESS: Record<MenuKey, UserRole[]> = {
   stockIn: ['super_admin', 'admin', 'warehouse'],
   salesOrder: ['super_admin', 'admin', 'finance', 'sales', 'warehouse'],
   stockOut: ['super_admin', 'admin', 'warehouse'],
-  stockAdjustment: ['super_admin', 'admin', 'finance', 'warehouse'],
+  stockAdjustment: ['super_admin', 'admin', 'finance'], // Hide from warehouse
   
   // Master Data - Products
   products: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales'],
@@ -78,20 +78,20 @@ export const MENU_ACCESS: Record<MenuKey, UserRole[]> = {
   units: ['super_admin', 'admin', 'finance', 'purchasing'],
   suppliers: ['super_admin', 'admin', 'finance', 'purchasing'],
   customers: ['super_admin', 'admin', 'finance', 'sales'],
-  dataStock: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales'],
+  dataStock: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales', 'viewer'], // Add viewer
   
   // Admin Only
   userManagement: ['super_admin'],
   settings: ['super_admin'],
   
-  // Reports - All roles can view reports
+  // Reports - Role-based access
   stockReport: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales', 'viewer'],
   inboundReport: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'viewer'],
-  outboundReport: ['super_admin', 'admin', 'finance', 'sales', 'warehouse', 'viewer'],
-  stockMovement: ['super_admin', 'admin', 'finance', 'warehouse', 'viewer'],
-  expiryAlert: ['super_admin', 'admin', 'warehouse', 'viewer'],
-  adjustmentLog: ['super_admin', 'admin', 'warehouse', 'viewer'],
-  auditLog: ['super_admin', 'admin'],
+  outboundReport: ['super_admin', 'admin', 'finance', 'purchasing', 'sales', 'warehouse', 'viewer'],
+  stockMovement: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'viewer'],
+  expiryAlert: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'viewer'],
+  adjustmentLog: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'viewer'],
+  auditLog: ['super_admin', 'admin'], // Purchasing not allowed
 };
 
 // ============================================================================
@@ -120,7 +120,8 @@ export type ModuleType =
   | 'supplier'
   | 'customer'
   | 'user'
-  | 'settings';
+  | 'settings'
+  | 'report'; // Add report module
 
 /**
  * Action permissions by module
@@ -168,14 +169,14 @@ export const ACTION_PERMISSIONS: Record<ModuleType, Record<ActionType, UserRole[
     print: ['super_admin', 'admin', 'warehouse'],
   },
   stock_adjustment: {
-    view: ['super_admin', 'admin', 'finance', 'warehouse'],
-    create: ['super_admin', 'admin', 'finance', 'warehouse'],
-    edit: ['super_admin', 'admin', 'warehouse'],
+    view: ['super_admin', 'admin', 'finance'], // Warehouse removed
+    create: ['super_admin', 'admin', 'finance'],
+    edit: ['super_admin', 'admin'],
     delete: ['super_admin', 'admin'],
     cancel: ['super_admin', 'admin'],
     approve: ['super_admin'], // Only super_admin can approve
-    upload: ['super_admin', 'admin', 'warehouse'],
-    print: ['super_admin', 'admin', 'finance', 'warehouse'],
+    upload: ['super_admin', 'admin'],
+    print: ['super_admin', 'admin', 'finance'],
   },
   product: {
     view: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales'],
@@ -219,12 +220,12 @@ export const ACTION_PERMISSIONS: Record<ModuleType, Record<ActionType, UserRole[
   },
   customer: {
     view: ['super_admin', 'admin', 'finance', 'sales'],
-    create: ['super_admin', 'admin', 'sales'],
-    edit: ['super_admin', 'admin', 'sales'],
+    create: ['super_admin', 'admin', 'finance'], // Sales removed, Finance added
+    edit: ['super_admin', 'admin', 'finance'], // Sales removed, Finance added
     delete: ['super_admin', 'admin'],
     cancel: [],
     approve: [],
-    upload: [],
+    upload: ['super_admin', 'admin', 'finance'], // Finance added
     print: ['super_admin', 'admin', 'finance', 'sales'],
   },
   user: {
@@ -246,6 +247,16 @@ export const ACTION_PERMISSIONS: Record<ModuleType, Record<ActionType, UserRole[
     approve: [],
     upload: [],
     print: [],
+  },
+  report: {
+    view: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales', 'viewer'],
+    create: [],
+    edit: [],
+    delete: [],
+    cancel: [],
+    approve: [],
+    upload: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales'], // Export CSV
+    print: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales', 'viewer'],
   },
 };
 

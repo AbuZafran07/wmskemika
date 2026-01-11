@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Download, RefreshCw, Filter, FileSpreadsheet, CheckCircle, XCircle, Clock, Loader2 } from 'lucide-react';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,6 +54,7 @@ const statusConfig: Record<string, { variant: 'success' | 'pending' | 'cancelled
 
 export default function AdjustmentLog() {
   const { language } = useLanguage();
+  const { canUpload } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [adjustments, setAdjustments] = useState<AdjustmentWithItems[]>([]);
   const [search, setSearch] = useState('');
@@ -297,10 +299,12 @@ export default function AdjustmentLog() {
               <RefreshCw className="w-4 h-4 mr-2" />
               {language === 'en' ? 'Refresh' : 'Segarkan'}
             </Button>
-            <Button variant="outline" onClick={exportToCSV}>
-              <Download className="w-4 h-4 mr-2" />
-              CSV
-            </Button>
+            {canUpload('report') && (
+              <Button variant="outline" onClick={exportToCSV}>
+                <Download className="w-4 h-4 mr-2" />
+                CSV
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
