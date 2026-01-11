@@ -44,7 +44,7 @@ import { useSuppliers, Supplier } from '@/hooks/useMasterData';
 import { supabase } from '@/integrations/supabase/client';
 import { generateSupplierCode } from '@/lib/codeGenerator';
 import { toast } from 'sonner';
-import { exportToCSV, parseCSV, readFileAsText, downloadCSVTemplate, checkDuplicates, getColumnValue } from '@/lib/csvUtils';
+import { exportToCSV, parseCSV, readFileAsText, downloadCSVTemplate, checkDuplicates, getColumnValue, validateContactInfo } from '@/lib/csvUtils';
 import { ImportPreviewDialog, ImportPreviewRow } from '@/components/ImportPreviewDialog';
 
 interface SupplierFormData {
@@ -160,6 +160,17 @@ export default function Suppliers() {
             data: { code, name, contact: getColumnValue(row, ['Contact Person', 'Kontak']), city: getColumnValue(row, ['City', 'Kota']) },
             status: 'error' as const,
             message: language === 'en' ? 'Name is required' : 'Nama wajib diisi',
+          };
+        }
+
+        // Validate contact info (email & phone)
+        const contactValidation = validateContactInfo(row);
+        if (!contactValidation.isValid) {
+          return {
+            rowIndex: index + 2,
+            data: { code, name, contact: getColumnValue(row, ['Contact Person', 'Kontak']), city: getColumnValue(row, ['City', 'Kota']) },
+            status: 'error' as const,
+            message: contactValidation.errors.join('; '),
           };
         }
 

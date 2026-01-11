@@ -13,6 +13,58 @@ export interface ValidationResult {
   message?: string;
 }
 
+// Email validation regex
+export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Phone validation regex - accepts various formats
+// Supports: +62812345678, 08123456789, 62-812-345-678, etc.
+export const PHONE_REGEX = /^(\+?62|0)?[\s\-]?8[1-9][\s\-]?[0-9]{6,11}$/;
+
+/**
+ * Validate email format
+ */
+export function validateEmail(email: string): boolean {
+  if (!email || email.trim() === '') return true; // Empty is valid (optional)
+  return EMAIL_REGEX.test(email.trim());
+}
+
+/**
+ * Validate phone number format
+ */
+export function validatePhone(phone: string): boolean {
+  if (!phone || phone.trim() === '') return true; // Empty is valid (optional)
+  // Remove common separators for validation
+  const cleanPhone = phone.replace(/[\s\-\(\)\.]/g, '');
+  return PHONE_REGEX.test(cleanPhone);
+}
+
+/**
+ * Validate contact info (email and phone) for Supplier/Customer import
+ */
+export function validateContactInfo(row: Record<string, string>): { 
+  isValid: boolean; 
+  errors: string[];
+} {
+  const errors: string[] = [];
+  
+  // Check email field
+  const email = row['Email'] || row['email'] || row['EMAIL'] || '';
+  if (email && !validateEmail(email)) {
+    errors.push(`Invalid email format: ${email}`);
+  }
+  
+  // Check phone field
+  const phone = row['Phone'] || row['phone'] || row['PHONE'] || row['Telepon'] || row['telepon'] || '';
+  if (phone && !validatePhone(phone)) {
+    errors.push(`Invalid phone format: ${phone}`);
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors,
+  };
+}
+
 // Export data to CSV
 export function exportToCSV<T>(
   data: T[],
