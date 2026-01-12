@@ -22,6 +22,10 @@ import {
   FileText,
   Download,
   Loader2,
+  Pin,
+  PinOff,
+  Pencil,
+  Check,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -50,6 +54,8 @@ interface ChatMessage {
   file_name: string | null;
   file_type: string | null;
   file_size: number | null;
+  is_pinned?: boolean;
+  edited_at?: string | null;
   sender?: {
     email: string;
     full_name: string | null;
@@ -98,6 +104,10 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
+  const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
+  const [editText, setEditText] = useState("");
+  const [pinnedMessages, setPinnedMessages] = useState<ChatMessage[]>([]);
+  const [globalUnreadCount, setGlobalUnreadCount] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -203,7 +213,30 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
 
     const unread = messagesWithSender.filter((m) => m.receiver_id === user.id && !m.read_at).length;
     setUnreadCount(unread);
+    
+    // Extract pinned messages
+    const pinned = messagesWithSender.filter((m) => m.is_pinned);
+    setPinnedMessages(pinned);
   };
+
+  // Fetch global unread count (for badge when chat minimized)
+  const fetchGlobalUnreadCount = async () => {
+    if (!user) return;
+    
+    const { data, error } = await supabase
+      .from("chat_messages")
+      .select("id", { count: "exact" })
+      .eq("receiver_id", user.id)
+      .is("read_at", null);
+    
+    if (!error && data) {
+      setGlobalUnreadCount(data.length);
+    }
+  };
+
+  useEffect(() => {
+    fetchGlobalUnreadCount();
+  }, [user]);
 
   // Setup typing indicator
   useEffect(() => {
@@ -263,6 +296,7 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
           toast.info("Anda dimention dalam chat!");
         }
         fetchMessages();
+        fetchGlobalUnreadCount();
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "chat_reactions" }, () => {
         fetchMessages();
@@ -464,6 +498,78 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
     setShowReactionPicker(null);
   };
 
+  // Pin/Unpin message
+  const togglePinMessage = async (messageId: string, isPinned: boolean) => {
+    const { error } = await supabase
+      .from("chat_messages")
+      .update({ is_pinned: !isPinned })
+      .eq("id", messageId);
+    
+    if (error) {
+      console.error("Error toggling pin:", error);
+      toast.error("Gagal mengubah pin pesan");
+    } else {
+      toast.success(isPinned ? "Pesan di-unpin" : "Pesan di-pin");
+      fetchMessages();
+    }
+  };
+
+  // Edit message
+  const startEditMessage = (msg: ChatMessage) => {
+    setEditingMessage(msg);
+    setEditText(msg.message);
+  };
+
+  const cancelEdit = () => {
+    setEditingMessage(null);
+    setEditText("");
+  };
+
+  const saveEditMessage = async () => {
+    if (!editingMessage || !editText.trim()) return;
+    
+    const { error } = await supabase
+      .from("chat_messages")
+      .update({ 
+        message: editText.trim(), 
+        edited_at: new Date().toISOString() 
+      })
+      .eq("id", editingMessage.id);
+    
+    if (error) {
+      console.error("Error editing message:", error);
+      toast.error("Gagal mengedit pesan");
+    } else {
+      toast.success("Pesan berhasil diedit");
+      setEditingMessage(null);
+      setEditText("");
+      fetchMessages();
+    }
+  };
+
+  // Handle paste for images
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          if (file.size > 10 * 1024 * 1024) {
+            toast.error("File terlalu besar. Maksimal 10MB");
+            return;
+          }
+          setSelectedFile(file);
+          toast.info("Gambar dari clipboard siap dikirim");
+        }
+        break;
+      }
+    }
+  };
+
   const getFileSignedUrl = async (filePath: string): Promise<string | null> => {
     const { data } = await supabase.storage.from("chat-attachments").createSignedUrl(filePath, 3600);
     return data?.signedUrl || null;
@@ -560,20 +666,22 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
     return grouped;
   };
 
+  const totalUnread = globalUnreadCount + unreadCount;
+
   if (isMinimized) {
     return (
       <Button
         onClick={() => setIsMinimized(false)}
-        className={`fixed bottom-4 right-4 h-14 w-14 rounded-full shadow-lg z-50 p-0 overflow-hidden bg-white border border-gray-200 transition-all duration-300 ease-out hover:scale-110 hover:shadow-[0_0_20px_rgba(59,130,246,0.5)] ${unreadCount > 0 ? "animate-bounce" : ""}`}
+        className={`fixed bottom-4 right-4 h-16 w-16 rounded-full shadow-lg z-50 p-0 overflow-hidden bg-white border border-gray-200 transition-all duration-300 ease-out hover:scale-110 hover:shadow-[0_0_20px_rgba(59,130,246,0.5)] ${totalUnread > 0 ? "animate-bounce" : ""}`}
         size="icon"
       >
         <img src={ktalkIcon} alt="K'talk" className="h-full w-full object-cover" />
-        {unreadCount > 0 && (
+        {totalUnread > 0 && (
           <Badge
             variant="destructive"
-            className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+            className="absolute -top-1 -right-1 h-6 w-6 flex items-center justify-center p-0 text-xs font-bold"
           >
-            {unreadCount}
+            {totalUnread > 99 ? "99+" : totalUnread}
           </Badge>
         )}
       </Button>
@@ -640,6 +748,23 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
               </Button>
             ))}
         </div>
+
+        {/* Pinned Messages */}
+        {pinnedMessages.length > 0 && (
+          <div className="mb-2 p-2 bg-warning/10 rounded-lg border border-warning/30">
+            <div className="flex items-center gap-1 text-xs text-warning font-medium mb-1">
+              <Pin className="h-3 w-3" />
+              Pesan Terpin ({pinnedMessages.length})
+            </div>
+            <div className="space-y-1 max-h-20 overflow-y-auto">
+              {pinnedMessages.map((msg) => (
+                <div key={msg.id} className="text-xs text-muted-foreground truncate">
+                  <span className="font-medium">{msg.sender?.full_name || msg.sender?.email?.split("@")[0] || "Unknown"}:</span> {msg.message.slice(0, 50)}{msg.message.length > 50 ? "..." : ""}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Messages */}
         <ScrollArea className="flex-1 pr-2" ref={scrollRef}>
@@ -728,7 +853,7 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
 
                         {/* Action buttons */}
                         <div
-                          className={`absolute -top-1 ${isOwnMessage ? "-left-16" : "-right-16"} flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity`}
+                          className={`absolute -top-1 ${isOwnMessage ? "-left-24" : "-right-24"} flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity`}
                         >
                           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setReplyingTo(msg)}>
                             <Reply className="h-3 w-3" />
@@ -756,6 +881,19 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
                               </div>
                             </PopoverContent>
                           </Popover>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6" 
+                            onClick={() => togglePinMessage(msg.id, msg.is_pinned || false)}
+                          >
+                            {msg.is_pinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
+                          </Button>
+                          {isOwnMessage && (
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => startEditMessage(msg)}>
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                          )}
                         </div>
 
                         {/* Reactions display */}
@@ -777,7 +915,15 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
                         )}
                       </div>
 
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{formatMessageTime(msg.created_at)}</p>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <p className="text-[10px] text-muted-foreground">{formatMessageTime(msg.created_at)}</p>
+                        {msg.edited_at && (
+                          <span className="text-[10px] text-muted-foreground italic">(diedit)</span>
+                        )}
+                        {msg.is_pinned && (
+                          <Pin className="h-2.5 w-2.5 text-warning" />
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -819,8 +965,33 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
           </div>
         </ScrollArea>
 
+        {/* Edit message preview */}
+        {editingMessage && (
+          <div className="flex items-center gap-2 p-2 bg-info/10 rounded-t-lg border-l-2 border-info mt-2">
+            <Pencil className="h-4 w-4 text-info shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-info">Mengedit pesan</p>
+              <Input
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                className="h-7 text-xs mt-1"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveEditMessage();
+                  if (e.key === "Escape") cancelEdit();
+                }}
+              />
+            </div>
+            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-success" onClick={saveEditMessage}>
+              <Check className="h-3 w-3" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={cancelEdit}>
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
+
         {/* Reply preview */}
-        {replyingTo && (
+        {replyingTo && !editingMessage && (
           <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-t-lg border-l-2 border-primary mt-2">
             <Reply className="h-4 w-4 text-muted-foreground shrink-0" />
             <div className="flex-1 min-w-0">
@@ -932,8 +1103,10 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
             value={newMessage}
             onChange={handleInputChange}
             onKeyDown={handleKeyPress}
-            placeholder={replyingTo ? "Ketik balasan..." : "Ketik pesan..."}
+            onPaste={handlePaste}
+            placeholder={replyingTo ? "Ketik balasan..." : "Ketik pesan... (Ctrl+V untuk paste gambar)"}
             className="flex-1"
+            disabled={!!editingMessage}
           />
 
           <Button size="icon" onClick={sendMessage} disabled={(!newMessage.trim() && !selectedFile) || uploading}>

@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import RealtimeActivityFeed from '@/components/dashboard/RealtimeActivityFeed';
 import { OnlinePresence } from '@/components/dashboard/OnlinePresence';
+import ApprovalRequestNotification from '@/components/dashboard/ApprovalRequestNotification';
 
 interface DashboardStats {
   totalProducts: number;
@@ -374,6 +375,11 @@ export default function Dashboard() {
         </h1>
         <p className="text-muted-foreground">{language === 'en' ? "Here's what's happening with your warehouse today." : 'Berikut yang terjadi di gudang Anda hari ini.'}</p>
       </div>
+
+      {/* Approval Request Notification for Super Admin */}
+      {user?.role === 'super_admin' && (
+        <ApprovalRequestNotification />
+      )}
 
       {/* Real-time Activity Feed & Online Presence */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
