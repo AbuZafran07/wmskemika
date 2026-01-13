@@ -20,7 +20,6 @@ import {
   Package,
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
-import html2pdf from "html2pdf.js";
 import DOMPurify from "dompurify";
 import { securePrint, printStyles } from "@/lib/printUtils";
 
@@ -177,7 +176,6 @@ export default function SalesOrder() {
   const [isDocumentViewerOpen, setIsDocumentViewerOpen] = useState(false);
 
   const [isPdfPreviewOpen, setIsPdfPreviewOpen] = useState(false);
-  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const printRef = useRef<HTMLDivElement>(null);
@@ -746,25 +744,20 @@ export default function SalesOrder() {
     setIsPdfPreviewOpen(true);
   };
 
-  const handleDownloadPDF = async () => {
+  const handleDownloadPDF = () => {
     if (!selectedOrder || !printRef.current) return;
-    setIsDownloadingPdf(true);
-    try {
-      const element = printRef.current;
-      const opt = {
-        margin: [10, 10, 10, 10] as [number, number, number, number],
-        filename: `SalesOrder_${selectedOrder.sales_order_number}.pdf`,
-        image: { type: "jpeg" as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: "mm" as const, format: "a4" as const, orientation: "portrait" as const },
-      };
-      await html2pdf().set(opt).from(element).save();
-      toast.success(language === "en" ? "PDF downloaded successfully" : "PDF berhasil diunduh");
-    } catch (err) {
-      console.error(err);
-      toast.error(language === "en" ? "Failed to download PDF" : "Gagal mengunduh PDF");
-    }
-    setIsDownloadingPdf(false);
+    // Use browser's native print-to-PDF functionality for security
+    // Users can select "Save as PDF" in the print dialog
+    securePrint({
+      title: `SalesOrder_${selectedOrder.sales_order_number}`,
+      styles: printStyles.salesOrder,
+      content: printRef.current.innerHTML,
+    });
+    toast.info(
+      language === "en" 
+        ? "Use 'Save as PDF' in print dialog to download" 
+        : "Gunakan 'Simpan sebagai PDF' di dialog cetak untuk mengunduh"
+    );
   };
 
   // === INIT: when dialog opened create number ===
@@ -1498,13 +1491,9 @@ export default function SalesOrder() {
                   variant="outline"
                   size="sm"
                   onClick={handleDownloadPDF}
-                  disabled={itemsLoading || isDownloadingPdf}
+                  disabled={itemsLoading}
                 >
-                  {isDownloadingPdf ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Download className="w-4 h-4 mr-2" />
-                  )}
+                  <Download className="w-4 h-4 mr-2" />
                   {language === "en" ? "Download" : "Unduh"}
                 </Button>
                 <Button
@@ -1954,12 +1943,8 @@ export default function SalesOrder() {
             <Button variant="outline" onClick={() => setIsPdfPreviewOpen(false)}>
               {language === "en" ? "Close" : "Tutup"}
             </Button>
-            <Button variant="outline" onClick={handleDownloadPDF} disabled={isDownloadingPdf}>
-              {isDownloadingPdf ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Download className="w-4 h-4 mr-2" />
-              )}
+            <Button variant="outline" onClick={handleDownloadPDF}>
+              <Download className="w-4 h-4 mr-2" />
               {language === "en" ? "Download PDF" : "Unduh PDF"}
             </Button>
             <Button
