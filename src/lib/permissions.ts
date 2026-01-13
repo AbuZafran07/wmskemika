@@ -72,7 +72,7 @@ export const MENU_ACCESS: Record<MenuKey, UserRole[]> = {
   stockOut: ['super_admin', 'admin', 'warehouse'],
   stockAdjustment: ['super_admin', 'admin', 'finance'], // Hide from warehouse
   
-  // Master Data - Products
+  // Master Data - Products (Finance can now view these)
   products: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales'],
   categories: ['super_admin', 'admin', 'finance', 'purchasing'],
   units: ['super_admin', 'admin', 'finance', 'purchasing'],
