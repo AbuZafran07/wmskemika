@@ -1,4 +1,3 @@
-// PlanOrder.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus,
@@ -16,10 +15,12 @@ import {
   Archive,
   List,
   Download,
-  Package,
+  FileText,
 } from "lucide-react";
 
+import html2pdf from "html2pdf.js";
 import DOMPurify from "dompurify";
+
 import { securePrint, printStyles } from "@/lib/printUtils";
 import { usePermissions } from "@/hooks/usePermissions";
 
@@ -30,7 +31,6 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -75,19 +75,45 @@ import { generateUniquePlanOrderNumber } from "@/lib/transactionNumberUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-/**
- * ✅ Requested additions:
- * - PDF/Print layout like Sales Order: Preview / Download / Print / View Document
- * - Delivery To is LOCKED (warehouse address)
- * - Supplier name/contact/phone/payment terms pulled from supplier master data
- * - Add Reference No (manual input) -> saved to plan_order_headers.reference_no (nullable)
- * - Footnote style like template (shipping rules + NPWP) and remove PT Kemika footer
- * - Signature conditional:
- *    - If NOT approved => show empty signature boxes
- *    - If approved => hide empty boxes and show approver signature block automatically
- */
+/** =========================
+ * Helpers
+ * ========================= */
+function safeNumber(n: any, fallback = 0) {
+  const v = typeof n === "number" ? n : parseFloat(String(n));
+  return Number.isFinite(v) ? v : fallback;
+}
+function clampNumber(n: number, min: number, max: number) {
+  if (Number.isNaN(n)) return min;
+  return Math.min(max, Math.max(min, n));
+}
+function formatDateID(dateStr: string) {
+  try {
+    return new Date(dateStr).toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return dateStr;
+  }
+}
+function formatDateTimeID(d: Date) {
+  const date = d.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+  const time = d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+  return `${date} ${time}`;
+}
 
-interface OrderItemUI {
+/** =========================
+ * Fixed Delivery To (LOCKED)
+ * ========================= */
+const WAREHOUSE_DELIVERY = {
+  name: "WAREHOUSE KEMIKA",
+  address: "Jl. HOS Cokroaminoto No. 32 G\nLarangan Utara, Kota Tangerang 15154",
+  pic: "Bapak Sunarso",
+  telp: "+62 856-1007-4714",
+};
+
+interface OrderItem {
   id: string;
   product_id: string;
   product?: Partial<Product> & { id: string; name: string };
@@ -107,37 +133,6 @@ const statusConfig: Record<
   cancelled: { label: "Cancelled", labelId: "Dibatalkan", variant: "cancelled" },
 };
 
-// LOCKED Delivery To (Warehouse)
-const DELIVERY_TO = {
-  name: "WAREHOUSE KEMIKA",
-  address: "Jl. HOS Cokroaminoto No. 32 G\nLarangan Utara, Kota Tangerang 15154",
-  pic: "Bapak Sunarso",
-  phone: "+62 856-1007-4714",
-  currency: "IDR",
-};
-
-// Helper
-function safeNumber(n: unknown, fallback = 0) {
-  const v = typeof n === "number" ? n : parseFloat(String(n));
-  return Number.isFinite(v) ? v : fallback;
-}
-function clampNumber(n: number, min: number, max: number) {
-  if (Number.isNaN(n)) return min;
-  return Math.min(max, Math.max(min, n));
-}
-function formatDateID(dateStr: string) {
-  try {
-    return new Date(dateStr).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
-  } catch {
-    return dateStr;
-  }
-}
-function formatDateTimeID(d: Date) {
-  const date = d.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
-  const time = d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
-  return `${date} ${time}`;
-}
-
 export default function PlanOrder() {
   const { t, language } = useLanguage();
   const { user } = useAuth();
@@ -147,28 +142,48 @@ export default function PlanOrder() {
   const { products } = useProducts();
   const { allowAdminApprove } = useSettings();
 
-  // RBAC Permissions
   const { canCreate, canEdit, canDelete, canCancel, canApproveOrder } = usePermissions();
   const canApprove = canApproveOrder("plan_order");
 
-  // List filter states
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(
+      safeNumber(value, 0),
+    );
+
+  /** =========================
+   * List State
+   * ========================= */
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [viewMode, setViewMode] = useState<"active" | "archived">("active");
 
-  // Dialog states
+  /** =========================
+   * UI Dialogs
+   * ========================= */
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
-  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+  const [isPdfPreviewOpen, setIsPdfPreviewOpen] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const [selectedOrder, setSelectedOrder] = useState<PlanOrderHeader | null>(null);
   const { items: selectedOrderItems, loading: itemsLoading } = usePlanOrderItems(selectedOrder?.id || null);
 
-  // Edit / Form states
+  /** =========================
+   * Document viewer
+   * ========================= */
+  const [isOpeningPoDoc, setIsOpeningPoDoc] = useState(false);
+  const [documentViewerUrl, setDocumentViewerUrl] = useState<string | null>(null);
+  const [isDocumentViewerOpen, setIsDocumentViewerOpen] = useState(false);
+
+  /** =========================
+   * Form State
+   * ========================= */
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
 
@@ -176,70 +191,35 @@ export default function PlanOrder() {
   const [planDate, setPlanDate] = useState(new Date().toISOString().split("T")[0]);
   const [supplierId, setSupplierId] = useState("");
   const [expectedDelivery, setExpectedDelivery] = useState("");
-  const [referenceNo, setReferenceNo] = useState(""); // ✅ manual input for printout & saving
+
+  // ✅ Sync fields requested
+  const [referenceNo, setReferenceNo] = useState("");
+  const [paymentTerm, setPaymentTerm] = useState(""); // read-only, auto from supplier
+
   const [notes, setNotes] = useState("");
   const [poDocumentUrl, setPoDocumentUrl] = useState("");
   const [poDocumentKey, setPoDocumentKey] = useState("");
+
   const [discount, setDiscount] = useState("0");
   const [taxRate, setTaxRate] = useState("11");
   const [shippingCost, setShippingCost] = useState("0");
-  const [orderItems, setOrderItems] = useState<OrderItemUI[]>([]);
 
-  // Loading states
+  const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
+
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
   const [isGeneratingNumber, setIsGeneratingNumber] = useState(false);
-
-  // Document viewer
-  const [isOpeningPoDoc, setIsOpeningPoDoc] = useState(false);
-  const [documentViewerUrl, setDocumentViewerUrl] = useState<string | null>(null);
-  const [isDocumentViewerOpen, setIsDocumentViewerOpen] = useState(false);
-
-  // PDF preview & download (like Sales Order)
-  const [isPdfPreviewOpen, setIsPdfPreviewOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
-  // Stock In history
-  const [stockInHistory, setStockInHistory] = useState<any[]>([]);
-  const [stockInHistoryLoading, setStockInHistoryLoading] = useState(false);
-
-  // Approver signature (auto)
-  const [approvedSignatureUrl, setApprovedSignatureUrl] = useState("");
-  const [approvedName, setApprovedName] = useState("");
-  const [approvedAtText, setApprovedAtText] = useState("");
-
-  // Selected supplier (for payment terms + contact)
-  const selectedSupplier = useMemo(() => {
-    return suppliers.find((s: any) => s.id === supplierId) || null;
-  }, [suppliers, supplierId]);
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(
-      safeNumber(value, 0),
-    );
-  };
-
-  const calculateTotals = () => {
-    const subtotal = orderItems.reduce(
-      (sum, item) => sum + safeNumber(item.unit_price, 0) * safeNumber(item.planned_qty, 0),
-      0,
-    );
-    const discountValue = clampNumber(safeNumber(discount, 0), 0, subtotal);
-    const afterDiscount = subtotal - discountValue;
-    const taxValue = afterDiscount * (clampNumber(safeNumber(taxRate, 0), 0, 100) / 100);
-    const shippingValue = clampNumber(safeNumber(shippingCost, 0), 0, 1_000_000_000_000);
-    const grandTotal = afterDiscount + taxValue + shippingValue;
-    return { subtotal, discountValue, taxValue, shippingValue, grandTotal };
-  };
-
-  const { subtotal, discountValue, taxValue, shippingValue, grandTotal } = calculateTotals();
-
-  // Filter list
+  /** =========================
+   * Filters
+   * ========================= */
   const filteredOrders = useMemo(() => {
     return planOrders.filter((order) => {
       const matchesSearch =
@@ -269,47 +249,134 @@ export default function PlanOrder() {
     setDateTo("");
   };
 
-  // ===== Signature auto fetch when selectedOrder changes =====
-  useEffect(() => {
-    const run = async () => {
-      if (!selectedOrder) return;
+  /** =========================
+   * Totals
+   * ========================= */
+  const calculateTotals = () => {
+    const subtotal = orderItems.reduce(
+      (sum, item) => sum + safeNumber(item.unit_price, 0) * safeNumber(item.planned_qty, 0),
+      0,
+    );
+    const discountValue = clampNumber(safeNumber(discount, 0), 0, subtotal);
+    const afterDiscount = subtotal - discountValue;
+    const taxValue = afterDiscount * (clampNumber(safeNumber(taxRate, 0), 0, 100) / 100);
+    const shippingValue = clampNumber(safeNumber(shippingCost, 0), 0, 1_000_000_000_000);
+    const grandTotal = afterDiscount + taxValue + shippingValue;
+    return { subtotal, discountValue, taxValue, shippingValue, grandTotal };
+  };
 
-      const isApproved = selectedOrder.status === "approved";
-      const approverId = (selectedOrder as any)?.approved_by;
-      const approvedAt = (selectedOrder as any)?.approved_at;
+  const { subtotal, discountValue, taxValue, shippingValue, grandTotal } = useMemo(calculateTotals, [
+    orderItems,
+    discount,
+    taxRate,
+    shippingCost,
+  ]);
 
-      if (!isApproved || !approverId) {
-        setApprovedSignatureUrl("");
-        setApprovedName("");
-        setApprovedAtText("");
-        return;
+  /** =========================
+   * Supplier helpers (safe fallback)
+   * ========================= */
+  const resolveSupplierPaymentTerm = (sup: any) => sup?.payment_terms || sup?.terms_payment || sup?.payment_term || "";
+
+  /** =========================
+   * Number generator
+   * ========================= */
+  const generatePlanNumber = async () => {
+    setIsGeneratingNumber(true);
+    try {
+      const number = await generateUniquePlanOrderNumber();
+      setPlanNumber(number);
+    } finally {
+      setIsGeneratingNumber(false);
+    }
+  };
+
+  /** =========================
+   * Reset Form
+   * ========================= */
+  const resetForm = () => {
+    setPlanNumber("");
+    setPlanDate(new Date().toISOString().split("T")[0]);
+    setSupplierId("");
+    setExpectedDelivery("");
+    setReferenceNo("");
+    setPaymentTerm("");
+    setNotes("");
+    setPoDocumentUrl("");
+    setPoDocumentKey("");
+    setDiscount("0");
+    setTaxRate("11");
+    setShippingCost("0");
+    setOrderItems([]);
+  };
+
+  /** =========================
+   * Items
+   * ========================= */
+  const handleAddItem = () => {
+    setOrderItems((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        product_id: "",
+        unit_price: 0,
+        planned_qty: 1,
+        notes: "",
+      },
+    ]);
+  };
+
+  const handleRemoveItem = (id: string) => {
+    setOrderItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const handleItemChange = (id: string, field: keyof OrderItem, value: string | number) => {
+    setOrderItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+
+        if (field === "product_id") {
+          const product = products.find((p) => p.id === value);
+          return {
+            ...item,
+            product_id: value as string,
+            product,
+            unit_price: safeNumber(product?.purchase_price, 0),
+          };
+        }
+
+        return { ...item, [field]: value } as OrderItem;
+      }),
+    );
+  };
+
+  /** =========================
+   * File Upload
+   * ========================= */
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const result = await uploadFile(file, "documents", "plan-orders");
+      if (result) {
+        setPoDocumentUrl(result.url);
+        setPoDocumentKey(result.path);
+        toast.success(language === "en" ? "Document uploaded successfully" : "Dokumen berhasil diupload");
+      } else {
+        toast.error(language === "en" ? "Failed to upload document" : "Gagal upload dokumen");
       }
+    } catch (err) {
+      console.error(err);
+      toast.error(language === "en" ? "Failed to upload document" : "Gagal upload dokumen");
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
-      setApprovedAtText(approvedAt ? formatDateID(approvedAt) : "");
-
-      try {
-        // Assumption: signatures stored in profiles table (full_name, signature_url)
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("full_name, signature_url")
-          .eq("id", approverId)
-          .single();
-
-        if (error) throw error;
-
-        setApprovedName((data as any)?.full_name || "");
-        setApprovedSignatureUrl((data as any)?.signature_url || "");
-      } catch (e) {
-        console.error("Failed to fetch approver signature", e);
-        setApprovedName("");
-        setApprovedSignatureUrl("");
-      }
-    };
-
-    run();
-  }, [selectedOrder?.id, selectedOrder?.status, (selectedOrder as any)?.approved_by]);
-
-  // ===== View Document (signed url) =====
+  /** =========================
+   * View Document (Signed URL)
+   * ========================= */
   const handleViewPoDocument = async (order: PlanOrderHeader) => {
     setIsOpeningPoDoc(true);
     try {
@@ -323,8 +390,8 @@ export default function PlanOrder() {
 
       if (error) throw error;
 
-      const fileKey = (data as any)?.[0]?.file_key as string | undefined;
-      const fallbackUrl = (data as any)?.[0]?.url || order.po_document_url || "";
+      const fileKey = data?.[0]?.file_key;
+      const fallbackUrl = data?.[0]?.url || (order as any)?.po_document_url || "";
 
       const freshUrl = fileKey ? await getSignedUrl(fileKey, "documents") : null;
       const urlToOpen = freshUrl || fallbackUrl;
@@ -344,117 +411,9 @@ export default function PlanOrder() {
     }
   };
 
-  // ===== PDF Actions =====
-  const handlePrintPDF = () => {
-    if (!selectedOrder || !printRef.current) return;
-    securePrint({
-      title: `Plan Order - ${selectedOrder.plan_number}`,
-      styles: printStyles.planOrder,
-      content: printRef.current.innerHTML,
-    });
-  };
-
-  const handleDownloadPDF = () => {
-    if (!selectedOrder || !printRef.current) return;
-    // Use browser's native print-to-PDF functionality for security
-    // Users can select "Save as PDF" in the print dialog
-    securePrint({
-      title: `PlanOrder_${selectedOrder.plan_number}`,
-      styles: printStyles.planOrder,
-      content: printRef.current.innerHTML,
-    });
-    toast.info(
-      language === "en" 
-        ? "Use 'Save as PDF' in print dialog to download" 
-        : "Gunakan 'Simpan sebagai PDF' di dialog cetak untuk mengunduh"
-    );
-  };
-
-  // ===== Generate Plan Number =====
-  const generatePlanNumber = async () => {
-    setIsGeneratingNumber(true);
-    const number = await generateUniquePlanOrderNumber();
-    setPlanNumber(number);
-    setIsGeneratingNumber(false);
-  };
-
-  // ===== Reset Form =====
-  const resetForm = () => {
-    setPlanNumber("");
-    setPlanDate(new Date().toISOString().split("T")[0]);
-    setSupplierId("");
-    setExpectedDelivery("");
-    setReferenceNo("");
-    setNotes("");
-    setPoDocumentUrl("");
-    setPoDocumentKey("");
-    setDiscount("0");
-    setTaxRate("11");
-    setShippingCost("0");
-    setOrderItems([]);
-  };
-
-  // ===== Line Items =====
-  const handleAddItem = () => {
-    setOrderItems((prev) => [
-      ...prev,
-      {
-        id: Date.now().toString(),
-        product_id: "",
-        unit_price: 0,
-        planned_qty: 1,
-        notes: "",
-      },
-    ]);
-  };
-
-  const handleRemoveItem = (id: string) => {
-    setOrderItems((prev) => prev.filter((item) => item.id !== id));
-  };
-
-  const handleItemChange = (id: string, field: keyof OrderItemUI, value: string | number) => {
-    setOrderItems((prev) =>
-      prev.map((item) => {
-        if (item.id !== id) return item;
-
-        if (field === "product_id") {
-          const product = products.find((p: any) => p.id === value);
-          return {
-            ...item,
-            product_id: value as string,
-            product,
-            unit_price: safeNumber((product as any)?.purchase_price, 0),
-          };
-        }
-
-        return { ...item, [field]: value };
-      }),
-    );
-  };
-
-  // ===== File Upload =====
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploading(true);
-    try {
-      const result = await uploadFile(file, "documents", "plan-orders");
-      if (result) {
-        setPoDocumentUrl(result.url);
-        setPoDocumentKey(result.path);
-        toast.success(language === "en" ? "Document uploaded successfully" : "Dokumen berhasil diupload");
-      } else {
-        toast.error(language === "en" ? "Failed to upload document" : "Gagal upload dokumen");
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error(language === "en" ? "Failed to upload document" : "Gagal upload dokumen");
-    }
-    setIsUploading(false);
-  };
-
-  // ===== Submit (Create) =====
+  /** =========================
+   * Create / Update Submit
+   * ========================= */
   const handleSubmit = async () => {
     if (!planNumber || !supplierId || orderItems.length === 0) {
       toast.error(language === "en" ? "Please fill all required fields" : "Harap isi semua field wajib");
@@ -470,9 +429,6 @@ export default function PlanOrder() {
     }
 
     setIsSaving(true);
-
-    const totals = calculateTotals();
-
     try {
       const result = await createPlanOrder(
         {
@@ -481,96 +437,53 @@ export default function PlanOrder() {
           supplier_id: supplierId,
           expected_delivery_date: expectedDelivery || null,
 
-          // ✅ NEW FIELD (nullable)
+          // ✅ sync
           reference_no: referenceNo || null,
+          payment_term: paymentTerm || null,
 
           notes: notes || null,
           po_document_url: poDocumentUrl,
           status: "draft",
-          total_amount: totals.subtotal,
-          discount: totals.discountValue,
-          tax_rate: clampNumber(safeNumber(taxRate, 0), 0, 100),
-          shipping_cost: clampNumber(safeNumber(shippingCost, 0), 0, 1_000_000_000_000),
-          grand_total: totals.grandTotal,
+          total_amount: subtotal,
+          discount: discountValue,
+          tax_rate: safeNumber(taxRate, 0),
+          shipping_cost: safeNumber(shippingCost, 0),
+          grand_total: grandTotal,
           created_by: user?.id || null,
           approved_by: null,
           approved_at: null,
         } as any,
         orderItems.map((item) => ({
           product_id: item.product_id,
-          unit_price: safeNumber(item.unit_price, 0),
-          planned_qty: safeNumber(item.planned_qty, 0),
-          notes: item.notes || null,
+          unit_price: item.unit_price,
+          planned_qty: item.planned_qty,
+          notes: item.notes,
         })) as any,
         poDocumentKey
-          ? ({
+          ? {
               file_key: poDocumentKey,
               url: poDocumentUrl,
               mime_type: undefined,
               file_size: undefined,
-            } as any)
+            }
           : undefined,
       );
 
-      if (result.success) {
-        toast.success(language === "en" ? "Plan Order created successfully" : "Plan Order berhasil dibuat");
-        setIsFormOpen(false);
-        setIsEditMode(false);
-        setEditingOrderId(null);
-        resetForm();
-        refetch();
-      } else {
+      if (!result.success) {
         toast.error(result.error || "Failed to create plan order");
+        return;
       }
+
+      toast.success(language === "en" ? "Plan Order created successfully" : "Plan Order berhasil dibuat");
+      setIsFormOpen(false);
+      resetForm();
+      refetch();
     } catch (err) {
       console.error(err);
       toast.error(language === "en" ? "Failed to create plan order" : "Gagal membuat plan order");
+    } finally {
+      setIsSaving(false);
     }
-
-    setIsSaving(false);
-  };
-
-  // ===== Update =====
-  const fetchOrderItemsForEdit = async (orderId: string) => {
-    const { data, error } = await supabase
-      .from("plan_order_items")
-      .select(`*, product:products(id, name, sku, purchase_price, category:categories(name), unit:units(name))`)
-      .eq("plan_order_id", orderId);
-
-    if (!error && data) {
-      setOrderItems(
-        (data as any[]).map((item: any) => ({
-          id: item.id,
-          product_id: item.product_id,
-          product: item.product,
-          unit_price: safeNumber(item.unit_price, 0),
-          planned_qty: safeNumber(item.planned_qty, 1),
-          notes: item.notes || "",
-        })),
-      );
-    }
-  };
-
-  const handleEdit = (order: PlanOrderHeader) => {
-    setPlanNumber(order.plan_number);
-    setPlanDate(order.plan_date);
-    setSupplierId(order.supplier_id);
-    setExpectedDelivery(order.expected_delivery_date || "");
-    setNotes(order.notes || "");
-    setPoDocumentUrl(order.po_document_url || "");
-    setPoDocumentKey("");
-    setDiscount(String(order.discount ?? 0));
-    setTaxRate(String(order.tax_rate ?? 11));
-    setShippingCost(String(order.shipping_cost ?? 0));
-
-    // ✅ reference_no (fallback-safe)
-    setReferenceNo(String((order as any)?.reference_no || ""));
-
-    setEditingOrderId(order.id);
-    setIsEditMode(true);
-    setIsFormOpen(true);
-
-    fetchOrderItemsForEdit(order.id);
   };
 
   const handleUpdate = async () => {
@@ -584,8 +497,6 @@ export default function PlanOrder() {
     }
 
     setIsSaving(true);
-    const totals = calculateTotals();
-
     try {
       const result = await updatePlanOrder(
         editingOrderId,
@@ -595,153 +506,227 @@ export default function PlanOrder() {
           supplier_id: supplierId,
           expected_delivery_date: expectedDelivery || null,
 
-          // ✅ NEW FIELD
+          // ✅ sync
           reference_no: referenceNo || null,
+          payment_term: paymentTerm || null,
 
           notes: notes || null,
           po_document_url: poDocumentUrl,
-          total_amount: totals.subtotal,
-          discount: totals.discountValue,
-          tax_rate: clampNumber(safeNumber(taxRate, 0), 0, 100),
-          shipping_cost: clampNumber(safeNumber(shippingCost, 0), 0, 1_000_000_000_000),
-          grand_total: totals.grandTotal,
+          total_amount: subtotal,
+          discount: discountValue,
+          tax_rate: safeNumber(taxRate, 0),
+          shipping_cost: safeNumber(shippingCost, 0),
+          grand_total: grandTotal,
         } as any,
         orderItems.map((item) => ({
           product_id: item.product_id,
-          unit_price: safeNumber(item.unit_price, 0),
-          planned_qty: safeNumber(item.planned_qty, 0),
-          notes: item.notes || null,
+          unit_price: item.unit_price,
+          planned_qty: item.planned_qty,
+          notes: item.notes,
         })) as any,
       );
 
-      if (result.success) {
-        if (poDocumentKey && poDocumentUrl) {
-          await logPlanOrderUpload(editingOrderId, planNumber, { file_key: poDocumentKey, url: poDocumentUrl } as any);
-        }
-
-        toast.success(language === "en" ? "Plan Order updated successfully" : "Plan Order berhasil diupdate");
-        setIsFormOpen(false);
-        setIsEditMode(false);
-        setEditingOrderId(null);
-        resetForm();
-        refetch();
-      } else {
+      if (!result.success) {
         toast.error(result.error || "Failed to update");
+        return;
       }
+
+      if (poDocumentKey && poDocumentUrl) {
+        await logPlanOrderUpload(editingOrderId, planNumber, {
+          file_key: poDocumentKey,
+          url: poDocumentUrl,
+        } as any);
+      }
+
+      toast.success(language === "en" ? "Plan Order updated successfully" : "Plan Order berhasil diupdate");
+      setIsFormOpen(false);
+      setIsEditMode(false);
+      setEditingOrderId(null);
+      resetForm();
+      refetch();
     } catch (err) {
       console.error(err);
-      toast.error(language === "en" ? "Failed to update plan order" : "Gagal update plan order");
+      toast.error(language === "en" ? "Failed to update" : "Gagal update");
+    } finally {
+      setIsSaving(false);
     }
-
-    setIsSaving(false);
   };
 
-  // ===== Approve / Cancel / Delete =====
+  /** =========================
+   * Approve / Cancel / Delete
+   * ========================= */
   const handleApprove = async () => {
     if (!selectedOrder) return;
 
     if (!canApprove) {
-      toast.error(
-        language === "en"
-          ? "You do not have permission to approve orders"
-          : "Anda tidak memiliki izin untuk menyetujui order",
-      );
+      toast.error(language === "en" ? "You do not have permission to approve orders" : "Anda tidak punya izin approve");
       return;
     }
 
     setIsApproving(true);
-    const result = await approvePlanOrder(selectedOrder.id);
-
-    if (result.success) {
-      toast.success(language === "en" ? "Plan Order approved" : "Plan Order disetujui");
-      refetch();
-    } else {
-      toast.error(result.error || "Failed to approve");
+    try {
+      const result = await approvePlanOrder(selectedOrder.id);
+      if (result.success) {
+        toast.success(language === "en" ? "Plan Order approved" : "Plan Order disetujui");
+        refetch();
+      } else {
+        toast.error(result.error || "Failed to approve");
+      }
+    } finally {
+      setIsApproving(false);
+      setIsApproveDialogOpen(false);
+      setSelectedOrder(null);
     }
-
-    setIsApproving(false);
-    setIsApproveDialogOpen(false);
-    setSelectedOrder(null);
   };
 
   const handleCancel = async () => {
     if (!selectedOrder) return;
 
     setIsCancelling(true);
-    const result = await cancelPlanOrder(selectedOrder.id);
-
-    if (result.success) {
-      toast.success(language === "en" ? "Plan Order cancelled" : "Plan Order dibatalkan");
-      refetch();
-    } else {
-      toast.error(result.error || "Failed to cancel");
+    try {
+      const result = await cancelPlanOrder(selectedOrder.id);
+      if (result.success) {
+        toast.success(language === "en" ? "Plan Order cancelled" : "Plan Order dibatalkan");
+        refetch();
+      } else {
+        toast.error(result.error || "Failed to cancel");
+      }
+    } finally {
+      setIsCancelling(false);
+      setIsCancelDialogOpen(false);
+      setSelectedOrder(null);
     }
-
-    setIsCancelling(false);
-    setIsCancelDialogOpen(false);
-    setSelectedOrder(null);
   };
 
   const handleDelete = async () => {
     if (!selectedOrder) return;
 
     setIsDeleting(true);
-    const result = await deletePlanOrder(selectedOrder.id);
-
-    if (result.success) {
-      toast.success(language === "en" ? "Plan Order deleted" : "Plan Order dihapus");
-      refetch();
-    } else {
-      toast.error(result.error || "Failed to delete");
+    try {
+      const result = await deletePlanOrder(selectedOrder.id);
+      if (result.success) {
+        toast.success(language === "en" ? "Plan Order deleted" : "Plan Order dihapus");
+        refetch();
+      } else {
+        toast.error(result.error || "Failed to delete");
+      }
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteDialogOpen(false);
+      setSelectedOrder(null);
     }
-
-    setIsDeleting(false);
-    setIsDeleteDialogOpen(false);
-    setSelectedOrder(null);
   };
 
-  // ===== Detail View =====
+  /** =========================
+   * Edit
+   * ========================= */
+  const fetchOrderItemsForEdit = async (orderId: string) => {
+    const { data, error } = await supabase
+      .from("plan_order_items")
+      .select(`*, product:products(id, name, sku, purchase_price, category:categories(name), unit:units(name))`)
+      .eq("plan_order_id", orderId);
+
+    if (!error && data) {
+      setOrderItems(
+        (data as any[]).map((item) => ({
+          id: item.id,
+          product_id: item.product_id,
+          product: item.product,
+          unit_price: safeNumber(item.unit_price, 0),
+          planned_qty: safeNumber(item.planned_qty, 0),
+          notes: item.notes || "",
+        })),
+      );
+    }
+  };
+
+  const handleEdit = (order: PlanOrderHeader) => {
+    setPlanNumber(order.plan_number);
+    setPlanDate(order.plan_date);
+    setSupplierId(order.supplier_id);
+    setExpectedDelivery(order.expected_delivery_date || "");
+    setNotes(order.notes || "");
+    setPoDocumentUrl((order as any).po_document_url || "");
+    setPoDocumentKey("");
+    setDiscount(String(order.discount ?? 0));
+    setTaxRate(String(order.tax_rate ?? 11));
+    setShippingCost(String(order.shipping_cost ?? 0));
+
+    // ✅ sync
+    setReferenceNo((order as any)?.reference_no || "");
+    setPaymentTerm((order as any)?.payment_term || resolveSupplierPaymentTerm(order.supplier));
+
+    // re-sync from master suppliers for safety
+    const sup = suppliers.find((s) => s.id === order.supplier_id);
+    if (sup) setPaymentTerm(resolveSupplierPaymentTerm(sup));
+
+    setEditingOrderId(order.id);
+    setIsEditMode(true);
+    setIsFormOpen(true);
+
+    fetchOrderItemsForEdit(order.id);
+  };
+
+  /** =========================
+   * Detail
+   * ========================= */
   const handleViewDetail = async (order: PlanOrderHeader) => {
     setSelectedOrder(order);
     setIsDetailDialogOpen(true);
+  };
 
-    // Fetch stock in history for this plan order
-    setStockInHistoryLoading(true);
+  /** =========================
+   * PDF actions
+   * ========================= */
+  const handlePreviewPDF = () => {
+    if (!selectedOrder) return;
+    setIsPdfPreviewOpen(true);
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!selectedOrder || !printRef.current) return;
+    setIsDownloadingPdf(true);
     try {
-      const { data: stockIns, error } = await supabase
-        .from("stock_in_headers")
-        .select(
-          `
-          id,
-          stock_in_number,
-          received_date,
-          notes,
-          created_at,
-          stock_in_items (
-            id,
-            qty_received,
-            batch_no,
-            expired_date,
-            product:products (name, sku)
-          )
-        `,
-        )
-        .eq("plan_order_id", order.id)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setStockInHistory(stockIns || []);
+      const element = printRef.current;
+      const opt = {
+        margin: [10, 10, 10, 10] as [number, number, number, number],
+        filename: `PurchaseOrder_${selectedOrder.plan_number}.pdf`,
+        image: { type: "jpeg" as const, quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: "mm" as const, format: "a4" as const, orientation: "portrait" as const },
+      };
+      await html2pdf().set(opt).from(element).save();
+      toast.success(language === "en" ? "PDF downloaded successfully" : "PDF berhasil diunduh");
     } catch (err) {
-      console.error("Failed to fetch stock in history:", err);
-      setStockInHistory([]);
+      console.error(err);
+      toast.error(language === "en" ? "Failed to download PDF" : "Gagal mengunduh PDF");
     } finally {
-      setStockInHistoryLoading(false);
+      setIsDownloadingPdf(false);
     }
   };
 
-  // =========================
-  // FORM VIEW (Create/Edit)
-  // =========================
+  const handlePrintPDF = () => {
+    if (!selectedOrder || !printRef.current) return;
+    securePrint({
+      title: `Purchase Order - ${selectedOrder.plan_number}`,
+      styles: printStyles.planOrder,
+      content: printRef.current.innerHTML,
+    });
+  };
+
+  /** =========================
+   * Init number when open create form
+   * ========================= */
+  useEffect(() => {
+    if (isFormOpen && !isEditMode && !planNumber) {
+      generatePlanNumber();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFormOpen]);
+
+  /** =========================================================
+   * FORM VIEW
+   * ========================================================= */
   if (isFormOpen) {
     return (
       <div className="space-y-6 animate-fade-in">
@@ -772,7 +757,7 @@ export default function PlanOrder() {
             <p className="text-muted-foreground">
               {isEditMode
                 ? language === "en"
-                  ? "Update existing plan order"
+                  ? "Update existing procurement plan"
                   : "Ubah plan order yang ada"
                 : language === "en"
                   ? "Create new procurement plan"
@@ -801,6 +786,7 @@ export default function PlanOrder() {
                       onChange={(e) => setPlanNumber(e.target.value)}
                     />
                   </div>
+
                   <div className="space-y-2">
                     <Label>{language === "en" ? "Plan Date" : "Tanggal Plan"} *</Label>
                     <Input type="date" value={planDate} onChange={(e) => setPlanDate(e.target.value)} />
@@ -810,7 +796,14 @@ export default function PlanOrder() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Supplier *</Label>
-                    <Select value={supplierId} onValueChange={setSupplierId}>
+                    <Select
+                      value={supplierId}
+                      onValueChange={(v) => {
+                        setSupplierId(v);
+                        const sup = suppliers.find((s) => s.id === v);
+                        setPaymentTerm(resolveSupplierPaymentTerm(sup));
+                      }}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder={language === "en" ? "Select supplier" : "Pilih supplier"} />
                       </SelectTrigger>
@@ -830,7 +823,7 @@ export default function PlanOrder() {
                   </div>
                 </div>
 
-                {/* ✅ NEW: Reference No + Payment term from supplier */}
+                {/* ✅ Reference + Payment Term */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Reference No</Label>
@@ -843,11 +836,10 @@ export default function PlanOrder() {
 
                   <div className="space-y-2">
                     <Label>Payment Term</Label>
-                    <Input value={(selectedSupplier?.terms_payment || "-").toString()} disabled className="bg-muted" />
+                    <Input value={paymentTerm || "-"} disabled className="bg-muted" />
                   </div>
                 </div>
 
-                {/* PO Document */}
                 <div className="space-y-2">
                   <Label>{language === "en" ? "PO Document" : "Dokumen PO"} *</Label>
                   <div className="flex items-center gap-4">
@@ -919,9 +911,7 @@ export default function PlanOrder() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[300px]">{language === "en" ? "Product" : "Produk"}</TableHead>
-                      <TableHead>SKU</TableHead>
-                      <TableHead>{language === "en" ? "Unit" : "Satuan"}</TableHead>
+                      <TableHead className="w-[320px]">{language === "en" ? "Product" : "Produk"}</TableHead>
                       <TableHead className="text-right">{language === "en" ? "Unit Price" : "Harga"}</TableHead>
                       <TableHead className="text-center">Qty</TableHead>
                       <TableHead className="text-right">Subtotal</TableHead>
@@ -932,69 +922,61 @@ export default function PlanOrder() {
                   <TableBody>
                     {orderItems.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                           {language === "en" ? "No items added yet" : "Belum ada item"}
                         </TableCell>
                       </TableRow>
                     ) : (
-                      orderItems.map((item) => {
-                        const p = products.find((x: any) => x.id === item.product_id) as any;
-                        return (
-                          <TableRow key={item.id}>
-                            <TableCell>
-                              <Select
-                                value={item.product_id}
-                                onValueChange={(value) => handleItemChange(item.id, "product_id", value)}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder={language === "en" ? "Select product" : "Pilih produk"} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {products.map((pp: any) => (
-                                    <SelectItem key={pp.id} value={pp.id}>
-                                      {pp.name} {pp.sku && `(${pp.sku})`}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </TableCell>
+                      orderItems.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell>
+                            <Select
+                              value={item.product_id}
+                              onValueChange={(value) => handleItemChange(item.id, "product_id", value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder={language === "en" ? "Select product" : "Pilih produk"} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {products.map((p: any) => (
+                                  <SelectItem key={p.id} value={p.id}>
+                                    {p.name} {p.sku && `(${p.sku})`}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
 
-                            <TableCell>{p?.sku || "-"}</TableCell>
-                            <TableCell>{p?.unit?.name || "-"}</TableCell>
+                          <TableCell className="text-right">
+                            <Input
+                              type="number"
+                              className="w-32 text-right ml-auto"
+                              value={item.unit_price}
+                              onChange={(e) => handleItemChange(item.id, "unit_price", safeNumber(e.target.value, 0))}
+                            />
+                          </TableCell>
 
-                            <TableCell className="text-right">
-                              <Input
-                                type="number"
-                                className="w-32 text-right ml-auto"
-                                value={item.unit_price}
-                                onChange={(e) => handleItemChange(item.id, "unit_price", safeNumber(e.target.value, 0))}
-                              />
-                            </TableCell>
+                          <TableCell className="text-center">
+                            <Input
+                              type="number"
+                              className="w-20 text-center mx-auto"
+                              value={item.planned_qty}
+                              min={1}
+                              onChange={(e) => handleItemChange(item.id, "planned_qty", safeNumber(e.target.value, 1))}
+                            />
+                          </TableCell>
 
-                            <TableCell className="text-center">
-                              <Input
-                                type="number"
-                                className="w-20 text-center mx-auto"
-                                value={item.planned_qty}
-                                min={1}
-                                onChange={(e) =>
-                                  handleItemChange(item.id, "planned_qty", safeNumber(e.target.value, 1))
-                                }
-                              />
-                            </TableCell>
+                          <TableCell className="text-right">
+                            {formatCurrency(item.unit_price * item.planned_qty)}
+                          </TableCell>
 
-                            <TableCell className="text-right">
-                              {formatCurrency(safeNumber(item.unit_price, 0) * safeNumber(item.planned_qty, 0))}
-                            </TableCell>
-
-                            <TableCell>
-                              <Button variant="ghost" size="iconSm" onClick={() => handleRemoveItem(item.id)}>
-                                <Trash2 className="w-4 h-4 text-destructive" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
+                          <TableCell>
+                            <Button variant="ghost" size="iconSm" onClick={() => handleRemoveItem(item.id)}>
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
                     )}
                   </TableBody>
                 </Table>
@@ -1015,47 +997,42 @@ export default function PlanOrder() {
                   <span>{formatCurrency(subtotal)}</span>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm">Discount</Label>
-                    <Input
-                      type="number"
-                      className="w-32 text-right"
-                      value={discount}
-                      min={0}
-                      onChange={(e) => setDiscount(e.target.value)}
-                    />
-                  </div>
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm">Discount</Label>
+                  <Input
+                    type="number"
+                    className="w-32 text-right"
+                    value={discount}
+                    min={0}
+                    onChange={(e) => setDiscount(e.target.value)}
+                  />
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm">Tax (%)</Label>
-                    <Input
-                      type="number"
-                      className="w-32 text-right"
-                      value={taxRate}
-                      min={0}
-                      onChange={(e) => setTaxRate(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Tax Amount</span>
-                    <span>{formatCurrency(taxValue)}</span>
-                  </div>
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm">Tax (%)</Label>
+                  <Input
+                    type="number"
+                    className="w-32 text-right"
+                    value={taxRate}
+                    min={0}
+                    onChange={(e) => setTaxRate(e.target.value)}
+                  />
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm">{language === "en" ? "Shipping" : "Ongkir"}</Label>
-                    <Input
-                      type="number"
-                      className="w-32 text-right"
-                      value={shippingCost}
-                      min={0}
-                      onChange={(e) => setShippingCost(e.target.value)}
-                    />
-                  </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Tax Amount</span>
+                  <span>{formatCurrency(taxValue)}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm">{language === "en" ? "Shipping" : "Ongkir"}</Label>
+                  <Input
+                    type="number"
+                    className="w-32 text-right"
+                    value={shippingCost}
+                    min={0}
+                    onChange={(e) => setShippingCost(e.target.value)}
+                  />
                 </div>
 
                 <div className="border-t pt-4">
@@ -1097,9 +1074,9 @@ export default function PlanOrder() {
     );
   }
 
-  // =========================
-  // LIST VIEW
-  // =========================
+  /** =========================================================
+   * LIST VIEW
+   * ========================================================= */
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -1114,7 +1091,9 @@ export default function PlanOrder() {
         {canCreate("plan_order") && (
           <Button
             onClick={() => {
-              generatePlanNumber();
+              resetForm();
+              setIsEditMode(false);
+              setEditingOrderId(null);
               setIsFormOpen(true);
             }}
           >
@@ -1125,7 +1104,7 @@ export default function PlanOrder() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "active" | "archived")}>
+      <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)}>
         <TabsList>
           <TabsTrigger value="active" className="gap-2">
             <List className="w-4 h-4" />
@@ -1213,7 +1192,7 @@ export default function PlanOrder() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{language === "en" ? "Plan Number" : "Nomor Plan"}</TableHead>
+                  <TableHead>{language === "en" ? "PO Number" : "Nomor PO"}</TableHead>
                   <TableHead>{language === "en" ? "Date" : "Tanggal"}</TableHead>
                   <TableHead>Supplier</TableHead>
                   <TableHead>{language === "en" ? "Expected Delivery" : "Estimasi Pengiriman"}</TableHead>
@@ -1234,22 +1213,21 @@ export default function PlanOrder() {
                   filteredOrders.map((order) => {
                     const status = statusConfig[order.status] || statusConfig.draft;
 
-                    // RBAC + status based
                     const showApprove = order.status === "draft" && canApprove;
-                    const showEdit = order.status === "draft" && canEdit("plan_order");
-                    const showDelete = order.status === "draft" && canDelete("plan_order");
                     const showCancel =
                       (order.status === "draft" || order.status === "approved") && canCancel("plan_order");
+                    const showEdit = order.status === "draft" && canEdit("plan_order");
+                    const showDelete = order.status === "draft" && canDelete("plan_order");
 
                     return (
                       <TableRow key={order.id}>
                         <TableCell className="font-medium">{order.plan_number}</TableCell>
                         <TableCell>{formatDateID(order.plan_date)}</TableCell>
-                        <TableCell>{order.supplier?.name || "-"}</TableCell>
+                        <TableCell>{order.supplier?.name}</TableCell>
                         <TableCell>
                           {order.expected_delivery_date ? formatDateID(order.expected_delivery_date) : "-"}
                         </TableCell>
-                        <TableCell className="text-right">{formatCurrency(safeNumber(order.grand_total, 0))}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(order.grand_total)}</TableCell>
                         <TableCell className="text-center">
                           <Badge variant={status.variant}>{language === "en" ? status.label : status.labelId}</Badge>
                         </TableCell>
@@ -1358,8 +1336,8 @@ export default function PlanOrder() {
             <AlertDialogTitle>{language === "en" ? "Cancel Plan Order" : "Batalkan Plan Order"}</AlertDialogTitle>
             <AlertDialogDescription>
               {language === "en"
-                ? `Are you sure you want to cancel "${selectedOrder?.plan_number}"? This action cannot be undone.`
-                : `Apakah Anda yakin ingin membatalkan "${selectedOrder?.plan_number}"? Tindakan ini tidak dapat dibatalkan.`}
+                ? `Are you sure you want to cancel "${selectedOrder?.plan_number}"?`
+                : `Apakah Anda yakin ingin membatalkan "${selectedOrder?.plan_number}"?`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1405,10 +1383,10 @@ export default function PlanOrder() {
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <DialogTitle>{language === "en" ? "Plan Order Details" : "Detail Plan Order"}</DialogTitle>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap justify-end">
                 {selectedOrder?.po_document_url && (
                   <Button
                     variant="outline"
@@ -1419,13 +1397,13 @@ export default function PlanOrder() {
                     {isOpeningPoDoc ? (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     ) : (
-                      <Eye className="w-4 h-4 mr-2" />
+                      <FileText className="w-4 h-4 mr-2" />
                     )}
                     {language === "en" ? "View Document" : "Lihat Dokumen"}
                   </Button>
                 )}
 
-                <Button variant="outline" size="sm" onClick={() => setIsPdfPreviewOpen(true)} disabled={itemsLoading}>
+                <Button variant="outline" size="sm" onClick={handlePreviewPDF} disabled={itemsLoading}>
                   <Eye className="w-4 h-4 mr-2" />
                   {language === "en" ? "Preview" : "Preview"}
                 </Button>
@@ -1434,9 +1412,13 @@ export default function PlanOrder() {
                   variant="outline"
                   size="sm"
                   onClick={handleDownloadPDF}
-                  disabled={itemsLoading}
+                  disabled={itemsLoading || isDownloadingPdf}
                 >
-                  <Download className="w-4 h-4 mr-2" />
+                  {isDownloadingPdf ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4 mr-2" />
+                  )}
                   {language === "en" ? "Download" : "Unduh"}
                 </Button>
 
@@ -1450,19 +1432,20 @@ export default function PlanOrder() {
 
           {selectedOrder && (
             <div className="space-y-6">
-              {/* Order Header Info */}
+              {/* Header Info */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-muted-foreground">{language === "en" ? "Plan Number" : "Nomor Plan"}</p>
+                  <p className="text-sm text-muted-foreground">{language === "en" ? "PO Number" : "Nomor PO"}</p>
                   <p className="font-medium">{selectedOrder.plan_number}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">{language === "en" ? "Date" : "Tanggal"}</p>
                   <p className="font-medium">{formatDateID(selectedOrder.plan_date)}</p>
                 </div>
+
                 <div>
                   <p className="text-sm text-muted-foreground">Supplier</p>
-                  <p className="font-medium">{selectedOrder.supplier?.name || "-"}</p>
+                  <p className="font-medium">{selectedOrder.supplier?.name}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">
@@ -1473,10 +1456,14 @@ export default function PlanOrder() {
                   </p>
                 </div>
 
-                {/* ✅ Reference No (from DB if exists) */}
+                {/* ✅ sync fields */}
                 <div>
                   <p className="text-sm text-muted-foreground">Reference No</p>
-                  <p className="font-medium">{String((selectedOrder as any)?.reference_no || "-")}</p>
+                  <p className="font-medium">{(selectedOrder as any)?.reference_no || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Payment Term</p>
+                  <p className="font-medium">{(selectedOrder as any)?.payment_term || "-"}</p>
                 </div>
 
                 <div>
@@ -1487,13 +1474,13 @@ export default function PlanOrder() {
                       : statusConfig[selectedOrder.status]?.labelId}
                   </Badge>
                 </div>
-
                 <div>
                   <p className="text-sm text-muted-foreground">Grand Total</p>
-                  <p className="font-medium text-primary">{formatCurrency(safeNumber(selectedOrder.grand_total, 0))}</p>
+                  <p className="font-medium text-primary">{formatCurrency(selectedOrder.grand_total)}</p>
                 </div>
               </div>
 
+              {/* Notes */}
               {selectedOrder.notes && (
                 <div>
                   <p className="text-sm text-muted-foreground">{language === "en" ? "Notes" : "Catatan"}</p>
@@ -1533,21 +1520,14 @@ export default function PlanOrder() {
                         selectedOrderItems.map((item: any, index: number) => (
                           <TableRow key={item.id}>
                             <TableCell>{index + 1}</TableCell>
-                            <TableCell className="font-medium">{item.product?.name || "-"}</TableCell>
+                            <TableCell className="font-medium">{item.product?.name}</TableCell>
                             <TableCell>{item.product?.sku || "-"}</TableCell>
                             <TableCell>{item.product?.category?.name || "-"}</TableCell>
                             <TableCell>{item.product?.unit?.name || "-"}</TableCell>
-                            <TableCell className="text-center">{safeNumber(item.planned_qty, 0)}</TableCell>
+                            <TableCell className="text-center">{item.planned_qty}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(item.unit_price)}</TableCell>
                             <TableCell className="text-right">
-                              {formatCurrency(safeNumber(item.unit_price, 0))}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {formatCurrency(
-                                safeNumber(
-                                  item.subtotal,
-                                  safeNumber(item.unit_price, 0) * safeNumber(item.planned_qty, 0),
-                                ),
-                              )}
+                              {formatCurrency(item.subtotal || item.unit_price * item.planned_qty)}
                             </TableCell>
                           </TableRow>
                         ))
@@ -1561,93 +1541,33 @@ export default function PlanOrder() {
               <div className="border-t pt-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span>{formatCurrency(safeNumber(selectedOrder.total_amount, 0))}</span>
+                  <span>{formatCurrency(selectedOrder.total_amount)}</span>
                 </div>
-                {safeNumber(selectedOrder.discount, 0) > 0 && (
+                {selectedOrder.discount > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Discount</span>
-                    <span>-{formatCurrency(safeNumber(selectedOrder.discount, 0))}</span>
+                    <span>-{formatCurrency(selectedOrder.discount)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Tax ({safeNumber(selectedOrder.tax_rate, 0)}%)</span>
+                  <span className="text-muted-foreground">Tax ({selectedOrder.tax_rate}%)</span>
                   <span>
                     {formatCurrency(
-                      (safeNumber(selectedOrder.total_amount, 0) - safeNumber(selectedOrder.discount, 0)) *
-                        (safeNumber(selectedOrder.tax_rate, 0) / 100),
+                      ((selectedOrder.total_amount - selectedOrder.discount) * selectedOrder.tax_rate) / 100,
                     )}
                   </span>
                 </div>
-                {safeNumber(selectedOrder.shipping_cost, 0) > 0 && (
+                {selectedOrder.shipping_cost > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">{language === "en" ? "Shipping" : "Ongkir"}</span>
-                    <span>{formatCurrency(safeNumber(selectedOrder.shipping_cost, 0))}</span>
+                    <span>{formatCurrency(selectedOrder.shipping_cost)}</span>
                   </div>
                 )}
                 <div className="flex justify-between font-semibold text-lg pt-2 border-t">
                   <span>Grand Total</span>
-                  <span className="text-primary">{formatCurrency(safeNumber(selectedOrder.grand_total, 0))}</span>
+                  <span className="text-primary">{formatCurrency(selectedOrder.grand_total)}</span>
                 </div>
               </div>
-
-              {/* Stock In History */}
-              {selectedOrder.status !== "draft" && (
-                <div className="border-t pt-4">
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <Package className="w-4 h-4" />
-                    {language === "en" ? "Stock In History" : "Riwayat Stock In"}
-                  </h4>
-
-                  {stockInHistoryLoading ? (
-                    <div className="flex justify-center py-4">
-                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                    </div>
-                  ) : stockInHistory.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                      {language === "en" ? "No stock in records yet" : "Belum ada riwayat stock in"}
-                    </p>
-                  ) : (
-                    <div className="space-y-4">
-                      {stockInHistory.map((si: any) => (
-                        <Card key={si.id} className="border">
-                          <CardHeader className="py-3 px-4">
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <p className="font-semibold text-sm">{si.stock_in_number}</p>
-                                <p className="text-xs text-muted-foreground">{formatDateID(si.received_date)}</p>
-                              </div>
-                              <Badge variant="success">
-                                {si.stock_in_items?.reduce(
-                                  (sum: number, item: any) => sum + safeNumber(item.qty_received, 0),
-                                  0,
-                                )}{" "}
-                                {language === "en" ? "items received" : "item diterima"}
-                              </Badge>
-                            </div>
-                          </CardHeader>
-                          <CardContent className="py-2 px-4">
-                            <div className="text-xs space-y-1">
-                              {si.stock_in_items?.map((item: any, idx: number) => (
-                                <div key={item.id || idx} className="flex justify-between">
-                                  <span className="text-muted-foreground">
-                                    {item.product?.name || "-"} (Batch: {item.batch_no || "-"})
-                                  </span>
-                                  <span className="font-medium">{safeNumber(item.qty_received, 0)}</span>
-                                </div>
-                              ))}
-                            </div>
-                            {si.notes && (
-                              <p className="text-xs text-muted-foreground mt-2 italic">
-                                {language === "en" ? "Notes" : "Catatan"}: {si.notes}
-                              </p>
-                            )}
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           )}
 
@@ -1659,10 +1579,7 @@ export default function PlanOrder() {
         </DialogContent>
       </Dialog>
 
-      {/* =========================
-          HIDDEN PRINT CONTENT
-          "Contoh printout PDF" = this exact layout (copy template style)
-         ========================= */}
+      {/* Hidden Print Content (FORMAT SESUAI CONTOH) */}
       <div className="hidden">
         <div ref={printRef}>
           {selectedOrder && (
@@ -1674,9 +1591,9 @@ export default function PlanOrder() {
                 </div>
 
                 <div style={{ textAlign: "right", minWidth: "320px" }}>
-                  <div style={{ fontSize: "20px", fontWeight: 700, letterSpacing: 0.5 }}>PURCHASE ORDER</div>
-                  <div style={{ height: "6px" }} />
-                  <div style={{ display: "grid", gridTemplateColumns: "120px 10px 1fr", gap: "6px" }}>
+                  <div style={{ fontSize: "22px", fontWeight: 800 }}>PURCHASE ORDER</div>
+                  <div style={{ height: 6 }} />
+                  <div style={{ display: "grid", gridTemplateColumns: "110px 10px 1fr", gap: 6 }}>
                     <div style={{ textAlign: "left" }}>PO Number</div>
                     <div>:</div>
                     <div style={{ fontWeight: 700 }}>{selectedOrder.plan_number}</div>
@@ -1688,99 +1605,82 @@ export default function PlanOrder() {
                 </div>
               </div>
 
-              <div style={{ marginTop: "10px", borderTop: "2px solid #111" }} />
+              {/* Reference No */}
+              <div style={{ marginTop: 10, border: "1px solid #111", padding: "6px 10px" }}>
+                <span style={{ fontWeight: 700, color: "#b91c1c" }}>REFERENCE NO. : </span>
+                <span style={{ fontWeight: 700 }}>{(selectedOrder as any)?.reference_no || "-"}</span>
+              </div>
 
-              {/* Supplier + Delivery To blocks */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0px", marginTop: "10px" }}>
+              {/* Supplier + Delivery To */}
+              <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
                 {/* Supplier */}
-                <div style={{ border: "1px solid #111", padding: "10px", minHeight: "120px" }}>
-                  <div style={{ fontWeight: 700, fontSize: "11px", marginBottom: "8px" }}>SUPPLIER:</div>
-                  <div style={{ fontWeight: 700, fontSize: "12px" }}>{selectedOrder.supplier?.name || "-"}</div>
-                  <div style={{ marginTop: "6px", whiteSpace: "pre-line" }}>
+                <div style={{ border: "1px solid #111", padding: 10 }}>
+                  <div style={{ fontWeight: 800, marginBottom: 8 }}>SUPPLIER :</div>
+                  <div style={{ fontWeight: 700 }}>{selectedOrder.supplier?.name || "-"}</div>
+
+                  <div style={{ marginTop: 6, fontSize: 10, whiteSpace: "pre-wrap" }}>
                     {(selectedOrder.supplier as any)?.address || "-"}
                   </div>
-                  <div
-                    style={{ marginTop: "8px", display: "grid", gridTemplateColumns: "90px 10px 1fr", rowGap: "6px" }}
-                  >
-                    <div>UP</div>
+
+                  <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "70px 10px 1fr", gap: 6 }}>
+                    <div>UP.</div>
                     <div>:</div>
-                    <div style={{ fontWeight: 700 }}>{(selectedOrder.supplier as any)?.pic || "-"}</div>
-                    <div>TELP</div>
-                    <div>:</div>
-                    <div style={{ fontWeight: 700 }}>{(selectedOrder.supplier as any)?.phone || "-"}</div>
-                    <div>PAY TERM</div>
-                    <div>:</div>
-                    <div style={{ fontWeight: 700, color: "#b91c1c" }}>
-                      {String((selectedOrder.supplier as any)?.terms_payment || "-").toUpperCase()}
+                    <div style={{ fontWeight: 700 }}>
+                      {(selectedOrder.supplier as any)?.pic || (selectedOrder.supplier as any)?.contact_person || "-"}
                     </div>
+
+                    <div>TELP.</div>
+                    <div>:</div>
+                    <div style={{ fontWeight: 700 }}>
+                      {(selectedOrder.supplier as any)?.phone || (selectedOrder.supplier as any)?.telp || "-"}
+                    </div>
+
+                    <div>PAYTERM</div>
+                    <div>:</div>
+                    <div style={{ fontWeight: 700 }}>{(selectedOrder as any)?.payment_term || "-"}</div>
                   </div>
                 </div>
 
                 {/* Delivery To (LOCKED) */}
-                <div style={{ border: "1px solid #111", borderLeft: "0px", padding: "10px", minHeight: "120px" }}>
-                  <div style={{ fontWeight: 700, fontSize: "11px", marginBottom: "8px" }}>DELIVERY TO:</div>
-                  <div style={{ fontWeight: 700, fontSize: "12px" }}>{DELIVERY_TO.name}</div>
-                  <div style={{ marginTop: "6px", whiteSpace: "pre-line" }}>{DELIVERY_TO.address}</div>
-                  <div
-                    style={{ marginTop: "8px", display: "grid", gridTemplateColumns: "90px 10px 1fr", rowGap: "6px" }}
-                  >
-                    <div>ATTN</div>
+                <div style={{ border: "1px solid #111", borderLeft: 0, padding: 10 }}>
+                  <div style={{ fontWeight: 800, marginBottom: 8 }}>DELIVERY TO :</div>
+                  <div style={{ fontWeight: 800 }}>{WAREHOUSE_DELIVERY.name}</div>
+
+                  <div style={{ marginTop: 6, fontSize: 10, whiteSpace: "pre-wrap" }}>{WAREHOUSE_DELIVERY.address}</div>
+
+                  <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "70px 10px 1fr", gap: 6 }}>
+                    <div>PIC</div>
                     <div>:</div>
-                    <div style={{ fontWeight: 700 }}>{DELIVERY_TO.pic}</div>
+                    <div style={{ fontWeight: 700 }}>{WAREHOUSE_DELIVERY.pic}</div>
+
                     <div>TELP</div>
                     <div>:</div>
-                    <div style={{ fontWeight: 700 }}>{DELIVERY_TO.phone}</div>
-                    <div>CURRENCY</div>
-                    <div>:</div>
-                    <div style={{ fontWeight: 700 }}>{DELIVERY_TO.currency}</div>
+                    <div style={{ fontWeight: 700 }}>{WAREHOUSE_DELIVERY.telp}</div>
                   </div>
-                </div>
-              </div>
 
-              {/* Reference / Delivery date row */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0px" }}>
-                <div style={{ border: "1px solid #111", borderTop: "0px", padding: "10px" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "120px 10px 1fr", rowGap: "6px" }}>
-                    <div>REFERENCE NO</div>
-                    <div>:</div>
-                    <div style={{ fontWeight: 700 }}>{String((selectedOrder as any)?.reference_no || "-")}</div>
-                    <div>DELIVERY DATE</div>
-                    <div>:</div>
-                    <div style={{ fontWeight: 700 }}>
+                  <div style={{ marginTop: 10 }}>
+                    <span style={{ fontWeight: 700 }}>Expected Delivery</span>
+                    <span> : </span>
+                    <span style={{ fontWeight: 700 }}>
                       {selectedOrder.expected_delivery_date ? formatDateID(selectedOrder.expected_delivery_date) : "-"}
-                    </div>
-                  </div>
-                </div>
-                <div style={{ border: "1px solid #111", borderLeft: "0px", borderTop: "0px", padding: "10px" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "120px 10px 1fr", rowGap: "6px" }}>
-                    <div>STATUS</div>
-                    <div>:</div>
-                    <div style={{ fontWeight: 700 }}>{String(selectedOrder.status || "-").toUpperCase()}</div>
-                    <div>PRINT</div>
-                    <div>:</div>
-                    <div style={{ fontWeight: 700 }}>{formatDateTimeID(new Date())}</div>
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Items Table */}
-              <div style={{ marginTop: "12px" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #111" }}>
+              {/* Items table */}
+              <div style={{ marginTop: 10 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #111" }}>
                   <thead>
-                    <tr style={{ background: "#0b6b3a", color: "white" }}>
-                      {["No", "Code", "Product Name", "Qty", "UOM", "Price @", "Disc%", "Amount"].map((h) => (
+                    <tr style={{ background: "#0b6b3a", color: "#fff" }}>
+                      {["No", "Code", "Product Name", "Qty", "UOM", "Price @", "Disc.%", "Amount"].map((h) => (
                         <th
                           key={h}
                           style={{
                             border: "1px solid #111",
-                            padding: "8px",
-                            fontSize: "11px",
-                            textAlign:
-                              h === "Qty"
-                                ? "center"
-                                : h === "Price @" || h === "Amount" || h === "Disc%"
-                                  ? "right"
-                                  : "left",
+                            padding: 6,
+                            fontSize: 11,
+                            textAlign: "center",
                             whiteSpace: "nowrap",
                           }}
                         >
@@ -1794,19 +1694,24 @@ export default function PlanOrder() {
                     {(selectedOrderItems || []).map((it: any, idx: number) => {
                       const qty = safeNumber(it.planned_qty, 0);
                       const price = safeNumber(it.unit_price, 0);
-                      const amount = qty * price; // line amount (no line discount rule here)
+                      const amount = qty * price;
+
                       return (
-                        <tr key={it.id || idx}>
-                          <td style={{ border: "1px solid #111", padding: "8px", textAlign: "center" }}>{idx + 1}</td>
-                          <td style={{ border: "1px solid #111", padding: "8px" }}>{it.product?.sku || "-"}</td>
-                          <td style={{ border: "1px solid #111", padding: "8px" }}>{it.product?.name || "-"}</td>
-                          <td style={{ border: "1px solid #111", padding: "8px", textAlign: "center" }}>{qty}</td>
-                          <td style={{ border: "1px solid #111", padding: "8px" }}>{it.product?.unit?.name || "-"}</td>
-                          <td style={{ border: "1px solid #111", padding: "8px", textAlign: "right" }}>
+                        <tr key={it.id}>
+                          <td style={{ border: "1px solid #111", padding: 6, textAlign: "center" }}>{idx + 1}</td>
+                          <td style={{ border: "1px solid #111", padding: 6, textAlign: "center" }}>
+                            {it.product?.sku || "-"}
+                          </td>
+                          <td style={{ border: "1px solid #111", padding: 6 }}>{it.product?.name || "-"}</td>
+                          <td style={{ border: "1px solid #111", padding: 6, textAlign: "center" }}>{qty}</td>
+                          <td style={{ border: "1px solid #111", padding: 6, textAlign: "center" }}>
+                            {it.product?.unit?.name || "-"}
+                          </td>
+                          <td style={{ border: "1px solid #111", padding: 6, textAlign: "right" }}>
                             {formatCurrency(price)}
                           </td>
-                          <td style={{ border: "1px solid #111", padding: "8px", textAlign: "right" }}>0%</td>
-                          <td style={{ border: "1px solid #111", padding: "8px", textAlign: "right" }}>
+                          <td style={{ border: "1px solid #111", padding: 6, textAlign: "center" }}>-</td>
+                          <td style={{ border: "1px solid #111", padding: 6, textAlign: "right" }}>
                             {formatCurrency(amount)}
                           </td>
                         </tr>
@@ -1816,144 +1721,102 @@ export default function PlanOrder() {
                 </table>
               </div>
 
-              {/* Notes + Totals */}
-              <div style={{ marginTop: "12px", display: "grid", gridTemplateColumns: "1fr 300px", gap: "10px" }}>
-                {/* Notes box */}
-                <div style={{ border: "1px solid #111", padding: "10px", minHeight: "140px" }}>
-                  <div style={{ fontWeight: 700, marginBottom: "6px" }}>NOTE:</div>
-                  <div style={{ whiteSpace: "pre-line" }}>{selectedOrder.notes || "-"}</div>
+              {/* NOTE + SUMMARY (side by side) */}
+              <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 260px", gap: 0 }}>
+                <div style={{ border: "1px solid #111", padding: 10, minHeight: 95 }}>
+                  <div style={{ fontWeight: 800, marginBottom: 6 }}>NOTE :</div>
+                  <div style={{ fontSize: 10, whiteSpace: "pre-wrap" }}>
+                    {(selectedOrder.notes || "").trim() || "-"}
+                  </div>
                 </div>
 
-                {/* Totals box */}
-                <div style={{ border: "1px solid #111", padding: "10px" }}>
-                  {(() => {
-                    const grossSubtotal = (selectedOrderItems || []).reduce((sum: number, it: any) => {
-                      const qty = safeNumber(it.planned_qty, 0);
-                      const price = safeNumber(it.unit_price, 0);
-                      return sum + qty * price;
-                    }, 0);
+                <div style={{ border: "1px solid #111", borderLeft: 0, padding: 10, minHeight: 95 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 10px 1fr", rowGap: 6 }}>
+                    <div>Subtotal</div>
+                    <div>:</div>
+                    <div style={{ textAlign: "right", fontWeight: 700 }}>
+                      {formatCurrency(selectedOrder.total_amount || 0)}
+                    </div>
 
-                    const headerDiscount = safeNumber(selectedOrder.discount, 0);
-                    const netSubtotal = grossSubtotal - headerDiscount;
-                    const taxRateLocal = safeNumber(selectedOrder.tax_rate, 0);
-                    const tax = netSubtotal * (taxRateLocal / 100);
-                    const ship = safeNumber(selectedOrder.shipping_cost, 0);
-                    const gt = safeNumber(selectedOrder.grand_total, netSubtotal + tax + ship);
+                    <div>Discount</div>
+                    <div>:</div>
+                    <div style={{ textAlign: "right", fontWeight: 700 }}>
+                      -{formatCurrency(selectedOrder.discount || 0)}
+                    </div>
 
-                    return (
-                      <>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                          <span>Subtotal</span>
-                          <b>{formatCurrency(grossSubtotal)}</b>
-                        </div>
+                    <div>Tax ({selectedOrder.tax_rate || 0}%)</div>
+                    <div>:</div>
+                    <div style={{ textAlign: "right", fontWeight: 700 }}>
+                      {formatCurrency(
+                        ((safeNumber(selectedOrder.total_amount, 0) - safeNumber(selectedOrder.discount, 0)) *
+                          safeNumber(selectedOrder.tax_rate, 0)) /
+                          100,
+                      )}
+                    </div>
 
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                          <span>Discount</span>
-                          <b>-{formatCurrency(headerDiscount)}</b>
-                        </div>
+                    <div>Shipping</div>
+                    <div>:</div>
+                    <div style={{ textAlign: "right", fontWeight: 700 }}>
+                      {formatCurrency(selectedOrder.shipping_cost || 0)}
+                    </div>
+                  </div>
 
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                          <span>Tax ({taxRateLocal}%)</span>
-                          <b>{formatCurrency(tax)}</b>
-                        </div>
-
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                          <span>Shipping</span>
-                          <b>{formatCurrency(ship)}</b>
-                        </div>
-
-                        <div
-                          style={{
-                            borderTop: "2px solid #111",
-                            marginTop: "8px",
-                            paddingTop: "8px",
-                            display: "flex",
-                            justifyContent: "space-between",
-                          }}
-                        >
-                          <span style={{ fontSize: "13px", fontWeight: 700 }}>Grand Total</span>
-                          <span style={{ fontSize: "13px", fontWeight: 700 }}>{formatCurrency(gt)}</span>
-                        </div>
-                      </>
-                    );
-                  })()}
+                  <div
+                    style={{
+                      borderTop: "1px solid #111",
+                      marginTop: 8,
+                      paddingTop: 8,
+                      display: "flex",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <div style={{ fontWeight: 900 }}>Grand Total</div>
+                    <div style={{ fontWeight: 900 }}>{formatCurrency(selectedOrder.grand_total || 0)}</div>
+                  </div>
                 </div>
               </div>
 
-              {/* Signature section: conditional */}
-              <div style={{ marginTop: "14px" }}>
-                {selectedOrder.status === "approved" ? (
-                  // ✅ Approved: show automatic signature block, hide empty boxes
-                  <div style={{ border: "1px solid #111", padding: "10px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                      <div>
-                        <div style={{ fontWeight: 700, marginBottom: "8px" }}>APPROVED BY:</div>
-                        <div style={{ fontWeight: 700 }}>{approvedName || "Approver"}</div>
-                        <div style={{ marginTop: "6px", fontSize: "10px" }}>Approved at: {approvedAtText || "-"}</div>
-                      </div>
+              {/* Signature boxes */}
+              <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0 }}>
+                {["Purchasing,", "Finance,", "Approve,"].map((label, i) => (
+                  <div key={i} style={{ border: "1px solid #111", padding: 10, minHeight: 120 }}>
+                    <div style={{ fontSize: 10, marginBottom: 8 }}>Date:</div>
 
-                      <div style={{ textAlign: "right" }}>
-                        {approvedSignatureUrl ? (
-                          <img
-                            src={approvedSignatureUrl}
-                            alt="Signature"
-                            style={{ height: "70px", objectFit: "contain", border: "1px solid #ddd", padding: "6px" }}
-                          />
-                        ) : (
-                          <div
-                            style={{
-                              height: "70px",
-                              width: "200px",
-                              border: "1px dashed #999",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              fontSize: "10px",
-                              color: "#666",
-                            }}
-                          >
-                            Signature not set
-                          </div>
-                        )}
+                    {/* jika approved, kolom approve tampil APPROVED (tanpa garis) */}
+                    {selectedOrder.status === "approved" && label === "Approve," ? (
+                      <div style={{ marginTop: 30, textAlign: "center" }}>
+                        <div style={{ fontWeight: 900, color: "#16a34a" }}>APPROVED</div>
+                        <div style={{ fontSize: 10, marginTop: 6 }}>
+                          {(selectedOrder as any)?.approved_at
+                            ? formatDateID(String((selectedOrder as any).approved_at).slice(0, 10))
+                            : ""}
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                ) : (
-                  // ✅ Not approved: show empty signature boxes
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0px" }}>
-                    {[{ role: "Purchasing" }, { role: "Finance" }, { role: "Approve" }].map((box, i) => (
-                      <div key={i} style={{ border: "1px solid #111", padding: "10px", minHeight: "120px" }}>
-                        <div style={{ fontSize: "10px", marginBottom: "12px" }}>Date:</div>
-                        <div style={{ fontSize: "10px", marginBottom: "70px" }}>{box.role}</div>
-                        <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                        <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
+                    ) : (
+                      <div style={{ marginTop: 60 }}>
+                        <div style={{ borderBottom: "1px solid #111" }} />
+                        <div style={{ fontSize: 10, marginTop: 6, textAlign: "center" }}>
                           (.................................)
                         </div>
                       </div>
-                    ))}
+                    )}
+
+                    <div style={{ fontSize: 10, marginTop: 6 }}>{label}</div>
                   </div>
-                )}
+                ))}
               </div>
 
-              {/* Footnote area (template style) */}
-              <div style={{ marginTop: "10px", border: "1px solid #111", padding: "10px", fontSize: "10px" }}>
-                <div style={{ fontWeight: 700, marginBottom: "6px" }}>KETENTUAN PENGIRIMAN / SHIPPING NOTES:</div>
-                <ol style={{ margin: 0, paddingLeft: "16px" }}>
-                  <li>Barang yang diterima wajib sesuai PO (jenis, qty, batch/expired jika berlaku).</li>
-                  <li>Wajib melampirkan Surat Jalan / Delivery Note saat pengiriman.</li>
-                  <li>Jika terdapat perbedaan, mohon konfirmasi ke Purchasing sebelum bongkar.</li>
-                  <li>Penagihan mohon cantumkan nomor PO dan Reference No.</li>
-                </ol>
-
-                <div style={{ marginTop: "10px", display: "flex", justifyContent: "space-between", gap: "10px" }}>
-                  <div>
-                    <span style={{ fontWeight: 700 }}>NPWP:</span> 02.345.678.9-012.000
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <span style={{ fontWeight: 700 }}>Delivery To:</span> {DELIVERY_TO.name} (LOCKED)
-                  </div>
+              {/* Shipping notes */}
+              <div style={{ marginTop: 10, border: "1px solid #111", padding: 10 }}>
+                <div style={{ fontWeight: 800, marginBottom: 6 }}>KETENTUAN PENGIRIMAN / SHIPPING NOTES:</div>
+                <div style={{ fontSize: 10, whiteSpace: "pre-wrap" }}>
+                  - Waktu Pengiriman Barang Senin - Kamis (09.00 s/d 16.00){"\n"}- Pengiriman Barang Wajib Melampirkan
+                  Surat Jalan / Delivery Note{"\n"}- Invoice wajib cantumkan PO Number & Reference No{"\n"}- Copy
+                  Purchase Order (PO) ditandatangani & stempel
                 </div>
               </div>
+
+              <div style={{ marginTop: 8, fontSize: 10 }}>Printout : {formatDateTimeID(new Date())}</div>
             </div>
           )}
         </div>
@@ -1974,22 +1837,15 @@ export default function PlanOrder() {
             <Button variant="outline" onClick={() => setIsPdfPreviewOpen(false)}>
               {language === "en" ? "Close" : "Tutup"}
             </Button>
-
-            <Button variant="outline" onClick={handleDownloadPDF}>
-              <Download className="w-4 h-4 mr-2" />
+            <Button variant="outline" onClick={handleDownloadPDF} disabled={isDownloadingPdf}>
+              {isDownloadingPdf ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-2" />
+              )}
               {language === "en" ? "Download PDF" : "Unduh PDF"}
             </Button>
-
-            <Button
-              onClick={() => {
-                if (!printRef.current || !selectedOrder) return;
-                securePrint({
-                  title: `Plan Order - ${selectedOrder.plan_number}`,
-                  styles: printStyles.planOrder,
-                  content: printRef.current.innerHTML,
-                });
-              }}
-            >
+            <Button onClick={handlePrintPDF}>
               <Printer className="w-4 h-4 mr-2" />
               {language === "en" ? "Print" : "Cetak"}
             </Button>
