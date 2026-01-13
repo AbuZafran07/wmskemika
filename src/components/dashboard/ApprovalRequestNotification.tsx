@@ -32,9 +32,10 @@ export function ApprovalRequestNotification() {
   const [loading, setLoading] = useState(true);
   const previousCountRef = useRef<number>(0);
   const audioRef = useRef<AudioContext | null>(null);
+  const isInitialMount = useRef(true);
 
-  // Only show for super_admin
-  const isSuperAdmin = user?.role === 'super_admin';
+  // Show for super_admin and admin
+  const canViewApprovals = user?.role === 'super_admin' || user?.role === 'admin';
 
   const playNotificationSound = () => {
     try {
@@ -59,7 +60,7 @@ export function ApprovalRequestNotification() {
   };
 
   const fetchPendingApprovals = async () => {
-    if (!isSuperAdmin) return;
+    if (!canViewApprovals) return;
     
     setLoading(true);
     const approvalRequests: ApprovalRequest[] = [];
@@ -157,8 +158,8 @@ export function ApprovalRequestNotification() {
       // Sort by date descending
       approvalRequests.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-      // Play sound if new requests
-      if (approvalRequests.length > previousCountRef.current && previousCountRef.current > 0) {
+      // Play sound if new requests (but not on initial load)
+      if (!isInitialMount.current && approvalRequests.length > previousCountRef.current && previousCountRef.current >= 0) {
         playNotificationSound();
         toast.info(
           language === 'en' 
@@ -167,6 +168,7 @@ export function ApprovalRequestNotification() {
           { duration: 5000 }
         );
       }
+      isInitialMount.current = false;
       previousCountRef.current = approvalRequests.length;
 
       setRequests(approvalRequests);
@@ -177,7 +179,7 @@ export function ApprovalRequestNotification() {
   };
 
   useEffect(() => {
-    if (!isSuperAdmin) return;
+    if (!canViewApprovals) return;
 
     fetchPendingApprovals();
 
@@ -208,7 +210,7 @@ export function ApprovalRequestNotification() {
       supabase.removeChannel(salesOrderChannel);
       supabase.removeChannel(adjustmentChannel);
     };
-  }, [isSuperAdmin, language]);
+  }, [canViewApprovals, language]);
 
   const handleRequestClick = (request: ApprovalRequest) => {
     switch (request.type) {
@@ -246,7 +248,7 @@ export function ApprovalRequestNotification() {
     }
   };
 
-  if (!isSuperAdmin) return null;
+  if (!canViewApprovals) return null;
 
   return (
     <Card className="border-warning/50 bg-warning/5">
