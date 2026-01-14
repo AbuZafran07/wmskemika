@@ -352,6 +352,7 @@ export type Database = {
           plan_date: string
           plan_number: string
           po_document_url: string | null
+          reference_no: string | null
           shipping_cost: number | null
           status: string
           supplier_id: string
@@ -375,6 +376,7 @@ export type Database = {
           plan_date?: string
           plan_number: string
           po_document_url?: string | null
+          reference_no?: string | null
           shipping_cost?: number | null
           status?: string
           supplier_id: string
@@ -398,6 +400,7 @@ export type Database = {
           plan_date?: string
           plan_number?: string
           po_document_url?: string | null
+          reference_no?: string | null
           shipping_cost?: number | null
           status?: string
           supplier_id?: string
