@@ -15,6 +15,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import RealtimeActivityFeed from '@/components/dashboard/RealtimeActivityFeed';
 import { OnlinePresence } from '@/components/dashboard/OnlinePresence';
 import ApprovalRequestNotification from '@/components/dashboard/ApprovalRequestNotification';
+import PendingActionsWidget from '@/components/dashboard/PendingActionsWidget';
 
 interface DashboardStats {
   totalProducts: number;
@@ -376,9 +377,12 @@ export default function Dashboard() {
         <p className="text-muted-foreground">{language === 'en' ? "Here's what's happening with your warehouse today." : 'Berikut yang terjadi di gudang Anda hari ini.'}</p>
       </div>
 
-      {/* Approval Request Notification for Super Admin */}
-      {user?.role === 'super_admin' && (
-        <ApprovalRequestNotification />
+      {/* Approval Request Notification for Super Admin and Admin */}
+      {(user?.role === 'super_admin' || user?.role === 'admin') && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <ApprovalRequestNotification />
+          <PendingActionsWidget />
+        </div>
       )}
 
       {/* Real-time Activity Feed & Online Presence */}

@@ -34,7 +34,7 @@ export function ApprovalRequestNotification() {
   const audioRef = useRef<AudioContext | null>(null);
   const isInitialMount = useRef(true);
 
-  // Show for super_admin and admin
+  // Show for super_admin and admin only
   const canViewApprovals = user?.role === 'super_admin' || user?.role === 'admin';
 
   const playNotificationSound = () => {
@@ -66,33 +66,33 @@ export function ApprovalRequestNotification() {
     const approvalRequests: ApprovalRequest[] = [];
 
     try {
-      // Fetch Plan Orders pending approval
+      // Fetch Plan Orders pending approval (draft status needs approval)
       const { data: planOrders } = await supabase
         .from('plan_order_headers')
         .select(`
           id, plan_number, status, created_at, created_by,
           suppliers(name)
         `)
-        .eq('status', 'pending')
+        .in('status', ['draft', 'pending'])
         .is('is_deleted', false)
         .order('created_at', { ascending: false });
 
-      // Fetch Sales Orders pending approval
+      // Fetch Sales Orders pending approval (draft status needs approval)
       const { data: salesOrders } = await supabase
         .from('sales_order_headers')
         .select(`
           id, sales_order_number, status, created_at, created_by,
           customers(name)
         `)
-        .eq('status', 'pending')
+        .in('status', ['draft', 'pending'])
         .is('is_deleted', false)
         .order('created_at', { ascending: false });
 
-      // Fetch Stock Adjustments pending approval
+      // Fetch Stock Adjustments pending approval (draft and submitted need approval)
       const { data: adjustments } = await supabase
         .from('stock_adjustments')
         .select('id, adjustment_number, status, created_at, created_by, reason')
-        .eq('status', 'pending')
+        .in('status', ['draft', 'submitted', 'pending'])
         .is('is_deleted', false)
         .order('created_at', { ascending: false });
 
