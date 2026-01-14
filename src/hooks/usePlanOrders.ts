@@ -14,6 +14,7 @@ export interface PlanOrderHeader {
   plan_date: string;
   supplier_id: string;
   expected_delivery_date: string | null;
+  reference_no: string | null;
   notes: string | null;
   po_document_url: string | null;
   status: string;
@@ -197,6 +198,7 @@ export async function createPlanOrder(
         plan_date: validatedHeader.plan_date,
         supplier_id: validatedHeader.supplier_id,
         expected_delivery_date: validatedHeader.expected_delivery_date || '',
+        reference_no: (header as any).reference_no || '',
         notes: validatedHeader.notes || '',
         po_document_url: validatedHeader.po_document_url || '',
         status: validatedHeader.status,
@@ -248,6 +250,7 @@ export async function updatePlanOrder(
         plan_date: header.plan_date,
         supplier_id: header.supplier_id,
         expected_delivery_date: header.expected_delivery_date || '',
+        reference_no: (header as any).reference_no || '',
         notes: header.notes || '',
         po_document_url: header.po_document_url || '',
         total_amount: header.total_amount,

@@ -564,7 +564,7 @@ export default function PlanOrder() {
     setPoDocumentKey("");
 
     // ✅ reference no
-    setReferenceNo((order as any).reference_no || "");
+    setReferenceNo(order.reference_no || "");
 
     setDiscount(String(order.discount ?? 0));
     setTaxRate(String(order.tax_rate ?? 11));
