@@ -123,9 +123,9 @@ export default function StockMovement() {
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'in':
+      case 'inbound':
         return <ArrowDownToLine className="w-4 h-4 text-success" />;
-      case 'out':
+      case 'outbound':
         return <ArrowUpFromLine className="w-4 h-4 text-destructive" />;
       case 'adjustment':
         return <Settings2 className="w-4 h-4 text-warning" />;
@@ -136,9 +136,9 @@ export default function StockMovement() {
 
   const getTypeBadge = (type: string) => {
     switch (type) {
-      case 'in':
+      case 'inbound':
         return <Badge variant="success">{language === 'en' ? 'Stock In' : 'Masuk'}</Badge>;
-      case 'out':
+      case 'outbound':
         return <Badge variant="destructive">{language === 'en' ? 'Stock Out' : 'Keluar'}</Badge>;
       case 'adjustment':
         return <Badge variant="warning">{language === 'en' ? 'Adjustment' : 'Penyesuaian'}</Badge>;
@@ -172,8 +172,8 @@ export default function StockMovement() {
   });
 
   // Calculate summary
-  const totalIn = filteredTransactions.filter(t => t.transaction_type === 'in').reduce((sum, t) => sum + t.quantity, 0);
-  const totalOut = filteredTransactions.filter(t => t.transaction_type === 'out').reduce((sum, t) => sum + Math.abs(t.quantity), 0);
+  const totalIn = filteredTransactions.filter(t => t.transaction_type === 'inbound').reduce((sum, t) => sum + t.quantity, 0);
+  const totalOut = filteredTransactions.filter(t => t.transaction_type === 'outbound').reduce((sum, t) => sum + Math.abs(t.quantity), 0);
   const totalAdjustment = filteredTransactions.filter(t => t.transaction_type === 'adjustment').length;
 
   const exportCSV = () => {
@@ -288,8 +288,8 @@ export default function StockMovement() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{language === 'en' ? 'All Types' : 'Semua Tipe'}</SelectItem>
-                <SelectItem value="in">{language === 'en' ? 'Stock In' : 'Masuk'}</SelectItem>
-                <SelectItem value="out">{language === 'en' ? 'Stock Out' : 'Keluar'}</SelectItem>
+                <SelectItem value="inbound">{language === 'en' ? 'Stock In' : 'Masuk'}</SelectItem>
+                <SelectItem value="outbound">{language === 'en' ? 'Stock Out' : 'Keluar'}</SelectItem>
                 <SelectItem value="adjustment">{language === 'en' ? 'Adjustment' : 'Penyesuaian'}</SelectItem>
               </SelectContent>
             </Select>
@@ -364,11 +364,11 @@ export default function StockMovement() {
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       <span className={
-                        tx.transaction_type === 'in' ? 'text-success' :
-                        tx.transaction_type === 'out' ? 'text-destructive' :
+                        tx.transaction_type === 'inbound' ? 'text-success' :
+                        tx.transaction_type === 'outbound' ? 'text-destructive' :
                         tx.quantity >= 0 ? 'text-success' : 'text-destructive'
                       }>
-                        {tx.transaction_type === 'in' ? '+' : tx.transaction_type === 'out' ? '-' : tx.quantity >= 0 ? '+' : ''}
+                        {tx.transaction_type === 'inbound' ? '+' : tx.transaction_type === 'outbound' ? '-' : tx.quantity >= 0 ? '+' : ''}
                         {Math.abs(tx.quantity)}
                       </span>
                     </TableCell>
