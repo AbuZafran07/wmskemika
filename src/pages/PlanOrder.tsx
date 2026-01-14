@@ -20,7 +20,6 @@ import {
   FileText,
 } from "lucide-react";
 
-import html2pdf from "html2pdf.js";
 import DOMPurify from "dompurify";
 
 import { securePrint, printStyles } from "@/lib/printUtils";
@@ -307,11 +306,11 @@ export default function PlanOrder() {
       return;
     }
 
-    // NOTE: field names bisa beda-beda di master supplier. Kita handle beberapa kemungkinan.
-    const addr = sup.address || sup.alamat || sup.address_line || sup.full_address || "";
-    const pic = sup.pic || sup.contact_person || sup.contactPerson || "";
-    const telp = sup.phone || sup.telp || sup.telephone || "";
-    const payterm = sup.terms_payment || sup.payment_terms || sup.payterm || "";
+    // Use correct database column names from suppliers table
+    const addr = sup.address || "";
+    const pic = sup.contact_person || "";
+    const telp = sup.phone || "";
+    const payterm = sup.terms_payment || "";
 
     setSupplierAddress(addr);
     setSupplierPic(pic);
@@ -743,18 +742,15 @@ export default function PlanOrder() {
     setIsDownloadingPdf(true);
     try {
       const element = printRef.current;
-      const opt = {
-        margin: [10, 10, 10, 10] as [number, number, number, number],
-        filename: `PurchaseOrder_${selectedOrder.plan_number}.pdf`,
-        image: { type: "jpeg" as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: "mm" as const, format: "a4" as const, orientation: "portrait" as const },
-      };
-      await html2pdf().set(opt).from(element).save();
-      toast.success(language === "en" ? "PDF downloaded successfully" : "PDF berhasil diunduh");
+      securePrint({
+        title: `PurchaseOrder_${selectedOrder.plan_number}`,
+        styles: printStyles.planOrder,
+        content: element.innerHTML,
+      });
+      toast.success(language === "en" ? "Print dialog opened" : "Dialog cetak dibuka");
     } catch (err) {
       console.error(err);
-      toast.error(language === "en" ? "Failed to download PDF" : "Gagal mengunduh PDF");
+      toast.error(language === "en" ? "Failed to open print dialog" : "Gagal membuka dialog cetak");
     }
     setIsDownloadingPdf(false);
   };
