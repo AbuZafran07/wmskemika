@@ -249,9 +249,11 @@ export default function PlanOrder() {
   // ===== Filters =====
   const filteredOrders = useMemo(() => {
     return planOrders.filter((order) => {
+      const query = searchQuery.toLowerCase();
       const matchesSearch =
-        order.plan_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (order.supplier?.name || "").toLowerCase().includes(searchQuery.toLowerCase());
+        order.plan_number.toLowerCase().includes(query) ||
+        (order.supplier?.name || "").toLowerCase().includes(query) ||
+        (order.reference_no || "").toLowerCase().includes(query);
 
       const matchesStatus = statusFilter === "all" || order.status === statusFilter;
 
@@ -1551,7 +1553,7 @@ export default function PlanOrder() {
                   <p className="text-sm text-muted-foreground">
                     {language === "en" ? "Reference No." : "Reference No."}
                   </p>
-                  <p className="font-medium">{(selectedOrder as any)?.reference_no || "-"}</p>
+                  <p className="font-medium">{selectedOrder.reference_no || "-"}</p>
                 </div>
 
                 <div>
@@ -1754,7 +1756,7 @@ export default function PlanOrder() {
               {/* Reference No bar */}
               <div style={{ marginTop: "10px", border: "1px solid #111", padding: "6px 10px" }}>
                 <span style={{ fontWeight: 700 }}>REFERENCE NO.</span> :{" "}
-                <span style={{ fontWeight: 700, color: "#b91c1c" }}>{(selectedOrder as any)?.reference_no || "-"}</span>
+                <span style={{ fontWeight: 700, color: "#b91c1c" }}>{selectedOrder.reference_no || "-"}</span>
               </div>
 
               {/* Supplier vs Delivery To */}
