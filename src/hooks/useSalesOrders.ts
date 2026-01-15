@@ -196,10 +196,9 @@ export async function createSalesOrder(
     const validatedHeader = headerValidation.data;
     const validatedItems = itemsValidation.data;
 
-    // Insert header
-    const { data: headerData, error: headerError } = await supabase
-      .from('sales_order_headers')
-      .insert({
+    // Use RPC function to handle insert (avoids generated column issues)
+    const { data, error } = await supabase.rpc('sales_order_create', {
+      header_data: {
         sales_order_number: validatedHeader.sales_order_number,
         order_date: validatedHeader.order_date,
         customer_id: validatedHeader.customer_id,
@@ -208,39 +207,29 @@ export async function createSalesOrder(
         allocation_type: validatedHeader.allocation_type,
         project_instansi: validatedHeader.project_instansi,
         delivery_deadline: validatedHeader.delivery_deadline,
-        ship_to_address: validatedHeader.ship_to_address,
-        notes: validatedHeader.notes,
-        po_document_url: validatedHeader.po_document_url,
-        status: validatedHeader.status,
-        total_amount: validatedHeader.total_amount,
-        discount: validatedHeader.discount,
-        tax_rate: validatedHeader.tax_rate,
-        shipping_cost: validatedHeader.shipping_cost,
-        grand_total: validatedHeader.grand_total,
-      })
-      .select()
-      .single();
+        ship_to_address: validatedHeader.ship_to_address || null,
+        notes: validatedHeader.notes || null,
+        po_document_url: validatedHeader.po_document_url || null,
+        status: validatedHeader.status || 'draft',
+        total_amount: validatedHeader.total_amount || 0,
+        discount: validatedHeader.discount || 0,
+        tax_rate: validatedHeader.tax_rate || 0,
+        shipping_cost: validatedHeader.shipping_cost || 0,
+        grand_total: validatedHeader.grand_total || 0,
+      },
+      items_data: validatedItems.map(item => ({
+        product_id: item.product_id,
+        unit_price: item.unit_price,
+        ordered_qty: item.ordered_qty,
+        discount: item.discount || 0,
+        notes: item.notes || null,
+      })),
+    });
 
-    if (headerError) throw headerError;
-
-    // Insert items
-    const itemsToInsert = validatedItems.map(item => ({
-      sales_order_id: headerData.id,
-      product_id: item.product_id,
-      unit_price: item.unit_price,
-      ordered_qty: item.ordered_qty,
-      discount: item.discount || 0,
-      tax_rate: item.tax_rate || 0,
-      notes: item.notes || null,
-    }));
-
-    const { error: itemsError } = await supabase
-      .from('sales_order_items')
-      .insert(itemsToInsert);
-
-    if (itemsError) throw itemsError;
-
-    return { success: true, id: headerData.id };
+    if (error) throw error;
+    
+    const result = data as { success: boolean; error?: string; id?: string };
+    return result;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to create sales order';
     return { success: false, error: message };
