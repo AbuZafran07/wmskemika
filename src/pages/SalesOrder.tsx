@@ -1904,65 +1904,54 @@ export default function SalesOrder() {
                 </div>
               </div>
 
-              {/* Sign boxes */}
-              <div style={{ marginTop: "16px", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0px" }}>
-                {/* Pemohon */}
-                <div style={{ border: "1px solid #111", padding: "10px", minHeight: "120px" }}>
-                  <div style={{ fontSize: "10px", marginBottom: "14px" }}>Date:</div>
-                  <div style={{ fontSize: "10px", marginBottom: "70px" }}>Pemohon,</div>
-                  <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                  <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
-                    (.................................)
-                  </div>
-                </div>
-
-                {/* Finance */}
-                <div style={{ border: "1px solid #111", padding: "10px", minHeight: "120px" }}>
-                  <div style={{ fontSize: "10px", marginBottom: "14px" }}>Date:</div>
-                  <div style={{ fontSize: "10px", marginBottom: "70px" }}>Finance,</div>
-                  <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                  <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
-                    (.................................)
-                  </div>
-                </div>
-
-                {/* Purchasing */}
-                <div style={{ border: "1px solid #111", padding: "10px", minHeight: "120px" }}>
-                  <div style={{ fontSize: "10px", marginBottom: "14px" }}>Date:</div>
-                  <div style={{ fontSize: "10px", marginBottom: "70px" }}>Purchasing,</div>
-                  <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                  <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
-                    (.................................)
-                  </div>
-                </div>
-
-                {/* Menyetujui (dynamic - shows APPROVED stamp when approved) */}
-                <div style={{ border: "1px solid #111", padding: "10px", minHeight: "120px" }}>
-                  <div style={{ fontSize: "10px", marginBottom: "10px" }}>
-                    Date: {selectedOrder.approved_at ? formatDateID(selectedOrder.approved_at) : ""}
-                  </div>
-
-                  {selectedOrder.status === "approved" && selectedOrder.approved_at ? (
-                    <div style={{ marginTop: "8px" }}>
-                      <div style={{ fontSize: "16px", fontWeight: 900, color: "#16a34a" }}>✔ APPROVED</div>
-                      <div style={{ marginTop: "6px", fontSize: "10px" }}>
-                        Approved by: <b>{(selectedOrder as any)?.approved_by_name || "Admin"}</b>
-                      </div>
-                      <div style={{ marginTop: "2px", fontSize: "10px" }}>
-                        Date: <b>{formatDateID(selectedOrder.approved_at)}</b>
-                      </div>
+              {/* Sign boxes - conditional based on approval status */}
+              {selectedOrder.status === "approved" && selectedOrder.approved_at ? (
+                /* APPROVED: Single long box */
+                <div style={{ marginTop: "16px" }}>
+                  <div style={{ border: "1px solid #111", padding: "14px", minHeight: "110px" }}>
+                    <div style={{ fontSize: "18px", fontWeight: 900, color: "#16a34a", marginBottom: "8px" }}>✔ APPROVED</div>
+                    <div style={{ fontSize: "11px", marginBottom: "4px" }}>
+                      Approved by : <b>{(selectedOrder as any)?.approved_by_name || "Admin"}</b>
                     </div>
-                  ) : (
-                    <>
-                      <div style={{ fontSize: "10px", marginBottom: "55px" }}>Menyetujui,</div>
-                      <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                      <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
-                        (.................................)
-                      </div>
-                    </>
-                  )}
+                    <div style={{ fontSize: "11px" }}>
+                      Approved at : <b>{formatDateID(selectedOrder.approved_at)}</b>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* NOT APPROVED: Three signature boxes (Purchasing, Finance, Approve) */
+                <div style={{ marginTop: "16px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0px" }}>
+                  {/* Purchasing */}
+                  <div style={{ border: "1px solid #111", padding: "10px", minHeight: "120px" }}>
+                    <div style={{ fontSize: "10px", marginBottom: "14px" }}>Date:</div>
+                    <div style={{ fontSize: "10px", marginBottom: "70px" }}>Purchasing,</div>
+                    <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                    <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
+                      (.................................)
+                    </div>
+                  </div>
+
+                  {/* Finance */}
+                  <div style={{ border: "1px solid #111", padding: "10px", minHeight: "120px" }}>
+                    <div style={{ fontSize: "10px", marginBottom: "14px" }}>Date:</div>
+                    <div style={{ fontSize: "10px", marginBottom: "70px" }}>Finance,</div>
+                    <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                    <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
+                      (.................................)
+                    </div>
+                  </div>
+
+                  {/* Approve */}
+                  <div style={{ border: "1px solid #111", padding: "10px", minHeight: "120px" }}>
+                    <div style={{ fontSize: "10px", marginBottom: "14px" }}>Date:</div>
+                    <div style={{ fontSize: "10px", marginBottom: "70px" }}>Approve,</div>
+                    <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                    <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
+                      (.................................)
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div style={{ marginTop: "10px", fontSize: "9px", color: "#333" }}>
                 Print: {formatDateTimeID(new Date())}
