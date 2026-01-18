@@ -34,6 +34,10 @@ export interface PlanOrderHeader {
     id: string;
     name: string;
     code: string;
+    address?: string | null;
+    contact_person?: string | null;
+    phone?: string | null;
+    terms_payment?: string | null;
   };
 }
 
@@ -66,7 +70,7 @@ export function usePlanOrders() {
       .from('plan_order_headers')
       .select(`
         *,
-        supplier:suppliers(id, name, code)
+        supplier:suppliers(id, name, code, address, contact_person, phone, terms_payment)
       `)
       .eq('is_deleted', false)
       .order('created_at', { ascending: false });

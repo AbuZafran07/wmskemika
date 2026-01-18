@@ -1766,10 +1766,7 @@ export default function PlanOrder() {
                   <div style={{ fontWeight: 800, marginBottom: "6px" }}>SUPPLIER:</div>
                   <div style={{ fontWeight: 800 }}>{selectedOrder.supplier?.name || "-"}</div>
                   <div style={{ marginTop: "6px", whiteSpace: "pre-wrap" }}>
-                    {(selectedOrder.supplier as any)?.address ||
-                      (selectedOrder.supplier as any)?.alamat ||
-                      (selectedOrder.supplier as any)?.full_address ||
-                      "-"}
+                    {selectedOrder.supplier?.address || "-"}
                   </div>
 
                   <div
@@ -1778,28 +1775,19 @@ export default function PlanOrder() {
                     <div>PIC</div>
                     <div>:</div>
                     <div style={{ fontWeight: 700 }}>
-                      {(selectedOrder.supplier as any)?.pic ||
-                        (selectedOrder.supplier as any)?.contact_person ||
-                        (selectedOrder.supplier as any)?.contactPerson ||
-                        "-"}
+                      {selectedOrder.supplier?.contact_person || "-"}
                     </div>
 
                     <div>TELP.</div>
                     <div>:</div>
                     <div style={{ fontWeight: 700 }}>
-                      {(selectedOrder.supplier as any)?.phone ||
-                        (selectedOrder.supplier as any)?.telp ||
-                        (selectedOrder.supplier as any)?.telephone ||
-                        "-"}
+                      {selectedOrder.supplier?.phone || "-"}
                     </div>
 
                     <div>PAYTERM</div>
                     <div>:</div>
                     <div style={{ fontWeight: 700 }}>
-                      {(selectedOrder.supplier as any)?.terms_payment ||
-                        (selectedOrder.supplier as any)?.payment_terms ||
-                        (selectedOrder.supplier as any)?.payterm ||
-                        "-"}
+                      {selectedOrder.supplier?.terms_payment || "-"}
                     </div>
                   </div>
                 </div>
