@@ -1936,7 +1936,7 @@ export default function PlanOrder() {
                   <div style={{ border: "1px solid #111", padding: "14px", minHeight: "110px" }}>
                     <div style={{ fontSize: "18px", fontWeight: 900, color: "#16a34a", marginBottom: "8px" }}>✔ APPROVED</div>
                     <div style={{ fontSize: "11px", marginBottom: "4px" }}>
-                      Approved by : <b>{(selectedOrder as any)?.approved_by_name || "Admin"}</b>
+                      Approved by : <b>{(selectedOrder as any)?.approver?.full_name || (selectedOrder as any)?.approver?.email || "Admin"}</b>
                     </div>
                     <div style={{ fontSize: "11px" }}>
                       Approved at : <b>{formatDateID(selectedOrder.approved_at as any)}</b>
