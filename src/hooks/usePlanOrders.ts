@@ -70,7 +70,8 @@ export function usePlanOrders() {
       .from('plan_order_headers')
       .select(`
         *,
-        supplier:suppliers(id, name, code, address, contact_person, phone, terms_payment)
+        supplier:suppliers(id, name, code, address, contact_person, phone, terms_payment),
+        approver:profiles!approved_by(full_name, email)
       `)
       .eq('is_deleted', false)
       .order('created_at', { ascending: false });

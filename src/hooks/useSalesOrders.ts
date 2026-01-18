@@ -81,7 +81,8 @@ export function useSalesOrders() {
       .from('sales_order_headers')
       .select(`
         *,
-        customer:customers(id, name, code, pic, phone, terms_payment, address)
+        customer:customers(id, name, code, pic, phone, terms_payment, address),
+        approver:profiles!approved_by(full_name, email)
       `)
       .eq('is_deleted', false)
       .order('created_at', { ascending: false });
