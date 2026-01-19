@@ -33,38 +33,38 @@ export function PendingActionsWidget() {
     const actions: PendingAction[] = [];
 
     try {
-      // Fetch Draft Plan Orders
+      // Fetch Draft & Pending Plan Orders
       const { data: planOrders } = await supabase
         .from('plan_order_headers')
         .select(`
           id, plan_number, status, created_at,
           suppliers(name)
         `)
-        .eq('status', 'draft')
+        .in('status', ['draft', 'pending'])
         .is('is_deleted', false)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(20);
 
-      // Fetch Draft Sales Orders
+      // Fetch Draft & Pending Sales Orders
       const { data: salesOrders } = await supabase
         .from('sales_order_headers')
         .select(`
           id, sales_order_number, status, created_at,
           customers(name)
         `)
-        .eq('status', 'draft')
+        .in('status', ['draft', 'pending'])
         .is('is_deleted', false)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(20);
 
-      // Fetch Draft/Submitted Stock Adjustments
+      // Fetch Draft/Submitted/Pending Stock Adjustments
       const { data: adjustments } = await supabase
         .from('stock_adjustments')
         .select('id, adjustment_number, status, created_at, reason')
-        .in('status', ['draft', 'submitted'])
+        .in('status', ['draft', 'submitted', 'pending'])
         .is('is_deleted', false)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(20);
 
       // Map Plan Orders
       planOrders?.forEach((item: any) => {
@@ -183,6 +183,8 @@ export function PendingActionsWidget() {
     switch (status) {
       case 'draft':
         return <Badge variant="draft">{language === 'en' ? 'Draft' : 'Draft'}</Badge>;
+      case 'pending':
+        return <Badge variant="pending">{language === 'en' ? 'Pending' : 'Menunggu Approval'}</Badge>;
       case 'submitted':
         return <Badge variant="pending">{language === 'en' ? 'Submitted' : 'Diajukan'}</Badge>;
       default:
