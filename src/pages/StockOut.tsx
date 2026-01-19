@@ -613,7 +613,19 @@ export default function StockOut() {
 
       {/* Actions */}
       <div className="flex justify-end gap-4">
-        <Button variant="outline" onClick={() => navigate("/stock-out")}>
+        <Button 
+          variant="outline" 
+          onClick={() => {
+            setSelectedSalesOrderId("");
+            setSelectedSalesOrder(null);
+            setItems([]);
+            setNotes("");
+            setDeliveryNoteUrl("");
+            setDeliveryNoteFileName("");
+            setDeliveryDate(new Date().toISOString().split("T")[0]);
+            generateStockOutNumber();
+          }}
+        >
           {language === "en" ? "Cancel" : "Batal"}
         </Button>
         {canCreate('stock_out') && (
