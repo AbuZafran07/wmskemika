@@ -7,8 +7,80 @@ interface PrintOptions {
 }
 
 /**
+ * DOMPurify configuration for strict sanitization
+ * - Removes all scripts and event handlers
+ * - Only allows safe HTML tags for document printing
+ * - Strips data: and javascript: URIs
+ */
+const PURIFY_CONFIG = {
+  ALLOWED_TAGS: [
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'span', 'div', 'br', 'hr',
+    'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption',
+    'ul', 'ol', 'li', 'dl', 'dt', 'dd',
+    'strong', 'b', 'em', 'i', 'u', 's', 'small', 'sub', 'sup',
+    'img', 'figure', 'figcaption',
+    'blockquote', 'pre', 'code',
+    'header', 'footer', 'main', 'section', 'article', 'aside', 'nav',
+    'label'
+  ],
+  ALLOWED_ATTR: [
+    'class', 'id', 'style', 'src', 'alt', 'title', 'width', 'height',
+    'colspan', 'rowspan', 'scope', 'headers',
+    'for', 'name'
+  ],
+  ALLOW_DATA_ATTR: false,
+  ALLOW_ARIA_ATTR: false,
+  USE_PROFILES: { html: true },
+  FORBID_TAGS: ['script', 'object', 'embed', 'form', 'input', 'button', 'textarea', 'select', 'iframe', 'frame', 'frameset', 'link', 'meta', 'base'],
+  FORBID_ATTR: ['onclick', 'onload', 'onerror', 'onmouseover', 'onfocus', 'onblur', 'onchange', 'onsubmit', 'onkeydown', 'onkeyup', 'onkeypress'],
+  SANITIZE_DOM: true,
+  WHOLE_DOCUMENT: false,
+  RETURN_DOM: false,
+  RETURN_DOM_FRAGMENT: false,
+  RETURN_TRUSTED_TYPE: false,
+};
+
+/**
+ * Sanitizes HTML content with strict DOMPurify configuration
+ * @param content - Raw HTML content to sanitize
+ * @returns Sanitized HTML string safe for rendering
+ */
+export const sanitizeHtml = (content: string): string => {
+  return DOMPurify.sanitize(content, PURIFY_CONFIG);
+};
+
+/**
+ * Sanitizes a plain text string for use in HTML attributes or text content
+ * Escapes special HTML characters and removes potentially dangerous patterns
+ * @param text - Raw text to sanitize
+ * @param maxLength - Maximum allowed length (default: 255)
+ * @returns Sanitized text safe for use in HTML
+ */
+export const sanitizeText = (text: string | null | undefined, maxLength: number = 255): string => {
+  if (!text) return '';
+  
+  // Truncate to max length
+  const truncated = text.slice(0, maxLength);
+  
+  // Escape HTML special characters
+  return truncated
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .replace(/\//g, '&#x2F;');
+};
+
+/**
  * Secure print utility that avoids inline scripts in document.write()
  * Uses external event handlers for defense-in-depth XSS protection
+ * 
+ * Security measures:
+ * 1. Strict DOMPurify configuration to remove all scripts/handlers
+ * 2. Content-Security-Policy meta tag to block inline scripts
+ * 3. External event handlers instead of inline onclick
+ * 4. Sanitized title to prevent header injection
  */
 export const securePrint = ({ title, styles = '', content }: PrintOptions): void => {
   const printWindow = window.open('', '_blank');
@@ -17,17 +89,21 @@ export const securePrint = ({ title, styles = '', content }: PrintOptions): void
     return;
   }
 
-  // Sanitize content with DOMPurify
-  const sanitizedContent = DOMPurify.sanitize(content);
+  // Sanitize content with strict DOMPurify configuration
+  const sanitizedContent = DOMPurify.sanitize(content, PURIFY_CONFIG);
+  
+  // Sanitize title to prevent header injection
+  const sanitizedTitle = sanitizeText(title, 100);
 
   // Write HTML without inline scripts
+  // CSP policy blocks inline scripts, only allows inline styles for print formatting
   printWindow.document.write(`
     <!DOCTYPE html>
     <html>
       <head>
-        <title>${DOMPurify.sanitize(title)}</title>
+        <title>${sanitizedTitle}</title>
         <meta charset="utf-8" />
-        <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline' 'self';">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: https:; font-src 'self';">
         <style>
           * { box-sizing: border-box; }
           body { font-family: Arial, sans-serif; padding: 16px; color: #111; }
