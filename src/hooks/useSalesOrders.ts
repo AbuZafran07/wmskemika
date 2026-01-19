@@ -77,21 +77,47 @@ export function useSalesOrders() {
 
   const fetchSalesOrders = async () => {
     setLoading(true);
+    
+    // Fetch sales orders with customer data
     const { data, error } = await supabase
       .from('sales_order_headers')
       .select(`
         *,
-        customer:customers(id, name, code, pic, phone, terms_payment, address),
-        approver:profiles!approved_by(full_name, email)
+        customer:customers(id, name, code, pic, phone, terms_payment, address)
       `)
       .eq('is_deleted', false)
       .order('created_at', { ascending: false });
 
     if (error) {
       toast.error(getUserFriendlyError(error, ErrorMessages.load.error('sales orders')));
-    } else {
-      setSalesOrders(data || []);
+      setLoading(false);
+      return;
     }
+
+    // Fetch approver profiles for orders that have approved_by
+    const ordersWithApprover = data || [];
+    const approverIds = [...new Set(ordersWithApprover
+      .filter(o => o.approved_by)
+      .map(o => o.approved_by))] as string[];
+
+    if (approverIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', approverIds);
+
+      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+
+      const enrichedOrders = ordersWithApprover.map(order => ({
+        ...order,
+        approver: order.approved_by ? profileMap.get(order.approved_by) : null
+      }));
+
+      setSalesOrders(enrichedOrders);
+    } else {
+      setSalesOrders(ordersWithApprover);
+    }
+    
     setLoading(false);
   };
 
