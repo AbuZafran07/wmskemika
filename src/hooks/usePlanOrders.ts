@@ -66,21 +66,47 @@ export function usePlanOrders() {
 
   const fetchPlanOrders = useCallback(async () => {
     setLoading(true);
+    
+    // Fetch plan orders with supplier data
     const { data, error } = await supabase
       .from('plan_order_headers')
       .select(`
         *,
-        supplier:suppliers(id, name, code, address, contact_person, phone, terms_payment),
-        approver:profiles!approved_by(full_name, email)
+        supplier:suppliers(id, name, code, address, contact_person, phone, terms_payment)
       `)
       .eq('is_deleted', false)
       .order('created_at', { ascending: false });
 
     if (error) {
       toast.error(getUserFriendlyError(error, ErrorMessages.load.error('plan orders')));
-    } else {
-      setPlanOrders(data || []);
+      setLoading(false);
+      return;
     }
+
+    // Fetch approver profiles for orders that have approved_by
+    const ordersWithApprover = data || [];
+    const approverIds = [...new Set(ordersWithApprover
+      .filter(o => o.approved_by)
+      .map(o => o.approved_by))] as string[];
+
+    if (approverIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', approverIds);
+
+      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+
+      const enrichedOrders = ordersWithApprover.map(order => ({
+        ...order,
+        approver: order.approved_by ? profileMap.get(order.approved_by) : null
+      }));
+
+      setPlanOrders(enrichedOrders);
+    } else {
+      setPlanOrders(ordersWithApprover);
+    }
+    
     setLoading(false);
   }, []);
 
