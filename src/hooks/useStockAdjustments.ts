@@ -275,7 +275,7 @@ export async function updateStockAdjustment(
 // Approve (post) Stock Adjustment using RPC
 export async function approveStockAdjustment(adjustmentId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const { data, error } = await supabase.rpc('stock_adjustment_approve', { adjustment_id: adjustmentId });
+    const { data, error } = await supabase.rpc('stock_adjustment_approve', { p_adjustment_id: adjustmentId });
     
     if (error) throw error;
     
@@ -290,7 +290,7 @@ export async function approveStockAdjustment(adjustmentId: string): Promise<{ su
 export async function rejectStockAdjustment(adjustmentId: string, reason?: string): Promise<{ success: boolean; error?: string }> {
   try {
     const { data, error } = await supabase.rpc('stock_adjustment_reject', { 
-      adjustment_id: adjustmentId,
+      p_adjustment_id: adjustmentId,
       reject_reason: reason || null
     });
     
@@ -306,7 +306,7 @@ export async function rejectStockAdjustment(adjustmentId: string, reason?: strin
 // Soft Delete Stock Adjustment using RPC
 export async function deleteStockAdjustment(adjustmentId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const { data, error } = await supabase.rpc('stock_adjustment_soft_delete', { adjustment_id: adjustmentId });
+    const { data, error } = await supabase.rpc('stock_adjustment_soft_delete', { p_adjustment_id: adjustmentId });
     
     if (error) throw error;
     
