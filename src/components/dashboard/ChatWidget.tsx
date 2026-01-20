@@ -342,21 +342,40 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
       .channel("chat-realtime-combined")
       .on("postgres_changes", { event: "*", schema: "public", table: "chat_messages" }, (payload) => {
         const newMsg = payload.new as any;
-        if (payload.eventType === "INSERT" && newMsg.mentions?.includes(user.id) && newMsg.sender_id !== user.id) {
-          try {
-            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            oscillator.frequency.value = 800;
-            gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.2);
-          } catch (e) {}
-          toast.info("Anda dimention dalam chat!");
+        
+        // Play sound for any new message not from current user
+        if (payload.eventType === "INSERT" && newMsg.sender_id !== user.id) {
+          const isForMe = newMsg.is_global || newMsg.receiver_id === user.id || newMsg.mentions?.includes(user.id);
+          
+          if (isForMe) {
+            try {
+              const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+              const oscillator = audioContext.createOscillator();
+              const gainNode = audioContext.createGain();
+              oscillator.connect(gainNode);
+              gainNode.connect(audioContext.destination);
+              
+              // Different sound for mentions vs regular messages
+              if (newMsg.mentions?.includes(user.id)) {
+                // Higher pitch + longer for mentions
+                oscillator.frequency.value = 880;
+                gainNode.gain.setValueAtTime(0.25, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.3);
+                toast.info("Anda dimention dalam chat!");
+              } else {
+                // Lower pitch + shorter for regular messages
+                oscillator.frequency.value = 600;
+                gainNode.gain.setValueAtTime(0.15, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.15);
+              }
+            } catch (e) {}
+          }
         }
+        
         fetchMessages();
         fetchGlobalUnreadCount();
         fetchUnreadByUser();
