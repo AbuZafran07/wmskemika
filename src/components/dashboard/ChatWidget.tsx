@@ -108,6 +108,8 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
   const [editText, setEditText] = useState("");
   const [pinnedMessages, setPinnedMessages] = useState<ChatMessage[]>([]);
   const [globalUnreadCount, setGlobalUnreadCount] = useState(0);
+  const [unreadByUser, setUnreadByUser] = useState<Record<string, number>>({});
+  const [globalChatUnread, setGlobalChatUnread] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -234,9 +236,69 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
     }
   };
 
+  // Fetch unread count per user (for badge on each user tab)
+  const fetchUnreadByUser = async () => {
+    if (!user) return;
+    
+    // Fetch private unread messages grouped by sender
+    const { data: privateUnread, error: privateError } = await supabase
+      .from("chat_messages")
+      .select("sender_id")
+      .eq("receiver_id", user.id)
+      .is("read_at", null)
+      .eq("is_global", false);
+    
+    if (!privateError && privateUnread) {
+      const countByUser: Record<string, number> = {};
+      privateUnread.forEach((msg) => {
+        countByUser[msg.sender_id] = (countByUser[msg.sender_id] || 0) + 1;
+      });
+      setUnreadByUser(countByUser);
+    }
+
+    // Fetch global chat unread (messages in global chat not from current user)
+    const { data: globalUnread, error: globalError } = await supabase
+      .from("chat_messages")
+      .select("id")
+      .eq("is_global", true)
+      .neq("sender_id", user.id)
+      .is("read_at", null);
+    
+    if (!globalError && globalUnread) {
+      setGlobalChatUnread(globalUnread.length);
+    }
+  };
+
   useEffect(() => {
     fetchGlobalUnreadCount();
+    fetchUnreadByUser();
   }, [user]);
+
+  // Mark messages as read when viewing a chat
+  const markMessagesAsRead = async () => {
+    if (!user) return;
+
+    if (selectedUser) {
+      // Mark private messages from selected user as read
+      await supabase
+        .from("chat_messages")
+        .update({ read_at: new Date().toISOString() })
+        .eq("receiver_id", user.id)
+        .eq("sender_id", selectedUser.id)
+        .is("read_at", null);
+    }
+    
+    // Refresh unread counts after marking as read
+    fetchGlobalUnreadCount();
+    fetchUnreadByUser();
+  };
+
+  // Mark messages as read when opening a chat or switching users
+  useEffect(() => {
+    if (!isMinimized && user) {
+      markMessagesAsRead();
+    }
+  }, [isMinimized, selectedUser, user]);
 
   // Setup typing indicator
   useEffect(() => {
@@ -297,6 +359,7 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
         }
         fetchMessages();
         fetchGlobalUnreadCount();
+        fetchUnreadByUser();
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "chat_reactions" }, () => {
         fetchMessages();
@@ -729,24 +792,43 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
           <Button
             variant={selectedUser === null ? "default" : "outline"}
             size="sm"
-            className="shrink-0 text-xs h-7"
+            className="shrink-0 text-xs h-7 relative"
             onClick={() => setSelectedUser(null)}
           >
             Global
+            {globalChatUnread > 0 && selectedUser !== null && (
+              <Badge
+                variant="destructive"
+                className="absolute -top-1.5 -right-1.5 h-4 min-w-4 flex items-center justify-center p-0 text-[10px] font-bold"
+              >
+                {globalChatUnread > 99 ? "99+" : globalChatUnread}
+              </Badge>
+            )}
           </Button>
           {onlineUsers
             .filter((u) => u.id !== user?.id)
-            .map((onlineUser) => (
-              <Button
-                key={onlineUser.id}
-                variant={selectedUser?.id === onlineUser.id ? "default" : "outline"}
-                size="sm"
-                className="shrink-0 text-xs h-7"
-                onClick={() => setSelectedUser(onlineUser)}
-              >
-                {onlineUser.name?.split(" ")[0] || onlineUser.email.split("@")[0]}
-              </Button>
-            ))}
+            .map((onlineUser) => {
+              const userUnread = unreadByUser[onlineUser.id] || 0;
+              return (
+                <Button
+                  key={onlineUser.id}
+                  variant={selectedUser?.id === onlineUser.id ? "default" : "outline"}
+                  size="sm"
+                  className="shrink-0 text-xs h-7 relative"
+                  onClick={() => setSelectedUser(onlineUser)}
+                >
+                  {onlineUser.name?.split(" ")[0] || onlineUser.email.split("@")[0]}
+                  {userUnread > 0 && selectedUser?.id !== onlineUser.id && (
+                    <Badge
+                      variant="destructive"
+                      className="absolute -top-1.5 -right-1.5 h-4 min-w-4 flex items-center justify-center p-0 text-[10px] font-bold"
+                    >
+                      {userUnread > 99 ? "99+" : userUnread}
+                    </Badge>
+                  )}
+                </Button>
+              );
+            })}
         </div>
 
         {/* Pinned Messages */}
