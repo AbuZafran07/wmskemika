@@ -1245,6 +1245,10 @@ export type Database = {
     }
     Functions: {
       cleanup_old_chat_messages: { Args: never; Returns: undefined }
+      get_sanitized_error_message: {
+        Args: { p_sqlerrm: string; p_sqlstate: string }
+        Returns: string
+      }
       get_user_email: { Args: { _user_id: string }; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
@@ -1266,46 +1270,104 @@ export type Database = {
       }
       plan_order_approve: { Args: { order_id: string }; Returns: Json }
       plan_order_cancel: { Args: { order_id: string }; Returns: Json }
-      plan_order_create: {
-        Args: { attachment_meta?: Json; header_data: Json; items_data: Json }
-        Returns: Json
-      }
+      plan_order_create:
+        | {
+            Args: {
+              attachment_meta?: Json
+              header_data: Json
+              items_data: Json
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              attachment_meta?: Json
+              header_data: Json
+              items_data: Json
+            }
+            Returns: Json
+          }
       plan_order_soft_delete: { Args: { order_id: string }; Returns: Json }
-      plan_order_update: {
-        Args: { header_data: Json; items_data: Json; order_id: string }
-        Returns: Json
-      }
+      plan_order_update:
+        | {
+            Args: { header_data: Json; items_data: Json; order_id: string }
+            Returns: Json
+          }
+        | {
+            Args: { header_data: Json; items_data: Json; order_id: string }
+            Returns: Json
+          }
       sales_order_approve: { Args: { order_id: string }; Returns: Json }
       sales_order_cancel: { Args: { order_id: string }; Returns: Json }
-      sales_order_create: {
-        Args: { attachment_meta?: Json; header_data: Json; items_data: Json }
-        Returns: Json
-      }
+      sales_order_create:
+        | {
+            Args: {
+              attachment_meta?: Json
+              header_data: Json
+              items_data: Json
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              attachment_meta?: Json
+              header_data: Json
+              items_data: Json
+            }
+            Returns: Json
+          }
       sales_order_soft_delete: { Args: { order_id: string }; Returns: Json }
-      sales_order_update: {
-        Args: { header_data: Json; items_data: Json; order_id: string }
-        Returns: Json
-      }
+      sales_order_update:
+        | {
+            Args: { header_data: Json; items_data: Json; order_id: string }
+            Returns: Json
+          }
+        | {
+            Args: { header_data: Json; items_data: Json; order_id: string }
+            Returns: Json
+          }
       stock_adjustment_approve: {
-        Args: { adjustment_id: string }
+        Args: { p_adjustment_id: string }
         Returns: Json
       }
-      stock_adjustment_create: {
-        Args: { attachment_meta?: Json; header_data: Json; items_data: Json }
-        Returns: Json
-      }
+      stock_adjustment_create:
+        | {
+            Args: {
+              attachment_meta?: Json
+              header_data: Json
+              items_data: Json
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              attachment_meta?: Json
+              header_data: Json
+              items_data: Json
+            }
+            Returns: Json
+          }
       stock_adjustment_reject: {
-        Args: { adjustment_id: string; reject_reason?: string }
+        Args: { p_adjustment_id: string; reject_reason?: string }
         Returns: Json
       }
       stock_adjustment_soft_delete: {
-        Args: { adjustment_id: string }
+        Args: { p_adjustment_id: string }
         Returns: Json
       }
-      stock_adjustment_update: {
-        Args: { adjustment_id: string; header_data: Json; items_data: Json }
-        Returns: Json
-      }
+      stock_adjustment_update:
+        | {
+            Args: { adjustment_id: string; header_data: Json; items_data: Json }
+            Returns: Json
+          }
+        | {
+            Args: {
+              header_data: Json
+              items_data: Json
+              p_adjustment_id: string
+            }
+            Returns: Json
+          }
       stock_in_create:
         | { Args: { header_data: Json; items_data: Json }; Returns: Json }
         | { Args: { header_data: Json; items_data: Json }; Returns: Json }
