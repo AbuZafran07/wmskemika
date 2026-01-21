@@ -66,6 +66,8 @@ import { uploadFile } from '@/lib/storage';
 import { generateUniqueStockAdjustmentNumber } from '@/lib/transactionNumberUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { usePagination } from '@/hooks/usePagination';
+import { DataTablePagination } from '@/components/DataTablePagination';
 
 interface AdjustmentItem {
   id: string;
@@ -159,6 +161,16 @@ export default function StockAdjustment() {
       return matchesSearch && matchesStatus && matchesDateFrom && matchesDateTo && matchesViewMode;
     });
   }, [adjustments, searchQuery, statusFilter, dateFrom, dateTo, viewMode]);
+
+  // Pagination
+  const {
+    currentPage,
+    pageSize,
+    totalPages,
+    paginatedData: paginatedAdjustments,
+    setCurrentPage,
+    setPageSize,
+  } = usePagination(filteredAdjustments);
 
   const clearFilters = () => {
     setStatusFilter('all');
@@ -736,14 +748,14 @@ export default function StockAdjustment() {
                     <Loader2 className="w-6 h-6 animate-spin mx-auto" />
                   </TableCell>
                 </TableRow>
-              ) : filteredAdjustments.length === 0 ? (
+              ) : paginatedAdjustments.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                     {language === 'en' ? 'No adjustments found' : 'Tidak ada penyesuaian'}
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredAdjustments.map((adj) => {
+                paginatedAdjustments.map((adj) => {
                   const config = statusConfig[adj.status] || statusConfig.draft;
                   // RBAC: Check permissions AND status - rename to avoid shadowing
                   const allowEdit = adj.status === 'draft' && canEdit('stock_adjustment');
@@ -805,6 +817,14 @@ export default function StockAdjustment() {
               )}
             </TableBody>
           </Table>
+          <DataTablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={filteredAdjustments.length}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         </CardContent>
       </Card>
 

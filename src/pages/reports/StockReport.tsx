@@ -28,6 +28,8 @@ import {
 } from '@/components/ui/accordion';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
+import { usePagination } from '@/hooks/usePagination';
+import { DataTablePagination } from '@/components/DataTablePagination';
 
 interface ProductStock {
   id: string;
@@ -170,6 +172,16 @@ export default function StockReport() {
       default: return true;
     }
   });
+
+  // Pagination
+  const {
+    currentPage,
+    pageSize,
+    totalPages,
+    paginatedData,
+    setCurrentPage,
+    setPageSize,
+  } = usePagination(filteredData);
 
   const stats = {
     totalProducts: stockData.length,
@@ -335,7 +347,7 @@ export default function StockReport() {
             </div>
           ) : (
             <Accordion type="multiple" className="w-full">
-              {filteredData.map(product => {
+              {paginatedData.map(product => {
                 const status = getStockStatus(product);
                 const hasExpiring = product.batches.some(b => 
                   b.is_expired || (b.days_to_expire !== null && b.days_to_expire <= 30)
@@ -430,6 +442,14 @@ export default function StockReport() {
               })}
             </Accordion>
           )}
+          <DataTablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={filteredData.length}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         </CardContent>
       </Card>
     </div>

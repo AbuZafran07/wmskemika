@@ -23,6 +23,8 @@ import {
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { usePagination } from '@/hooks/usePagination';
+import { DataTablePagination } from '@/components/DataTablePagination';
 
 interface AdjustmentWithItems {
   id: string;
@@ -158,6 +160,16 @@ export default function AdjustmentLog() {
       adj.items.some(item => item.product_name.toLowerCase().includes(searchLower))
     );
   });
+
+  // Pagination
+  const {
+    currentPage,
+    pageSize,
+    totalPages,
+    paginatedData: paginatedAdjustments,
+    setCurrentPage,
+    setPageSize,
+  } = usePagination(filteredAdjustments);
 
   const exportToCSV = () => {
     const headers = ['Adjustment Number', 'Date', 'Reason', 'Status', 'Products', 'Total Qty', 'Approved By', 'Approved At'];
@@ -335,7 +347,7 @@ export default function AdjustmentLog() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAdjustments.map((adj) => {
+                {paginatedAdjustments.map((adj) => {
                   const totalQty = adj.items.reduce((sum, i) => sum + i.adjustment_qty, 0);
                   const statusCfg = statusConfig[adj.status] || statusConfig.draft;
                   
@@ -393,6 +405,14 @@ export default function AdjustmentLog() {
               </TableBody>
             </Table>
           )}
+          <DataTablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={filteredAdjustments.length}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         </CardContent>
       </Card>
     </div>

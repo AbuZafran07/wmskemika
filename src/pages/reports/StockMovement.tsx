@@ -23,6 +23,8 @@ import {
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { usePagination } from '@/hooks/usePagination';
+import { DataTablePagination } from '@/components/DataTablePagination';
 
 interface StockTransaction {
   id: string;
@@ -170,6 +172,16 @@ export default function StockMovement() {
     
     return matchesSearch;
   });
+
+  // Pagination
+  const {
+    currentPage,
+    pageSize,
+    totalPages,
+    paginatedData: paginatedTransactions,
+    setCurrentPage,
+    setPageSize,
+  } = usePagination(filteredTransactions);
 
   // Calculate summary
   const totalIn = filteredTransactions.filter(t => t.transaction_type === 'inbound').reduce((sum, t) => sum + t.quantity, 0);
@@ -339,14 +351,14 @@ export default function StockMovement() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredTransactions.length === 0 ? (
+              {paginatedTransactions.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     {language === 'en' ? 'No transactions found' : 'Tidak ada transaksi ditemukan'}
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredTransactions.map((tx) => (
+                paginatedTransactions.map((tx) => (
                   <TableRow key={tx.id}>
                     <TableCell className="whitespace-nowrap">
                       <div className="flex items-center gap-2">
@@ -389,14 +401,16 @@ export default function StockMovement() {
               )}
             </TableBody>
           </Table>
+          <DataTablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={filteredTransactions.length}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         </CardContent>
       </Card>
-
-      <div className="text-sm text-muted-foreground text-center">
-        {language === 'en' 
-          ? `Showing ${filteredTransactions.length} of ${transactions.length} transactions`
-          : `Menampilkan ${filteredTransactions.length} dari ${transactions.length} transaksi`}
-      </div>
     </div>
   );
 }
