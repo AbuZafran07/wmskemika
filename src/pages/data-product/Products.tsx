@@ -53,6 +53,8 @@ import { ProductImage } from '@/components/ProductImage';
 import { toast } from 'sonner';
 import { exportToCSV, parseCSV, readFileAsText, downloadCSVTemplate, checkDuplicates, getColumnValue } from '@/lib/csvUtils';
 import { ImportPreviewDialog, ImportPreviewRow } from '@/components/ImportPreviewDialog';
+import { DataTablePagination } from '@/components/DataTablePagination';
+import { usePagination } from '@/hooks/usePagination';
 
 interface ProductFormData {
   sku: string;
@@ -351,6 +353,15 @@ export default function Products() {
     (product.sku && product.sku.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
+  const {
+    currentPage,
+    pageSize,
+    totalPages,
+    paginatedData: paginatedProducts,
+    setCurrentPage,
+    setPageSize,
+  } = usePagination(filteredProducts);
+
   const handleAdd = () => {
     setEditingProduct(null);
     setFormData(initialFormData);
@@ -585,7 +596,7 @@ export default function Products() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredProducts.map((product) => (
+                  paginatedProducts.map((product) => (
                     <TableRow key={product.id}>
                       <TableCell>
                         <ProductImage 
@@ -643,6 +654,16 @@ export default function Products() {
                 )}
               </TableBody>
             </Table>
+          )}
+          {!loading && filteredProducts.length > 0 && (
+            <DataTablePagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={filteredProducts.length}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
           )}
         </CardContent>
       </Card>

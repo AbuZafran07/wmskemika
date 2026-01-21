@@ -53,6 +53,8 @@ import { generateCustomerCode } from '@/lib/codeGenerator';
 import { toast } from 'sonner';
 import { exportToCSV, parseCSV, readFileAsText, downloadCSVTemplate, checkDuplicates, getColumnValue, validateContactInfo } from '@/lib/csvUtils';
 import { ImportPreviewDialog, ImportPreviewRow } from '@/components/ImportPreviewDialog';
+import { DataTablePagination } from '@/components/DataTablePagination';
+import { usePagination } from '@/hooks/usePagination';
 
 interface CustomerFormData {
   code: string;
@@ -332,6 +334,15 @@ export default function Customers() {
     customer.code.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const {
+    currentPage,
+    pageSize,
+    totalPages,
+    paginatedData: paginatedCustomers,
+    setCurrentPage,
+    setPageSize,
+  } = usePagination(filteredCustomers);
+
   const handleAdd = async () => {
     setEditingCustomer(null);
     const autoCode = await generateCustomerCode();
@@ -540,7 +551,7 @@ export default function Customers() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredCustomers.map((customer) => (
+                  paginatedCustomers.map((customer) => (
                     <TableRow key={customer.id}>
                       <TableCell className="font-medium">{customer.code}</TableCell>
                       <TableCell>{customer.name}</TableCell>
@@ -589,6 +600,16 @@ export default function Customers() {
                 )}
               </TableBody>
             </Table>
+          )}
+          {!loading && filteredCustomers.length > 0 && (
+            <DataTablePagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={filteredCustomers.length}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
           )}
         </CardContent>
       </Card>
