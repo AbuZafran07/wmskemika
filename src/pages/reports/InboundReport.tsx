@@ -28,6 +28,8 @@ import {
 } from '@/components/ui/popover';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
+import { usePagination } from '@/hooks/usePagination';
+import { DataTablePagination } from '@/components/DataTablePagination';
 
 interface StockInRecord {
   id: string;
@@ -97,6 +99,16 @@ export default function InboundReport() {
     
     return matchesSearch && matchesDateFrom && matchesDateTo;
   });
+
+  // Pagination
+  const {
+    currentPage,
+    pageSize,
+    totalPages,
+    paginatedData: paginatedRecords,
+    setCurrentPage,
+    setPageSize,
+  } = usePagination(filteredRecords);
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('id-ID', {
@@ -258,14 +270,14 @@ export default function InboundReport() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRecords.length === 0 ? (
+                {paginatedRecords.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
                       {language === 'en' ? 'No inbound records found' : 'Tidak ada data penerimaan'}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredRecords.flatMap((record) =>
+                  paginatedRecords.flatMap((record) =>
                     record.items.map((item, idx) => (
                       <TableRow key={`${record.id}-${item.id}`}>
                         {idx === 0 ? (
@@ -297,6 +309,14 @@ export default function InboundReport() {
               </TableBody>
             </Table>
           )}
+          <DataTablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={filteredRecords.length}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         </CardContent>
       </Card>
     </div>

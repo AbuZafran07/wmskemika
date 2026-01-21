@@ -72,6 +72,8 @@ import {
 
 import { useSuppliers, useProducts, Product } from "@/hooks/useMasterData";
 import { uploadFile, getSignedUrl } from "@/lib/storage";
+import { usePagination } from "@/hooks/usePagination";
+import { DataTablePagination } from "@/components/DataTablePagination";
 import { generateUniquePlanOrderNumber } from "@/lib/transactionNumberUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -271,6 +273,16 @@ export default function PlanOrder() {
   }, [planOrders, searchQuery, statusFilter, dateFrom, dateTo, viewMode]);
 
   const hasActiveFilters = statusFilter !== "all" || !!dateFrom || !!dateTo;
+
+  // Pagination
+  const {
+    currentPage,
+    pageSize,
+    totalPages,
+    paginatedData: paginatedOrders,
+    setCurrentPage,
+    setPageSize,
+  } = usePagination(filteredOrders);
 
   const clearFilters = () => {
     setStatusFilter("all");
@@ -1276,14 +1288,14 @@ export default function PlanOrder() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredOrders.length === 0 ? (
+                {paginatedOrders.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
                       {language === "en" ? "No plan orders found" : "Tidak ada plan order ditemukan"}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredOrders.map((order) => {
+                  paginatedOrders.map((order) => {
                     const status = statusConfig[order.status] || statusConfig.draft;
 
                     const showApprove = order.status === "draft" && canApprove;
@@ -1379,6 +1391,14 @@ export default function PlanOrder() {
               </TableBody>
             </Table>
           )}
+          <DataTablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={filteredOrders.length}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         </CardContent>
       </Card>
 
