@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, ChevronDown, ChevronRight, Package, Calendar, AlertTriangle, RefreshCw, Loader2, Download } from 'lucide-react';
+import { usePagination } from '@/hooks/usePagination';
+import { DataTablePagination } from '@/components/DataTablePagination';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -171,6 +173,15 @@ export default function DataStock() {
     return matchesSearch && matchesCategory && matchesStockFilter;
   });
 
+  const {
+    currentPage,
+    pageSize,
+    totalPages,
+    paginatedData,
+    setCurrentPage,
+    setPageSize,
+  } = usePagination(filteredStock);
+
   const totalProducts = stockData.length;
   const lowStockCount = stockData.filter(s => isLowStock(s.totalStock, s.min_stock)).length;
   const outOfStockCount = stockData.filter(s => isOutOfStock(s.totalStock)).length;
@@ -331,14 +342,14 @@ export default function DataStock() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredStock.length === 0 ? (
+              {paginatedData.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     {language === 'en' ? 'No stock data found' : 'Tidak ada data stok'}
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredStock.map((item) => {
+                paginatedData.map((item) => {
                   const isExpanded = expandedRows.includes(item.id);
                   const lowStock = isLowStock(item.totalStock, item.min_stock);
                   const outStock = isOutOfStock(item.totalStock);
@@ -457,6 +468,19 @@ export default function DataStock() {
               )}
             </TableBody>
           </Table>
+          
+          {filteredStock.length > 0 && (
+            <div className="border-t">
+              <DataTablePagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                totalItems={filteredStock.length}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={setPageSize}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
