@@ -46,6 +46,8 @@ import { generateSupplierCode } from '@/lib/codeGenerator';
 import { toast } from 'sonner';
 import { exportToCSV, parseCSV, readFileAsText, downloadCSVTemplate, checkDuplicates, getColumnValue, validateContactInfo } from '@/lib/csvUtils';
 import { ImportPreviewDialog, ImportPreviewRow } from '@/components/ImportPreviewDialog';
+import { DataTablePagination } from '@/components/DataTablePagination';
+import { usePagination } from '@/hooks/usePagination';
 
 interface SupplierFormData {
   code: string;
@@ -307,6 +309,15 @@ export default function Suppliers() {
     supplier.code.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const {
+    currentPage,
+    pageSize,
+    totalPages,
+    paginatedData: paginatedSuppliers,
+    setCurrentPage,
+    setPageSize,
+  } = usePagination(filteredSuppliers);
+
   const handleAdd = async () => {
     setEditingSupplier(null);
     const autoCode = await generateSupplierCode();
@@ -510,7 +521,7 @@ export default function Suppliers() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredSuppliers.map((supplier) => (
+                  paginatedSuppliers.map((supplier) => (
                     <TableRow key={supplier.id}>
                       <TableCell className="font-medium">{supplier.code}</TableCell>
                       <TableCell>{supplier.name}</TableCell>
@@ -554,6 +565,16 @@ export default function Suppliers() {
                 )}
               </TableBody>
             </Table>
+          )}
+          {!loading && filteredSuppliers.length > 0 && (
+            <DataTablePagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={filteredSuppliers.length}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
           )}
         </CardContent>
       </Card>

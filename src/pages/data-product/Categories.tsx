@@ -46,6 +46,8 @@ import { toast } from 'sonner';
 import { getUserFriendlyError, ErrorMessages } from '@/lib/errorHandler';
 import { exportToCSV, parseCSV, readFileAsText, downloadCSVTemplate, checkDuplicates, getColumnValue } from '@/lib/csvUtils';
 import { ImportPreviewDialog, ImportPreviewRow } from '@/components/ImportPreviewDialog';
+import { DataTablePagination } from '@/components/DataTablePagination';
+import { usePagination } from '@/hooks/usePagination';
 
 interface CategoryFormData {
   code: string;
@@ -245,6 +247,15 @@ export default function Categories() {
     category.code.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const {
+    currentPage,
+    pageSize,
+    totalPages,
+    paginatedData: paginatedCategories,
+    setCurrentPage,
+    setPageSize,
+  } = usePagination(filteredCategories);
+
   const handleAdd = () => {
     setEditingCategory(null);
     setFormData(initialFormData);
@@ -428,7 +439,7 @@ export default function Categories() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredCategories.map((category) => (
+                  paginatedCategories.map((category) => (
                     <TableRow key={category.id}>
                       <TableCell className="font-medium">{category.code}</TableCell>
                       <TableCell>{category.name}</TableCell>
@@ -466,6 +477,16 @@ export default function Categories() {
                 )}
               </TableBody>
             </Table>
+          )}
+          {!loading && filteredCategories.length > 0 && (
+            <DataTablePagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={filteredCategories.length}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
           )}
         </CardContent>
       </Card>

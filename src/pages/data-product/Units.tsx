@@ -45,6 +45,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { exportToCSV, parseCSV, readFileAsText, downloadCSVTemplate, checkDuplicates, getColumnValue } from '@/lib/csvUtils';
 import { ImportPreviewDialog, ImportPreviewRow } from '@/components/ImportPreviewDialog';
+import { DataTablePagination } from '@/components/DataTablePagination';
+import { usePagination } from '@/hooks/usePagination';
 
 interface UnitFormData {
   code: string;
@@ -242,6 +244,15 @@ export default function Units() {
     unit.code.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const {
+    currentPage,
+    pageSize,
+    totalPages,
+    paginatedData: paginatedUnits,
+    setCurrentPage,
+    setPageSize,
+  } = usePagination(filteredUnits);
+
   const handleAdd = () => {
     setEditingUnit(null);
     setFormData(initialFormData);
@@ -425,7 +436,7 @@ export default function Units() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredUnits.map((unit) => (
+                  paginatedUnits.map((unit) => (
                     <TableRow key={unit.id}>
                       <TableCell className="font-medium">{unit.code}</TableCell>
                       <TableCell>{unit.name}</TableCell>
@@ -463,6 +474,16 @@ export default function Units() {
                 )}
               </TableBody>
             </Table>
+          )}
+          {!loading && filteredUnits.length > 0 && (
+            <DataTablePagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={filteredUnits.length}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
           )}
         </CardContent>
       </Card>
