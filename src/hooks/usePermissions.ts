@@ -17,6 +17,7 @@ import {
   isSuperAdmin,
   isAdminOrAbove,
   isViewer,
+  canViewPurchasePrice,
   MenuKey,
   ModuleType,
   ActionType,
@@ -62,6 +63,12 @@ export function usePermissions() {
      * Check if user is viewer (read-only)
      */
     isViewer: () => isViewer(role),
+    
+    /**
+     * Check if user can view purchase price
+     * Only super_admin, admin, finance, purchasing can see it
+     */
+    canViewPurchasePrice: () => canViewPurchasePrice(role),
     
     /**
      * Get current user role

@@ -92,7 +92,7 @@ export default function Products() {
   const { categories } = useCategories();
   const { units } = useUnits();
   const { suppliers } = useSuppliers();
-  const { canCreate, canEdit, canDelete, canUpload } = usePermissions();
+  const { canCreate, canEdit, canDelete, canUpload, canViewPurchasePrice } = usePermissions();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -112,23 +112,28 @@ export default function Products() {
   const csvInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = () => {
-    exportToCSV(
-      products,
-      [
-        { key: 'sku', header: 'SKU' },
-        { key: 'name', header: language === 'en' ? 'Product Name' : 'Nama Produk' },
-        { key: 'category', header: language === 'en' ? 'Category' : 'Kategori', getValue: (item) => item.category?.name || '' },
-        { key: 'unit', header: language === 'en' ? 'Unit' : 'Satuan', getValue: (item) => item.unit?.name || '' },
-        { key: 'supplier', header: 'Supplier', getValue: (item) => item.supplier?.name || '' },
-        { key: 'purchase_price', header: language === 'en' ? 'Purchase Price' : 'Harga Beli' },
-        { key: 'selling_price', header: language === 'en' ? 'Selling Price' : 'Harga Jual' },
-        { key: 'min_stock', header: language === 'en' ? 'Min Stock' : 'Stok Min' },
-        { key: 'max_stock', header: language === 'en' ? 'Max Stock' : 'Stok Maks' },
-        { key: 'location_rack', header: language === 'en' ? 'Location' : 'Lokasi' },
-        { key: 'is_active', header: 'Status', getValue: (item) => item.is_active ? 'Active' : 'Inactive' },
-      ],
-      'products'
+    const columns = [
+      { key: 'sku', header: 'SKU' },
+      { key: 'name', header: language === 'en' ? 'Product Name' : 'Nama Produk' },
+      { key: 'category', header: language === 'en' ? 'Category' : 'Kategori', getValue: (item: Product) => item.category?.name || '' },
+      { key: 'unit', header: language === 'en' ? 'Unit' : 'Satuan', getValue: (item: Product) => item.unit?.name || '' },
+      { key: 'supplier', header: 'Supplier', getValue: (item: Product) => item.supplier?.name || '' },
+    ];
+    
+    // Only include purchase_price for authorized roles
+    if (canViewPurchasePrice()) {
+      columns.push({ key: 'purchase_price', header: language === 'en' ? 'Purchase Price' : 'Harga Beli' });
+    }
+    
+    columns.push(
+      { key: 'selling_price', header: language === 'en' ? 'Selling Price' : 'Harga Jual' },
+      { key: 'min_stock', header: language === 'en' ? 'Min Stock' : 'Stok Min' },
+      { key: 'max_stock', header: language === 'en' ? 'Max Stock' : 'Stok Maks' },
+      { key: 'location_rack', header: language === 'en' ? 'Location' : 'Lokasi' },
+      { key: 'is_active', header: 'Status', getValue: (item: Product) => item.is_active ? 'Active' : 'Inactive' },
     );
+    
+    exportToCSV(products, columns, 'products');
     toast.success(language === 'en' ? 'Export successful' : 'Ekspor berhasil');
   };
 
@@ -582,7 +587,9 @@ export default function Products() {
                   <TableHead>{language === 'en' ? 'Product Name' : 'Nama Produk'}</TableHead>
                   <TableHead>{language === 'en' ? 'Category' : 'Kategori'}</TableHead>
                   <TableHead>{language === 'en' ? 'Unit' : 'Satuan'}</TableHead>
-                  <TableHead className="text-right">{language === 'en' ? 'Purchase Price' : 'Harga Beli'}</TableHead>
+                  {canViewPurchasePrice() && (
+                    <TableHead className="text-right">{language === 'en' ? 'Purchase Price' : 'Harga Beli'}</TableHead>
+                  )}
                   <TableHead className="text-right">{language === 'en' ? 'Selling Price' : 'Harga Jual'}</TableHead>
                   <TableHead className="text-center">Status</TableHead>
                   <TableHead className="text-right">{t('common.actions')}</TableHead>
@@ -591,7 +598,7 @@ export default function Products() {
               <TableBody>
                 {filteredProducts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
+                    <TableCell colSpan={canViewPurchasePrice() ? 9 : 8} className="text-center py-12 text-muted-foreground">
                       {language === 'en' ? 'No products found' : 'Tidak ada produk ditemukan'}
                     </TableCell>
                   </TableRow>
@@ -615,7 +622,10 @@ export default function Products() {
                       </TableCell>
                       <TableCell>{product.category?.name || '-'}</TableCell>
                       <TableCell>{product.unit?.name || '-'}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(product.purchase_price)}</TableCell>
+                      {canViewPurchasePrice() && (
+                        <TableCell className="text-right">{formatCurrency(product.purchase_price)}</TableCell>
+                      )}
+                      <TableCell className="text-right">{product.selling_price ? formatCurrency(product.selling_price) : '-'}</TableCell>
                       <TableCell className="text-right">{product.selling_price ? formatCurrency(product.selling_price) : '-'}</TableCell>
                       <TableCell className="text-center">
                         <Badge variant={product.is_active ? 'success' : 'draft'}>
@@ -806,16 +816,18 @@ export default function Products() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>{language === 'en' ? 'Purchase Price' : 'Harga Beli'} (IDR) *</Label>
-                <Input
-                  type="number"
-                  placeholder="0"
-                  value={formData.purchase_price}
-                  onChange={(e) => setFormData(prev => ({ ...prev, purchase_price: e.target.value }))}
-                />
-              </div>
+            <div className={canViewPurchasePrice() ? "grid grid-cols-2 gap-4" : ""}>
+              {canViewPurchasePrice() && (
+                <div className="space-y-2">
+                  <Label>{language === 'en' ? 'Purchase Price' : 'Harga Beli'} (IDR) *</Label>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={formData.purchase_price}
+                    onChange={(e) => setFormData(prev => ({ ...prev, purchase_price: e.target.value }))}
+                  />
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>{language === 'en' ? 'Selling Price' : 'Harga Jual'} (IDR)</Label>
                 <Input
@@ -915,10 +927,12 @@ export default function Products() {
                   <p className="text-muted-foreground">{language === 'en' ? 'Unit' : 'Satuan'}</p>
                   <p className="font-medium">{viewingProduct.unit?.name || '-'}</p>
                 </div>
-                <div>
-                  <p className="text-muted-foreground">{language === 'en' ? 'Purchase Price' : 'Harga Beli'}</p>
-                  <p className="font-medium">{formatCurrency(viewingProduct.purchase_price)}</p>
-                </div>
+                {canViewPurchasePrice() && (
+                  <div>
+                    <p className="text-muted-foreground">{language === 'en' ? 'Purchase Price' : 'Harga Beli'}</p>
+                    <p className="font-medium">{formatCurrency(viewingProduct.purchase_price)}</p>
+                  </div>
+                )}
                 <div>
                   <p className="text-muted-foreground">{language === 'en' ? 'Selling Price' : 'Harga Jual'}</p>
                   <p className="font-medium">{viewingProduct.selling_price ? formatCurrency(viewingProduct.selling_price) : '-'}</p>

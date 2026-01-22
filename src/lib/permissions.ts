@@ -326,6 +326,26 @@ export function isViewer(role: UserRole | undefined): boolean {
   return role === 'viewer';
 }
 
+/**
+ * Roles that can view purchase price
+ * Only super_admin, admin, finance, and purchasing can see purchase_price
+ */
+export const PURCHASE_PRICE_VISIBLE_ROLES: UserRole[] = [
+  'super_admin',
+  'admin',
+  'finance',
+  'purchasing',
+];
+
+/**
+ * Check if user can view purchase price
+ * Only super_admin, admin, finance, and purchasing can see it
+ */
+export function canViewPurchasePrice(role: UserRole | undefined): boolean {
+  if (!role) return false;
+  return PURCHASE_PRICE_VISIBLE_ROLES.includes(role);
+}
+
 // ============================================================================
 // ROUTE PROTECTION
 // ============================================================================
