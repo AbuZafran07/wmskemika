@@ -57,7 +57,7 @@ interface ChatMessage {
   is_pinned?: boolean;
   edited_at?: string | null;
   sender?: {
-    email: string;
+    email?: string; // Optional - not exposed in chat view for privacy
     full_name: string | null;
     avatar_url: string | null;
   };
@@ -116,17 +116,18 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  // Fetch all users for mentions
+  // Fetch all users for mentions using secure view (excludes email for privacy)
   useEffect(() => {
     const fetchUsers = async () => {
-      const { data } = await supabase.from("profiles").select("id, email, full_name, avatar_url").eq("is_active", true);
+      // Use profiles_chat_view which only exposes id, full_name, avatar_url (no email)
+      const { data } = await supabase.from("profiles_chat_view").select("id, full_name, avatar_url");
 
       if (data) {
         setAllUsers(
           data.map((u) => ({
             id: u.id,
-            email: u.email,
-            name: u.full_name || u.email,
+            email: "", // Email not exposed in chat view for privacy
+            name: u.full_name || "User",
             avatar_url: u.avatar_url,
           })),
         );
@@ -139,7 +140,7 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
     if (!mentionSearch) return allUsers.filter((u) => u.id !== user?.id);
     const search = mentionSearch.toLowerCase();
     return allUsers.filter(
-      (u) => u.id !== user?.id && (u.name.toLowerCase().includes(search) || u.email.toLowerCase().includes(search)),
+      (u) => u.id !== user?.id && u.name.toLowerCase().includes(search),
     );
   }, [allUsers, mentionSearch, user?.id]);
 
@@ -168,10 +169,10 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
     const senderIds = [...new Set(data?.map((m) => m.sender_id) || [])];
     const replyIds = [...new Set(data?.filter((m) => m.reply_to_id).map((m) => m.reply_to_id) || [])];
 
-    // Fetch profiles
+    // Fetch profiles using secure view (excludes email for privacy)
     const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, email, full_name, avatar_url")
+      .from("profiles_chat_view")
+      .select("id, full_name, avatar_url")
       .in("id", senderIds);
 
     // Fetch reactions
@@ -191,9 +192,10 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
 
       if (replies) {
         const replySenderIds = [...new Set(replies.map((r) => r.sender_id))];
+        // Fetch profiles using secure view (excludes email for privacy)
         const { data: replyProfiles } = await supabase
-          .from("profiles")
-          .select("id, email, full_name, avatar_url")
+          .from("profiles_chat_view")
+          .select("id, full_name, avatar_url")
           .in("id", replySenderIds);
 
         repliedMessages = replies.map((msg) => ({
@@ -707,13 +709,10 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
       if (part.startsWith("@")) {
         const mentionName = part.slice(1).toLowerCase();
         const isMentionedUser = allUsers.some(
-          (u) =>
-            u.name.split(" ")[0].toLowerCase() === mentionName || u.email.split("@")[0].toLowerCase() === mentionName,
+          (u) => u.name.split(" ")[0].toLowerCase() === mentionName,
         );
         const isCurrentUser =
-          user &&
-          (user.name?.split(" ")[0].toLowerCase() === mentionName ||
-            user.email?.split("@")[0].toLowerCase() === mentionName);
+          user && user.name?.split(" ")[0].toLowerCase() === mentionName;
 
         if (isMentionedUser) {
           return (
@@ -860,7 +859,7 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
             <div className="space-y-1 max-h-20 overflow-y-auto">
               {pinnedMessages.map((msg) => (
                 <div key={msg.id} className="text-xs text-muted-foreground truncate">
-                  <span className="font-medium">{msg.sender?.full_name || msg.sender?.email?.split("@")[0] || "Unknown"}:</span> {msg.message.slice(0, 50)}{msg.message.length > 50 ? "..." : ""}
+                  <span className="font-medium">{msg.sender?.full_name || "User"}:</span> {msg.message.slice(0, 50)}{msg.message.length > 50 ? "..." : ""}
                 </div>
               ))}
             </div>
@@ -883,14 +882,14 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
                       <Avatar className="h-7 w-7 shrink-0">
                         {msg.sender?.avatar_url && <AvatarImage src={msg.sender.avatar_url} />}
                         <AvatarFallback className="text-xs">
-                          {getInitials(msg.sender?.full_name || msg.sender?.email || "U")}
+                          {getInitials(msg.sender?.full_name || "U")}
                         </AvatarFallback>
                       </Avatar>
                     )}
                     <div className={`max-w-[75%] ${isOwnMessage ? "text-right" : ""}`}>
                       {!isOwnMessage && (
                         <p className="text-xs text-muted-foreground mb-0.5">
-                          {msg.sender?.full_name || msg.sender?.email?.split("@")[0] || "User"}
+                          {msg.sender?.full_name || "User"}
                         </p>
                       )}
 
