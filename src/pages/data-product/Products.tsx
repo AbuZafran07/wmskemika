@@ -626,7 +626,6 @@ export default function Products() {
                         <TableCell className="text-right">{formatCurrency(product.purchase_price)}</TableCell>
                       )}
                       <TableCell className="text-right">{product.selling_price ? formatCurrency(product.selling_price) : '-'}</TableCell>
-                      <TableCell className="text-right">{product.selling_price ? formatCurrency(product.selling_price) : '-'}</TableCell>
                       <TableCell className="text-center">
                         <Badge variant={product.is_active ? 'success' : 'draft'}>
                           {product.is_active ? t('status.active') : t('status.inactive')}
