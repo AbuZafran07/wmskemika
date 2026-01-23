@@ -1394,6 +1394,24 @@ export type Database = {
       stock_out_create:
         | { Args: { header_data: Json; items_data: Json }; Returns: Json }
         | { Args: { header_data: Json; items_data: Json }; Returns: Json }
+      validate_adjustment_quantity: { Args: { qty: number }; Returns: boolean }
+      validate_date_range: {
+        Args: { end_date: string; start_date: string }
+        Returns: boolean
+      }
+      validate_date_reasonable: { Args: { dt: string }; Returns: boolean }
+      validate_percentage: { Args: { pct: number }; Returns: boolean }
+      validate_price: { Args: { price: number }; Returns: boolean }
+      validate_quantity: { Args: { qty: number }; Returns: boolean }
+      validate_quantity_allow_zero: { Args: { qty: number }; Returns: boolean }
+      validate_string_length: {
+        Args: { max_length: number; str: string }
+        Returns: boolean
+      }
+      validate_uuid_exists: {
+        Args: { table_name: string; uuid_val: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role:
