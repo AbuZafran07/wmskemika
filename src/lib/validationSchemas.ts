@@ -51,14 +51,18 @@ export const planOrderHeaderSchema = z.object({
   plan_date: dateStringSchema,
   supplier_id: uuidSchema,
   expected_delivery_date: optionalDateString,
+  reference_no: sanitizedString(100).nullable().optional().transform(val => val === '' ? null : val),
   notes: sanitizedString(1000).nullable().optional().transform(val => val === '' ? null : val),
-  po_document_url: z.string().url().nullable().optional().or(z.literal('')).transform(val => val === '' ? null : val),
-  status: z.enum(['draft', 'pending', 'approved', 'rejected', 'completed']).default('draft'),
+  po_document_url: z.string().nullable().optional().transform(val => val === '' ? null : val),
+  status: z.enum(['draft', 'pending', 'approved', 'rejected', 'completed', 'partially_received', 'received', 'cancelled']).default('draft'),
   total_amount: nonNegativeNumber.default(0),
   discount: nonNegativeNumber.default(0),
   tax_rate: nonNegativeNumber.max(100, 'Tax rate cannot exceed 100%').default(0),
   shipping_cost: nonNegativeNumber.default(0),
   grand_total: nonNegativeNumber.default(0),
+  created_by: z.string().nullable().optional(),
+  approved_by: z.string().nullable().optional(),
+  approved_at: z.string().nullable().optional(),
 });
 
 export const planOrderItemSchema = z.object({
