@@ -1290,23 +1290,10 @@ export type Database = {
       }
       plan_order_approve: { Args: { order_id: string }; Returns: Json }
       plan_order_cancel: { Args: { order_id: string }; Returns: Json }
-      plan_order_create:
-        | {
-            Args: {
-              attachment_meta?: Json
-              header_data: Json
-              items_data: Json
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              attachment_meta?: Json
-              header_data: Json
-              items_data: Json
-            }
-            Returns: Json
-          }
+      plan_order_create: {
+        Args: { attachment_meta?: Json; header_data: Json; items_data: Json }
+        Returns: Json
+      }
       plan_order_soft_delete: { Args: { order_id: string }; Returns: Json }
       plan_order_update:
         | {
@@ -1319,23 +1306,10 @@ export type Database = {
           }
       sales_order_approve: { Args: { order_id: string }; Returns: Json }
       sales_order_cancel: { Args: { order_id: string }; Returns: Json }
-      sales_order_create:
-        | {
-            Args: {
-              attachment_meta?: Json
-              header_data: Json
-              items_data: Json
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              attachment_meta?: Json
-              header_data: Json
-              items_data: Json
-            }
-            Returns: Json
-          }
+      sales_order_create: {
+        Args: { attachment_meta?: Json; header_data: Json; items_data: Json }
+        Returns: Json
+      }
       sales_order_soft_delete: { Args: { order_id: string }; Returns: Json }
       sales_order_update:
         | {
@@ -1350,23 +1324,10 @@ export type Database = {
         Args: { p_adjustment_id: string }
         Returns: Json
       }
-      stock_adjustment_create:
-        | {
-            Args: {
-              attachment_meta?: Json
-              header_data: Json
-              items_data: Json
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              attachment_meta?: Json
-              header_data: Json
-              items_data: Json
-            }
-            Returns: Json
-          }
+      stock_adjustment_create: {
+        Args: { attachment_meta?: Json; header_data: Json; items_data: Json }
+        Returns: Json
+      }
       stock_adjustment_reject: {
         Args: { p_adjustment_id: string; reject_reason?: string }
         Returns: Json
@@ -1388,12 +1349,14 @@ export type Database = {
             }
             Returns: Json
           }
-      stock_in_create:
-        | { Args: { header_data: Json; items_data: Json }; Returns: Json }
-        | { Args: { header_data: Json; items_data: Json }; Returns: Json }
-      stock_out_create:
-        | { Args: { header_data: Json; items_data: Json }; Returns: Json }
-        | { Args: { header_data: Json; items_data: Json }; Returns: Json }
+      stock_in_create: {
+        Args: { header_data: Json; items_data: Json }
+        Returns: Json
+      }
+      stock_out_create: {
+        Args: { header_data: Json; items_data: Json }
+        Returns: Json
+      }
       validate_adjustment_quantity: { Args: { qty: number }; Returns: boolean }
       validate_date_range: {
         Args: { end_date: string; start_date: string }
