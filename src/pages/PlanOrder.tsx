@@ -1745,12 +1745,25 @@ export default function PlanOrder() {
       <div className="hidden">
         <div ref={printRef}>
           {selectedOrder && (
-            <div style={{ fontFamily: "Arial, sans-serif", fontSize: "11px", color: "#111" }}>
+            <div
+              style={{
+                fontFamily: "Arial, sans-serif",
+                fontSize: "11px",
+                color: "#111",
+                padding: "10mm",
+              }}
+            >
+              {/* ===== Brand Color ===== */}
+              {/*
+          Kemika green (approx): #0B6B3A
+          Jika kamu mau sedikit lebih “logo-like”, coba #0A6A39 atau #0C6D3B
+        */}
+              {(() => null)()}
+
               {/* Header: logo left, title + numbers right */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div>
-                  {/* ✅ pastikan file logo tersedia: /logo-kemika.png */}
-                  <img src="/logo-kemika.png" alt="Kemika" style={{ height: "42px", objectFit: "contain" }} />
+                  <img src="/logo-kemika.png" alt="Kemika" style={{ height: "40px", objectFit: "contain" }} />
                 </div>
 
                 <div style={{ textAlign: "right", minWidth: "320px" }}>
@@ -1777,7 +1790,7 @@ export default function PlanOrder() {
               {/* Supplier vs Delivery To */}
               <div style={{ marginTop: "10px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
                 {/* Supplier */}
-                <div style={{ border: "1px solid #111", padding: "10px", minHeight: "140px" }}>
+                <div style={{ border: "1px solid #111", padding: "10px", minHeight: "132px" }}>
                   <div style={{ fontWeight: 800, marginBottom: "6px" }}>SUPPLIER:</div>
                   <div style={{ fontWeight: 800 }}>{selectedOrder.supplier?.name || "-"}</div>
                   <div style={{ marginTop: "6px", whiteSpace: "pre-wrap" }}>
@@ -1785,30 +1798,29 @@ export default function PlanOrder() {
                   </div>
 
                   <div
-                    style={{ marginTop: "10px", display: "grid", gridTemplateColumns: "70px 10px 1fr", rowGap: "6px" }}
+                    style={{
+                      marginTop: "10px",
+                      display: "grid",
+                      gridTemplateColumns: "70px 10px 1fr",
+                      rowGap: "5px",
+                    }}
                   >
                     <div>PIC</div>
                     <div>:</div>
-                    <div style={{ fontWeight: 700 }}>
-                      {selectedOrder.supplier?.contact_person || "-"}
-                    </div>
+                    <div style={{ fontWeight: 700 }}>{selectedOrder.supplier?.contact_person || "-"}</div>
 
                     <div>TELP.</div>
                     <div>:</div>
-                    <div style={{ fontWeight: 700 }}>
-                      {selectedOrder.supplier?.phone || "-"}
-                    </div>
+                    <div style={{ fontWeight: 700 }}>{selectedOrder.supplier?.phone || "-"}</div>
 
                     <div>PAYTERM</div>
                     <div>:</div>
-                    <div style={{ fontWeight: 700 }}>
-                      {selectedOrder.supplier?.terms_payment || "-"}
-                    </div>
+                    <div style={{ fontWeight: 700 }}>{selectedOrder.supplier?.terms_payment || "-"}</div>
                   </div>
                 </div>
 
                 {/* Delivery To (LOCKED) */}
-                <div style={{ border: "1px solid #111", padding: "10px", minHeight: "140px" }}>
+                <div style={{ border: "1px solid #111", padding: "10px", minHeight: "132px" }}>
                   <div style={{ fontWeight: 800, marginBottom: "6px" }}>DELIVERY TO:</div>
                   <div style={{ fontWeight: 800 }}>{DELIVERY_TO_LOCKED.name}</div>
                   <div style={{ marginTop: "6px" }}>
@@ -1818,7 +1830,12 @@ export default function PlanOrder() {
                   </div>
 
                   <div
-                    style={{ marginTop: "10px", display: "grid", gridTemplateColumns: "70px 10px 1fr", rowGap: "6px" }}
+                    style={{
+                      marginTop: "10px",
+                      display: "grid",
+                      gridTemplateColumns: "70px 10px 1fr",
+                      rowGap: "5px",
+                    }}
                   >
                     <div>PIC</div>
                     <div>:</div>
@@ -1840,16 +1857,18 @@ export default function PlanOrder() {
 
               {/* Items table */}
               <div style={{ marginTop: "10px" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #111" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #111" }}>
                   <thead>
-                    <tr style={{ background: "#0b6b3a", color: "white" }}>
+                    {/* ✅ BLOK HIJAU KEMIKA */}
+                    <tr style={{ background: "#0B6B3A", color: "white" }}>
                       {["No", "Code", "Product Name", "Qty", "UOM", "Price @", "Disc%", "Amount"].map((h) => (
                         <th
                           key={h}
                           style={{
-                            border: "1px solid #111",
-                            padding: "8px",
+                            border: "2px solid #111",
+                            padding: "9px 10px",
                             fontSize: "11px",
+                            fontWeight: 800,
                             textAlign:
                               h === "Qty" || h === "No"
                                 ? "center"
@@ -1864,6 +1883,7 @@ export default function PlanOrder() {
                       ))}
                     </tr>
                   </thead>
+
                   <tbody>
                     {selectedOrderItems?.map((it: any, idx: number) => {
                       const qty = safeNumber(it.planned_qty, 0);
@@ -1872,16 +1892,20 @@ export default function PlanOrder() {
 
                       return (
                         <tr key={it.id}>
-                          <td style={{ border: "1px solid #111", padding: "8px", textAlign: "center" }}>{idx + 1}</td>
-                          <td style={{ border: "1px solid #111", padding: "8px" }}>{it.product?.sku || "-"}</td>
-                          <td style={{ border: "1px solid #111", padding: "8px" }}>{it.product?.name || "-"}</td>
-                          <td style={{ border: "1px solid #111", padding: "8px", textAlign: "center" }}>{qty}</td>
-                          <td style={{ border: "1px solid #111", padding: "8px" }}>{it.product?.unit?.name || "-"}</td>
-                          <td style={{ border: "1px solid #111", padding: "8px", textAlign: "right" }}>
+                          <td style={{ border: "2px solid #111", padding: "8px 10px", textAlign: "center" }}>
+                            {idx + 1}
+                          </td>
+                          <td style={{ border: "2px solid #111", padding: "8px 10px" }}>{it.product?.sku || "-"}</td>
+                          <td style={{ border: "2px solid #111", padding: "8px 10px" }}>{it.product?.name || "-"}</td>
+                          <td style={{ border: "2px solid #111", padding: "8px 10px", textAlign: "center" }}>{qty}</td>
+                          <td style={{ border: "2px solid #111", padding: "8px 10px" }}>
+                            {it.product?.unit?.name || "-"}
+                          </td>
+                          <td style={{ border: "2px solid #111", padding: "8px 10px", textAlign: "right" }}>
                             {formatCurrency(price)}
                           </td>
-                          <td style={{ border: "1px solid #111", padding: "8px", textAlign: "right" }}>0%</td>
-                          <td style={{ border: "1px solid #111", padding: "8px", textAlign: "right" }}>
+                          <td style={{ border: "2px solid #111", padding: "8px 10px", textAlign: "right" }}>0%</td>
+                          <td style={{ border: "2px solid #111", padding: "8px 10px", textAlign: "right" }}>
                             {formatCurrency(amount)}
                           </td>
                         </tr>
@@ -1891,9 +1915,9 @@ export default function PlanOrder() {
                 </table>
               </div>
 
-              {/* NOTE box + totals box (side by side) */}
+              {/* NOTE box + totals box */}
               <div style={{ marginTop: "10px", display: "grid", gridTemplateColumns: "1fr 260px", gap: "10px" }}>
-                <div style={{ border: "1px solid #111", padding: "10px", minHeight: "100px" }}>
+                <div style={{ border: "1px solid #111", padding: "10px", minHeight: "92px" }}>
                   <div style={{ fontWeight: 800, marginBottom: "6px" }}>NOTE:</div>
                   <div style={{ whiteSpace: "pre-wrap" }}>{selectedOrder.notes || ""}</div>
                 </div>
@@ -1944,61 +1968,52 @@ export default function PlanOrder() {
                 </div>
               </div>
 
-              {/* Signature area - conditional based on approval status */}
+              {/* SIGNATURE AREA */}
               {selectedOrder.status === "approved" && selectedOrder.approved_at ? (
-                /* APPROVED: Single long box with signature image */
-                <div style={{ marginTop: "12px" }}>
-                  <div style={{ border: "1px solid #111", padding: "14px", minHeight: "110px", position: "relative" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "12px" }}>
-                      <img 
-                        src={((selectedOrder as any)?.approver?.full_name || "").toLowerCase().includes("ferry") 
-                          ? "/signature-ferry.png" 
-                          : "/approved-signature.png"
-                        } 
-                        alt="Approved Signature" 
-                        style={{ height: "100px", objectFit: "contain" }}
-                      />
+                <div style={{ marginTop: "10px" }}>
+                  <div style={{ border: "1px solid #111", padding: "10px 12px" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ fontSize: "14px", fontWeight: 900, color: "#16a34a" }}>✔ APPROVED</div>
+                      <div style={{ fontSize: "10px", color: "#333" }}>
+                        {formatDateTimeFromStrID(selectedOrder.approved_at as any)}
+                      </div>
                     </div>
-                    <div style={{ fontSize: "11px", marginBottom: "4px", textAlign: "center" }}>
-                      Approved by : <b>{(selectedOrder as any)?.approver?.full_name || (selectedOrder as any)?.approver?.email || "Admin"}</b>
+
+                    <div style={{ marginTop: "8px", textAlign: "center" }}>
+                      <div style={{ fontSize: "20px", fontWeight: 800, color: "#1e40af", lineHeight: "22px" }}>
+                        {(selectedOrder as any)?.approver?.full_name ||
+                          (selectedOrder as any)?.approver?.email ||
+                          "Approved"}
+                      </div>
                     </div>
-                    <div style={{ fontSize: "11px", textAlign: "center" }}>
-                      Approved at : <b>{formatDateID(selectedOrder.approved_at as any)}</b>
+
+                    <div style={{ marginTop: "8px", fontSize: "10px", display: "grid", rowGap: "3px" }}>
+                      <div>
+                        Approved by :{" "}
+                        <b>
+                          {(selectedOrder as any)?.approver?.full_name ||
+                            (selectedOrder as any)?.approver?.email ||
+                            "Admin"}
+                        </b>
+                      </div>
+                      <div>
+                        Approved at : <b>{formatDateTimeFromStrID(selectedOrder.approved_at as any)}</b>
+                      </div>
                     </div>
                   </div>
                 </div>
               ) : (
-                /* NOT APPROVED: Three signature boxes (Purchasing, Finance, Approve) */
-                <div style={{ marginTop: "12px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0px" }}>
-                  {/* Purchasing */}
-                  <div style={{ border: "1px solid #111", padding: "10px", minHeight: "110px" }}>
-                    <div style={{ fontSize: "10px", marginBottom: "10px" }}>Date:</div>
-                    <div style={{ fontSize: "10px", marginBottom: "55px" }}>Purchasing,</div>
-                    <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                    <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
-                      (.................................)
+                <div style={{ marginTop: "10px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0px" }}>
+                  {[{ title: "Purchasing," }, { title: "Finance," }, { title: "Approve," }].map((box, i) => (
+                    <div key={i} style={{ border: "1px solid #111", padding: "8px 10px", minHeight: "78px" }}>
+                      <div style={{ fontSize: "10px", marginBottom: "6px" }}>Date:</div>
+                      <div style={{ fontSize: "10px", marginBottom: "26px" }}>{box.title}</div>
+                      <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                      <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center" }}>
+                        (.................................)
+                      </div>
                     </div>
-                  </div>
-
-                  {/* Finance */}
-                  <div style={{ border: "1px solid #111", padding: "10px", minHeight: "110px" }}>
-                    <div style={{ fontSize: "10px", marginBottom: "10px" }}>Date:</div>
-                    <div style={{ fontSize: "10px", marginBottom: "55px" }}>Finance,</div>
-                    <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                    <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
-                      (.................................)
-                    </div>
-                  </div>
-
-                  {/* Approve */}
-                  <div style={{ border: "1px solid #111", padding: "10px", minHeight: "110px" }}>
-                    <div style={{ fontSize: "10px", marginBottom: "10px" }}>Date:</div>
-                    <div style={{ fontSize: "10px", marginBottom: "55px" }}>Approve,</div>
-                    <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                    <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
-                      (.................................)
-                    </div>
-                  </div>
+                  ))}
                 </div>
               )}
 
@@ -2017,11 +2032,8 @@ export default function PlanOrder() {
                 </div>
               </div>
 
-              {/* Printout date */}
-              <div style={{ marginTop: "14px", fontSize: "10px" }}>
-                Printout : {formatDateID(new Date().toISOString())}
-                <span style={{ marginLeft: "10px", color: "#555" }}>({formatDateTimeID(new Date())})</span>
-              </div>
+              {/* Printout date + time */}
+              <div style={{ marginTop: "12px", fontSize: "10px" }}>Printout : {formatDateTimeID(new Date())}</div>
             </div>
           )}
         </div>
