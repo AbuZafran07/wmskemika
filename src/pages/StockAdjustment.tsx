@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -552,16 +553,18 @@ export default function StockAdjustment() {
                         return (
                           <TableRow key={item.id}>
                             <TableCell>
-                              <Select value={item.product_id} onValueChange={(value) => handleItemChange(item.id, 'product_id', value)}>
-                                <SelectTrigger>
-                                  <SelectValue placeholder={language === 'en' ? 'Select product' : 'Pilih produk'} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {products.map((p) => (
-                                    <SelectItem key={p.id} value={p.id}>{p.name} {p.sku && `(${p.sku})`}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <SearchableSelect
+                                value={item.product_id}
+                                onValueChange={(value) => handleItemChange(item.id, 'product_id', value)}
+                                options={products.map((p) => ({
+                                  value: p.id,
+                                  label: `${p.name}${p.sku ? ` (${p.sku})` : ''}`,
+                                  description: p.category?.name || undefined,
+                                }))}
+                                placeholder={language === 'en' ? 'Select product' : 'Pilih produk'}
+                                searchPlaceholder={language === 'en' ? 'Search product...' : 'Cari produk...'}
+                                emptyMessage={language === 'en' ? 'No product found' : 'Produk tidak ditemukan'}
+                              />
                             </TableCell>
                             <TableCell>
                               <Select 
