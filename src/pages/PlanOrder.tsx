@@ -1753,13 +1753,6 @@ export default function PlanOrder() {
                 padding: "10mm",
               }}
             >
-              {/* ===== Brand Color ===== */}
-              {/*
-          Kemika green (approx): #0B6B3A
-          Jika kamu mau sedikit lebih “logo-like”, coba #0A6A39 atau #0C6D3B
-        */}
-              {(() => null)()}
-
               {/* Header: logo left, title + numbers right */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div>
@@ -1968,8 +1961,9 @@ export default function PlanOrder() {
                 </div>
               </div>
 
-              {/* SIGNATURE AREA */}
+              {/* Signature area */}
               {selectedOrder.status === "approved" && selectedOrder.approved_at ? (
+                /* APPROVED: single box */
                 <div style={{ marginTop: "10px" }}>
                   <div style={{ border: "1px solid #111", padding: "10px 12px" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -2003,6 +1997,7 @@ export default function PlanOrder() {
                   </div>
                 </div>
               ) : (
+                /* NOT APPROVED: 3 boxes (compact) */
                 <div style={{ marginTop: "10px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0px" }}>
                   {[{ title: "Purchasing," }, { title: "Finance," }, { title: "Approve," }].map((box, i) => (
                     <div key={i} style={{ border: "1px solid #111", padding: "8px 10px", minHeight: "78px" }}>
@@ -2032,7 +2027,7 @@ export default function PlanOrder() {
                 </div>
               </div>
 
-              {/* Printout date + time */}
+              {/* Printout */}
               <div style={{ marginTop: "12px", fontSize: "10px" }}>Printout : {formatDateTimeID(new Date())}</div>
             </div>
           )}
