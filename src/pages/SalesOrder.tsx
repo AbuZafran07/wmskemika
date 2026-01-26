@@ -48,6 +48,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -1050,18 +1051,18 @@ export default function SalesOrder() {
 
               <div className="space-y-2">
                 <Label>Customer *</Label>
-                <Select value={customerId} onValueChange={handleCustomerChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={language === "en" ? "Select customer" : "Pilih customer"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customers.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={customerId}
+                  onValueChange={handleCustomerChange}
+                  options={customers.map((c) => ({
+                    value: c.id,
+                    label: c.name,
+                    description: c.code,
+                  }))}
+                  placeholder={language === "en" ? "Select customer" : "Pilih customer"}
+                  searchPlaceholder={language === "en" ? "Search customer..." : "Cari customer..."}
+                  emptyMessage={language === "en" ? "No customer found" : "Customer tidak ditemukan"}
+                />
               </div>
 
               <div className="space-y-2">
@@ -1186,22 +1187,21 @@ export default function SalesOrder() {
               </CardHeader>
               <CardContent>
                 <div className="flex gap-2 mb-4">
-                  <Select value={selectedProductId} onValueChange={setSelectedProductId}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue
-                        placeholder={language === "en" ? "Select product to add" : "Pilih produk untuk ditambahkan"}
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {products
-                        .filter((p) => p.is_active)
-                        .map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.name} ({p.sku || "-"})
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={selectedProductId}
+                    onValueChange={setSelectedProductId}
+                    options={products
+                      .filter((p) => p.is_active)
+                      .map((p) => ({
+                        value: p.id,
+                        label: `${p.name} (${p.sku || "-"})`,
+                        description: p.category?.name || undefined,
+                      }))}
+                    placeholder={language === "en" ? "Select product to add" : "Pilih produk untuk ditambahkan"}
+                    searchPlaceholder={language === "en" ? "Search product..." : "Cari produk..."}
+                    emptyMessage={language === "en" ? "No product found" : "Produk tidak ditemukan"}
+                    triggerClassName="flex-1"
+                  />
                   <Button onClick={handleAddProduct} disabled={!selectedProductId}>
                     <Plus className="w-4 h-4 mr-2" />
                     {t("common.add")}

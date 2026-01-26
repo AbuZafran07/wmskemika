@@ -50,6 +50,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -851,23 +852,20 @@ export default function PlanOrder() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2 md:col-span-2">
                     <Label>Supplier *</Label>
-                    <Select
+                    <SearchableSelect
                       value={supplierId}
                       onValueChange={(v) => {
                         applySupplierAutofill(v);
                       }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={language === "en" ? "Select supplier" : "Pilih supplier"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {suppliers.map((sup: any) => (
-                          <SelectItem key={sup.id} value={sup.id}>
-                            {sup.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      options={suppliers.map((sup: any) => ({
+                        value: sup.id,
+                        label: sup.name,
+                        description: sup.code,
+                      }))}
+                      placeholder={language === "en" ? "Select supplier" : "Pilih supplier"}
+                      searchPlaceholder={language === "en" ? "Search supplier..." : "Cari supplier..."}
+                      emptyMessage={language === "en" ? "No supplier found" : "Supplier tidak ditemukan"}
+                    />
                     <p className="text-xs text-muted-foreground">
                       {language === "en"
                         ? "Supplier address/PIC/phone/payment term will be pulled from Supplier master data."
@@ -1004,21 +1002,18 @@ export default function PlanOrder() {
                         return (
                           <TableRow key={it.id}>
                             <TableCell>
-                              <Select
+                              <SearchableSelect
                                 value={it.product_id}
                                 onValueChange={(v) => handleItemChange(it.id, "product_id", v)}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder={language === "en" ? "Select product" : "Pilih produk"} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {products.map((pp: any) => (
-                                    <SelectItem key={pp.id} value={pp.id}>
-                                      {pp.name} {pp.sku ? `(${pp.sku})` : ""}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                                options={products.map((pp: any) => ({
+                                  value: pp.id,
+                                  label: `${pp.name}${pp.sku ? ` (${pp.sku})` : ""}`,
+                                  description: pp.category?.name || undefined,
+                                }))}
+                                placeholder={language === "en" ? "Select product" : "Pilih produk"}
+                                searchPlaceholder={language === "en" ? "Search product..." : "Cari produk..."}
+                                emptyMessage={language === "en" ? "No product found" : "Produk tidak ditemukan"}
+                              />
                             </TableCell>
 
                             <TableCell>{p?.sku || "-"}</TableCell>

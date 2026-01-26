@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadFile } from "@/lib/storage";
@@ -404,29 +405,25 @@ export default function StockOut() {
         <CardContent>
           <div className="space-y-2">
             <Label>Sales Order *</Label>
-            <Select value={selectedSalesOrderId} onValueChange={setSelectedSalesOrderId}>
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={
-                    loadingSalesOrders
-                      ? "Loading..."
-                      : language === "en"
-                        ? "-- Select Sales Order --"
-                        : "-- Pilih Sales Order --"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {salesOrders.map((so) => (
-                  <SelectItem key={so.id} value={so.id}>
-                    {so.sales_order_number} - {so.customer?.name}
-                    <Badge variant={so.status === "approved" ? "approved" : "pending"} className="ml-2">
-                      {so.status}
-                    </Badge>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={selectedSalesOrderId}
+              onValueChange={setSelectedSalesOrderId}
+              options={salesOrders.map((so) => ({
+                value: so.id,
+                label: `${so.sales_order_number} - ${so.customer?.name || ""}`,
+                description: so.status,
+              }))}
+              placeholder={
+                loadingSalesOrders
+                  ? "Loading..."
+                  : language === "en"
+                    ? "-- Select Sales Order --"
+                    : "-- Pilih Sales Order --"
+              }
+              searchPlaceholder={language === "en" ? "Search sales order..." : "Cari sales order..."}
+              emptyMessage={language === "en" ? "No sales order found" : "Sales order tidak ditemukan"}
+              disabled={loadingSalesOrders}
+            />
           </div>
         </CardContent>
       </Card>

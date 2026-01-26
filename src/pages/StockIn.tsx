@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadFile } from "@/lib/storage";
@@ -333,29 +334,25 @@ export default function StockIn() {
         <CardContent>
           <div className="space-y-2">
             <Label>Plan Order *</Label>
-            <Select value={selectedPlanOrderId} onValueChange={setSelectedPlanOrderId}>
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={
-                    loadingPlanOrders
-                      ? "Loading..."
-                      : language === "en"
-                        ? "-- Select Plan Order --"
-                        : "-- Silakan pilih Plan Order --"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {planOrders.map((po) => (
-                  <SelectItem key={po.id} value={po.id}>
-                    {po.plan_number} - {po.supplier?.name}
-                    <Badge variant={po.status === "approved" ? "approved" : "pending"} className="ml-2">
-                      {po.status}
-                    </Badge>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={selectedPlanOrderId}
+              onValueChange={setSelectedPlanOrderId}
+              options={planOrders.map((po) => ({
+                value: po.id,
+                label: `${po.plan_number} - ${po.supplier?.name || ""}`,
+                description: po.status,
+              }))}
+              placeholder={
+                loadingPlanOrders
+                  ? "Loading..."
+                  : language === "en"
+                    ? "-- Select Plan Order --"
+                    : "-- Silakan pilih Plan Order --"
+              }
+              searchPlaceholder={language === "en" ? "Search plan order..." : "Cari plan order..."}
+              emptyMessage={language === "en" ? "No plan order found" : "Plan order tidak ditemukan"}
+              disabled={loadingPlanOrders}
+            />
           </div>
         </CardContent>
       </Card>
