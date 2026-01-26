@@ -1946,14 +1946,20 @@ export default function PlanOrder() {
 
               {/* Signature area - conditional based on approval status */}
               {selectedOrder.status === "approved" && selectedOrder.approved_at ? (
-                /* APPROVED: Single long box */
+                /* APPROVED: Single long box with signature image */
                 <div style={{ marginTop: "12px" }}>
-                  <div style={{ border: "1px solid #111", padding: "14px", minHeight: "110px" }}>
-                    <div style={{ fontSize: "18px", fontWeight: 900, color: "#16a34a", marginBottom: "8px" }}>✔ APPROVED</div>
-                    <div style={{ fontSize: "11px", marginBottom: "4px" }}>
+                  <div style={{ border: "1px solid #111", padding: "14px", minHeight: "110px", position: "relative" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "8px" }}>
+                      <img 
+                        src="/approved-signature.png" 
+                        alt="Approved Signature" 
+                        style={{ height: "60px", objectFit: "contain" }}
+                      />
+                    </div>
+                    <div style={{ fontSize: "11px", marginBottom: "4px", textAlign: "center" }}>
                       Approved by : <b>{(selectedOrder as any)?.approver?.full_name || (selectedOrder as any)?.approver?.email || "Admin"}</b>
                     </div>
-                    <div style={{ fontSize: "11px" }}>
+                    <div style={{ fontSize: "11px", textAlign: "center" }}>
                       Approved at : <b>{formatDateID(selectedOrder.approved_at as any)}</b>
                     </div>
                   </div>
