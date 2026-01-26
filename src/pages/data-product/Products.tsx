@@ -35,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -767,51 +768,48 @@ export default function Products() {
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>{language === 'en' ? 'Category' : 'Kategori'} *</Label>
-                <Select
+                <SearchableSelect
                   value={formData.category_id}
                   onValueChange={(value) => setFormData(prev => ({ ...prev, category_id: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={language === 'en' ? 'Select category' : 'Pilih kategori'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={categories.map((cat) => ({
+                    value: cat.id,
+                    label: cat.name,
+                    description: cat.code,
+                  }))}
+                  placeholder={language === 'en' ? 'Select category' : 'Pilih kategori'}
+                  searchPlaceholder={language === 'en' ? 'Search category...' : 'Cari kategori...'}
+                  emptyMessage={language === 'en' ? 'No category found' : 'Kategori tidak ditemukan'}
+                />
               </div>
               <div className="space-y-2">
                 <Label>{language === 'en' ? 'Unit' : 'Satuan'} *</Label>
-                <Select
+                <SearchableSelect
                   value={formData.unit_id}
                   onValueChange={(value) => setFormData(prev => ({ ...prev, unit_id: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={language === 'en' ? 'Select unit' : 'Pilih satuan'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {units.map((unit) => (
-                      <SelectItem key={unit.id} value={unit.id}>{unit.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={units.map((unit) => ({
+                    value: unit.id,
+                    label: unit.name,
+                    description: unit.code,
+                  }))}
+                  placeholder={language === 'en' ? 'Select unit' : 'Pilih satuan'}
+                  searchPlaceholder={language === 'en' ? 'Search unit...' : 'Cari satuan...'}
+                  emptyMessage={language === 'en' ? 'No unit found' : 'Satuan tidak ditemukan'}
+                />
               </div>
               <div className="space-y-2">
                 <Label>{language === 'en' ? 'Default Supplier' : 'Supplier Default'} *</Label>
-                <Select
+                <SearchableSelect
                   value={formData.supplier_id}
                   onValueChange={(value) => setFormData(prev => ({ ...prev, supplier_id: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={language === 'en' ? 'Select supplier' : 'Pilih supplier'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {suppliers.map((sup) => (
-                      <SelectItem key={sup.id} value={sup.id}>{sup.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={suppliers.map((sup) => ({
+                    value: sup.id,
+                    label: sup.name,
+                    description: sup.code,
+                  }))}
+                  placeholder={language === 'en' ? 'Select supplier' : 'Pilih supplier'}
+                  searchPlaceholder={language === 'en' ? 'Search supplier...' : 'Cari supplier...'}
+                  emptyMessage={language === 'en' ? 'No supplier found' : 'Supplier tidak ditemukan'}
+                />
               </div>
             </div>
 
