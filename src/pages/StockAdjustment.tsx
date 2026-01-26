@@ -567,22 +567,19 @@ export default function StockAdjustment() {
                               />
                             </TableCell>
                             <TableCell>
-                              <Select 
-                                value={item.batch_id} 
+                              <SearchableSelect
+                                value={item.batch_id}
                                 onValueChange={(value) => handleItemChange(item.id, 'batch_id', value)}
                                 disabled={!item.product_id}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select batch" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {productBatches.map((b) => (
-                                    <SelectItem key={b.id} value={b.id}>
-                                      {b.batch_no} (Qty: {b.qty_on_hand})
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                                options={productBatches.map((b) => ({
+                                  value: b.id,
+                                  label: b.batch_no,
+                                  description: `Qty: ${b.qty_on_hand}${b.expired_date ? ` | Exp: ${formatDate(b.expired_date)}` : ''}`,
+                                }))}
+                                placeholder={language === 'en' ? 'Select batch' : 'Pilih batch'}
+                                searchPlaceholder={language === 'en' ? 'Search batch...' : 'Cari batch...'}
+                                emptyMessage={language === 'en' ? 'No batch found' : 'Batch tidak ditemukan'}
+                              />
                             </TableCell>
                             <TableCell className="text-center">
                               {selectedBatch ? selectedBatch.qty_on_hand : '-'}
