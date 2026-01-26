@@ -1931,7 +1931,10 @@ export default function SalesOrder() {
                   <div style={{ border: "1px solid #111", padding: "14px", minHeight: "110px", position: "relative" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "12px" }}>
                       <img 
-                        src="/approved-signature.png" 
+                        src={((selectedOrder as any)?.approver?.full_name || "").toLowerCase().includes("ferry") 
+                          ? "/signature-ferry.png" 
+                          : "/approved-signature.png"
+                        } 
                         alt="Approved Signature" 
                         style={{ height: "100px", objectFit: "contain" }}
                       />
