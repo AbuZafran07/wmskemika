@@ -1876,7 +1876,12 @@ export default function SalesOrder() {
               {/* Top: Logo + Right Title block */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div>
-                  <img src="/logo-kemika.png" alt="Kemika" style={{ height: "42px", objectFit: "contain" }} />
+                  <img 
+                    src={`${window.location.origin}/logo-kemika.png`} 
+                    crossOrigin="anonymous"
+                    alt="Kemika" 
+                    style={{ height: "42px", objectFit: "contain" }} 
+                  />
                 </div>
 
                 <div style={{ textAlign: "right", minWidth: "300px" }}>
@@ -2093,87 +2098,82 @@ export default function SalesOrder() {
                 </div>
               </div>
 
-              {/* Sign boxes - conditional based on approval status */}
-              {selectedOrder.status === "approved" && selectedOrder.approved_at ? (
-                /* APPROVED: Single long box with signature image */
-                <div style={{ marginTop: "16px" }}>
-                  <div style={{ border: "1px solid #111", padding: "14px", minHeight: "110px", position: "relative" }}>
-                    {/* Signature Image */}
-                    {(() => {
-                      const approver = (selectedOrder as any)?.approver;
-                      const signatureUrl = approver?.signature_url;
-                      const approverName = approver?.full_name || "";
+              {/* Signature area: Always 3 columns (Sales, Finance, Approve) */}
+              <div style={{ marginTop: "16px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0px" }}>
+                {/* Sales - show logged-in user name if they created the order */}
+                <div style={{ border: "1px solid #111", padding: "10px", minHeight: "100px" }}>
+                  <div style={{ fontSize: "10px", marginBottom: "6px" }}>Date:</div>
+                  <div style={{ fontSize: "10px", marginBottom: "40px" }}>Sales,</div>
+                  <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                  <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
+                    {(selectedOrder as any)?.creator?.full_name || user?.name || "(.................................)"}
+                  </div>
+                </div>
 
-                      // Fallback to legacy signatures if no database signature
-                      const fallbackSignature = approverName.toLowerCase().includes("ferry")
-                        ? "/signature-ferry.png"
-                        : "/approved-signature.png";
+                {/* Finance */}
+                <div style={{ border: "1px solid #111", borderLeft: "0px", padding: "10px", minHeight: "100px" }}>
+                  <div style={{ fontSize: "10px", marginBottom: "6px" }}>Date:</div>
+                  <div style={{ fontSize: "10px", marginBottom: "40px" }}>Finance,</div>
+                  <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                  <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
+                    (.................................)
+                  </div>
+                </div>
 
-                      return (
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            marginBottom: "12px",
-                          }}
-                        >
-                          <img
-                            src={signatureUrl || fallbackSignature}
-                            crossOrigin="anonymous"
-                            alt="Approved Signature"
-                            style={{ height: "100px", objectFit: "contain" }}
-                          />
-                        </div>
-                      );
-                    })()}
-                    <div style={{ fontSize: "11px", marginBottom: "4px", textAlign: "center" }}>
-                      Approved by :{" "}
-                      <b>
+                {/* Approve - show signature and name if approved */}
+                <div style={{ border: "1px solid #111", borderLeft: "0px", padding: "10px", minHeight: "100px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div style={{ fontSize: "10px" }}>Date:</div>
+                    {selectedOrder.status === "approved" && selectedOrder.approved_at && (
+                      <div style={{ fontSize: "9px", color: "#16a34a", fontWeight: 700 }}>
+                        {formatDateID(selectedOrder.approved_at)}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: "10px", marginBottom: "4px" }}>Approve,</div>
+                  
+                  {selectedOrder.status === "approved" && selectedOrder.approved_at ? (
+                    <>
+                      {/* Signature Image */}
+                      {(() => {
+                        const approver = (selectedOrder as any)?.approver;
+                        const signatureUrl = approver?.signature_url;
+                        const approverName = approver?.full_name || "";
+
+                        // Fallback to legacy signatures if no database signature
+                        const fallbackSignature = approverName.toLowerCase().includes("ferry")
+                          ? `${window.location.origin}/signature-ferry.png`
+                          : `${window.location.origin}/approved-signature.png`;
+
+                        return (
+                          <div style={{ textAlign: "center", marginBottom: "4px" }}>
+                            <img
+                              src={signatureUrl || fallbackSignature}
+                              crossOrigin="anonymous"
+                              alt="Approved Signature"
+                              style={{ height: "40px", objectFit: "contain", margin: "0 auto" }}
+                            />
+                          </div>
+                        );
+                      })()}
+                      <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                      <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center", fontWeight: 700 }}>
                         {(selectedOrder as any)?.approver?.full_name ||
                           (selectedOrder as any)?.approver?.email ||
-                          "Admin"}
-                      </b>
-                    </div>
-                    <div style={{ fontSize: "11px", textAlign: "center" }}>
-                      Approved at : <b>{formatDateID(selectedOrder.approved_at)}</b>
-                    </div>
-                  </div>
+                          "Approved"}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ height: "36px" }} />
+                      <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                      <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
+                        (.................................)
+                      </div>
+                    </>
+                  )}
                 </div>
-              ) : (
-                /* NOT APPROVED: Three signature boxes (Purchasing, Finance, Approve) */
-                <div style={{ marginTop: "16px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0px" }}>
-                  {/* Purchasing */}
-                  <div style={{ border: "1px solid #111", padding: "10px", minHeight: "120px" }}>
-                    <div style={{ fontSize: "10px", marginBottom: "14px" }}>Date:</div>
-                    <div style={{ fontSize: "10px", marginBottom: "70px" }}>Sales,</div>
-                    <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                    <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
-                      (.................................)
-                    </div>
-                  </div>
-
-                  {/* Finance */}
-                  <div style={{ border: "1px solid #111", padding: "10px", minHeight: "120px" }}>
-                    <div style={{ fontSize: "10px", marginBottom: "14px" }}>Date:</div>
-                    <div style={{ fontSize: "10px", marginBottom: "70px" }}>Finance/Purchasing,</div>
-                    <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                    <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
-                      (.................................)
-                    </div>
-                  </div>
-
-                  {/* Approve */}
-                  <div style={{ border: "1px solid #111", padding: "10px", minHeight: "120px" }}>
-                    <div style={{ fontSize: "10px", marginBottom: "14px" }}>Date:</div>
-                    <div style={{ fontSize: "10px", marginBottom: "70px" }}>Approve,</div>
-                    <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                    <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
-                      (.................................)
-                    </div>
-                  </div>
-                </div>
-              )}
+              </div>
 
               <div style={{ marginTop: "10px", fontSize: "9px", color: "#333" }}>
                 Print: {formatDateTimeID(new Date())}
