@@ -26,6 +26,7 @@ import jsPDF from "jspdf";
 
 import { securePrint, printStyles, sanitizeHtml } from "@/lib/printUtils";
 import { usePermissions } from "@/hooks/usePermissions";
+import { PdfGeneratingOverlay } from "@/components/PdfGeneratingOverlay";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -785,6 +786,7 @@ export default function PlanOrder() {
 
   // ===== Save as PDF (langsung download tanpa print dialog) =====
   const [isSavingPdf, setIsSavingPdf] = useState(false);
+  const [pdfProgress, setPdfProgress] = useState(0);
 
   const handleSaveAsPDF = async () => {
     if (!selectedOrder) {
@@ -797,30 +799,47 @@ export default function PlanOrder() {
     }
 
     setIsSavingPdf(true);
+    setPdfProgress(0);
+    
     try {
       const element = printRef.current;
       
+      // Step 1: Capturing content (0-30%)
+      setPdfProgress(10);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      setPdfProgress(20);
+      
       // Gunakan html2canvas untuk merender elemen ke canvas
       const canvas = await html2canvas(element, {
-        scale: 2, // Tingkatkan kualitas
+        scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: "#ffffff",
+        onclone: () => {
+          setPdfProgress(30);
+        }
       });
 
-      // Buat PDF dengan jsPDF
+      // Step 2: Generating PDF (30-70%)
+      setPdfProgress(50);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       const pdf = new jsPDF("p", "mm", "a4");
       const imgData = canvas.toDataURL("image/png");
       
-      const imgWidth = 190; // A4 width minus margins
-      const pageHeight = 297; // A4 height in mm
+      setPdfProgress(60);
+      
+      const imgWidth = 190;
+      const pageHeight = 297;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
       
       let heightLeft = imgHeight;
-      let position = 10; // Top margin
+      let position = 10;
 
       pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
-      heightLeft -= (pageHeight - 20); // Subtract margins
+      heightLeft -= (pageHeight - 20);
+
+      setPdfProgress(70);
 
       // Handle multi-page content
       while (heightLeft > 0) {
@@ -830,16 +849,27 @@ export default function PlanOrder() {
         heightLeft -= (pageHeight - 20);
       }
 
+      // Step 3: Finalizing (70-100%)
+      setPdfProgress(85);
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       // Sanitize filename
       const filename = `PurchaseOrder_${selectedOrder.plan_number.replace(/[^a-zA-Z0-9.-]/g, "_")}.pdf`;
+      
+      setPdfProgress(95);
       pdf.save(filename);
+      
+      setPdfProgress(100);
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       toast.success(language === "en" ? "PDF saved successfully" : "PDF berhasil disimpan");
     } catch (err) {
       console.error("Save PDF error:", err);
       toast.error(language === "en" ? "Failed to save PDF" : "Gagal menyimpan PDF");
     }
+    
     setIsSavingPdf(false);
+    setPdfProgress(0);
   };
 
   // ===== INIT: when open create form generate number =====
@@ -2233,6 +2263,13 @@ export default function PlanOrder() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* PDF Generating Overlay */}
+      <PdfGeneratingOverlay 
+        isVisible={isSavingPdf} 
+        progress={pdfProgress} 
+        language={language as "en" | "id"} 
+      />
     </div>
   );
 }
