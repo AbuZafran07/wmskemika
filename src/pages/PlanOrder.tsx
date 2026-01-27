@@ -808,40 +808,69 @@ export default function PlanOrder() {
     try {
       const element = printRef.current;
       
-      // Step 1: Capturing content (0-30%)
+      // Step 1: Prepare element for capture
       setPdfProgress(10);
       
-      // Wait for element to be fully rendered
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Clone and make visible for capture (hidden elements have zero dimensions)
+      const clone = element.cloneNode(true) as HTMLElement;
+      clone.style.position = "absolute";
+      clone.style.left = "-9999px";
+      clone.style.top = "0";
+      clone.style.width = "210mm"; // A4 width
+      clone.style.minHeight = "297mm"; // A4 height
+      clone.style.backgroundColor = "#ffffff";
+      clone.style.padding = "10mm";
+      clone.style.boxSizing = "border-box";
+      document.body.appendChild(clone);
+      
+      // Wait for clone to be rendered
+      await new Promise(resolve => setTimeout(resolve, 300));
       setPdfProgress(20);
       
+      // Ensure images are loaded
+      const images = clone.querySelectorAll("img");
+      await Promise.all(
+        Array.from(images).map((img) => {
+          return new Promise((resolve) => {
+            if (img.complete) {
+              resolve(null);
+            } else {
+              img.onload = () => resolve(null);
+              img.onerror = () => resolve(null);
+            }
+          });
+        })
+      );
+      
+      setPdfProgress(30);
+      
       // Capture canvas with html2canvas
-      const canvas = await html2canvas(element, {
+      const canvas = await html2canvas(clone, {
         scale: 2,
         useCORS: true,
         allowTaint: false,
         logging: false,
         backgroundColor: "#ffffff",
         imageTimeout: 15000,
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight,
         onclone: (clonedDoc) => {
-          // Set crossorigin for all images to prevent tainted canvas
           clonedDoc.querySelectorAll("img").forEach((img) => {
             img.setAttribute("crossorigin", "anonymous");
           });
         },
       });
+      
+      // Remove clone after capture
+      document.body.removeChild(clone);
 
-      setPdfProgress(40);
+      setPdfProgress(50);
 
       // Validate canvas dimensions
       if (!canvas || canvas.width === 0 || canvas.height === 0) {
         throw new Error("Canvas capture failed - invalid dimensions");
       }
 
-      // Step 2: Generating PDF (40-70%)
-      setPdfProgress(50);
+      // Step 2: Generating PDF (50-80%)
+      setPdfProgress(60);
       
       const pdf = new jsPDF({
         orientation: "portrait",
@@ -856,7 +885,7 @@ export default function PlanOrder() {
         throw new Error("Failed to generate image data from canvas");
       }
       
-      setPdfProgress(60);
+      setPdfProgress(70);
       
       // A4 dimensions in mm
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -881,19 +910,18 @@ export default function PlanOrder() {
       pdf.addImage(imgData, "JPEG", margin, yPosition, contentWidth, imgHeight);
       remainingHeight -= contentHeight;
 
-      setPdfProgress(70);
+      setPdfProgress(80);
 
       // Handle multi-page content
       while (remainingHeight > 0) {
         pdf.addPage();
-        // Position image so the next portion shows at the top
         yPosition = margin - (imgHeight - remainingHeight);
         pdf.addImage(imgData, "JPEG", margin, yPosition, contentWidth, imgHeight);
         remainingHeight -= contentHeight;
       }
 
-      // Step 3: Finalizing (70-100%)
-      setPdfProgress(85);
+      // Step 3: Finalizing (80-100%)
+      setPdfProgress(90);
 
       // Sanitize filename
       const filename = `PurchaseOrder_${selectedOrder.plan_number.replace(/[^a-zA-Z0-9.-]/g, "_")}.pdf`;
@@ -1657,10 +1685,10 @@ export default function PlanOrder() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleDownloadPDF}
-                  disabled={itemsLoading || isDownloadingPdf}
+                  onClick={handleSaveAsPDF}
+                  disabled={itemsLoading || isSavingPdf}
                 >
-                  {isDownloadingPdf ? (
+                  {isSavingPdf ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   ) : (
                     <Download className="w-4 h-4 mr-2" />
