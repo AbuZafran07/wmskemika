@@ -1969,9 +1969,31 @@ export default function PlanOrder() {
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                       <div style={{ fontSize: "14px", fontWeight: 900, color: "#16a34a" }}>✔ APPROVED</div>
                       <div style={{ fontSize: "10px", color: "#333" }}>
-                        {formatDateTimeFromStrID(selectedOrder.approved_at as any)}
+                        {formatDateTimeID(new Date(selectedOrder.approved_at as string))}
                       </div>
                     </div>
+
+                    {/* Signature Image */}
+                    {(() => {
+                      const approver = (selectedOrder as any)?.approver;
+                      const signatureUrl = approver?.signature_url;
+                      const approverName = approver?.full_name || "";
+                      
+                      // Fallback to legacy signatures if no database signature
+                      const fallbackSignature = approverName.toLowerCase().includes("ferry")
+                        ? "/signature-ferry.png"
+                        : "/approved-signature.png";
+                      
+                      return (
+                        <div style={{ marginTop: "8px", textAlign: "center" }}>
+                          <img 
+                            src={signatureUrl || fallbackSignature}
+                            alt="Approved Signature" 
+                            style={{ height: "100px", objectFit: "contain", margin: "0 auto" }}
+                          />
+                        </div>
+                      );
+                    })()}
 
                     <div style={{ marginTop: "8px", textAlign: "center" }}>
                       <div style={{ fontSize: "20px", fontWeight: 800, color: "#1e40af", lineHeight: "22px" }}>
@@ -1991,7 +2013,7 @@ export default function PlanOrder() {
                         </b>
                       </div>
                       <div>
-                        Approved at : <b>{formatDateTimeFromStrID(selectedOrder.approved_at as any)}</b>
+                        Approved at : <b>{formatDateTimeID(new Date(selectedOrder.approved_at as string))}</b>
                       </div>
                     </div>
                   </div>
