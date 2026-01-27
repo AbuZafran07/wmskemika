@@ -41,7 +41,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -151,7 +158,7 @@ export default function SalesOrder() {
   const { customers } = useCustomers();
   const { products } = useProducts();
   const { allowAdminApprove } = useSettings();
-  
+
   // RBAC Permissions
   const { canCreate, canEdit, canDelete, canCancel, canApproveOrder } = usePermissions();
 
@@ -220,7 +227,7 @@ export default function SalesOrder() {
   const [paymentTerms, setPaymentTerms] = useState("");
 
   // Use RBAC hook for approve permission
-  const canApprove = canApproveOrder('sales_order');
+  const canApprove = canApproveOrder("sales_order");
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(
@@ -771,9 +778,9 @@ export default function SalesOrder() {
       content: printRef.current.innerHTML,
     });
     toast.info(
-      language === "en" 
-        ? "Use 'Save as PDF' in print dialog to download (enable Background graphics to keep the green header)" 
-        : "Gunakan 'Simpan sebagai PDF' di dialog cetak untuk mengunduh (aktifkan Background graphics agar header hijau ikut tercetak)"
+      language === "en"
+        ? "Use 'Save as PDF' in print dialog to download (enable Background graphics to keep the green header)"
+        : "Gunakan 'Simpan sebagai PDF' di dialog cetak untuk mengunduh (aktifkan Background graphics agar header hijau ikut tercetak)",
     );
   };
 
@@ -793,13 +800,13 @@ export default function SalesOrder() {
 
     setIsSavingPdf(true);
     setPdfProgress(0);
-    
+
     try {
       const element = printRef.current;
-      
+
       // Step 1: Prepare element for capture
       setPdfProgress(10);
-      
+
       // Clone and make visible for capture (hidden elements have zero dimensions)
       const clone = element.cloneNode(true) as HTMLElement;
       clone.style.position = "absolute";
@@ -811,11 +818,11 @@ export default function SalesOrder() {
       clone.style.padding = "10mm";
       clone.style.boxSizing = "border-box";
       document.body.appendChild(clone);
-      
+
       // Wait for clone to be rendered
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise((resolve) => setTimeout(resolve, 300));
       setPdfProgress(20);
-      
+
       // Ensure images are loaded
       const images = clone.querySelectorAll("img");
       await Promise.all(
@@ -828,11 +835,11 @@ export default function SalesOrder() {
               img.onerror = () => resolve(null);
             }
           });
-        })
+        }),
       );
-      
+
       setPdfProgress(30);
-      
+
       // Capture canvas with html2canvas
       const canvas = await html2canvas(clone, {
         scale: 2,
@@ -847,7 +854,7 @@ export default function SalesOrder() {
           });
         },
       });
-      
+
       // Remove clone after capture
       document.body.removeChild(clone);
 
@@ -860,7 +867,7 @@ export default function SalesOrder() {
 
       // Step 2: Generating PDF (50-80%)
       setPdfProgress(60);
-      
+
       const pdf = new jsPDF({
         orientation: "portrait",
         unit: "mm",
@@ -869,29 +876,29 @@ export default function SalesOrder() {
 
       // Get image data as JPEG for better compatibility
       const imgData = canvas.toDataURL("image/jpeg", 0.92);
-      
+
       if (!imgData || imgData === "data:,") {
         throw new Error("Failed to generate image data from canvas");
       }
-      
+
       setPdfProgress(70);
-      
+
       // A4 dimensions in mm
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       const margin = 10;
-      const contentWidth = pdfWidth - (margin * 2);
-      
+      const contentWidth = pdfWidth - margin * 2;
+
       // Calculate image height maintaining aspect ratio
       const aspectRatio = canvas.height / canvas.width;
       const imgHeight = contentWidth * aspectRatio;
-      
+
       // Validate calculated dimensions
       if (!Number.isFinite(imgHeight) || imgHeight <= 0) {
         throw new Error("Invalid image dimensions calculated");
       }
 
-      const contentHeight = pdfHeight - (margin * 2);
+      const contentHeight = pdfHeight - margin * 2;
       let yPosition = margin;
       let remainingHeight = imgHeight;
 
@@ -914,24 +921,20 @@ export default function SalesOrder() {
 
       // Sanitize filename
       const filename = `SalesOrder_${selectedOrder.sales_order_number.replace(/[^a-zA-Z0-9.-]/g, "_")}.pdf`;
-      
+
       setPdfProgress(95);
       pdf.save(filename);
-      
+
       setPdfProgress(100);
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
       toast.success(language === "en" ? "PDF saved successfully" : "PDF berhasil disimpan");
     } catch (err) {
       console.error("Save PDF error:", err);
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      toast.error(
-        language === "en" 
-          ? `Failed to save PDF: ${errorMessage}` 
-          : `Gagal menyimpan PDF: ${errorMessage}`
-      );
+      toast.error(language === "en" ? `Failed to save PDF: ${errorMessage}` : `Gagal menyimpan PDF: ${errorMessage}`);
     }
-    
+
     setIsSavingPdf(false);
     setPdfProgress(0);
   };
@@ -955,7 +958,7 @@ export default function SalesOrder() {
             {t("menu.salesOrderSub")} - {language === "en" ? "Manage customer orders" : "Kelola pesanan customer"}
           </p>
         </div>
-        {canCreate('sales_order') && (
+        {canCreate("sales_order") && (
           <Button onClick={handleOpenDialog}>
             <Plus className="w-4 h-4 mr-2" />
             {language === "en" ? "Create Sales Order" : "Buat Sales Order"}
@@ -1075,9 +1078,10 @@ export default function SalesOrder() {
                     const status = statusConfig[order.status] || statusConfig.draft;
                     // RBAC: Check permissions AND status
                     const showApprove = order.status === "draft" && canApprove;
-                    const showCancel = (order.status === "draft" || order.status === "approved") && canCancel('sales_order');
-                    const showEdit = order.status === "draft" && canEdit('sales_order');
-                    const showDelete = order.status === "draft" && canDelete('sales_order');
+                    const showCancel =
+                      (order.status === "draft" || order.status === "approved") && canCancel("sales_order");
+                    const showEdit = order.status === "draft" && canEdit("sales_order");
+                    const showDelete = order.status === "draft" && canDelete("sales_order");
 
                     return (
                       <TableRow key={order.id}>
@@ -1670,12 +1674,7 @@ export default function SalesOrder() {
                   <Eye className="w-4 h-4 mr-2" />
                   {language === "en" ? "Preview" : "Preview"}
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSaveAsPDF}
-                  disabled={itemsLoading || isSavingPdf}
-                >
+                <Button variant="outline" size="sm" onClick={handleSaveAsPDF} disabled={itemsLoading || isSavingPdf}>
                   {isSavingPdf ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   ) : (
@@ -1691,7 +1690,7 @@ export default function SalesOrder() {
                     securePrint({
                       title: `Sales Order - ${selectedOrder.sales_order_number}`,
                       styles: printStyles.salesOrder,
-                      content: printRef.current.innerHTML
+                      content: printRef.current.innerHTML,
                     });
                   }}
                   disabled={itemsLoading}
@@ -2104,25 +2103,37 @@ export default function SalesOrder() {
                       const approver = (selectedOrder as any)?.approver;
                       const signatureUrl = approver?.signature_url;
                       const approverName = approver?.full_name || "";
-                      
+
                       // Fallback to legacy signatures if no database signature
                       const fallbackSignature = approverName.toLowerCase().includes("ferry")
                         ? "/signature-ferry.png"
                         : "/approved-signature.png";
-                      
+
                       return (
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "12px" }}>
-                          <img 
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            marginBottom: "12px",
+                          }}
+                        >
+                          <img
                             src={signatureUrl || fallbackSignature}
                             crossOrigin="anonymous"
-                            alt="Approved Signature" 
+                            alt="Approved Signature"
                             style={{ height: "100px", objectFit: "contain" }}
                           />
                         </div>
                       );
                     })()}
                     <div style={{ fontSize: "11px", marginBottom: "4px", textAlign: "center" }}>
-                      Approved by : <b>{(selectedOrder as any)?.approver?.full_name || (selectedOrder as any)?.approver?.email || "Admin"}</b>
+                      Approved by :{" "}
+                      <b>
+                        {(selectedOrder as any)?.approver?.full_name ||
+                          (selectedOrder as any)?.approver?.email ||
+                          "Admin"}
+                      </b>
                     </div>
                     <div style={{ fontSize: "11px", textAlign: "center" }}>
                       Approved at : <b>{formatDateID(selectedOrder.approved_at)}</b>
@@ -2135,7 +2146,7 @@ export default function SalesOrder() {
                   {/* Purchasing */}
                   <div style={{ border: "1px solid #111", padding: "10px", minHeight: "120px" }}>
                     <div style={{ fontSize: "10px", marginBottom: "14px" }}>Date:</div>
-                    <div style={{ fontSize: "10px", marginBottom: "70px" }}>Purchasing,</div>
+                    <div style={{ fontSize: "10px", marginBottom: "70px" }}>Sales,</div>
                     <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
                     <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
                       (.................................)
@@ -2145,7 +2156,7 @@ export default function SalesOrder() {
                   {/* Finance */}
                   <div style={{ border: "1px solid #111", padding: "10px", minHeight: "120px" }}>
                     <div style={{ fontSize: "10px", marginBottom: "14px" }}>Date:</div>
-                    <div style={{ fontSize: "10px", marginBottom: "70px" }}>Finance,</div>
+                    <div style={{ fontSize: "10px", marginBottom: "70px" }}>Finance/Purchasing,</div>
                     <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
                     <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
                       (.................................)
@@ -2178,23 +2189,27 @@ export default function SalesOrder() {
           <DialogHeader>
             <DialogTitle>{language === "en" ? "PDF Preview" : "Preview PDF"}</DialogTitle>
             <DialogDescription>
-              {language === "en" 
-                ? "Preview your document before printing or saving as PDF" 
+              {language === "en"
+                ? "Preview your document before printing or saving as PDF"
                 : "Lihat dokumen sebelum mencetak atau menyimpan sebagai PDF"}
             </DialogDescription>
           </DialogHeader>
 
           {/* Preview dengan style yang sama seperti print */}
           <div className="bg-white p-4 rounded border overflow-x-auto">
-            <style dangerouslySetInnerHTML={{ __html: `
+            <style
+              dangerouslySetInnerHTML={{
+                __html: `
               .pdf-preview-content th[style*="background"] {
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
               }
-            `}} />
-            <div 
+            `,
+              }}
+            />
+            <div
               className="pdf-preview-content"
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(printRef.current?.innerHTML || "") }} 
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(printRef.current?.innerHTML || "") }}
             />
           </div>
 
@@ -2204,11 +2219,7 @@ export default function SalesOrder() {
             </Button>
             {/* Tombol Save as PDF - langsung download tanpa dialog print */}
             <Button variant="success" onClick={handleSaveAsPDF} disabled={isSavingPdf}>
-              {isSavingPdf ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <FileDown className="w-4 h-4 mr-2" />
-              )}
+              {isSavingPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileDown className="w-4 h-4 mr-2" />}
               {language === "en" ? "Save as PDF" : "Simpan PDF"}
             </Button>
             <Button variant="outline" onClick={handleDownloadPDF}>
@@ -2221,7 +2232,7 @@ export default function SalesOrder() {
                 securePrint({
                   title: `Sales Order - ${selectedOrder.sales_order_number}`,
                   styles: printStyles.salesOrder,
-                  content: printRef.current.innerHTML
+                  content: printRef.current.innerHTML,
                 });
               }}
             >
@@ -2275,11 +2286,7 @@ export default function SalesOrder() {
       </Dialog>
 
       {/* PDF Generating Overlay */}
-      <PdfGeneratingOverlay 
-        isVisible={isSavingPdf} 
-        progress={pdfProgress} 
-        language={language as "en" | "id"} 
-      />
+      <PdfGeneratingOverlay isVisible={isSavingPdf} progress={pdfProgress} language={language as "en" | "id"} />
     </div>
   );
 }
