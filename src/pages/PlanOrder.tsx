@@ -20,9 +20,7 @@ import {
   FileText,
 } from "lucide-react";
 
-import DOMPurify from "dompurify";
-
-import { securePrint, printStyles } from "@/lib/printUtils";
+import { securePrint, printStyles, sanitizeHtml } from "@/lib/printUtils";
 import { usePermissions } from "@/hooks/usePermissions";
 
 import { Button } from "@/components/ui/button";
@@ -2064,7 +2062,7 @@ export default function PlanOrder() {
           </DialogHeader>
 
           <div className="bg-white p-4 rounded border">
-            <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(printRef.current?.innerHTML || "") }} />
+            <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(printRef.current?.innerHTML || "") }} />
           </div>
 
           <DialogFooter className="gap-2">
