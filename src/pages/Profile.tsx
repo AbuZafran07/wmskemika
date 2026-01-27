@@ -166,18 +166,77 @@ export default function Profile() {
     }
   };
 
+  // Validate signature image dimensions
+  const validateSignatureDimensions = (file: File): Promise<{ valid: boolean; error?: string; width?: number; height?: number }> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(img.src);
+        
+        const minWidth = 200;
+        const minHeight = 80;
+        const maxWidth = 1000;
+        const maxHeight = 500;
+        
+        if (img.width < minWidth || img.height < minHeight) {
+          resolve({
+            valid: false,
+            error: language === 'en'
+              ? `Signature must be at least ${minWidth}x${minHeight} pixels. Your image is ${img.width}x${img.height}px.`
+              : `Tanda tangan minimal ${minWidth}x${minHeight} piksel. Gambar Anda ${img.width}x${img.height}px.`,
+            width: img.width,
+            height: img.height
+          });
+          return;
+        }
+        
+        if (img.width > maxWidth || img.height > maxHeight) {
+          resolve({
+            valid: false,
+            error: language === 'en'
+              ? `Signature must be at most ${maxWidth}x${maxHeight} pixels. Your image is ${img.width}x${img.height}px.`
+              : `Tanda tangan maksimal ${maxWidth}x${maxHeight} piksel. Gambar Anda ${img.width}x${img.height}px.`,
+            width: img.width,
+            height: img.height
+          });
+          return;
+        }
+        
+        resolve({ valid: true, width: img.width, height: img.height });
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(img.src);
+        resolve({
+          valid: false,
+          error: language === 'en' ? 'Failed to load image' : 'Gagal memuat gambar'
+        });
+      };
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
   const handleSignatureSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !user?.id) return;
 
-    // Validate file
+    // Validate file type and size
     const validation = validateImageFile(file, language as 'en' | 'id');
     if (!validation.valid) {
       toast.error(validation.error);
+      event.target.value = '';
       return;
     }
 
+    // Validate dimensions
     setIsUploadingSignature(true);
+    const dimensionValidation = await validateSignatureDimensions(file);
+    if (!dimensionValidation.valid) {
+      toast.error(dimensionValidation.error);
+      setIsUploadingSignature(false);
+      event.target.value = '';
+      return;
+    }
+
     try {
       const fileName = `${user.id}/signature.png`;
 
@@ -216,8 +275,8 @@ export default function Profile() {
 
       toast.success(
         language === 'en' 
-          ? 'Signature uploaded successfully' 
-          : 'Tanda tangan berhasil diunggah'
+          ? `Signature uploaded (${dimensionValidation.width}x${dimensionValidation.height}px)` 
+          : `Tanda tangan berhasil diunggah (${dimensionValidation.width}x${dimensionValidation.height}px)`
       );
     } catch (error) {
       console.error('Error uploading signature:', error);
@@ -591,7 +650,9 @@ export default function Profile() {
                     : 'Klik untuk mengunggah tanda tangan Anda'}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  PNG, JPG, WebP (max 5MB)
+                  {language === 'en'
+                    ? 'PNG, JPG, WebP • Max 5MB • 200-1000px width, 80-500px height'
+                    : 'PNG, JPG, WebP • Maks 5MB • Lebar 200-1000px, tinggi 80-500px'}
                 </p>
               </div>
             </div>
