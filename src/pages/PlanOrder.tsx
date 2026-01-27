@@ -1933,7 +1933,12 @@ export default function PlanOrder() {
               {/* Header: logo left, title + numbers right */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div>
-                  <img src="/logo-kemika.png" alt="Kemika" style={{ height: "40px", objectFit: "contain" }} />
+                  <img 
+                    src={`${window.location.origin}/logo-kemika.png`} 
+                    crossOrigin="anonymous"
+                    alt="Kemika" 
+                    style={{ height: "40px", objectFit: "contain" }} 
+                  />
                 </div>
 
                 <div style={{ textAlign: "right", minWidth: "320px" }}>
@@ -2027,7 +2032,7 @@ export default function PlanOrder() {
 
               {/* Items table */}
               <div style={{ marginTop: "10px" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #111" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #111" }}>
                   <thead>
                     {/* ✅ BLOK HIJAU KEMIKA */}
                     <tr style={{ background: "#0B6B3A", color: "white" }}>
@@ -2038,7 +2043,7 @@ export default function PlanOrder() {
                             // Force background on cell level for print reliability
                             background: "#0B6B3A",
                             color: "white",
-                            border: "2px solid #111",
+                            border: "1px solid #111",
                             padding: "9px 10px",
                             fontSize: "11px",
                             fontWeight: 800,
@@ -2065,20 +2070,20 @@ export default function PlanOrder() {
 
                       return (
                         <tr key={it.id}>
-                          <td style={{ border: "2px solid #111", padding: "8px 10px", textAlign: "center" }}>
+                          <td style={{ border: "1px solid #111", padding: "8px 10px", textAlign: "center" }}>
                             {idx + 1}
                           </td>
-                          <td style={{ border: "2px solid #111", padding: "8px 10px" }}>{it.product?.sku || "-"}</td>
-                          <td style={{ border: "2px solid #111", padding: "8px 10px" }}>{it.product?.name || "-"}</td>
-                          <td style={{ border: "2px solid #111", padding: "8px 10px", textAlign: "center" }}>{qty}</td>
-                          <td style={{ border: "2px solid #111", padding: "8px 10px" }}>
+                          <td style={{ border: "1px solid #111", padding: "8px 10px" }}>{it.product?.sku || "-"}</td>
+                          <td style={{ border: "1px solid #111", padding: "8px 10px" }}>{it.product?.name || "-"}</td>
+                          <td style={{ border: "1px solid #111", padding: "8px 10px", textAlign: "center" }}>{qty}</td>
+                          <td style={{ border: "1px solid #111", padding: "8px 10px" }}>
                             {it.product?.unit?.name || "-"}
                           </td>
-                          <td style={{ border: "2px solid #111", padding: "8px 10px", textAlign: "right" }}>
+                          <td style={{ border: "1px solid #111", padding: "8px 10px", textAlign: "right" }}>
                             {formatCurrency(price)}
                           </td>
-                          <td style={{ border: "2px solid #111", padding: "8px 10px", textAlign: "right" }}>0%</td>
-                          <td style={{ border: "2px solid #111", padding: "8px 10px", textAlign: "right" }}>
+                          <td style={{ border: "1px solid #111", padding: "8px 10px", textAlign: "right" }}>0%</td>
+                          <td style={{ border: "1px solid #111", padding: "8px 10px", textAlign: "right" }}>
                             {formatCurrency(amount)}
                           </td>
                         </tr>
@@ -2142,78 +2147,82 @@ export default function PlanOrder() {
               </div>
 
               {/* Signature area */}
-              {selectedOrder.status === "approved" && selectedOrder.approved_at ? (
-                /* APPROVED: single box */
-                <div style={{ marginTop: "10px" }}>
-                  <div style={{ border: "1px solid #111", padding: "10px 12px" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <div style={{ fontSize: "14px", fontWeight: 900, color: "#16a34a" }}>✔ APPROVED</div>
-                      <div style={{ fontSize: "10px", color: "#333" }}>
+              {/* Signature area: Always 3 columns (Purchasing, Finance, Approve) */}
+              <div style={{ marginTop: "10px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0px" }}>
+                {/* Purchasing - show logged-in user name if they created the order */}
+                <div style={{ border: "1px solid #111", padding: "8px 10px", minHeight: "100px" }}>
+                  <div style={{ fontSize: "10px", marginBottom: "6px" }}>Date:</div>
+                  <div style={{ fontSize: "10px", marginBottom: "40px" }}>Purchasing,</div>
+                  <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                  <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center" }}>
+                    {(selectedOrder as any)?.creator?.full_name || user?.name || "(.................................)"}
+                  </div>
+                </div>
+
+                {/* Finance */}
+                <div style={{ border: "1px solid #111", borderLeft: "0px", padding: "8px 10px", minHeight: "100px" }}>
+                  <div style={{ fontSize: "10px", marginBottom: "6px" }}>Date:</div>
+                  <div style={{ fontSize: "10px", marginBottom: "40px" }}>Finance,</div>
+                  <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                  <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center" }}>
+                    (.................................)
+                  </div>
+                </div>
+
+                {/* Approve - show signature and name if approved */}
+                <div style={{ border: "1px solid #111", borderLeft: "0px", padding: "8px 10px", minHeight: "100px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div style={{ fontSize: "10px" }}>Date:</div>
+                    {selectedOrder.status === "approved" && selectedOrder.approved_at && (
+                      <div style={{ fontSize: "9px", color: "#16a34a", fontWeight: 700 }}>
                         {formatDateTimeID(new Date(selectedOrder.approved_at as string))}
                       </div>
-                    </div>
-
-                    {/* Signature Image */}
-                    {(() => {
-                      const approver = (selectedOrder as any)?.approver;
-                      const signatureUrl = approver?.signature_url;
-                      const approverName = approver?.full_name || "";
-                      
-                      // Fallback to legacy signatures if no database signature
-                      const fallbackSignature = approverName.toLowerCase().includes("ferry")
-                        ? "/signature-ferry.png"
-                        : "/approved-signature.png";
-                      
-                      return (
-                        <div style={{ marginTop: "8px", textAlign: "center" }}>
-                          <img 
-                            src={signatureUrl || fallbackSignature}
-                            crossOrigin="anonymous"
-                            alt="Approved Signature" 
-                            style={{ height: "100px", objectFit: "contain", margin: "0 auto" }}
-                          />
-                        </div>
-                      );
-                    })()}
-
-                    <div style={{ marginTop: "8px", textAlign: "center" }}>
-                      <div style={{ fontSize: "20px", fontWeight: 800, color: "#1e40af", lineHeight: "22px" }}>
+                    )}
+                  </div>
+                  <div style={{ fontSize: "10px", marginBottom: "4px" }}>Approve,</div>
+                  
+                  {selectedOrder.status === "approved" && selectedOrder.approved_at ? (
+                    <>
+                      {/* Signature Image */}
+                      {(() => {
+                        const approver = (selectedOrder as any)?.approver;
+                        const signatureUrl = approver?.signature_url;
+                        const approverName = approver?.full_name || "";
+                        
+                        // Fallback to legacy signatures if no database signature
+                        const fallbackSignature = approverName.toLowerCase().includes("ferry")
+                          ? `${window.location.origin}/signature-ferry.png`
+                          : `${window.location.origin}/approved-signature.png`;
+                        
+                        return (
+                          <div style={{ textAlign: "center", marginBottom: "4px" }}>
+                            <img 
+                              src={signatureUrl || fallbackSignature}
+                              crossOrigin="anonymous"
+                              alt="Approved Signature" 
+                              style={{ height: "40px", objectFit: "contain", margin: "0 auto" }}
+                            />
+                          </div>
+                        );
+                      })()}
+                      <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                      <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center", fontWeight: 700 }}>
                         {(selectedOrder as any)?.approver?.full_name ||
                           (selectedOrder as any)?.approver?.email ||
                           "Approved"}
                       </div>
-                    </div>
-
-                    <div style={{ marginTop: "8px", fontSize: "10px", display: "grid", rowGap: "3px" }}>
-                      <div>
-                        Approved by :{" "}
-                        <b>
-                          {(selectedOrder as any)?.approver?.full_name ||
-                            (selectedOrder as any)?.approver?.email ||
-                            "Admin"}
-                        </b>
-                      </div>
-                      <div>
-                        Approved at : <b>{formatDateTimeID(new Date(selectedOrder.approved_at as string))}</b>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                /* NOT APPROVED: 3 boxes (compact) */
-                <div style={{ marginTop: "10px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0px" }}>
-                  {[{ title: "Purchasing," }, { title: "Finance," }, { title: "Approve," }].map((box, i) => (
-                    <div key={i} style={{ border: "1px solid #111", padding: "8px 10px", minHeight: "78px" }}>
-                      <div style={{ fontSize: "10px", marginBottom: "6px" }}>Date:</div>
-                      <div style={{ fontSize: "10px", marginBottom: "26px" }}>{box.title}</div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ height: "36px" }} />
                       <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
                       <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center" }}>
                         (.................................)
                       </div>
-                    </div>
-                  ))}
+                    </>
+                  )}
                 </div>
-              )}
+              </div>
 
               {/* Shipping notes */}
               <div style={{ marginTop: "10px", border: "1px solid #111", padding: "10px", fontSize: "9px" }}>
