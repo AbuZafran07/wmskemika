@@ -18,7 +18,11 @@ import {
   Download,
   Package,
   FileText,
+  FileDown,
 } from "lucide-react";
+
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 import { securePrint, printStyles, sanitizeHtml } from "@/lib/printUtils";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -36,7 +40,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -777,6 +781,65 @@ export default function PlanOrder() {
       toast.error(language === "en" ? "Failed to open print dialog" : "Gagal membuka dialog cetak");
     }
     setIsDownloadingPdf(false);
+  };
+
+  // ===== Save as PDF (langsung download tanpa print dialog) =====
+  const [isSavingPdf, setIsSavingPdf] = useState(false);
+
+  const handleSaveAsPDF = async () => {
+    if (!selectedOrder) {
+      toast.error(language === "en" ? "No order selected" : "Tidak ada order dipilih");
+      return;
+    }
+    if (!printRef.current) {
+      toast.error(language === "en" ? "Print template not ready" : "Template cetak belum siap");
+      return;
+    }
+
+    setIsSavingPdf(true);
+    try {
+      const element = printRef.current;
+      
+      // Gunakan html2canvas untuk merender elemen ke canvas
+      const canvas = await html2canvas(element, {
+        scale: 2, // Tingkatkan kualitas
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+      });
+
+      // Buat PDF dengan jsPDF
+      const pdf = new jsPDF("p", "mm", "a4");
+      const imgData = canvas.toDataURL("image/png");
+      
+      const imgWidth = 190; // A4 width minus margins
+      const pageHeight = 297; // A4 height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      let heightLeft = imgHeight;
+      let position = 10; // Top margin
+
+      pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+      heightLeft -= (pageHeight - 20); // Subtract margins
+
+      // Handle multi-page content
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight + 10;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+        heightLeft -= (pageHeight - 20);
+      }
+
+      // Sanitize filename
+      const filename = `PurchaseOrder_${selectedOrder.plan_number.replace(/[^a-zA-Z0-9.-]/g, "_")}.pdf`;
+      pdf.save(filename);
+      
+      toast.success(language === "en" ? "PDF saved successfully" : "PDF berhasil disimpan");
+    } catch (err) {
+      console.error("Save PDF error:", err);
+      toast.error(language === "en" ? "Failed to save PDF" : "Gagal menyimpan PDF");
+    }
+    setIsSavingPdf(false);
   };
 
   // ===== INIT: when open create form generate number =====
@@ -2070,15 +2133,39 @@ export default function PlanOrder() {
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{language === "en" ? "PDF Preview" : "Preview PDF"}</DialogTitle>
+            <DialogDescription>
+              {language === "en" 
+                ? "Preview your document before printing or saving as PDF" 
+                : "Lihat dokumen sebelum mencetak atau menyimpan sebagai PDF"}
+            </DialogDescription>
           </DialogHeader>
 
-          <div className="bg-white p-4 rounded border">
-            <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(printRef.current?.innerHTML || "") }} />
+          {/* Preview dengan style yang sama seperti print */}
+          <div className="bg-white p-4 rounded border overflow-x-auto">
+            <style dangerouslySetInnerHTML={{ __html: `
+              .pdf-preview-content th[style*="background"] {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+            `}} />
+            <div 
+              className="pdf-preview-content"
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(printRef.current?.innerHTML || "") }} 
+            />
           </div>
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 flex-wrap">
             <Button variant="outline" onClick={() => setIsPdfPreviewOpen(false)}>
               {language === "en" ? "Close" : "Tutup"}
+            </Button>
+            {/* Tombol Save as PDF - langsung download tanpa dialog print */}
+            <Button variant="success" onClick={handleSaveAsPDF} disabled={isSavingPdf}>
+              {isSavingPdf ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <FileDown className="w-4 h-4 mr-2" />
+              )}
+              {language === "en" ? "Save as PDF" : "Simpan PDF"}
             </Button>
             <Button variant="outline" onClick={handleDownloadPDF} disabled={isDownloadingPdf}>
               {isDownloadingPdf ? (
@@ -2086,7 +2173,7 @@ export default function PlanOrder() {
               ) : (
                 <Download className="w-4 h-4 mr-2" />
               )}
-              {language === "en" ? "Download PDF" : "Unduh PDF"}
+              {language === "en" ? "Print to PDF" : "Cetak ke PDF"}
             </Button>
             <Button
               onClick={() => {
