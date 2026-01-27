@@ -83,17 +83,21 @@ export function usePlanOrders() {
       return;
     }
 
-    // Fetch approver profiles and signatures for orders that have approved_by
+    // Collect all user IDs (approvers + creators)
     const ordersWithApprover = data || [];
     const approverIds = [...new Set(ordersWithApprover
       .filter(o => o.approved_by)
       .map(o => o.approved_by))] as string[];
+    const creatorIds = [...new Set(ordersWithApprover
+      .filter(o => o.created_by)
+      .map(o => o.created_by))] as string[];
+    const allUserIds = [...new Set([...approverIds, ...creatorIds])];
 
-    if (approverIds.length > 0) {
-      // Fetch profiles and signatures in parallel
+    if (allUserIds.length > 0) {
+      // Fetch profiles and signatures in parallel for all users
       const [profilesResult, signaturesResult] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, email').in('id', approverIds),
-        supabase.from('user_signatures').select('user_id, signature_path').in('user_id', approverIds)
+        supabase.from('profiles').select('id, full_name, email').in('id', allUserIds),
+        supabase.from('user_signatures').select('user_id, signature_path').in('user_id', allUserIds)
       ]);
 
       const profileMap = new Map(profilesResult.data?.map(p => [p.id, p]) || []);
@@ -117,6 +121,10 @@ export function usePlanOrders() {
         approver: order.approved_by ? {
           ...profileMap.get(order.approved_by),
           signature_url: signatureUrlMap.get(order.approved_by) || null
+        } : null,
+        creator: order.created_by ? {
+          ...profileMap.get(order.created_by),
+          signature_url: signatureUrlMap.get(order.created_by) || null
         } : null
       }));
 

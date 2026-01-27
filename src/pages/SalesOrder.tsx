@@ -2100,14 +2100,45 @@ export default function SalesOrder() {
 
               {/* Signature area: Always 3 columns (Sales, Finance, Approve) */}
               <div style={{ marginTop: "16px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0px" }}>
-                {/* Sales - show logged-in user name if they created the order */}
+                {/* Sales - show creator signature if exists */}
                 <div style={{ border: "1px solid #111", padding: "10px", minHeight: "100px" }}>
                   <div style={{ fontSize: "10px", marginBottom: "6px" }}>Date:</div>
-                  <div style={{ fontSize: "10px", marginBottom: "40px" }}>Sales,</div>
-                  <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                  <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
-                    {(selectedOrder as any)?.creator?.full_name || user?.name || "(.................................)"}
-                  </div>
+                  <div style={{ fontSize: "10px", marginBottom: "4px" }}>Sales,</div>
+                  
+                  {(() => {
+                    const creator = (selectedOrder as any)?.creator;
+                    const creatorSignatureUrl = creator?.signature_url;
+                    const creatorName = creator?.full_name || user?.name || "";
+                    
+                    if (creatorSignatureUrl) {
+                      return (
+                        <>
+                          <div style={{ textAlign: "center", marginBottom: "4px" }}>
+                            <img 
+                              src={creatorSignatureUrl}
+                              crossOrigin="anonymous"
+                              alt="Creator Signature" 
+                              style={{ height: "40px", objectFit: "contain", margin: "0 auto" }}
+                            />
+                          </div>
+                          <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                          <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center", fontWeight: 700 }}>
+                            {creatorName}
+                          </div>
+                        </>
+                      );
+                    }
+                    
+                    return (
+                      <>
+                        <div style={{ height: "36px" }} />
+                        <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                        <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
+                          {creatorName || "(.................................)"}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
 
                 {/* Finance */}
@@ -2126,7 +2157,7 @@ export default function SalesOrder() {
                     <div style={{ fontSize: "10px" }}>Date:</div>
                     {selectedOrder.status === "approved" && selectedOrder.approved_at && (
                       <div style={{ fontSize: "9px", color: "#16a34a", fontWeight: 700 }}>
-                        {formatDateID(selectedOrder.approved_at)}
+                        {formatDateTimeID(new Date(selectedOrder.approved_at as string))}
                       </div>
                     )}
                   </div>

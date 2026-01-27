@@ -2149,14 +2149,45 @@ export default function PlanOrder() {
               {/* Signature area */}
               {/* Signature area: Always 3 columns (Purchasing, Finance, Approve) */}
               <div style={{ marginTop: "10px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0px" }}>
-                {/* Purchasing - show logged-in user name if they created the order */}
+                {/* Purchasing - show creator signature if exists */}
                 <div style={{ border: "1px solid #111", padding: "8px 10px", minHeight: "100px" }}>
                   <div style={{ fontSize: "10px", marginBottom: "6px" }}>Date:</div>
-                  <div style={{ fontSize: "10px", marginBottom: "40px" }}>Purchasing,</div>
-                  <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                  <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center" }}>
-                    {(selectedOrder as any)?.creator?.full_name || user?.name || "(.................................)"}
-                  </div>
+                  <div style={{ fontSize: "10px", marginBottom: "4px" }}>Purchasing,</div>
+                  
+                  {(() => {
+                    const creator = (selectedOrder as any)?.creator;
+                    const creatorSignatureUrl = creator?.signature_url;
+                    const creatorName = creator?.full_name || user?.name || "";
+                    
+                    if (creatorSignatureUrl) {
+                      return (
+                        <>
+                          <div style={{ textAlign: "center", marginBottom: "4px" }}>
+                            <img 
+                              src={creatorSignatureUrl}
+                              crossOrigin="anonymous"
+                              alt="Creator Signature" 
+                              style={{ height: "40px", objectFit: "contain", margin: "0 auto" }}
+                            />
+                          </div>
+                          <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                          <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center", fontWeight: 700 }}>
+                            {creatorName}
+                          </div>
+                        </>
+                      );
+                    }
+                    
+                    return (
+                      <>
+                        <div style={{ height: "36px" }} />
+                        <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                        <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center" }}>
+                          {creatorName || "(.................................)"}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
 
                 {/* Finance */}
