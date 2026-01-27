@@ -810,58 +810,90 @@ export default function PlanOrder() {
       
       // Step 1: Capturing content (0-30%)
       setPdfProgress(10);
-      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Wait for element to be fully rendered
+      await new Promise(resolve => setTimeout(resolve, 200));
       setPdfProgress(20);
       
-      // Gunakan html2canvas untuk merender elemen ke canvas
+      // Capture canvas with html2canvas
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
+        allowTaint: false,
         logging: false,
         backgroundColor: "#ffffff",
         imageTimeout: 15000,
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight,
         onclone: (clonedDoc) => {
-          // Make sure external images (e.g. signatures from backend) are requested with CORS
+          // Set crossorigin for all images to prevent tainted canvas
           clonedDoc.querySelectorAll("img").forEach((img) => {
             img.setAttribute("crossorigin", "anonymous");
           });
-          setPdfProgress(30);
         },
       });
 
-      // Step 2: Generating PDF (30-70%)
+      setPdfProgress(40);
+
+      // Validate canvas dimensions
+      if (!canvas || canvas.width === 0 || canvas.height === 0) {
+        throw new Error("Canvas capture failed - invalid dimensions");
+      }
+
+      // Step 2: Generating PDF (40-70%)
       setPdfProgress(50);
-      await new Promise(resolve => setTimeout(resolve, 100));
       
-      const pdf = new jsPDF("p", "mm", "a4");
-      // JPEG is more stable in jsPDF (prevents 'wrong PNG signature' on some cases)
-      const imgData = canvas.toDataURL("image/jpeg", 0.95);
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      // Get image data as JPEG for better compatibility
+      const imgData = canvas.toDataURL("image/jpeg", 0.92);
+      
+      if (!imgData || imgData === "data:,") {
+        throw new Error("Failed to generate image data from canvas");
+      }
       
       setPdfProgress(60);
       
-      const imgWidth = 190;
-      const pageHeight = 297;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      // A4 dimensions in mm
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+      const contentWidth = pdfWidth - (margin * 2);
       
-      let heightLeft = imgHeight;
-      let position = 10;
+      // Calculate image height maintaining aspect ratio
+      const aspectRatio = canvas.height / canvas.width;
+      const imgHeight = contentWidth * aspectRatio;
+      
+      // Validate calculated dimensions
+      if (!Number.isFinite(imgHeight) || imgHeight <= 0) {
+        throw new Error("Invalid image dimensions calculated");
+      }
 
-      pdf.addImage(imgData, "JPEG", 10, position, imgWidth, imgHeight);
-      heightLeft -= (pageHeight - 20);
+      const contentHeight = pdfHeight - (margin * 2);
+      let yPosition = margin;
+      let remainingHeight = imgHeight;
+
+      // Add first page
+      pdf.addImage(imgData, "JPEG", margin, yPosition, contentWidth, imgHeight);
+      remainingHeight -= contentHeight;
 
       setPdfProgress(70);
 
       // Handle multi-page content
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight + 10;
+      while (remainingHeight > 0) {
         pdf.addPage();
-        pdf.addImage(imgData, "JPEG", 10, position, imgWidth, imgHeight);
-        heightLeft -= (pageHeight - 20);
+        // Position image so the next portion shows at the top
+        yPosition = margin - (imgHeight - remainingHeight);
+        pdf.addImage(imgData, "JPEG", margin, yPosition, contentWidth, imgHeight);
+        remainingHeight -= contentHeight;
       }
 
       // Step 3: Finalizing (70-100%)
       setPdfProgress(85);
-      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Sanitize filename
       const filename = `PurchaseOrder_${selectedOrder.plan_number.replace(/[^a-zA-Z0-9.-]/g, "_")}.pdf`;
@@ -875,7 +907,12 @@ export default function PlanOrder() {
       toast.success(language === "en" ? "PDF saved successfully" : "PDF berhasil disimpan");
     } catch (err) {
       console.error("Save PDF error:", err);
-      toast.error(language === "en" ? "Failed to save PDF" : "Gagal menyimpan PDF");
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      toast.error(
+        language === "en" 
+          ? `Failed to save PDF: ${errorMessage}` 
+          : `Gagal menyimpan PDF: ${errorMessage}`
+      );
     }
     
     setIsSavingPdf(false);
