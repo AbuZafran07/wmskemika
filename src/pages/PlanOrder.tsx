@@ -2150,50 +2150,70 @@ export default function PlanOrder() {
               {/* Signature area: Always 3 columns (Purchasing, Finance, Approve) */}
               <div style={{ marginTop: "10px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0px" }}>
                 {/* Purchasing - show creator signature if exists */}
-                <div style={{ border: "1px solid #111", padding: "8px 10px", minHeight: "100px" }}>
-                  <div style={{ fontSize: "10px", marginBottom: "6px" }}>Date:</div>
-                  <div style={{ fontSize: "10px", marginBottom: "4px" }}>Purchasing,</div>
-                  
+                <div style={{ border: "1px solid #111", padding: "8px 10px", minHeight: "120px" }}>
                   {(() => {
                     const creator = (selectedOrder as any)?.creator;
                     const creatorSignatureUrl = creator?.signature_url;
                     const creatorName = creator?.full_name || user?.name || "";
                     
-                    if (creatorSignatureUrl) {
-                      return (
-                        <>
-                          <div style={{ textAlign: "center", marginBottom: "4px" }}>
-                            <img 
-                              src={creatorSignatureUrl}
-                              crossOrigin="anonymous"
-                              alt="Creator Signature" 
-                              style={{ height: "40px", objectFit: "contain", margin: "0 auto" }}
-                            />
-                          </div>
-                          <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                          <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center", fontWeight: 700 }}>
-                            {creatorName}
-                          </div>
-                        </>
-                      );
-                    }
-                    
                     return (
                       <>
-                        <div style={{ height: "36px" }} />
-                        <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                        <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center" }}>
-                          {creatorName || "(.................................)"}
+                        {/* Ditandatangani oleh header */}
+                        <div style={{ textAlign: "right", fontSize: "9px", marginBottom: "2px" }}>
+                          <span style={{ color: "#111" }}>Ditandatangani oleh </span>
+                          <span style={{ color: "#16a34a", fontWeight: 700 }}>{creatorName || "-"}</span>
                         </div>
+                        
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                          <div style={{ fontSize: "10px", color: "#666" }}>Date:</div>
+                          <div style={{ fontSize: "9px", color: "#16a34a", fontWeight: 700 }}>
+                            {formatDateTimeID(new Date(selectedOrder.created_at as string))}
+                          </div>
+                        </div>
+                        <div style={{ fontSize: "10px", marginBottom: "4px", color: "#666" }}>Purchasing,</div>
+                        
+                        {creatorSignatureUrl ? (
+                          <>
+                            <div style={{ textAlign: "center", marginBottom: "4px" }}>
+                              <img 
+                                src={creatorSignatureUrl}
+                                crossOrigin="anonymous"
+                                alt="Creator Signature" 
+                                style={{ height: "50px", maxWidth: "120px", objectFit: "contain", margin: "0 auto" }}
+                              />
+                            </div>
+                            <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                            <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center", fontWeight: 700 }}>
+                              {creatorName}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div style={{ height: "50px" }} />
+                            <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                            <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center" }}>
+                              {creatorName || "(.................................)"}
+                            </div>
+                          </>
+                        )}
                       </>
                     );
                   })()}
                 </div>
 
                 {/* Finance */}
-                <div style={{ border: "1px solid #111", borderLeft: "0px", padding: "8px 10px", minHeight: "100px" }}>
-                  <div style={{ fontSize: "10px", marginBottom: "6px" }}>Date:</div>
-                  <div style={{ fontSize: "10px", marginBottom: "40px" }}>Finance,</div>
+                <div style={{ border: "1px solid #111", borderLeft: "0px", padding: "8px 10px", minHeight: "120px" }}>
+                  {/* Ditandatangani oleh header - placeholder */}
+                  <div style={{ textAlign: "right", fontSize: "9px", marginBottom: "2px" }}>
+                    <span style={{ color: "#111" }}>Ditandatangani oleh </span>
+                    <span style={{ color: "#16a34a", fontWeight: 700 }}>-</span>
+                  </div>
+                  
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div style={{ fontSize: "10px", color: "#666" }}>Date:</div>
+                    <div style={{ fontSize: "9px", color: "#16a34a", fontWeight: 700 }}>-</div>
+                  </div>
+                  <div style={{ fontSize: "10px", marginBottom: "50px", color: "#666" }}>Finance,</div>
                   <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
                   <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center" }}>
                     (.................................)
@@ -2201,57 +2221,63 @@ export default function PlanOrder() {
                 </div>
 
                 {/* Approve - show signature and name if approved */}
-                <div style={{ border: "1px solid #111", borderLeft: "0px", padding: "8px 10px", minHeight: "100px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div style={{ fontSize: "10px" }}>Date:</div>
-                    {selectedOrder.status === "approved" && selectedOrder.approved_at && (
-                      <div style={{ fontSize: "9px", color: "#16a34a", fontWeight: 700 }}>
-                        {formatDateTimeID(new Date(selectedOrder.approved_at as string))}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ fontSize: "10px", marginBottom: "4px" }}>Approve,</div>
-                  
-                  {selectedOrder.status === "approved" && selectedOrder.approved_at ? (
-                    <>
-                      {/* Signature Image */}
-                      {(() => {
-                        const approver = (selectedOrder as any)?.approver;
-                        const signatureUrl = approver?.signature_url;
-                        const approverName = approver?.full_name || "";
+                <div style={{ border: "1px solid #111", borderLeft: "0px", padding: "8px 10px", minHeight: "120px" }}>
+                  {(() => {
+                    const approver = (selectedOrder as any)?.approver;
+                    const signatureUrl = approver?.signature_url;
+                    const approverName = approver?.full_name || "";
+                    const isApproved = selectedOrder.status === "approved" && selectedOrder.approved_at;
+                    
+                    // Fallback to legacy signatures if no database signature
+                    const fallbackSignature = approverName.toLowerCase().includes("ferry")
+                      ? `${window.location.origin}/signature-ferry.png`
+                      : `${window.location.origin}/approved-signature.png`;
+                    
+                    return (
+                      <>
+                        {/* Ditandatangani oleh header */}
+                        <div style={{ textAlign: "right", fontSize: "9px", marginBottom: "2px" }}>
+                          <span style={{ color: "#111" }}>Ditandatangani oleh </span>
+                          <span style={{ color: "#16a34a", fontWeight: 700 }}>{isApproved ? approverName || "-" : "-"}</span>
+                        </div>
                         
-                        // Fallback to legacy signatures if no database signature
-                        const fallbackSignature = approverName.toLowerCase().includes("ferry")
-                          ? `${window.location.origin}/signature-ferry.png`
-                          : `${window.location.origin}/approved-signature.png`;
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                          <div style={{ fontSize: "10px", color: "#666" }}>Date:</div>
+                          {isApproved && (
+                            <div style={{ fontSize: "9px", color: "#16a34a", fontWeight: 700 }}>
+                              {formatDateTimeID(new Date(selectedOrder.approved_at as string))}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ fontSize: "10px", marginBottom: "4px", color: "#666" }}>Approve,</div>
                         
-                        return (
-                          <div style={{ textAlign: "center", marginBottom: "4px" }}>
-                            <img 
-                              src={signatureUrl || fallbackSignature}
-                              crossOrigin="anonymous"
-                              alt="Approved Signature" 
-                              style={{ height: "40px", objectFit: "contain", margin: "0 auto" }}
-                            />
-                          </div>
-                        );
-                      })()}
-                      <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                      <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center", fontWeight: 700 }}>
-                        {(selectedOrder as any)?.approver?.full_name ||
-                          (selectedOrder as any)?.approver?.email ||
-                          "Approved"}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div style={{ height: "36px" }} />
-                      <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                      <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center" }}>
-                        (.................................)
-                      </div>
-                    </>
-                  )}
+                        {isApproved ? (
+                          <>
+                            <div style={{ textAlign: "center", marginBottom: "4px" }}>
+                              <img 
+                                src={signatureUrl || fallbackSignature}
+                                crossOrigin="anonymous"
+                                alt="Approved Signature" 
+                                style={{ height: "50px", maxWidth: "120px", objectFit: "contain", margin: "0 auto" }}
+                              />
+                            </div>
+                            <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                            <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center", fontWeight: 700 }}>
+                              {approverName || "Approved"}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div style={{ height: "50px" }} />
+                            <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                            <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center" }}>
+                              (.................................)
+                            </div>
+                          </>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
 
