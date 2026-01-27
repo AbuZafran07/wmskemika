@@ -776,7 +776,11 @@ export default function PlanOrder() {
         styles: printStyles.planOrder,
         content: element.innerHTML,
       });
-      toast.success(language === "en" ? "Print dialog opened" : "Dialog cetak dibuka");
+      toast.info(
+        language === "en"
+          ? "Print dialog opened (enable Background graphics to keep the green header)"
+          : "Dialog cetak dibuka (aktifkan Background graphics agar header hijau ikut tercetak)",
+      );
     } catch (err) {
       console.error("Download PDF error:", err);
       toast.error(language === "en" ? "Failed to open print dialog" : "Gagal membuka dialog cetak");
@@ -815,9 +819,14 @@ export default function PlanOrder() {
         useCORS: true,
         logging: false,
         backgroundColor: "#ffffff",
-        onclone: () => {
+        imageTimeout: 15000,
+        onclone: (clonedDoc) => {
+          // Make sure external images (e.g. signatures from backend) are requested with CORS
+          clonedDoc.querySelectorAll("img").forEach((img) => {
+            img.setAttribute("crossorigin", "anonymous");
+          });
           setPdfProgress(30);
-        }
+        },
       });
 
       // Step 2: Generating PDF (30-70%)
@@ -825,7 +834,8 @@ export default function PlanOrder() {
       await new Promise(resolve => setTimeout(resolve, 100));
       
       const pdf = new jsPDF("p", "mm", "a4");
-      const imgData = canvas.toDataURL("image/png");
+      // JPEG is more stable in jsPDF (prevents 'wrong PNG signature' on some cases)
+      const imgData = canvas.toDataURL("image/jpeg", 0.95);
       
       setPdfProgress(60);
       
@@ -836,7 +846,7 @@ export default function PlanOrder() {
       let heightLeft = imgHeight;
       let position = 10;
 
-      pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+      pdf.addImage(imgData, "JPEG", 10, position, imgWidth, imgHeight);
       heightLeft -= (pageHeight - 20);
 
       setPdfProgress(70);
@@ -845,7 +855,7 @@ export default function PlanOrder() {
       while (heightLeft > 0) {
         position = heightLeft - imgHeight + 10;
         pdf.addPage();
-        pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+        pdf.addImage(imgData, "JPEG", 10, position, imgWidth, imgHeight);
         heightLeft -= (pageHeight - 20);
       }
 
@@ -1960,6 +1970,9 @@ export default function PlanOrder() {
                         <th
                           key={h}
                           style={{
+                            // Force background on cell level for print reliability
+                            background: "#0B6B3A",
+                            color: "white",
                             border: "2px solid #111",
                             padding: "9px 10px",
                             fontSize: "11px",
@@ -2090,6 +2103,7 @@ export default function PlanOrder() {
                         <div style={{ marginTop: "8px", textAlign: "center" }}>
                           <img 
                             src={signatureUrl || fallbackSignature}
+                            crossOrigin="anonymous"
                             alt="Approved Signature" 
                             style={{ height: "100px", objectFit: "contain", margin: "0 auto" }}
                           />
