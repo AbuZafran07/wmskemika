@@ -105,9 +105,21 @@ export const securePrint = ({ title, styles = '', content }: PrintOptions): void
         <meta charset="utf-8" />
         <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: https:; font-src 'self';">
         <style>
-          * { box-sizing: border-box; }
+          * { 
+            box-sizing: border-box; 
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+          }
           body { font-family: Arial, sans-serif; padding: 16px; color: #111; }
           @page { margin: 12mm; }
+          @media print {
+            * {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              color-adjust: exact !important;
+            }
+          }
           ${styles}
         </style>
       </head>
@@ -226,10 +238,24 @@ export const printStyles = {
     .badge-cancelled { background: #fee2e2; color: #991b1b; }
     @media print {
       body { padding: 0; }
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+      th, .badge, [style*="background"] {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
     }
   `,
   stockAdjustment: `
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { 
+      margin: 0; padding: 0; box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; color: #333; font-size: 12px; }
     .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 15px; margin-bottom: 20px; }
     .company-name { font-size: 18px; font-weight: bold; color: #1a365d; }
@@ -248,6 +274,13 @@ export const printStyles = {
     .badge-draft { background: #e2e8f0; color: #475569; }
     .badge-success { background: #d1fae5; color: #065f46; }
     .badge-cancelled { background: #fee2e2; color: #991b1b; }
-    @media print { body { padding: 0; } }
+    @media print { 
+      body { padding: 0; }
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+    }
   `
 };
