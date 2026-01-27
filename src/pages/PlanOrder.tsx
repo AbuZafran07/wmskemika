@@ -751,10 +751,21 @@ export default function PlanOrder() {
   };
 
   const handleDownloadPDF = async () => {
-    if (!selectedOrder || !printRef.current) return;
+    console.log("handleDownloadPDF called", { selectedOrder: !!selectedOrder, printRef: !!printRef.current });
+    if (!selectedOrder) {
+      console.error("No selectedOrder");
+      toast.error(language === "en" ? "No order selected" : "Tidak ada order dipilih");
+      return;
+    }
+    if (!printRef.current) {
+      console.error("printRef.current is null");
+      toast.error(language === "en" ? "Print template not ready" : "Template cetak belum siap");
+      return;
+    }
     setIsDownloadingPdf(true);
     try {
       const element = printRef.current;
+      console.log("Print content length:", element.innerHTML.length);
       securePrint({
         title: `PurchaseOrder_${selectedOrder.plan_number}`,
         styles: printStyles.planOrder,
@@ -762,7 +773,7 @@ export default function PlanOrder() {
       });
       toast.success(language === "en" ? "Print dialog opened" : "Dialog cetak dibuka");
     } catch (err) {
-      console.error(err);
+      console.error("Download PDF error:", err);
       toast.error(language === "en" ? "Failed to open print dialog" : "Gagal membuka dialog cetak");
     }
     setIsDownloadingPdf(false);
