@@ -18,9 +18,15 @@ import {
   FileText,
   Download,
   Package,
+  FileDown,
 } from "lucide-react";
+
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
+
 import { usePermissions } from "@/hooks/usePermissions";
 import { securePrint, printStyles, sanitizeHtml } from "@/lib/printUtils";
+import { PdfGeneratingOverlay } from "@/components/PdfGeneratingOverlay";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +41,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -759,7 +765,6 @@ export default function SalesOrder() {
   const handleDownloadPDF = () => {
     if (!selectedOrder || !printRef.current) return;
     // Use browser's native print-to-PDF functionality for security
-    // Users can select "Save as PDF" in the print dialog
     securePrint({
       title: `SalesOrder_${selectedOrder.sales_order_number}`,
       styles: printStyles.salesOrder,
@@ -770,6 +775,94 @@ export default function SalesOrder() {
         ? "Use 'Save as PDF' in print dialog to download" 
         : "Gunakan 'Simpan sebagai PDF' di dialog cetak untuk mengunduh"
     );
+  };
+
+  // ===== Save as PDF (langsung download tanpa print dialog) =====
+  const [isSavingPdf, setIsSavingPdf] = useState(false);
+  const [pdfProgress, setPdfProgress] = useState(0);
+
+  const handleSaveAsPDF = async () => {
+    if (!selectedOrder) {
+      toast.error(language === "en" ? "No order selected" : "Tidak ada order dipilih");
+      return;
+    }
+    if (!printRef.current) {
+      toast.error(language === "en" ? "Print template not ready" : "Template cetak belum siap");
+      return;
+    }
+
+    setIsSavingPdf(true);
+    setPdfProgress(0);
+    
+    try {
+      const element = printRef.current;
+      
+      // Step 1: Capturing content (0-30%)
+      setPdfProgress(10);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      setPdfProgress(20);
+      
+      // Gunakan html2canvas untuk merender elemen ke canvas
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+        onclone: () => {
+          setPdfProgress(30);
+        }
+      });
+
+      // Step 2: Generating PDF (30-70%)
+      setPdfProgress(50);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const pdf = new jsPDF("p", "mm", "a4");
+      const imgData = canvas.toDataURL("image/png");
+      
+      setPdfProgress(60);
+      
+      const imgWidth = 190;
+      const pageHeight = 297;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      let heightLeft = imgHeight;
+      let position = 10;
+
+      pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+      heightLeft -= (pageHeight - 20);
+
+      setPdfProgress(70);
+
+      // Handle multi-page content
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight + 10;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+        heightLeft -= (pageHeight - 20);
+      }
+
+      // Step 3: Finalizing (70-100%)
+      setPdfProgress(85);
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Sanitize filename
+      const filename = `SalesOrder_${selectedOrder.sales_order_number.replace(/[^a-zA-Z0-9.-]/g, "_")}.pdf`;
+      
+      setPdfProgress(95);
+      pdf.save(filename);
+      
+      setPdfProgress(100);
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      toast.success(language === "en" ? "PDF saved successfully" : "PDF berhasil disimpan");
+    } catch (err) {
+      console.error("Save PDF error:", err);
+      toast.error(language === "en" ? "Failed to save PDF" : "Gagal menyimpan PDF");
+    }
+    
+    setIsSavingPdf(false);
+    setPdfProgress(0);
   };
 
   // === INIT: when dialog opened create number ===
@@ -2005,19 +2098,43 @@ export default function SalesOrder() {
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{language === "en" ? "PDF Preview" : "Preview PDF"}</DialogTitle>
+            <DialogDescription>
+              {language === "en" 
+                ? "Preview your document before printing or saving as PDF" 
+                : "Lihat dokumen sebelum mencetak atau menyimpan sebagai PDF"}
+            </DialogDescription>
           </DialogHeader>
 
-          <div className="bg-white p-4 rounded border">
-            <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(printRef.current?.innerHTML || "") }} />
+          {/* Preview dengan style yang sama seperti print */}
+          <div className="bg-white p-4 rounded border overflow-x-auto">
+            <style dangerouslySetInnerHTML={{ __html: `
+              .pdf-preview-content th[style*="background"] {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+            `}} />
+            <div 
+              className="pdf-preview-content"
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(printRef.current?.innerHTML || "") }} 
+            />
           </div>
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 flex-wrap">
             <Button variant="outline" onClick={() => setIsPdfPreviewOpen(false)}>
               {language === "en" ? "Close" : "Tutup"}
             </Button>
+            {/* Tombol Save as PDF - langsung download tanpa dialog print */}
+            <Button variant="success" onClick={handleSaveAsPDF} disabled={isSavingPdf}>
+              {isSavingPdf ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <FileDown className="w-4 h-4 mr-2" />
+              )}
+              {language === "en" ? "Save as PDF" : "Simpan PDF"}
+            </Button>
             <Button variant="outline" onClick={handleDownloadPDF}>
               <Download className="w-4 h-4 mr-2" />
-              {language === "en" ? "Download PDF" : "Unduh PDF"}
+              {language === "en" ? "Print to PDF" : "Cetak ke PDF"}
             </Button>
             <Button
               onClick={() => {
@@ -2077,6 +2194,13 @@ export default function SalesOrder() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* PDF Generating Overlay */}
+      <PdfGeneratingOverlay 
+        isVisible={isSavingPdf} 
+        progress={pdfProgress} 
+        language={language as "en" | "id"} 
+      />
     </div>
   );
 }
