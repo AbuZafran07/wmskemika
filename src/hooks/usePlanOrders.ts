@@ -83,23 +83,41 @@ export function usePlanOrders() {
       return;
     }
 
-    // Fetch approver profiles for orders that have approved_by
+    // Fetch approver profiles and signatures for orders that have approved_by
     const ordersWithApprover = data || [];
     const approverIds = [...new Set(ordersWithApprover
       .filter(o => o.approved_by)
       .map(o => o.approved_by))] as string[];
 
     if (approverIds.length > 0) {
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .in('id', approverIds);
+      // Fetch profiles and signatures in parallel
+      const [profilesResult, signaturesResult] = await Promise.all([
+        supabase.from('profiles').select('id, full_name, email').in('id', approverIds),
+        supabase.from('user_signatures').select('user_id, signature_path').in('user_id', approverIds)
+      ]);
 
-      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+      const profileMap = new Map(profilesResult.data?.map(p => [p.id, p]) || []);
+      const signatureMap = new Map(signaturesResult.data?.map(s => [s.user_id, s.signature_path]) || []);
+
+      // Get signed URLs for signatures
+      const signatureUrlMap = new Map<string, string>();
+      for (const [userId, path] of signatureMap.entries()) {
+        if (path) {
+          const { data: urlData } = await supabase.storage
+            .from('signatures')
+            .createSignedUrl(path, 3600);
+          if (urlData?.signedUrl) {
+            signatureUrlMap.set(userId, urlData.signedUrl);
+          }
+        }
+      }
 
       const enrichedOrders = ordersWithApprover.map(order => ({
         ...order,
-        approver: order.approved_by ? profileMap.get(order.approved_by) : null
+        approver: order.approved_by ? {
+          ...profileMap.get(order.approved_by),
+          signature_url: signatureUrlMap.get(order.approved_by) || null
+        } : null
       }));
 
       setPlanOrders(enrichedOrders);

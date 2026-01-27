@@ -1929,16 +1929,27 @@ export default function SalesOrder() {
                 /* APPROVED: Single long box with signature image */
                 <div style={{ marginTop: "16px" }}>
                   <div style={{ border: "1px solid #111", padding: "14px", minHeight: "110px", position: "relative" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "12px" }}>
-                      <img 
-                        src={((selectedOrder as any)?.approver?.full_name || "").toLowerCase().includes("ferry") 
-                          ? "/signature-ferry.png" 
-                          : "/approved-signature.png"
-                        } 
-                        alt="Approved Signature" 
-                        style={{ height: "100px", objectFit: "contain" }}
-                      />
-                    </div>
+                    {/* Signature Image */}
+                    {(() => {
+                      const approver = (selectedOrder as any)?.approver;
+                      const signatureUrl = approver?.signature_url;
+                      const approverName = approver?.full_name || "";
+                      
+                      // Fallback to legacy signatures if no database signature
+                      const fallbackSignature = approverName.toLowerCase().includes("ferry")
+                        ? "/signature-ferry.png"
+                        : "/approved-signature.png";
+                      
+                      return (
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "12px" }}>
+                          <img 
+                            src={signatureUrl || fallbackSignature}
+                            alt="Approved Signature" 
+                            style={{ height: "100px", objectFit: "contain" }}
+                          />
+                        </div>
+                      );
+                    })()}
                     <div style={{ fontSize: "11px", marginBottom: "4px", textAlign: "center" }}>
                       Approved by : <b>{(selectedOrder as any)?.approver?.full_name || (selectedOrder as any)?.approver?.email || "Admin"}</b>
                     </div>

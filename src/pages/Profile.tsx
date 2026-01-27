@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { User, Mail, Shield, Camera, Save, Loader2, Lock, Eye, EyeOff } from 'lucide-react';
+import { User, Mail, Shield, Camera, Save, Loader2, Lock, Eye, EyeOff, FileSignature, Trash2, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,6 +33,13 @@ export default function Profile() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // Signature state
+  const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
+  const [signaturePath, setSignaturePath] = useState<string | null>(null);
+  const [isUploadingSignature, setIsUploadingSignature] = useState(false);
+  const [isDeletingSignature, setIsDeletingSignature] = useState(false);
+  const signatureInputRef = useRef<HTMLInputElement>(null);
+
   // Get signed URL for avatar on mount
   React.useEffect(() => {
     const getAvatarUrl = async () => {
@@ -53,6 +60,40 @@ export default function Profile() {
     };
     getAvatarUrl();
   }, [user?.avatar]);
+
+  // Get user signature on mount
+  React.useEffect(() => {
+    const getSignature = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('user_signatures')
+          .select('signature_path')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error('Error fetching signature:', error);
+          return;
+        }
+
+        if (data?.signature_path) {
+          setSignaturePath(data.signature_path);
+          // Get signed URL for signature
+          const { data: urlData } = await supabase.storage
+            .from('signatures')
+            .createSignedUrl(data.signature_path, 3600);
+          if (urlData?.signedUrl) {
+            setSignatureUrl(urlData.signedUrl);
+          }
+        }
+      } catch (err) {
+        console.error('Error loading signature:', err);
+      }
+    };
+    getSignature();
+  }, [user?.id]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -122,6 +163,106 @@ export default function Profile() {
     } finally {
       setIsUploading(false);
       setSelectedFile(null);
+    }
+  };
+
+  const handleSignatureSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user?.id) return;
+
+    // Validate file
+    const validation = validateImageFile(file, language as 'en' | 'id');
+    if (!validation.valid) {
+      toast.error(validation.error);
+      return;
+    }
+
+    setIsUploadingSignature(true);
+    try {
+      const fileName = `${user.id}/signature.png`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('signatures')
+        .upload(fileName, file, { 
+          upsert: true,
+          contentType: file.type
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Upsert signature record
+      const { error: upsertError } = await supabase
+        .from('user_signatures')
+        .upsert({
+          user_id: user.id,
+          signature_path: fileName,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (upsertError) throw upsertError;
+
+      // Get new signed URL
+      const { data } = await supabase.storage
+        .from('signatures')
+        .createSignedUrl(fileName, 3600);
+      
+      if (data?.signedUrl) {
+        setSignatureUrl(data.signedUrl + '&t=' + Date.now());
+        setSignaturePath(fileName);
+      }
+
+      toast.success(
+        language === 'en' 
+          ? 'Signature uploaded successfully' 
+          : 'Tanda tangan berhasil diunggah'
+      );
+    } catch (error) {
+      console.error('Error uploading signature:', error);
+      toast.error(language === 'en' ? 'Failed to upload signature' : 'Gagal mengunggah tanda tangan');
+    } finally {
+      setIsUploadingSignature(false);
+      event.target.value = '';
+    }
+  };
+
+  const handleDeleteSignature = async () => {
+    if (!user?.id || !signaturePath) return;
+
+    setIsDeletingSignature(true);
+    try {
+      // Delete from storage
+      const { error: deleteStorageError } = await supabase.storage
+        .from('signatures')
+        .remove([signaturePath]);
+
+      if (deleteStorageError) {
+        console.error('Storage delete error:', deleteStorageError);
+      }
+
+      // Delete from database
+      const { error: deleteDbError } = await supabase
+        .from('user_signatures')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (deleteDbError) throw deleteDbError;
+
+      setSignatureUrl(null);
+      setSignaturePath(null);
+
+      toast.success(
+        language === 'en' 
+          ? 'Signature deleted successfully' 
+          : 'Tanda tangan berhasil dihapus'
+      );
+    } catch (error) {
+      console.error('Error deleting signature:', error);
+      toast.error(language === 'en' ? 'Failed to delete signature' : 'Gagal menghapus tanda tangan');
+    } finally {
+      setIsDeletingSignature(false);
     }
   };
 
@@ -371,6 +512,104 @@ export default function Profile() {
               {language === 'en' ? 'Save Changes' : 'Simpan Perubahan'}
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Signature Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileSignature className="w-5 h-5" />
+            {language === 'en' ? 'Digital Signature' : 'Tanda Tangan Digital'}
+          </CardTitle>
+          <CardDescription>
+            {language === 'en' 
+              ? 'Upload your signature for document approval'
+              : 'Unggah tanda tangan Anda untuk persetujuan dokumen'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {signatureUrl ? (
+            <div className="space-y-4">
+              {/* Signature Preview */}
+              <div className="border rounded-lg p-4 bg-muted/30">
+                <p className="text-sm text-muted-foreground mb-2">
+                  {language === 'en' ? 'Current Signature:' : 'Tanda Tangan Saat Ini:'}
+                </p>
+                <div className="flex items-center justify-center bg-white rounded-lg p-4 min-h-[120px]">
+                  <img 
+                    src={signatureUrl} 
+                    alt="Signature" 
+                    className="max-h-[100px] object-contain"
+                  />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => signatureInputRef.current?.click()}
+                  disabled={isUploadingSignature}
+                >
+                  {isUploadingSignature ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Upload className="w-4 h-4 mr-2" />
+                  )}
+                  {language === 'en' ? 'Replace' : 'Ganti'}
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteSignature}
+                  disabled={isDeletingSignature}
+                >
+                  {isDeletingSignature ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4 mr-2" />
+                  )}
+                  {language === 'en' ? 'Delete' : 'Hapus'}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Upload Area */}
+              <div 
+                onClick={() => signatureInputRef.current?.click()}
+                className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors"
+              >
+                {isUploadingSignature ? (
+                  <Loader2 className="w-8 h-8 mx-auto text-muted-foreground animate-spin" />
+                ) : (
+                  <FileSignature className="w-8 h-8 mx-auto text-muted-foreground" />
+                )}
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {language === 'en' 
+                    ? 'Click to upload your signature'
+                    : 'Klik untuk mengunggah tanda tangan Anda'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  PNG, JPG, WebP (max 5MB)
+                </p>
+              </div>
+            </div>
+          )}
+
+          <input
+            ref={signatureInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={handleSignatureSelect}
+          />
+
+          <p className="text-xs text-muted-foreground">
+            {language === 'en' 
+              ? 'This signature will be used when you approve Purchase Orders and Sales Orders.'
+              : 'Tanda tangan ini akan digunakan saat Anda menyetujui Purchase Order dan Sales Order.'}
+          </p>
         </CardContent>
       </Card>
 
