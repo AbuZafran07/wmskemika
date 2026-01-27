@@ -772,8 +772,8 @@ export default function SalesOrder() {
     });
     toast.info(
       language === "en" 
-        ? "Use 'Save as PDF' in print dialog to download" 
-        : "Gunakan 'Simpan sebagai PDF' di dialog cetak untuk mengunduh"
+        ? "Use 'Save as PDF' in print dialog to download (enable Background graphics to keep the green header)" 
+        : "Gunakan 'Simpan sebagai PDF' di dialog cetak untuk mengunduh (aktifkan Background graphics agar header hijau ikut tercetak)"
     );
   };
 
@@ -808,9 +808,13 @@ export default function SalesOrder() {
         useCORS: true,
         logging: false,
         backgroundColor: "#ffffff",
-        onclone: () => {
+        imageTimeout: 15000,
+        onclone: (clonedDoc) => {
+          clonedDoc.querySelectorAll("img").forEach((img) => {
+            img.setAttribute("crossorigin", "anonymous");
+          });
           setPdfProgress(30);
-        }
+        },
       });
 
       // Step 2: Generating PDF (30-70%)
@@ -818,7 +822,7 @@ export default function SalesOrder() {
       await new Promise(resolve => setTimeout(resolve, 100));
       
       const pdf = new jsPDF("p", "mm", "a4");
-      const imgData = canvas.toDataURL("image/png");
+      const imgData = canvas.toDataURL("image/jpeg", 0.95);
       
       setPdfProgress(60);
       
@@ -829,7 +833,7 @@ export default function SalesOrder() {
       let heightLeft = imgHeight;
       let position = 10;
 
-      pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+      pdf.addImage(imgData, "JPEG", 10, position, imgWidth, imgHeight);
       heightLeft -= (pageHeight - 20);
 
       setPdfProgress(70);
@@ -838,7 +842,7 @@ export default function SalesOrder() {
       while (heightLeft > 0) {
         position = heightLeft - imgHeight + 10;
         pdf.addPage();
-        pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+        pdf.addImage(imgData, "JPEG", 10, position, imgWidth, imgHeight);
         heightLeft -= (pageHeight - 20);
       }
 
@@ -1890,6 +1894,9 @@ export default function SalesOrder() {
                         <th
                           key={h}
                           style={{
+                            // Force background on cell level for print reliability
+                            background: "#0b6b3a",
+                            color: "white",
                             border: "1px solid #111",
                             padding: "8px",
                             fontSize: "11px",
@@ -2036,6 +2043,7 @@ export default function SalesOrder() {
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "12px" }}>
                           <img 
                             src={signatureUrl || fallbackSignature}
+                            crossOrigin="anonymous"
                             alt="Approved Signature" 
                             style={{ height: "100px", objectFit: "contain" }}
                           />

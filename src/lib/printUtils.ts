@@ -112,9 +112,30 @@ export const securePrint = ({ title, styles = '', content }: PrintOptions): void
             color-adjust: exact !important;
           }
           body { font-family: Arial, sans-serif; padding: 16px; color: #111; }
+          /*
+            Ensure row background colors (e.g., green header rows applied to <tr>)
+            are actually painted on the cells in print preview.
+            Some browsers don't reliably paint <tr> backgrounds in print.
+          */
+          table tr[style*="background"] > th,
+          table tr[style*="background"] > td {
+            background: inherit !important;
+            color: inherit !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+          }
           @page { margin: 12mm; }
           @media print {
             * {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              color-adjust: exact !important;
+            }
+            table tr[style*="background"] > th,
+            table tr[style*="background"] > td {
+              background: inherit !important;
+              color: inherit !important;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
               color-adjust: exact !important;
