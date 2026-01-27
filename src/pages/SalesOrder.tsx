@@ -20,8 +20,7 @@ import {
   Package,
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
-import DOMPurify from "dompurify";
-import { securePrint, printStyles } from "@/lib/printUtils";
+import { securePrint, printStyles, sanitizeHtml } from "@/lib/printUtils";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -2009,7 +2008,7 @@ export default function SalesOrder() {
           </DialogHeader>
 
           <div className="bg-white p-4 rounded border">
-            <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(printRef.current?.innerHTML || "") }} />
+            <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(printRef.current?.innerHTML || "") }} />
           </div>
 
           <DialogFooter className="gap-2">
