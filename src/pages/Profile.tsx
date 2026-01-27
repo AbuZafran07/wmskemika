@@ -11,6 +11,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ImageCropper } from '@/components/ImageCropper';
+import { SignatureCropper } from '@/components/SignatureCropper';
 import { validateImageFile, formatFileSize } from '@/lib/imageUtils';
 
 export default function Profile() {
@@ -38,6 +39,8 @@ export default function Profile() {
   const [signaturePath, setSignaturePath] = useState<string | null>(null);
   const [isUploadingSignature, setIsUploadingSignature] = useState(false);
   const [isDeletingSignature, setIsDeletingSignature] = useState(false);
+  const [selectedSignatureFile, setSelectedSignatureFile] = useState<File | null>(null);
+  const [showSignatureCropper, setShowSignatureCropper] = useState(false);
   const signatureInputRef = useRef<HTMLInputElement>(null);
 
   // Get signed URL for avatar on mount
@@ -166,56 +169,8 @@ export default function Profile() {
     }
   };
 
-  // Validate signature image dimensions
-  const validateSignatureDimensions = (file: File): Promise<{ valid: boolean; error?: string; width?: number; height?: number }> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        URL.revokeObjectURL(img.src);
-        
-        const minWidth = 200;
-        const minHeight = 80;
-        const maxWidth = 1000;
-        const maxHeight = 500;
-        
-        if (img.width < minWidth || img.height < minHeight) {
-          resolve({
-            valid: false,
-            error: language === 'en'
-              ? `Signature must be at least ${minWidth}x${minHeight} pixels. Your image is ${img.width}x${img.height}px.`
-              : `Tanda tangan minimal ${minWidth}x${minHeight} piksel. Gambar Anda ${img.width}x${img.height}px.`,
-            width: img.width,
-            height: img.height
-          });
-          return;
-        }
-        
-        if (img.width > maxWidth || img.height > maxHeight) {
-          resolve({
-            valid: false,
-            error: language === 'en'
-              ? `Signature must be at most ${maxWidth}x${maxHeight} pixels. Your image is ${img.width}x${img.height}px.`
-              : `Tanda tangan maksimal ${maxWidth}x${maxHeight} piksel. Gambar Anda ${img.width}x${img.height}px.`,
-            width: img.width,
-            height: img.height
-          });
-          return;
-        }
-        
-        resolve({ valid: true, width: img.width, height: img.height });
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(img.src);
-        resolve({
-          valid: false,
-          error: language === 'en' ? 'Failed to load image' : 'Gagal memuat gambar'
-        });
-      };
-      img.src = URL.createObjectURL(file);
-    });
-  };
-
-  const handleSignatureSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle signature file selection - show cropper
+  const handleSignatureSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !user?.id) return;
 
@@ -227,25 +182,28 @@ export default function Profile() {
       return;
     }
 
-    // Validate dimensions
-    setIsUploadingSignature(true);
-    const dimensionValidation = await validateSignatureDimensions(file);
-    if (!dimensionValidation.valid) {
-      toast.error(dimensionValidation.error);
-      setIsUploadingSignature(false);
-      event.target.value = '';
-      return;
-    }
+    // Show cropper instead of direct upload
+    setSelectedSignatureFile(file);
+    setShowSignatureCropper(true);
+    
+    // Reset input so same file can be selected again
+    event.target.value = '';
+  };
 
+  // Handle cropped signature upload
+  const handleSignatureCropComplete = async (blob: Blob) => {
+    if (!user?.id) return;
+
+    setIsUploadingSignature(true);
     try {
       const fileName = `${user.id}/signature.png`;
 
-      // Upload to storage
+      // Upload cropped signature to storage
       const { error: uploadError } = await supabase.storage
         .from('signatures')
-        .upload(fileName, file, { 
+        .upload(fileName, blob, { 
           upsert: true,
-          contentType: file.type
+          contentType: blob.type || 'image/png'
         });
 
       if (uploadError) throw uploadError;
@@ -273,17 +231,18 @@ export default function Profile() {
         setSignaturePath(fileName);
       }
 
+      const sizeInfo = formatFileSize(blob.size);
       toast.success(
         language === 'en' 
-          ? `Signature uploaded (${dimensionValidation.width}x${dimensionValidation.height}px)` 
-          : `Tanda tangan berhasil diunggah (${dimensionValidation.width}x${dimensionValidation.height}px)`
+          ? `Signature uploaded successfully (${sizeInfo})` 
+          : `Tanda tangan berhasil diunggah (${sizeInfo})`
       );
     } catch (error) {
       console.error('Error uploading signature:', error);
       toast.error(language === 'en' ? 'Failed to upload signature' : 'Gagal mengunggah tanda tangan');
     } finally {
       setIsUploadingSignature(false);
-      event.target.value = '';
+      setSelectedSignatureFile(null);
     }
   };
 
@@ -651,8 +610,8 @@ export default function Profile() {
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {language === 'en'
-                    ? 'PNG, JPG, WebP • Max 5MB • 200-1000px width, 80-500px height'
-                    : 'PNG, JPG, WebP • Maks 5MB • Lebar 200-1000px, tinggi 80-500px'}
+                    ? 'PNG, JPG, WebP • Max 5MB • Auto crop & resize'
+                    : 'PNG, JPG, WebP • Maks 5MB • Crop & resize otomatis'}
                 </p>
               </div>
             </div>
@@ -664,6 +623,17 @@ export default function Profile() {
             accept="image/jpeg,image/png,image/webp"
             className="hidden"
             onChange={handleSignatureSelect}
+          />
+
+          {/* Signature Cropper Dialog */}
+          <SignatureCropper
+            open={showSignatureCropper}
+            onClose={() => {
+              setShowSignatureCropper(false);
+              setSelectedSignatureFile(null);
+            }}
+            file={selectedSignatureFile}
+            onCropComplete={handleSignatureCropComplete}
           />
 
           <p className="text-xs text-muted-foreground">
