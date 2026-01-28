@@ -2098,144 +2098,184 @@ export default function SalesOrder() {
                 </div>
               </div>
 
-              {/* Signature area: Always 3 columns (Customer, Sales, Approve) */}
-              <div style={{ marginTop: "16px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0px" }}>
-                {/* Column 1: Customer - placeholder for customer signature */}
-                <div style={{ border: "1px solid #111", padding: "10px", minHeight: "120px" }}>
-                  <div style={{ textAlign: "right", fontSize: "9px", marginBottom: "2px" }}>
-                    <span style={{ color: "#111", fontWeight: 700 }}>Ditandatangani oleh </span>
-                    <span style={{ color: "#111", fontWeight: 700 }}>-</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div style={{ fontSize: "10px", color: "#111", fontWeight: 700 }}>Date:</div>
-                    <div style={{ fontSize: "9px", color: "#111", fontWeight: 700 }}>-</div>
-                  </div>
-                  <div style={{ fontSize: "10px", marginBottom: "50px", color: "#666" }}>Customer,</div>
-                  <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                  <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
-                    (.................................)
-                  </div>
+{/* Signature area: Always 3 columns (Sales, Finance, Approve) - FIXED ALIGN */}
+<div style={{ marginTop: "16px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0px" }}>
+  {/* Helper style (inline) */}
+  {(() => {
+    const cellBase: React.CSSProperties = {
+      border: "1px solid #111",
+      padding: "10px",
+      minHeight: "140px",
+      display: "flex",
+      flexDirection: "column",
+    };
+
+    const cellWithNoLeft: React.CSSProperties = { ...cellBase, borderLeft: "0px" };
+
+    const headerStyle: React.CSSProperties = {
+      textAlign: "right",
+      fontSize: "9px",
+      marginBottom: "6px",
+      color: "#444",
+      lineHeight: 1.2,
+      minHeight: "14px",
+    };
+
+    const metaRow: React.CSSProperties = {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      marginBottom: "6px",
+      minHeight: "14px",
+    };
+
+    const leftRoleStyle: React.CSSProperties = { fontSize: "10px", color: "#666" };
+    const rightDateStyle: React.CSSProperties = { fontSize: "9px", color: "#666", textAlign: "right" };
+
+    const signArea: React.CSSProperties = {
+      flex: 1, // ✅ bikin ruang tanda tangan konsisten
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      minHeight: "56px",
+    };
+
+    const lineStyle: React.CSSProperties = {
+      borderBottom: "1px solid #111",
+      height: "1px",
+      marginTop: "6px",
+    };
+
+    const nameStyle: React.CSSProperties = {
+      fontSize: "10px",
+      marginTop: "6px",
+      textAlign: "center",
+      fontWeight: 700,
+      color: "#111",
+      minHeight: "14px",
+    };
+
+    const placeholderNameStyle: React.CSSProperties = {
+      ...nameStyle,
+      fontWeight: 400,
+      color: "#666",
+    };
+
+    return (
+      <>
+        {/* 1) Sales */}
+        <div style={cellBase}>
+          {(() => {
+            const creator = (selectedOrder as any)?.creator;
+            const creatorSignatureUrl = creator?.signature_url;
+            const creatorName = creator?.full_name || user?.name || "-";
+            const createdAt = selectedOrder?.created_at ? new Date(selectedOrder.created_at as string) : null;
+
+            return (
+              <>
+                <div style={headerStyle}>
+                  Ditandatangani oleh <span style={{ fontWeight: 700 }}>{creatorName}</span>
                 </div>
 
-                {/* Column 2: Sales - show creator signature */}
-                <div style={{ border: "1px solid #111", borderLeft: "0px", padding: "10px", minHeight: "120px" }}>
-                  {(() => {
-                    const creator = (selectedOrder as any)?.creator;
-                    const creatorSignatureUrl = creator?.signature_url;
-                    const creatorName = creator?.full_name || user?.name || "";
-                    
-                    return (
-                      <>
-                        <div style={{ textAlign: "right", fontSize: "9px", marginBottom: "2px" }}>
-                          <span style={{ color: "#111", fontWeight: 700 }}>Ditandatangani oleh </span>
-                          <span style={{ color: "#111", fontWeight: 700 }}>{creatorName || "-"}</span>
-                        </div>
-                        
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                          <div style={{ fontSize: "10px", color: "#111", fontWeight: 700 }}>Date:</div>
-                          <div style={{ fontSize: "9px", color: "#111", fontWeight: 700 }}>
-                            {formatDateTimeID(new Date(selectedOrder.created_at as string))}
-                          </div>
-                        </div>
-                        <div style={{ fontSize: "10px", marginBottom: "4px", color: "#666" }}>Sales,</div>
-                        
-                        {creatorSignatureUrl ? (
-                          <>
-                            <div style={{ textAlign: "center", marginBottom: "4px" }}>
-                              <img 
-                                src={creatorSignatureUrl}
-                                crossOrigin="anonymous"
-                                alt="Creator Signature" 
-                                style={{ height: "50px", maxWidth: "120px", objectFit: "contain", margin: "0 auto" }}
-                              />
-                            </div>
-                            <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                            <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center", fontWeight: 700 }}>
-                              {creatorName}
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div style={{ height: "50px" }} />
-                            <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                            <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
-                              {creatorName || "(.................................)"}
-                            </div>
-                          </>
-                        )}
-                      </>
-                    );
-                  })()}
+                <div style={metaRow}>
+                  <div style={leftRoleStyle}>Sales,</div>
+                  <div style={rightDateStyle}>{createdAt ? `Pada ${formatDateTimeID(createdAt)}` : "-"}</div>
                 </div>
 
-                {/* Column 3: Approve - show signature and name if approved */}
-                <div style={{ border: "1px solid #111", borderLeft: "0px", padding: "10px", minHeight: "120px" }}>
-                  {(() => {
-                    const approver = (selectedOrder as any)?.approver;
-                    const signatureUrl = approver?.signature_url;
-                    const approverName = approver?.full_name || "";
-                    const isApproved = selectedOrder.status === "approved" && selectedOrder.approved_at;
-
-                    const fallbackSignature = approverName.toLowerCase().includes("ferry")
-                      ? `${window.location.origin}/signature-ferry.png`
-                      : `${window.location.origin}/approved-signature.png`;
-
-                    return (
-                      <>
-                        <div style={{ textAlign: "right", fontSize: "9px", marginBottom: "2px" }}>
-                          <span style={{ color: "#111", fontWeight: 700 }}>Ditandatangani oleh </span>
-                          <span style={{ color: "#111", fontWeight: 700 }}>{isApproved ? approverName || "-" : "-"}</span>
-                        </div>
-                        
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                          <div style={{ fontSize: "10px", color: "#111", fontWeight: 700 }}>Date:</div>
-                          {isApproved ? (
-                            <div style={{ fontSize: "9px", color: "#111", fontWeight: 700 }}>
-                              {formatDateTimeID(new Date(selectedOrder.approved_at as string))}
-                            </div>
-                          ) : (
-                            <div style={{ fontSize: "9px", color: "#111", fontWeight: 700 }}>-</div>
-                          )}
-                        </div>
-                        <div style={{ fontSize: "10px", marginBottom: "4px", color: "#666" }}>Approve,</div>
-                        
-                        {isApproved ? (
-                          <>
-                            <div style={{ textAlign: "center", marginBottom: "4px" }}>
-                              <img
-                                src={signatureUrl || fallbackSignature}
-                                crossOrigin="anonymous"
-                                alt="Approved Signature"
-                                style={{ height: "50px", maxWidth: "120px", objectFit: "contain", margin: "0 auto" }}
-                              />
-                            </div>
-                            <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                            <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center", fontWeight: 700 }}>
-                              {approverName || "Approved"}
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div style={{ height: "50px" }} />
-                            <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                            <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
-                              (.................................)
-                            </div>
-                          </>
-                        )}
-                      </>
-                    );
-                  })()}
+                <div style={signArea}>
+                  {creatorSignatureUrl ? (
+                    <img
+                      src={creatorSignatureUrl}
+                      crossOrigin="anonymous"
+                      alt="Sales Signature"
+                      style={{ height: "52px", maxWidth: "140px", objectFit: "contain" }}
+                    />
+                  ) : null}
                 </div>
-              </div>
 
-              <div style={{ marginTop: "10px", fontSize: "9px", color: "#333" }}>
-                Print: {formatDateTimeID(new Date())}
-              </div>
-            </div>
-          )}
+                <div style={lineStyle} />
+                <div style={creatorSignatureUrl ? nameStyle : placeholderNameStyle}>
+                  {creatorSignatureUrl ? creatorName : "(.................................)"}
+                </div>
+              </>
+            );
+          })()}
         </div>
-      </div>
+
+        {/* 2) Finance */}
+        <div style={cellWithNoLeft}>
+          {(() => {
+            return (
+              <>
+                <div style={headerStyle}>
+                  Ditandatangani oleh <span style={{ fontWeight: 700 }}>-</span>
+                </div>
+
+                <div style={metaRow}>
+                  <div style={leftRoleStyle}>Finance,</div>
+                  <div style={rightDateStyle}>-</div>
+                </div>
+
+                <div style={signArea} />
+
+                <div style={lineStyle} />
+                <div style={placeholderNameStyle}>(.................................)</div>
+              </>
+            );
+          })()}
+        </div>
+
+        {/* 3) Approve */}
+        <div style={cellWithNoLeft}>
+          {(() => {
+            const approver = (selectedOrder as any)?.approver;
+            const signatureUrl = approver?.signature_url;
+            const approverName = approver?.full_name || "-";
+            const isApproved = selectedOrder.status === "approved" && selectedOrder.approved_at;
+            const approvedAt = isApproved ? new Date(selectedOrder.approved_at as string) : null;
+
+            const fallbackSignature = approverName.toLowerCase().includes("ferry")
+              ? `${window.location.origin}/signature-ferry.png`
+              : `${window.location.origin}/approved-signature.png`;
+
+            return (
+              <>
+                <div style={headerStyle}>
+                  Ditandatangani oleh <span style={{ fontWeight: 700 }}>{isApproved ? approverName : "-"}</span>
+                </div>
+
+                <div style={metaRow}>
+                  <div style={leftRoleStyle}>Approve,</div>
+                  <div style={rightDateStyle}>{approvedAt ? `Pada ${formatDateTimeID(approvedAt)}` : "-"}</div>
+                </div>
+
+                <div style={signArea}>
+                  {isApproved ? (
+                    <img
+                      src={signatureUrl || fallbackSignature}
+                      crossOrigin="anonymous"
+                      alt="Approved Signature"
+                      style={{ height: "52px", maxWidth: "140px", objectFit: "contain" }}
+                    />
+                  ) : null}
+                </div>
+
+                <div style={lineStyle} />
+                <div style={isApproved ? nameStyle : placeholderNameStyle}>
+                  {isApproved ? approverName : "(.................................)"}
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      </>
+    );
+  })()}
+</div>
+
+<div style={{ marginTop: "10px", fontSize: "9px", color: "#333" }}>
+  Print: {formatDateTimeID(new Date())}
+</div>
 
       {/* PDF Preview Dialog */}
       <Dialog open={isPdfPreviewOpen} onOpenChange={setIsPdfPreviewOpen}>
