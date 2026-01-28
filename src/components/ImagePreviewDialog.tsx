@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ExternalLink, X, Image as ImageIcon } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ExternalLink, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -7,16 +7,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { getProductPhotoUrl } from '@/lib/storage';
 
 interface ImagePreviewDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  imageUrl: string | null | undefined;
+  photoPath: string | null | undefined;
   alt: string;
 }
 
 /**
  * Reusable component for displaying product images in a popup/modal.
+ * Supports both direct URLs and storage paths (with signed URL generation).
  * Features:
  * - Full-size image preview with max height 70vh
  * - "Open Image" button to open in new tab
@@ -26,23 +28,37 @@ interface ImagePreviewDialogProps {
 export function ImagePreviewDialog({
   isOpen,
   onOpenChange,
-  imageUrl,
+  photoPath,
   alt,
 }: ImagePreviewDialogProps) {
   const [imageError, setImageError] = useState(false);
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch signed URL when dialog opens
+  useEffect(() => {
+    if (isOpen && photoPath) {
+      setImageError(false);
+      setLoading(true);
+      getProductPhotoUrl(photoPath)
+        .then(url => {
+          setSignedUrl(url);
+          setLoading(false);
+        })
+        .catch(() => {
+          setImageError(true);
+          setLoading(false);
+        });
+    } else {
+      setSignedUrl(null);
+    }
+  }, [isOpen, photoPath]);
 
   const handleOpenInNewTab = () => {
-    if (imageUrl) {
-      window.open(imageUrl, '_blank', 'noopener,noreferrer');
+    if (signedUrl) {
+      window.open(signedUrl, '_blank', 'noopener,noreferrer');
     }
   };
-
-  // Reset error state when dialog opens with new image
-  React.useEffect(() => {
-    if (isOpen) {
-      setImageError(false);
-    }
-  }, [isOpen, imageUrl]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -54,16 +70,19 @@ export function ImagePreviewDialog({
         </DialogHeader>
         
         <div className="flex flex-col items-center p-4">
-          {imageUrl && !imageError ? (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <Loader2 className="w-12 h-12 mb-4 animate-spin" />
+              <p className="text-sm">Loading image...</p>
+            </div>
+          ) : signedUrl && !imageError ? (
             <div className="flex flex-col items-center gap-4 w-full">
               <div className="flex items-center justify-center w-full bg-muted/30 rounded-lg p-2">
                 <img
-                  src={imageUrl}
+                  src={signedUrl}
                   alt={alt}
                   className="max-h-[70vh] max-w-full object-contain rounded"
                   loading="lazy"
-                  referrerPolicy="no-referrer"
-                  crossOrigin="anonymous"
                   onError={() => setImageError(true)}
                 />
               </div>
@@ -91,7 +110,7 @@ export function ImagePreviewDialog({
 }
 
 interface ProductThumbnailProps {
-  imageUrl: string | null | undefined;
+  photoPath: string | null | undefined;
   alt: string;
   className?: string;
   onClick?: () => void;
@@ -99,24 +118,41 @@ interface ProductThumbnailProps {
 
 /**
  * Clickable product thumbnail component with lazy loading and error handling.
- * Uses URL-based images (no file upload).
+ * Uses signed URLs from Supabase storage for secure image access.
  */
 export function ProductThumbnail({
-  imageUrl,
+  photoPath,
   alt,
   className = 'w-10 h-10',
   onClick,
 }: ProductThumbnailProps) {
   const [imageError, setImageError] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  // Reset error state when imageUrl changes
-  React.useEffect(() => {
-    setImageError(false);
-    setImageLoaded(false);
-  }, [imageUrl]);
+  // Fetch signed URL when photoPath changes
+  useEffect(() => {
+    if (photoPath) {
+      setImageError(false);
+      setImageLoaded(false);
+      setLoading(true);
+      getProductPhotoUrl(photoPath)
+        .then(url => {
+          setSignedUrl(url);
+          setLoading(false);
+        })
+        .catch(() => {
+          setImageError(true);
+          setLoading(false);
+        });
+    } else {
+      setSignedUrl(null);
+      setLoading(false);
+    }
+  }, [photoPath]);
 
-  if (!imageUrl || imageError) {
+  if (!photoPath || imageError) {
     return (
       <div 
         className={`${className} rounded border border-border bg-muted flex items-center justify-center cursor-pointer hover:bg-muted/80 transition-colors`}
@@ -127,6 +163,19 @@ export function ProductThumbnail({
         onKeyDown={(e) => e.key === 'Enter' && onClick?.()}
       >
         <ImageIcon className="w-5 h-5 text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (loading || !signedUrl) {
+    return (
+      <div 
+        className={`${className} rounded border border-border bg-muted flex items-center justify-center`}
+        onClick={onClick}
+        role="button"
+        tabIndex={0}
+      >
+        <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
       </div>
     );
   }
@@ -146,12 +195,10 @@ export function ProductThumbnail({
         </div>
       )}
       <img
-        src={imageUrl}
+        src={signedUrl}
         alt={alt}
         className={`w-full h-full object-cover ${imageLoaded ? '' : 'hidden'}`}
         loading="lazy"
-        referrerPolicy="no-referrer"
-        crossOrigin="anonymous"
         onError={() => setImageError(true)}
         onLoad={() => setImageLoaded(true)}
       />
