@@ -439,8 +439,8 @@ export default function Products() {
     let photoPath = formData.photo_url;
     if (croppedBlob) {
       setIsUploading(true);
-      // Convert blob to File for uploadFile function
-      const croppedFile = new File([croppedBlob], 'product-photo.jpg', { type: 'image/jpeg' });
+      // Convert blob to File for uploadFile function (WebP format)
+      const croppedFile = new File([croppedBlob], 'product-photo.webp', { type: 'image/webp' });
       const result = await uploadFile(croppedFile, 'product-photos', 'products');
       if (result) {
         photoPath = result.path;
