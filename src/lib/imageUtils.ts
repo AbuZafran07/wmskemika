@@ -43,7 +43,7 @@ export function createImageFromFile(file: File): Promise<HTMLImageElement> {
 export async function compressImage(
   canvas: HTMLCanvasElement,
   targetSize: number = TARGET_FILE_SIZE,
-  format: 'image/jpeg' | 'image/webp' = 'image/jpeg'
+  format: 'image/jpeg' | 'image/webp' = 'image/webp'
 ): Promise<Blob> {
   let quality = 0.9;
   let blob: Blob | null = null;
