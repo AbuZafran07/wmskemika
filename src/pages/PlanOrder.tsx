@@ -2147,192 +2147,221 @@ export default function PlanOrder() {
               {/* Signature area */}
               {/* Signature area: 3 columns (Vendor, Purchasing, Approve) */}
               <div style={{ marginTop: "10px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0px" }}>
-                {/* 1) Vendor (LEFT) */}
-                <div style={{ border: "1px solid #111", padding: "8px 10px", minHeight: "120px" }}>
-                  {(() => {
-                    const supplierName = selectedOrder.supplier?.name || "-";
+                {/* Shared helpers (inline) */}
+                {(() => {
+                  const topHeaderStyle: React.CSSProperties = {
+                    textAlign: "right",
+                    fontSize: "9px",
+                    marginBottom: "4px",
+                    color: "#444",
+                    minHeight: "14px",
+                    lineHeight: "14px",
+                  };
 
-                    // Kalau nanti ada ttd vendor dari DB, sambungkan di sini:
-                    // const vendorSignatureUrl = (selectedOrder.supplier as any)?.signature_url;
-                    const vendorSignatureUrl = ""; // placeholder
+                  const metaRowStyle: React.CSSProperties = {
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    marginBottom: "6px",
+                    minHeight: "16px", // ✅ biar semua kolom punya tinggi meta yg sama
+                  };
 
-                    return (
-                      <>
-                        {/* Header: Ditandatangani oleh */}
-                        <div style={{ textAlign: "right", fontSize: "9px", marginBottom: "4px", color: "#444" }}>
-                          Ditandatangani oleh <span style={{ fontWeight: 700 }}>{supplierName}</span>
-                        </div>
+                  const roleStyle: React.CSSProperties = { fontSize: "10px", color: "#666" };
+                  const dateStyle: React.CSSProperties = { fontSize: "9px", color: "#666" };
 
-                        {/* Role only (tanggal & jam DIHILANGKAN) */}
-                        <div style={{ fontSize: "10px", color: "#666", marginBottom: "4px" }}>Vendor,</div>
+                  const signWrapStyle: React.CSSProperties = {
+                    flex: 1, // ✅ dorong area bawah (garis) jadi rata
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minHeight: "58px", // ✅ seragam untuk semua kolom
+                    paddingBottom: "2px",
+                  };
 
-                        {/* Signature */}
-                        {vendorSignatureUrl ? (
-                          <>
-                            <div style={{ textAlign: "center", marginBottom: "6px" }}>
-                              <img
-                                src={vendorSignatureUrl}
-                                crossOrigin="anonymous"
-                                alt="Vendor Signature"
-                                style={{ height: "48px", maxWidth: "130px", objectFit: "contain", margin: "0 auto" }}
-                              />
-                            </div>
+                  const lineStyle: React.CSSProperties = { borderBottom: "1px solid #111", height: "1px" };
 
-                            {/* Garis ttd SEJAJAR dengan Purchasing & Approve */}
-                            <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                  const bottomNameStyle: React.CSSProperties = {
+                    fontSize: "10px",
+                    marginTop: "5px",
+                    textAlign: "center",
+                    fontWeight: 700,
+                    color: "#111",
+                    minHeight: "14px",
+                    lineHeight: "14px",
+                  };
 
-                            <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center", fontWeight: 700 }}>
-                              {supplierName}
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            {/* spacer supaya garis ttd sejajar */}
-                            <div style={{ height: "48px" }} />
-                            <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                            <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center", color: "#666" }}>
-                              (.................................)
-                            </div>
-                          </>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
+                  const bottomPlaceholderStyle: React.CSSProperties = {
+                    fontSize: "10px",
+                    marginTop: "5px",
+                    textAlign: "center",
+                    color: "#666",
+                    minHeight: "14px",
+                    lineHeight: "14px",
+                  };
 
-                {/* 2) Purchasing (MIDDLE) - creator signature */}
-                <div style={{ border: "1px solid #111", borderLeft: "0px", padding: "8px 10px", minHeight: "120px" }}>
-                  {(() => {
-                    const creator = (selectedOrder as any)?.creator;
-                    const creatorSignatureUrl = creator?.signature_url;
-                    const creatorName = creator?.full_name || user?.name || "-";
-                    const createdAt = selectedOrder.created_at ? new Date(selectedOrder.created_at as string) : null;
+                  return (
+                    <>
+                      {/* 1) Vendor (LEFT) */}
+                      <div
+                        style={{
+                          border: "1px solid #111",
+                          padding: "8px 10px",
+                          minHeight: "120px",
+                          display: "flex",
+                          flexDirection: "column",
+                        }}
+                      >
+                        {(() => {
+                          const supplierName = selectedOrder.supplier?.name || "-";
+                          const vendorSignatureUrl = ""; // placeholder (kalau ada dari DB tinggal isi)
+                          return (
+                            <>
+                              <div style={topHeaderStyle}>
+                                Ditandatangani oleh <span style={{ fontWeight: 700 }}>{supplierName}</span>
+                              </div>
 
-                    return (
-                      <>
-                        {/* Header: Ditandatangani oleh */}
-                        <div style={{ textAlign: "right", fontSize: "9px", marginBottom: "4px", color: "#444" }}>
-                          Ditandatangani oleh <span style={{ fontWeight: 700 }}>{creatorName}</span>
-                        </div>
+                              {/* ✅ Meta row dibuat SAMA dengan kolom lain, tapi tanggal disembunyikan */}
+                              <div style={metaRowStyle}>
+                                <div style={roleStyle}>Vendor,</div>
+                                <div style={{ ...dateStyle, visibility: "hidden" }}>Pada 00 Xxx 0000 00.00</div>
+                              </div>
 
-                        {/* Tanggal */}
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "flex-start",
-                            marginBottom: "4px",
-                          }}
-                        >
-                          <div style={{ fontSize: "10px", color: "#666" }}>Purchasing,</div>
-                          <div style={{ fontSize: "9px", color: "#666" }}>
-                            {createdAt ? `Pada ${formatDateTimeID(createdAt)}` : "-"}
-                          </div>
-                        </div>
+                              {/* ✅ Area tanda tangan (seragam) */}
+                              <div style={signWrapStyle}>
+                                {vendorSignatureUrl ? (
+                                  <img
+                                    src={vendorSignatureUrl}
+                                    crossOrigin="anonymous"
+                                    alt="Vendor Signature"
+                                    style={{ height: "48px", maxWidth: "130px", objectFit: "contain" }}
+                                  />
+                                ) : (
+                                  <div style={{ height: "48px" }} />
+                                )}
+                              </div>
 
-                        {creatorSignatureUrl ? (
-                          <>
-                            <div style={{ textAlign: "center", marginBottom: "6px" }}>
-                              <img
-                                src={creatorSignatureUrl}
-                                crossOrigin="anonymous"
-                                alt="Creator Signature"
-                                style={{ height: "48px", maxWidth: "130px", objectFit: "contain", margin: "0 auto" }}
-                              />
-                            </div>
-                            <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                            <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center", fontWeight: 700 }}>
-                              {creatorName}
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div style={{ height: "48px" }} />
-                            <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                            <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center", color: "#666" }}>
-                              (.................................)
-                            </div>
-                          </>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
+                              {/* ✅ Garis selalu berada di “posisi bawah” yang sama */}
+                              <div style={lineStyle} />
 
-                {/* 3) Approve (RIGHT) */}
-                <div style={{ border: "1px solid #111", borderLeft: "0px", padding: "8px 10px", minHeight: "120px" }}>
-                  {(() => {
-                    const approver = (selectedOrder as any)?.approver;
-                    const signatureUrl = approver?.signature_url;
-                    const approverName = approver?.full_name || "-";
-                    const isApproved = selectedOrder.status === "approved" && selectedOrder.approved_at;
+                              <div style={bottomPlaceholderStyle}>(.................................)</div>
+                            </>
+                          );
+                        })()}
+                      </div>
 
-                    const fallbackSignature = approverName.toLowerCase().includes("ferry")
-                      ? `${window.location.origin}/signature-ferry.png`
-                      : `${window.location.origin}/approved-signature.png`;
+                      {/* 2) Purchasing (MIDDLE) */}
+                      <div
+                        style={{
+                          border: "1px solid #111",
+                          borderLeft: "0px",
+                          padding: "8px 10px",
+                          minHeight: "120px",
+                          display: "flex",
+                          flexDirection: "column",
+                        }}
+                      >
+                        {(() => {
+                          const creator = (selectedOrder as any)?.creator;
+                          const creatorSignatureUrl = creator?.signature_url;
+                          const creatorName = creator?.full_name || user?.name || "-";
+                          const createdAt = selectedOrder.created_at
+                            ? new Date(selectedOrder.created_at as string)
+                            : null;
 
-                    return (
-                      <>
-                        {/* Header */}
-                        <div style={{ textAlign: "right", fontSize: "9px", marginBottom: "4px", color: "#444" }}>
-                          Ditandatangani oleh <span style={{ fontWeight: 700 }}>{isApproved ? approverName : "-"}</span>
-                        </div>
+                          return (
+                            <>
+                              <div style={topHeaderStyle}>
+                                Ditandatangani oleh <span style={{ fontWeight: 700 }}>{creatorName}</span>
+                              </div>
 
-                        {/* Tanggal */}
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "flex-start",
-                            marginBottom: "4px",
-                          }}
-                        >
-                          <div style={{ fontSize: "10px", color: "#666" }}>Approve,</div>
-                          <div style={{ fontSize: "9px", color: "#666" }}>
-                            {isApproved
-                              ? `Pada ${formatDateTimeID(new Date(selectedOrder.approved_at as string))}`
-                              : "-"}
-                          </div>
-                        </div>
+                              <div style={metaRowStyle}>
+                                <div style={roleStyle}>Purchasing,</div>
+                                <div style={dateStyle}>{createdAt ? `Pada ${formatDateTimeID(createdAt)}` : "-"}</div>
+                              </div>
 
-                        {isApproved ? (
-                          <>
-                            <div style={{ textAlign: "center", marginBottom: "6px" }}>
-                              <img
-                                src={signatureUrl || fallbackSignature}
-                                crossOrigin="anonymous"
-                                alt="Approved Signature"
-                                style={{ height: "48px", maxWidth: "130px", objectFit: "contain", margin: "0 auto" }}
-                              />
-                            </div>
+                              <div style={signWrapStyle}>
+                                {creatorSignatureUrl ? (
+                                  <img
+                                    src={creatorSignatureUrl}
+                                    crossOrigin="anonymous"
+                                    alt="Creator Signature"
+                                    style={{ height: "48px", maxWidth: "130px", objectFit: "contain" }}
+                                  />
+                                ) : (
+                                  <div style={{ height: "48px" }} />
+                                )}
+                              </div>
 
-                            <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                              <div style={lineStyle} />
 
-                            <div
-                              style={{
-                                fontSize: "10px",
-                                marginTop: "5px",
-                                textAlign: "center",
-                                fontWeight: 700,
-                                color: "#111",
-                              }}
-                            >
-                              {approverName}
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div style={{ height: "48px" }} />
-                            <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                            <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center", color: "#666" }}>
-                              (.................................)
-                            </div>
-                          </>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
+                              <div style={bottomNameStyle}>{creatorName}</div>
+                            </>
+                          );
+                        })()}
+                      </div>
+
+                      {/* 3) Approve (RIGHT) */}
+                      <div
+                        style={{
+                          border: "1px solid #111",
+                          borderLeft: "0px",
+                          padding: "8px 10px",
+                          minHeight: "120px",
+                          display: "flex",
+                          flexDirection: "column",
+                        }}
+                      >
+                        {(() => {
+                          const approver = (selectedOrder as any)?.approver;
+                          const signatureUrl = approver?.signature_url;
+                          const approverName = approver?.full_name || "-";
+                          const isApproved = selectedOrder.status === "approved" && selectedOrder.approved_at;
+
+                          const fallbackSignature = approverName.toLowerCase().includes("ferry")
+                            ? `${window.location.origin}/signature-ferry.png`
+                            : `${window.location.origin}/approved-signature.png`;
+
+                          return (
+                            <>
+                              <div style={topHeaderStyle}>
+                                Ditandatangani oleh{" "}
+                                <span style={{ fontWeight: 700 }}>{isApproved ? approverName : "-"}</span>
+                              </div>
+
+                              <div style={metaRowStyle}>
+                                <div style={roleStyle}>Approve,</div>
+                                <div style={dateStyle}>
+                                  {isApproved
+                                    ? `Pada ${formatDateTimeID(new Date(selectedOrder.approved_at as string))}`
+                                    : "-"}
+                                </div>
+                              </div>
+
+                              <div style={signWrapStyle}>
+                                {isApproved ? (
+                                  <img
+                                    src={signatureUrl || fallbackSignature}
+                                    crossOrigin="anonymous"
+                                    alt="Approved Signature"
+                                    style={{ height: "48px", maxWidth: "130px", objectFit: "contain" }}
+                                  />
+                                ) : (
+                                  <div style={{ height: "48px" }} />
+                                )}
+                              </div>
+
+                              <div style={lineStyle} />
+
+                              <div style={isApproved ? bottomNameStyle : bottomPlaceholderStyle}>
+                                {isApproved ? approverName : "(.................................)"}
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
               {/* Shipping notes */}
               <div style={{ marginTop: "10px", border: "1px solid #111", padding: "10px", fontSize: "9px" }}>
