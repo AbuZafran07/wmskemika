@@ -2203,7 +2203,7 @@ export default function PlanOrder() {
                 <div style={{ border: "1px solid #111", borderLeft: "0px", padding: "8px 10px", minHeight: "120px" }}>
                   {/* Ditandatangani oleh header - placeholder */}
                   <div style={{ textAlign: "right", fontSize: "9px", marginBottom: "2px" }}>
-                    <span style={{ color: "#111" }}>- </span>
+                    <span style={{ color: "#111" }}> </span>
                     <span style={{ color: "#16a34a", fontWeight: 700 }}>-</span>
                   </div>
 
