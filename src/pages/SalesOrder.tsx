@@ -2273,9 +2273,13 @@ export default function SalesOrder() {
   })()}
 </div>
 
-<div style={{ marginTop: "10px", fontSize: "9px", color: "#333" }}>
-  Print: {formatDateTimeID(new Date())}
-</div>
+              <div style={{ marginTop: "10px", fontSize: "9px", color: "#333" }}>
+                Print: {formatDateTimeID(new Date())}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* PDF Preview Dialog */}
       <Dialog open={isPdfPreviewOpen} onOpenChange={setIsPdfPreviewOpen}>
