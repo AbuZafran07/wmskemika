@@ -2151,12 +2151,13 @@ export default function PlanOrder() {
                 <div style={{ border: "1px solid #111", padding: "8px 10px", minHeight: "120px" }}>
                   {/* Ditandatangani oleh header - placeholder */}
                   <div style={{ textAlign: "right", fontSize: "9px", marginBottom: "2px" }}>
-                    <span style={{ color: "#111", fontWeight: 700 }}>Ditandatangani oleh -</span>
+                    <span style={{ color: "#111" }}>Ditandatangani oleh </span>
+                    <span style={{ color: "#16a34a", fontWeight: 700 }}>-</span>
                   </div>
 
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div style={{ fontSize: "10px", color: "#111" }}>Date:</div>
-                    <div style={{ fontSize: "9px", color: "#111", fontWeight: 700 }}>-</div>
+                    <div style={{ fontSize: "9px", color: "#16a34a", fontWeight: 700 }}>-</div>
                   </div>
                   <div style={{ fontSize: "10px", marginBottom: "50px", color: "#111" }}>Vendor,</div>
                   <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
@@ -2176,12 +2177,13 @@ export default function PlanOrder() {
                       <>
                         {/* Ditandatangani oleh header */}
                         <div style={{ textAlign: "right", fontSize: "9px", marginBottom: "2px" }}>
-                          <span style={{ color: "#111", fontWeight: 700 }}>Ditandatangani oleh {creatorName || "-"}</span>
+                          <span style={{ color: "#111" }}>Ditandatangani oleh </span>
+                          <span style={{ color: "#16a34a", fontWeight: 700 }}>{creatorName || "-"}</span>
                         </div>
 
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                           <div style={{ fontSize: "10px", color: "#111" }}>Date:</div>
-                          <div style={{ fontSize: "9px", color: "#111", fontWeight: 700 }}>
+                          <div style={{ fontSize: "9px", color: "#16a34a", fontWeight: 700 }}>
                             {formatDateTimeID(new Date(selectedOrder.created_at as string))}
                           </div>
                         </div>
@@ -2233,7 +2235,8 @@ export default function PlanOrder() {
                       <>
                         {/* Header: Ditandatangani oleh */}
                         <div style={{ textAlign: "right", fontSize: "9px", marginBottom: "2px" }}>
-                          <span style={{ color: "#111", fontWeight: 700 }}>Ditandatangani oleh {isApproved ? approverName || "-" : "-"}</span>
+                          <span style={{ color: "#111" }}>Ditandatangani oleh </span>
+                          <span style={{ color: "#16a34a", fontWeight: 700 }}>{isApproved ? approverName || "-" : "-"}</span>
                         </div>
 
                         {/* Tanggal */}
@@ -2245,7 +2248,7 @@ export default function PlanOrder() {
                           }}
                         >
                           <div style={{ fontSize: "10px", color: "#111" }}>Approve,</div>
-                          <div style={{ fontSize: "9px", color: "#111", fontWeight: 700 }}>
+                          <div style={{ fontSize: "9px", color: "#16a34a", fontWeight: 700 }}>
                             {isApproved ? formatDateTimeID(new Date(selectedOrder.approved_at as string)) : "-"}
                           </div>
                         </div>
