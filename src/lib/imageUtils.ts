@@ -2,7 +2,7 @@
 
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 export const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB before compression
-export const TARGET_FILE_SIZE = 500 * 1024; // 500KB after compression
+export const TARGET_FILE_SIZE = 100 * 1024; // 100KB after compression
 
 export interface ImageValidationResult {
   valid: boolean;
