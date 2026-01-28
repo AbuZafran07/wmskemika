@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Plus, Search, Filter, Download, Upload, MoreHorizontal, Edit, Trash2, Eye, X, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Plus, Search, Filter, Download, Upload, MoreHorizontal, Edit, Trash2, Eye, Loader2 } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,8 +49,7 @@ import {
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useProducts, useCategories, useUnits, useSuppliers, Product } from '@/hooks/useMasterData';
 import { supabase } from '@/integrations/supabase/client';
-import { uploadFile } from '@/lib/storage';
-import { ProductImage } from '@/components/ProductImage';
+import { ProductThumbnail, ImagePreviewDialog } from '@/components/ImagePreviewDialog';
 import { toast } from 'sonner';
 import { exportToCSV, parseCSV, readFileAsText, downloadCSVTemplate, checkDuplicates, getColumnValue } from '@/lib/csvUtils';
 import { ImportPreviewDialog, ImportPreviewRow } from '@/components/ImportPreviewDialog';
@@ -69,7 +68,7 @@ interface ProductFormData {
   max_stock: string;
   location_rack: string;
   is_active: boolean;
-  photo_url: string;
+  image_url: string;
 }
 
 const initialFormData: ProductFormData = {
@@ -84,7 +83,7 @@ const initialFormData: ProductFormData = {
   max_stock: '',
   location_rack: '',
   is_active: true,
-  photo_url: '',
+  image_url: '',
 };
 
 export default function Products() {
@@ -104,12 +103,12 @@ export default function Products() {
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState<ProductFormData>(initialFormData);
   const [isSaving, setIsSaving] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewRows, setPreviewRows] = useState<ImportPreviewRow[]>([]);
   const [parsedData, setParsedData] = useState<Record<string, string>[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
+  const [previewingProduct, setPreviewingProduct] = useState<Product | null>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = () => {
@@ -388,9 +387,14 @@ export default function Products() {
       max_stock: product.max_stock?.toString() || '',
       location_rack: product.location_rack || '',
       is_active: product.is_active,
-      photo_url: product.photo_url || '',
+      image_url: (product as any).image_url || '',
     });
     setIsDialogOpen(true);
+  };
+
+  const handleImageClick = (product: Product) => {
+    setPreviewingProduct(product);
+    setIsImagePreviewOpen(true);
   };
 
   const handleView = (product: Product) => {
@@ -401,23 +405,6 @@ export default function Products() {
   const handleDelete = (product: Product) => {
     setDeletingProduct(product);
     setIsDeleteDialogOpen(true);
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploading(true);
-    const result = await uploadFile(file, 'product-photos', 'products');
-    
-    if (result) {
-      // Store the path, not the URL - we'll generate signed URLs when displaying
-      setFormData(prev => ({ ...prev, photo_url: result.path }));
-      toast.success(language === 'en' ? 'Photo uploaded successfully' : 'Foto berhasil diupload');
-    } else {
-      toast.error(language === 'en' ? 'Failed to upload photo' : 'Gagal upload foto');
-    }
-    setIsUploading(false);
   };
 
   const generateBarcode = () => {
@@ -449,7 +436,7 @@ export default function Products() {
       max_stock: formData.max_stock ? parseInt(formData.max_stock) : null,
       location_rack: formData.location_rack || null,
       is_active: formData.is_active,
-      photo_url: formData.photo_url || null,
+      image_url: formData.image_url || null,
     };
 
     let error;
@@ -607,11 +594,11 @@ export default function Products() {
                   paginatedProducts.map((product) => (
                     <TableRow key={product.id}>
                       <TableCell>
-                        <ProductImage 
-                          photoUrl={product.photo_url} 
+                        <ProductThumbnail 
+                          imageUrl={(product as any).image_url} 
                           alt={product.name}
-                          className="w-10 h-10 rounded object-cover"
-                          fallbackClassName="w-10 h-10 rounded bg-muted flex items-center justify-center"
+                          className="w-10 h-10"
+                          onClick={() => handleImageClick(product)}
                         />
                       </TableCell>
                       <TableCell className="font-medium">{product.sku || '-'}</TableCell>
@@ -691,59 +678,28 @@ export default function Products() {
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            {/* Photo Upload */}
+            {/* Image URL Input */}
             <div className="space-y-2">
-              <Label>{language === 'en' ? 'Product Photo' : 'Foto Produk'} *</Label>
-              <div className="flex items-center gap-4">
-                {formData.photo_url ? (
-                  <div className="relative">
-                    <ProductImage 
-                      photoUrl={formData.photo_url} 
-                      alt="Product"
-                      className="w-24 h-24 rounded-lg object-cover"
-                      fallbackClassName="w-24 h-24 rounded-lg bg-muted flex items-center justify-center"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, photo_url: '' }))}
-                      className="absolute -top-2 -right-2 p-1 bg-destructive text-destructive-foreground rounded-full"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ) : (
-                  <div 
-                    className="w-24 h-24 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center cursor-pointer hover:border-primary transition-colors"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    {isUploading ? (
-                      <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                    ) : (
-                      <ImageIcon className="w-6 h-6 text-muted-foreground" />
-                    )}
-                  </div>
-                )}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleFileUpload}
-                />
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                >
-                  {isUploading ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Upload className="w-4 h-4 mr-2" />
-                  )}
-                  {language === 'en' ? 'Upload Photo' : 'Upload Foto'}
-                </Button>
-              </div>
+              <Label>{language === 'en' ? 'Image URL' : 'URL Gambar'} ({language === 'en' ? 'optional' : 'opsional'})</Label>
+              <Input
+                placeholder="https://example.com/product-image.jpg"
+                value={formData.image_url}
+                onChange={(e) => setFormData(prev => ({ ...prev, image_url: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">
+                {language === 'en' 
+                  ? 'Enter a direct image URL (jpg, png, webp). Leave empty to use placeholder.'
+                  : 'Masukkan URL gambar langsung (jpg, png, webp). Kosongkan untuk placeholder.'}
+              </p>
+              {formData.image_url && (
+                <div className="mt-2">
+                  <ProductThumbnail 
+                    imageUrl={formData.image_url} 
+                    alt="Preview"
+                    className="w-20 h-20"
+                  />
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -895,12 +851,12 @@ export default function Products() {
           </DialogHeader>
           {viewingProduct && (
             <div className="space-y-4">
-              {viewingProduct.photo_url && (
-                <ProductImage 
-                  photoUrl={viewingProduct.photo_url} 
+              {(viewingProduct as any).image_url && (
+                <ProductThumbnail 
+                  imageUrl={(viewingProduct as any).image_url} 
                   alt={viewingProduct.name}
-                  className="w-full h-48 rounded-lg object-cover"
-                  fallbackClassName="w-full h-48 rounded-lg bg-muted flex items-center justify-center"
+                  className="w-full h-48"
+                  onClick={() => handleImageClick(viewingProduct)}
                 />
               )}
               <div className="grid grid-cols-2 gap-4 text-sm">
@@ -996,6 +952,14 @@ export default function Products() {
         ]}
         isImporting={isImporting}
         showUpsertOption={true}
+      />
+
+      {/* Image Preview Dialog */}
+      <ImagePreviewDialog
+        isOpen={isImagePreviewOpen}
+        onOpenChange={setIsImagePreviewOpen}
+        imageUrl={(previewingProduct as any)?.image_url}
+        alt={previewingProduct?.name || 'Product'}
       />
     </div>
   );

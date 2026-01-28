@@ -480,6 +480,7 @@ export type Database = {
           created_by: string | null
           deleted_at: string | null
           id: string
+          image_url: string | null
           is_active: boolean | null
           location_rack: string | null
           max_stock: number | null
@@ -500,6 +501,7 @@ export type Database = {
           created_by?: string | null
           deleted_at?: string | null
           id?: string
+          image_url?: string | null
           is_active?: boolean | null
           location_rack?: string | null
           max_stock?: number | null
@@ -520,6 +522,7 @@ export type Database = {
           created_by?: string | null
           deleted_at?: string | null
           id?: string
+          image_url?: string | null
           is_active?: boolean | null
           location_rack?: string | null
           max_stock?: number | null
