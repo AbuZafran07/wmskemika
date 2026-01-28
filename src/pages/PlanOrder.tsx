@@ -41,7 +41,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -804,13 +811,13 @@ export default function PlanOrder() {
 
     setIsSavingPdf(true);
     setPdfProgress(0);
-    
+
     try {
       const element = printRef.current;
-      
+
       // Step 1: Prepare element for capture
       setPdfProgress(10);
-      
+
       // Clone and make visible for capture (hidden elements have zero dimensions)
       const clone = element.cloneNode(true) as HTMLElement;
       clone.style.position = "absolute";
@@ -822,11 +829,11 @@ export default function PlanOrder() {
       clone.style.padding = "10mm";
       clone.style.boxSizing = "border-box";
       document.body.appendChild(clone);
-      
+
       // Wait for clone to be rendered
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise((resolve) => setTimeout(resolve, 300));
       setPdfProgress(20);
-      
+
       // Ensure images are loaded
       const images = clone.querySelectorAll("img");
       await Promise.all(
@@ -839,11 +846,11 @@ export default function PlanOrder() {
               img.onerror = () => resolve(null);
             }
           });
-        })
+        }),
       );
-      
+
       setPdfProgress(30);
-      
+
       // Capture canvas with html2canvas
       const canvas = await html2canvas(clone, {
         scale: 2,
@@ -858,7 +865,7 @@ export default function PlanOrder() {
           });
         },
       });
-      
+
       // Remove clone after capture
       document.body.removeChild(clone);
 
@@ -871,7 +878,7 @@ export default function PlanOrder() {
 
       // Step 2: Generating PDF (50-80%)
       setPdfProgress(60);
-      
+
       const pdf = new jsPDF({
         orientation: "portrait",
         unit: "mm",
@@ -880,29 +887,29 @@ export default function PlanOrder() {
 
       // Get image data as JPEG for better compatibility
       const imgData = canvas.toDataURL("image/jpeg", 0.92);
-      
+
       if (!imgData || imgData === "data:,") {
         throw new Error("Failed to generate image data from canvas");
       }
-      
+
       setPdfProgress(70);
-      
+
       // A4 dimensions in mm
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       const margin = 10;
-      const contentWidth = pdfWidth - (margin * 2);
-      
+      const contentWidth = pdfWidth - margin * 2;
+
       // Calculate image height maintaining aspect ratio
       const aspectRatio = canvas.height / canvas.width;
       const imgHeight = contentWidth * aspectRatio;
-      
+
       // Validate calculated dimensions
       if (!Number.isFinite(imgHeight) || imgHeight <= 0) {
         throw new Error("Invalid image dimensions calculated");
       }
 
-      const contentHeight = pdfHeight - (margin * 2);
+      const contentHeight = pdfHeight - margin * 2;
       let yPosition = margin;
       let remainingHeight = imgHeight;
 
@@ -925,24 +932,20 @@ export default function PlanOrder() {
 
       // Sanitize filename
       const filename = `PurchaseOrder_${selectedOrder.plan_number.replace(/[^a-zA-Z0-9.-]/g, "_")}.pdf`;
-      
+
       setPdfProgress(95);
       pdf.save(filename);
-      
+
       setPdfProgress(100);
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
       toast.success(language === "en" ? "PDF saved successfully" : "PDF berhasil disimpan");
     } catch (err) {
       console.error("Save PDF error:", err);
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      toast.error(
-        language === "en" 
-          ? `Failed to save PDF: ${errorMessage}` 
-          : `Gagal menyimpan PDF: ${errorMessage}`
-      );
+      toast.error(language === "en" ? `Failed to save PDF: ${errorMessage}` : `Gagal menyimpan PDF: ${errorMessage}`);
     }
-    
+
     setIsSavingPdf(false);
     setPdfProgress(0);
   };
@@ -1682,12 +1685,7 @@ export default function PlanOrder() {
                   {language === "en" ? "Preview" : "Preview"}
                 </Button>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSaveAsPDF}
-                  disabled={itemsLoading || isSavingPdf}
-                >
+                <Button variant="outline" size="sm" onClick={handleSaveAsPDF} disabled={itemsLoading || isSavingPdf}>
                   {isSavingPdf ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   ) : (
@@ -1933,11 +1931,11 @@ export default function PlanOrder() {
               {/* Header: logo left, title + numbers right */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div>
-                  <img 
-                    src={`${window.location.origin}/logo-kemika.png`} 
+                  <img
+                    src={`${window.location.origin}/logo-kemika.png`}
                     crossOrigin="anonymous"
-                    alt="Kemika" 
-                    style={{ height: "40px", objectFit: "contain" }} 
+                    alt="Kemika"
+                    style={{ height: "40px", objectFit: "contain" }}
                   />
                 </div>
 
@@ -2155,7 +2153,7 @@ export default function PlanOrder() {
                     const creator = (selectedOrder as any)?.creator;
                     const creatorSignatureUrl = creator?.signature_url;
                     const creatorName = creator?.full_name || user?.name || "";
-                    
+
                     return (
                       <>
                         {/* Ditandatangani oleh header */}
@@ -2163,7 +2161,7 @@ export default function PlanOrder() {
                           <span style={{ color: "#111" }}>Ditandatangani oleh </span>
                           <span style={{ color: "#16a34a", fontWeight: 700 }}>{creatorName || "-"}</span>
                         </div>
-                        
+
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                           <div style={{ fontSize: "10px", color: "#666" }}>Date:</div>
                           <div style={{ fontSize: "9px", color: "#16a34a", fontWeight: 700 }}>
@@ -2171,14 +2169,14 @@ export default function PlanOrder() {
                           </div>
                         </div>
                         <div style={{ fontSize: "10px", marginBottom: "4px", color: "#666" }}>Purchasing,</div>
-                        
+
                         {creatorSignatureUrl ? (
                           <>
                             <div style={{ textAlign: "center", marginBottom: "4px" }}>
-                              <img 
+                              <img
                                 src={creatorSignatureUrl}
                                 crossOrigin="anonymous"
-                                alt="Creator Signature" 
+                                alt="Creator Signature"
                                 style={{ height: "50px", maxWidth: "120px", objectFit: "contain", margin: "0 auto" }}
                               />
                             </div>
@@ -2205,10 +2203,10 @@ export default function PlanOrder() {
                 <div style={{ border: "1px solid #111", borderLeft: "0px", padding: "8px 10px", minHeight: "120px" }}>
                   {/* Ditandatangani oleh header - placeholder */}
                   <div style={{ textAlign: "right", fontSize: "9px", marginBottom: "2px" }}>
-                    <span style={{ color: "#111" }}>Ditandatangani oleh </span>
+                    <span style={{ color: "#111" }}>- </span>
                     <span style={{ color: "#16a34a", fontWeight: 700 }}>-</span>
                   </div>
-                  
+
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div style={{ fontSize: "10px", color: "#666" }}>Date:</div>
                     <div style={{ fontSize: "9px", color: "#16a34a", fontWeight: 700 }}>-</div>
@@ -2227,72 +2225,77 @@ export default function PlanOrder() {
                     const signatureUrl = approver?.signature_url;
                     const approverName = approver?.full_name || "";
                     const isApproved = selectedOrder.status === "approved" && selectedOrder.approved_at;
-                    
+
                     // Fallback to legacy signatures if no database signature
                     const fallbackSignature = approverName.toLowerCase().includes("ferry")
                       ? `${window.location.origin}/signature-ferry.png`
                       : `${window.location.origin}/approved-signature.png`;
-                    
+
                     return (
                       <>
-{/* Header: Ditandatangani oleh */}
-<div style={{ textAlign: "right", fontSize: "9px", marginBottom: "4px", color: "#444" }}>
-  Ditandatangani oleh{" "}
-  <span style={{ fontWeight: 700 }}>
-    {isApproved ? approverName || "-" : "-"}
-  </span>
-</div>
+                        {/* Header: Ditandatangani oleh */}
+                        <div style={{ textAlign: "right", fontSize: "9px", marginBottom: "4px", color: "#444" }}>
+                          Ditandatangani oleh{" "}
+                          <span style={{ fontWeight: 700 }}>{isApproved ? approverName || "-" : "-"}</span>
+                        </div>
 
-{/* Tanggal */}
-<div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "4px" }}>
-  <div style={{ fontSize: "10px", color: "#666" }}>Approve,</div>
-  {isApproved && (
-    <div style={{ fontSize: "9px", color: "#666" }}>
-      Pada {formatDateTimeID(new Date(selectedOrder.approved_at as string))}
-    </div>
-  )}
-</div>
+                        {/* Tanggal */}
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start",
+                            marginBottom: "4px",
+                          }}
+                        >
+                          <div style={{ fontSize: "10px", color: "#666" }}>Approve,</div>
+                          {isApproved && (
+                            <div style={{ fontSize: "9px", color: "#666" }}>
+                              Pada {formatDateTimeID(new Date(selectedOrder.approved_at as string))}
+                            </div>
+                          )}
+                        </div>
 
-{/* Signature Area */}
-{isApproved ? (
-  <>
-    <div style={{ textAlign: "center", marginBottom: "6px" }}>
-      <img
-        src={signatureUrl || fallbackSignature}
-        crossOrigin="anonymous"
-        alt="Approved Signature"
-        style={{
-          height: "48px",
-          maxWidth: "130px",
-          objectFit: "contain",
-          margin: "0 auto",
-        }}
-      />
-    </div>
+                        {/* Signature Area */}
+                        {isApproved ? (
+                          <>
+                            <div style={{ textAlign: "center", marginBottom: "6px" }}>
+                              <img
+                                src={signatureUrl || fallbackSignature}
+                                crossOrigin="anonymous"
+                                alt="Approved Signature"
+                                style={{
+                                  height: "48px",
+                                  maxWidth: "130px",
+                                  objectFit: "contain",
+                                  margin: "0 auto",
+                                }}
+                              />
+                            </div>
 
-    <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                            <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
 
-    <div
-      style={{
-        fontSize: "10px",
-        marginTop: "5px",
-        textAlign: "center",
-        fontWeight: 700,
-        color: "#111",
-      }}
-    >
-      {approverName}
-    </div>
-  </>
-) : (
-                        <>
-                          <div style={{ height: "48px" }} />
-                          <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                          <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center", color: "#666" }}>
-                            (.................................)
-                          </div>
-                        </>
-                      )}
+                            <div
+                              style={{
+                                fontSize: "10px",
+                                marginTop: "5px",
+                                textAlign: "center",
+                                fontWeight: 700,
+                                color: "#111",
+                              }}
+                            >
+                              {approverName}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div style={{ height: "48px" }} />
+                            <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                            <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center", color: "#666" }}>
+                              (.................................)
+                            </div>
+                          </>
+                        )}
                       </>
                     );
                   })()}
@@ -2327,23 +2330,27 @@ export default function PlanOrder() {
           <DialogHeader>
             <DialogTitle>{language === "en" ? "PDF Preview" : "Preview PDF"}</DialogTitle>
             <DialogDescription>
-              {language === "en" 
-                ? "Preview your document before printing or saving as PDF" 
+              {language === "en"
+                ? "Preview your document before printing or saving as PDF"
                 : "Lihat dokumen sebelum mencetak atau menyimpan sebagai PDF"}
             </DialogDescription>
           </DialogHeader>
 
           {/* Preview dengan style yang sama seperti print */}
           <div className="bg-white p-4 rounded border overflow-x-auto">
-            <style dangerouslySetInnerHTML={{ __html: `
+            <style
+              dangerouslySetInnerHTML={{
+                __html: `
               .pdf-preview-content th[style*="background"] {
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
               }
-            `}} />
-            <div 
+            `,
+              }}
+            />
+            <div
               className="pdf-preview-content"
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(printRef.current?.innerHTML || "") }} 
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(printRef.current?.innerHTML || "") }}
             />
           </div>
 
@@ -2353,11 +2360,7 @@ export default function PlanOrder() {
             </Button>
             {/* Tombol Save as PDF - langsung download tanpa dialog print */}
             <Button variant="success" onClick={handleSaveAsPDF} disabled={isSavingPdf}>
-              {isSavingPdf ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <FileDown className="w-4 h-4 mr-2" />
-              )}
+              {isSavingPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileDown className="w-4 h-4 mr-2" />}
               {language === "en" ? "Save as PDF" : "Simpan PDF"}
             </Button>
             <Button variant="outline" onClick={handleDownloadPDF} disabled={isDownloadingPdf}>
@@ -2428,11 +2431,7 @@ export default function PlanOrder() {
       </Dialog>
 
       {/* PDF Generating Overlay */}
-      <PdfGeneratingOverlay 
-        isVisible={isSavingPdf} 
-        progress={pdfProgress} 
-        language={language as "en" | "id"} 
-      />
+      <PdfGeneratingOverlay isVisible={isSavingPdf} progress={pdfProgress} language={language as "en" | "id"} />
     </div>
   );
 }
