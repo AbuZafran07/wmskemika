@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Plus, Search, Filter, Download, Upload, MoreHorizontal, Edit, Trash2, Eye, Loader2 } from 'lucide-react';
+import { Plus, Search, Filter, Download, Upload, MoreHorizontal, Edit, Trash2, Eye, Loader2, Crop } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,6 +51,7 @@ import { useProducts, useCategories, useUnits, useSuppliers, Product } from '@/h
 import { supabase } from '@/integrations/supabase/client';
 import { uploadFile } from '@/lib/storage';
 import { ProductThumbnail, ImagePreviewDialog } from '@/components/ImagePreviewDialog';
+import { ImageCropper } from '@/components/ImageCropper';
 import { toast } from 'sonner';
 import { exportToCSV, parseCSV, readFileAsText, downloadCSVTemplate, checkDuplicates, getColumnValue } from '@/lib/csvUtils';
 import { ImportPreviewDialog, ImportPreviewRow } from '@/components/ImportPreviewDialog';
@@ -112,6 +113,9 @@ export default function Products() {
   const [previewingProduct, setPreviewingProduct] = useState<Product | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [croppedBlob, setCroppedBlob] = useState<Blob | null>(null);
+  const [isCropperOpen, setIsCropperOpen] = useState(false);
+  const [tempFileForCrop, setTempFileForCrop] = useState<File | null>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
@@ -375,6 +379,7 @@ export default function Products() {
     setEditingProduct(null);
     setFormData(initialFormData);
     setSelectedFile(null);
+    setCroppedBlob(null);
     setIsDialogOpen(true);
   };
 
@@ -395,6 +400,7 @@ export default function Products() {
       photo_url: product.photo_url || '',
     });
     setSelectedFile(null);
+    setCroppedBlob(null);
     setIsDialogOpen(true);
   };
 
@@ -429,11 +435,13 @@ export default function Products() {
 
     setIsSaving(true);
 
-    // Handle file upload if a new file was selected
+    // Handle file upload if a cropped blob is available
     let photoPath = formData.photo_url;
-    if (selectedFile) {
+    if (croppedBlob) {
       setIsUploading(true);
-      const result = await uploadFile(selectedFile, 'product-photos', 'products');
+      // Convert blob to File for uploadFile function
+      const croppedFile = new File([croppedBlob], 'product-photo.jpg', { type: 'image/jpeg' });
+      const result = await uploadFile(croppedFile, 'product-photos', 'products');
       if (result) {
         photoPath = result.path;
       } else {
@@ -702,12 +710,15 @@ export default function Products() {
           <div className="grid gap-4 py-4">
             {/* Photo Upload */}
             <div className="space-y-2">
-              <Label>{language === 'en' ? 'Product Photo' : 'Foto Produk'} ({language === 'en' ? 'optional' : 'opsional'})</Label>
+              <Label className="flex items-center gap-2">
+                {language === 'en' ? 'Product Photo' : 'Foto Produk'} ({language === 'en' ? 'optional' : 'opsional'})
+                <Crop className="w-3 h-3 text-muted-foreground" />
+              </Label>
               <div className="flex items-center gap-4">
                 <input
                   ref={photoInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
@@ -717,8 +728,12 @@ export default function Products() {
                         toast.error(language === 'en' ? 'File size must be less than 5MB' : 'Ukuran file maksimal 5MB');
                         return;
                       }
-                      setSelectedFile(file);
+                      // Open cropper instead of setting file directly
+                      setTempFileForCrop(file);
+                      setIsCropperOpen(true);
                     }
+                    // Reset input so same file can be selected again
+                    if (photoInputRef.current) photoInputRef.current.value = '';
                   }}
                 />
                 <Button
@@ -732,17 +747,17 @@ export default function Products() {
                   ) : (
                     <Upload className="w-4 h-4 mr-2" />
                   )}
-                  {language === 'en' ? 'Upload Photo' : 'Unggah Foto'}
+                  {language === 'en' ? 'Upload & Crop Photo' : 'Unggah & Crop Foto'}
                 </Button>
-                {(selectedFile || formData.photo_url) && (
+                {(croppedBlob || formData.photo_url) && (
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
                     onClick={() => {
                       setSelectedFile(null);
+                      setCroppedBlob(null);
                       setFormData(prev => ({ ...prev, photo_url: '' }));
-                      if (photoInputRef.current) photoInputRef.current.value = '';
                     }}
                   >
                     {language === 'en' ? 'Remove' : 'Hapus'}
@@ -751,17 +766,20 @@ export default function Products() {
               </div>
               <p className="text-xs text-muted-foreground">
                 {language === 'en' 
-                  ? 'Max 5MB. Supported formats: JPG, PNG, WebP.'
-                  : 'Maks 5MB. Format: JPG, PNG, WebP.'}
+                  ? 'Max 5MB. Supported formats: JPG, PNG, WebP. Image will be cropped to 1:1 ratio.'
+                  : 'Maks 5MB. Format: JPG, PNG, WebP. Gambar akan di-crop ke rasio 1:1.'}
               </p>
-              {/* Preview selected file or existing photo */}
-              {selectedFile ? (
+              {/* Preview cropped image or existing photo */}
+              {croppedBlob ? (
                 <div className="mt-2">
                   <img
-                    src={URL.createObjectURL(selectedFile)}
+                    src={URL.createObjectURL(croppedBlob)}
                     alt="Preview"
                     className="w-20 h-20 rounded border border-border object-cover"
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {language === 'en' ? 'Cropped & ready to upload' : 'Sudah di-crop & siap diunggah'}
+                  </p>
                 </div>
               ) : formData.photo_url ? (
                 <div className="mt-2">
@@ -1032,6 +1050,23 @@ export default function Products() {
         onOpenChange={setIsImagePreviewOpen}
         photoPath={previewingProduct?.photo_url}
         alt={previewingProduct?.name || 'Product'}
+      />
+
+      {/* Image Cropper Dialog */}
+      <ImageCropper
+        open={isCropperOpen}
+        onClose={() => {
+          setIsCropperOpen(false);
+          setTempFileForCrop(null);
+        }}
+        file={tempFileForCrop}
+        onCropComplete={(blob) => {
+          setCroppedBlob(blob);
+          setSelectedFile(null);
+          setTempFileForCrop(null);
+        }}
+        aspectRatio={1}
+        outputSize={512}
       />
     </div>
   );

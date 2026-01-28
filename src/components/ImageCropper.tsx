@@ -21,6 +21,7 @@ interface ImageCropperProps {
   onCropComplete: (blob: Blob) => void;
   aspectRatio?: number;
   outputSize?: number;
+  circularCrop?: boolean;
 }
 
 function centerAspectCrop(
@@ -49,7 +50,8 @@ export function ImageCropper({
   file,
   onCropComplete,
   aspectRatio = 1,
-  outputSize = 256
+  outputSize = 256,
+  circularCrop = false
 }: ImageCropperProps) {
   const { language } = useLanguage();
   const imgRef = useRef<HTMLImageElement>(null);
@@ -148,7 +150,7 @@ export function ImageCropper({
                 onChange={(_, percentCrop) => setCrop(percentCrop)}
                 onComplete={(c) => setCompletedCrop(c)}
                 aspect={aspectRatio}
-                circularCrop
+                circularCrop={circularCrop}
                 className="max-h-[300px]"
               >
                 <img
