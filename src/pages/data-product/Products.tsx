@@ -49,6 +49,7 @@ import {
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useProducts, useCategories, useUnits, useSuppliers, Product } from '@/hooks/useMasterData';
 import { supabase } from '@/integrations/supabase/client';
+import { uploadFile } from '@/lib/storage';
 import { ProductThumbnail, ImagePreviewDialog } from '@/components/ImagePreviewDialog';
 import { toast } from 'sonner';
 import { exportToCSV, parseCSV, readFileAsText, downloadCSVTemplate, checkDuplicates, getColumnValue } from '@/lib/csvUtils';
@@ -68,7 +69,7 @@ interface ProductFormData {
   max_stock: string;
   location_rack: string;
   is_active: boolean;
-  image_url: string;
+  photo_url: string;
 }
 
 const initialFormData: ProductFormData = {
@@ -83,7 +84,7 @@ const initialFormData: ProductFormData = {
   max_stock: '',
   location_rack: '',
   is_active: true,
-  image_url: '',
+  photo_url: '',
 };
 
 export default function Products() {
@@ -109,7 +110,10 @@ export default function Products() {
   const [parsedData, setParsedData] = useState<Record<string, string>[]>([]);
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const [previewingProduct, setPreviewingProduct] = useState<Product | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = () => {
     const columns = [
@@ -370,6 +374,7 @@ export default function Products() {
   const handleAdd = () => {
     setEditingProduct(null);
     setFormData(initialFormData);
+    setSelectedFile(null);
     setIsDialogOpen(true);
   };
 
@@ -387,8 +392,9 @@ export default function Products() {
       max_stock: product.max_stock?.toString() || '',
       location_rack: product.location_rack || '',
       is_active: product.is_active,
-      image_url: (product as any).image_url || '',
+      photo_url: product.photo_url || '',
     });
+    setSelectedFile(null);
     setIsDialogOpen(true);
   };
 
@@ -423,6 +429,22 @@ export default function Products() {
 
     setIsSaving(true);
 
+    // Handle file upload if a new file was selected
+    let photoPath = formData.photo_url;
+    if (selectedFile) {
+      setIsUploading(true);
+      const result = await uploadFile(selectedFile, 'product-photos', 'products');
+      if (result) {
+        photoPath = result.path;
+      } else {
+        toast.error(language === 'en' ? 'Failed to upload image' : 'Gagal mengunggah gambar');
+        setIsSaving(false);
+        setIsUploading(false);
+        return;
+      }
+      setIsUploading(false);
+    }
+
     const productData = {
       sku: formData.sku || null,
       barcode: editingProduct?.barcode || generateBarcode(),
@@ -436,7 +458,7 @@ export default function Products() {
       max_stock: formData.max_stock ? parseInt(formData.max_stock) : null,
       location_rack: formData.location_rack || null,
       is_active: formData.is_active,
-      image_url: formData.image_url || null,
+      photo_url: photoPath || null,
     };
 
     let error;
@@ -595,7 +617,7 @@ export default function Products() {
                     <TableRow key={product.id}>
                       <TableCell>
                         <ProductThumbnail 
-                          imageUrl={(product as any).image_url} 
+                          photoPath={product.photo_url} 
                           alt={product.name}
                           className="w-10 h-10"
                           onClick={() => handleImageClick(product)}
@@ -678,28 +700,78 @@ export default function Products() {
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            {/* Image URL Input */}
+            {/* Photo Upload */}
             <div className="space-y-2">
-              <Label>{language === 'en' ? 'Image URL' : 'URL Gambar'} ({language === 'en' ? 'optional' : 'opsional'})</Label>
-              <Input
-                placeholder="https://example.com/product-image.jpg"
-                value={formData.image_url}
-                onChange={(e) => setFormData(prev => ({ ...prev, image_url: e.target.value }))}
-              />
+              <Label>{language === 'en' ? 'Product Photo' : 'Foto Produk'} ({language === 'en' ? 'optional' : 'opsional'})</Label>
+              <div className="flex items-center gap-4">
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      // Validate file size (max 5MB)
+                      if (file.size > 5 * 1024 * 1024) {
+                        toast.error(language === 'en' ? 'File size must be less than 5MB' : 'Ukuran file maksimal 5MB');
+                        return;
+                      }
+                      setSelectedFile(file);
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={isUploading}
+                >
+                  {isUploading ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Upload className="w-4 h-4 mr-2" />
+                  )}
+                  {language === 'en' ? 'Upload Photo' : 'Unggah Foto'}
+                </Button>
+                {(selectedFile || formData.photo_url) && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedFile(null);
+                      setFormData(prev => ({ ...prev, photo_url: '' }));
+                      if (photoInputRef.current) photoInputRef.current.value = '';
+                    }}
+                  >
+                    {language === 'en' ? 'Remove' : 'Hapus'}
+                  </Button>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
                 {language === 'en' 
-                  ? 'Enter a direct image URL (jpg, png, webp). Leave empty to use placeholder.'
-                  : 'Masukkan URL gambar langsung (jpg, png, webp). Kosongkan untuk placeholder.'}
+                  ? 'Max 5MB. Supported formats: JPG, PNG, WebP.'
+                  : 'Maks 5MB. Format: JPG, PNG, WebP.'}
               </p>
-              {formData.image_url && (
+              {/* Preview selected file or existing photo */}
+              {selectedFile ? (
+                <div className="mt-2">
+                  <img
+                    src={URL.createObjectURL(selectedFile)}
+                    alt="Preview"
+                    className="w-20 h-20 rounded border border-border object-cover"
+                  />
+                </div>
+              ) : formData.photo_url ? (
                 <div className="mt-2">
                   <ProductThumbnail 
-                    imageUrl={formData.image_url} 
+                    photoPath={formData.photo_url} 
                     alt="Preview"
                     className="w-20 h-20"
                   />
                 </div>
-              )}
+              ) : null}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -851,9 +923,9 @@ export default function Products() {
           </DialogHeader>
           {viewingProduct && (
             <div className="space-y-4">
-              {(viewingProduct as any).image_url && (
+              {viewingProduct.photo_url && (
                 <ProductThumbnail 
-                  imageUrl={(viewingProduct as any).image_url} 
+                  photoPath={viewingProduct.photo_url} 
                   alt={viewingProduct.name}
                   className="w-full h-48"
                   onClick={() => handleImageClick(viewingProduct)}
@@ -958,7 +1030,7 @@ export default function Products() {
       <ImagePreviewDialog
         isOpen={isImagePreviewOpen}
         onOpenChange={setIsImagePreviewOpen}
-        imageUrl={(previewingProduct as any)?.image_url}
+        photoPath={previewingProduct?.photo_url}
         alt={previewingProduct?.name || 'Product'}
       />
     </div>
