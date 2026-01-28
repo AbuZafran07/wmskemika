@@ -2098,10 +2098,27 @@ export default function SalesOrder() {
                 </div>
               </div>
 
-              {/* Signature area: Always 3 columns (Sales, Finance, Approve) */}
+              {/* Signature area: Always 3 columns (Customer, Sales, Approve) */}
               <div style={{ marginTop: "16px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0px" }}>
-                {/* Sales - show creator signature if exists */}
+                {/* Column 1: Customer - placeholder for customer signature */}
                 <div style={{ border: "1px solid #111", padding: "10px", minHeight: "120px" }}>
+                  <div style={{ textAlign: "right", fontSize: "9px", marginBottom: "2px" }}>
+                    <span style={{ color: "#111", fontWeight: 700 }}>Ditandatangani oleh </span>
+                    <span style={{ color: "#111", fontWeight: 700 }}>-</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div style={{ fontSize: "10px", color: "#111", fontWeight: 700 }}>Date:</div>
+                    <div style={{ fontSize: "9px", color: "#111", fontWeight: 700 }}>-</div>
+                  </div>
+                  <div style={{ fontSize: "10px", marginBottom: "50px", color: "#666" }}>Customer,</div>
+                  <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                  <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
+                    (.................................)
+                  </div>
+                </div>
+
+                {/* Column 2: Sales - show creator signature */}
+                <div style={{ border: "1px solid #111", borderLeft: "0px", padding: "10px", minHeight: "120px" }}>
                   {(() => {
                     const creator = (selectedOrder as any)?.creator;
                     const creatorSignatureUrl = creator?.signature_url;
@@ -2109,15 +2126,14 @@ export default function SalesOrder() {
                     
                     return (
                       <>
-                        {/* Ditandatangani oleh header */}
                         <div style={{ textAlign: "right", fontSize: "9px", marginBottom: "2px" }}>
-                          <span style={{ color: "#111" }}>Ditandatangani oleh </span>
-                          <span style={{ color: "#16a34a", fontWeight: 700 }}>{creatorName || "-"}</span>
+                          <span style={{ color: "#111", fontWeight: 700 }}>Ditandatangani oleh </span>
+                          <span style={{ color: "#111", fontWeight: 700 }}>{creatorName || "-"}</span>
                         </div>
                         
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                          <div style={{ fontSize: "10px", color: "#666" }}>Date:</div>
-                          <div style={{ fontSize: "9px", color: "#16a34a", fontWeight: 700 }}>
+                          <div style={{ fontSize: "10px", color: "#111", fontWeight: 700 }}>Date:</div>
+                          <div style={{ fontSize: "9px", color: "#111", fontWeight: 700 }}>
                             {formatDateTimeID(new Date(selectedOrder.created_at as string))}
                           </div>
                         </div>
@@ -2152,26 +2168,7 @@ export default function SalesOrder() {
                   })()}
                 </div>
 
-                {/* Finance */}
-                <div style={{ border: "1px solid #111", borderLeft: "0px", padding: "10px", minHeight: "120px" }}>
-                  {/* Ditandatangani oleh header - placeholder */}
-                  <div style={{ textAlign: "right", fontSize: "9px", marginBottom: "2px" }}>
-                    <span style={{ color: "#111" }}>Ditandatangani oleh </span>
-                    <span style={{ color: "#16a34a", fontWeight: 700 }}>-</span>
-                  </div>
-                  
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div style={{ fontSize: "10px", color: "#666" }}>Date:</div>
-                    <div style={{ fontSize: "9px", color: "#16a34a", fontWeight: 700 }}>-</div>
-                  </div>
-                  <div style={{ fontSize: "10px", marginBottom: "50px", color: "#666" }}>Finance,</div>
-                  <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                  <div style={{ fontSize: "10px", marginTop: "6px", textAlign: "center" }}>
-                    (.................................)
-                  </div>
-                </div>
-
-                {/* Approve - show signature and name if approved */}
+                {/* Column 3: Approve - show signature and name if approved */}
                 <div style={{ border: "1px solid #111", borderLeft: "0px", padding: "10px", minHeight: "120px" }}>
                   {(() => {
                     const approver = (selectedOrder as any)?.approver;
@@ -2179,25 +2176,25 @@ export default function SalesOrder() {
                     const approverName = approver?.full_name || "";
                     const isApproved = selectedOrder.status === "approved" && selectedOrder.approved_at;
 
-                    // Fallback to legacy signatures if no database signature
                     const fallbackSignature = approverName.toLowerCase().includes("ferry")
                       ? `${window.location.origin}/signature-ferry.png`
                       : `${window.location.origin}/approved-signature.png`;
 
                     return (
                       <>
-                        {/* Ditandatangani oleh header */}
                         <div style={{ textAlign: "right", fontSize: "9px", marginBottom: "2px" }}>
-                          <span style={{ color: "#111" }}>Ditandatangani oleh </span>
-                          <span style={{ color: "#16a34a", fontWeight: 700 }}>{isApproved ? approverName || "-" : "-"}</span>
+                          <span style={{ color: "#111", fontWeight: 700 }}>Ditandatangani oleh </span>
+                          <span style={{ color: "#111", fontWeight: 700 }}>{isApproved ? approverName || "-" : "-"}</span>
                         </div>
                         
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                          <div style={{ fontSize: "10px", color: "#666" }}>Date:</div>
-                          {isApproved && (
-                            <div style={{ fontSize: "9px", color: "#16a34a", fontWeight: 700 }}>
+                          <div style={{ fontSize: "10px", color: "#111", fontWeight: 700 }}>Date:</div>
+                          {isApproved ? (
+                            <div style={{ fontSize: "9px", color: "#111", fontWeight: 700 }}>
                               {formatDateTimeID(new Date(selectedOrder.approved_at as string))}
                             </div>
+                          ) : (
+                            <div style={{ fontSize: "9px", color: "#111", fontWeight: 700 }}>-</div>
                           )}
                         </div>
                         <div style={{ fontSize: "10px", marginBottom: "4px", color: "#666" }}>Approve,</div>
