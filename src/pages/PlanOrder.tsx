@@ -2145,10 +2145,28 @@ export default function PlanOrder() {
               </div>
 
               {/* Signature area */}
-              {/* Signature area: Always 3 columns (Purchasing, Finance, Approve) */}
+              {/* Signature area: Always 3 columns (Vendor, Purchasing, Approve) */}
               <div style={{ marginTop: "10px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0px" }}>
-                {/* Purchasing - show creator signature if exists */}
+                {/* Vendor - placeholder for supplier signature */}
                 <div style={{ border: "1px solid #111", padding: "8px 10px", minHeight: "120px" }}>
+                  {/* Ditandatangani oleh header - placeholder */}
+                  <div style={{ textAlign: "right", fontSize: "9px", marginBottom: "2px" }}>
+                    <span style={{ color: "#111", fontWeight: 700 }}>Ditandatangani oleh -</span>
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div style={{ fontSize: "10px", color: "#111" }}>Date:</div>
+                    <div style={{ fontSize: "9px", color: "#111", fontWeight: 700 }}>-</div>
+                  </div>
+                  <div style={{ fontSize: "10px", marginBottom: "50px", color: "#111" }}>Vendor,</div>
+                  <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                  <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center" }}>
+                    (.................................)
+                  </div>
+                </div>
+
+                {/* Purchasing - show creator signature if exists */}
+                <div style={{ border: "1px solid #111", borderLeft: "0px", padding: "8px 10px", minHeight: "120px" }}>
                   {(() => {
                     const creator = (selectedOrder as any)?.creator;
                     const creatorSignatureUrl = creator?.signature_url;
@@ -2158,17 +2176,16 @@ export default function PlanOrder() {
                       <>
                         {/* Ditandatangani oleh header */}
                         <div style={{ textAlign: "right", fontSize: "9px", marginBottom: "2px" }}>
-                          <span style={{ color: "#111" }}>Ditandatangani oleh </span>
-                          <span style={{ color: "#16a34a", fontWeight: 700 }}>{creatorName || "-"}</span>
+                          <span style={{ color: "#111", fontWeight: 700 }}>Ditandatangani oleh {creatorName || "-"}</span>
                         </div>
 
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                          <div style={{ fontSize: "10px", color: "#666" }}>Date:</div>
-                          <div style={{ fontSize: "9px", color: "#16a34a", fontWeight: 700 }}>
+                          <div style={{ fontSize: "10px", color: "#111" }}>Date:</div>
+                          <div style={{ fontSize: "9px", color: "#111", fontWeight: 700 }}>
                             {formatDateTimeID(new Date(selectedOrder.created_at as string))}
                           </div>
                         </div>
-                        <div style={{ fontSize: "10px", marginBottom: "4px", color: "#666" }}>Purchasing,</div>
+                        <div style={{ fontSize: "10px", marginBottom: "4px", color: "#111" }}>Purchasing,</div>
 
                         {creatorSignatureUrl ? (
                           <>
@@ -2199,25 +2216,6 @@ export default function PlanOrder() {
                   })()}
                 </div>
 
-                {/* Finance */}
-                <div style={{ border: "1px solid #111", borderLeft: "0px", padding: "8px 10px", minHeight: "120px" }}>
-                  {/* Ditandatangani oleh header - placeholder */}
-                  <div style={{ textAlign: "right", fontSize: "9px", marginBottom: "2px" }}>
-                    <span style={{ color: "#111" }}> </span>
-                    <span style={{ color: "#16a34a", fontWeight: 700 }}>-</span>
-                  </div>
-
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div style={{ fontSize: "10px", color: "#666" }}>Date:</div>
-                    <div style={{ fontSize: "9px", color: "#16a34a", fontWeight: 700 }}>-</div>
-                  </div>
-                  <div style={{ fontSize: "10px", marginBottom: "50px", color: "#666" }}>Finance,</div>
-                  <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                  <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center" }}>
-                    (.................................)
-                  </div>
-                </div>
-
                 {/* Approve - show signature and name if approved */}
                 <div style={{ border: "1px solid #111", borderLeft: "0px", padding: "8px 10px", minHeight: "120px" }}>
                   {(() => {
@@ -2234,9 +2232,8 @@ export default function PlanOrder() {
                     return (
                       <>
                         {/* Header: Ditandatangani oleh */}
-                        <div style={{ textAlign: "right", fontSize: "9px", marginBottom: "4px", color: "#444" }}>
-                          Ditandatangani oleh{" "}
-                          <span style={{ fontWeight: 700 }}>{isApproved ? approverName || "-" : "-"}</span>
+                        <div style={{ textAlign: "right", fontSize: "9px", marginBottom: "2px" }}>
+                          <span style={{ color: "#111", fontWeight: 700 }}>Ditandatangani oleh {isApproved ? approverName || "-" : "-"}</span>
                         </div>
 
                         {/* Tanggal */}
@@ -2245,28 +2242,25 @@ export default function PlanOrder() {
                             display: "flex",
                             justifyContent: "space-between",
                             alignItems: "flex-start",
-                            marginBottom: "4px",
                           }}
                         >
-                          <div style={{ fontSize: "10px", color: "#666" }}>Approve,</div>
-                          {isApproved && (
-                            <div style={{ fontSize: "9px", color: "#666" }}>
-                              Pada {formatDateTimeID(new Date(selectedOrder.approved_at as string))}
-                            </div>
-                          )}
+                          <div style={{ fontSize: "10px", color: "#111" }}>Approve,</div>
+                          <div style={{ fontSize: "9px", color: "#111", fontWeight: 700 }}>
+                            {isApproved ? formatDateTimeID(new Date(selectedOrder.approved_at as string)) : "-"}
+                          </div>
                         </div>
 
                         {/* Signature Area */}
                         {isApproved ? (
                           <>
-                            <div style={{ textAlign: "center", marginBottom: "6px" }}>
+                            <div style={{ textAlign: "center", marginTop: "4px", marginBottom: "4px" }}>
                               <img
                                 src={signatureUrl || fallbackSignature}
                                 crossOrigin="anonymous"
                                 alt="Approved Signature"
                                 style={{
-                                  height: "48px",
-                                  maxWidth: "130px",
+                                  height: "50px",
+                                  maxWidth: "120px",
                                   objectFit: "contain",
                                   margin: "0 auto",
                                 }}
@@ -2289,9 +2283,9 @@ export default function PlanOrder() {
                           </>
                         ) : (
                           <>
-                            <div style={{ height: "48px" }} />
+                            <div style={{ height: "50px" }} />
                             <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                            <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center", color: "#666" }}>
+                            <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center" }}>
                               (.................................)
                             </div>
                           </>
