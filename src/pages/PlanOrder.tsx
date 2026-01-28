@@ -2235,52 +2235,64 @@ export default function PlanOrder() {
                     
                     return (
                       <>
-                        {/* Ditandatangani oleh header */}
-                        <div style={{ textAlign: "right", fontSize: "9px", marginBottom: "2px" }}>
-                          <span style={{ color: "#111" }}>Ditandatangani oleh </span>
-                          <span style={{ color: "#16a34a", fontWeight: 700 }}>{isApproved ? approverName || "-" : "-"}</span>
-                        </div>
-                        
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                          <div style={{ fontSize: "10px", color: "#666" }}>Date:</div>
-                          {isApproved && (
-                            <div style={{ fontSize: "9px", color: "#16a34a", fontWeight: 700 }}>
-                              {formatDateTimeID(new Date(selectedOrder.approved_at as string))}
-                            </div>
-                          )}
-                        </div>
-                        <div style={{ fontSize: "10px", marginBottom: "4px", color: "#666" }}>Approve,</div>
-                        
-                        {isApproved ? (
-                          <>
-                            <div style={{ textAlign: "center", marginBottom: "4px" }}>
-                              <img 
-                                src={signatureUrl || fallbackSignature}
-                                crossOrigin="anonymous"
-                                alt="Approved Signature" 
-                                style={{ height: "50px", maxWidth: "120px", objectFit: "contain", margin: "0 auto" }}
-                              />
-                            </div>
-                            <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                            <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center", fontWeight: 700 }}>
-                              {approverName || "Approved"}
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div style={{ height: "50px" }} />
-                            <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-                            <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center" }}>
-                              (.................................)
-                            </div>
-                          </>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
+{/* Header: Ditandatangani oleh */}
+<div style={{ textAlign: "right", fontSize: "9px", marginBottom: "4px", color: "#444" }}>
+  Ditandatangani oleh{" "}
+  <span style={{ fontWeight: 700 }}>
+    {isApproved ? approverName || "-" : "-"}
+  </span>
+</div>
 
+{/* Tanggal */}
+<div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "4px" }}>
+  <div style={{ fontSize: "10px", color: "#666" }}>Approve,</div>
+  {isApproved && (
+    <div style={{ fontSize: "9px", color: "#666" }}>
+      Pada {formatDateTimeID(new Date(selectedOrder.approved_at as string))}
+    </div>
+  )}
+</div>
+
+{/* Signature Area */}
+{isApproved ? (
+  <>
+    <div style={{ textAlign: "center", marginBottom: "6px" }}>
+      <img
+        src={signatureUrl || fallbackSignature}
+        crossOrigin="anonymous"
+        alt="Approved Signature"
+        style={{
+          height: "48px",
+          maxWidth: "130px",
+          objectFit: "contain",
+          margin: "0 auto",
+        }}
+      />
+    </div>
+
+    <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+
+    <div
+      style={{
+        fontSize: "10px",
+        marginTop: "5px",
+        textAlign: "center",
+        fontWeight: 700,
+        color: "#111",
+      }}
+    >
+      {approverName}
+    </div>
+  </>
+) : (
+  <>
+    <div style={{ height: "48px" }} />
+    <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+    <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center", color: "#666" }}>
+      (.................................)
+    </div>
+  </>
+)}
               {/* Shipping notes */}
               <div style={{ marginTop: "10px", border: "1px solid #111", padding: "10px", fontSize: "9px" }}>
                 <div style={{ fontWeight: 800, marginBottom: "6px" }}>KETENTUAN PENGIRIMAN / SHIPPING NOTES :</div>
