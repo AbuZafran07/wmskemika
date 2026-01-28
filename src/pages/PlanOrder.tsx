@@ -2285,14 +2285,20 @@ export default function PlanOrder() {
     </div>
   </>
 ) : (
-  <>
-    <div style={{ height: "48px" }} />
-    <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
-    <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center", color: "#666" }}>
-      (.................................)
-    </div>
-  </>
-)}
+                        <>
+                          <div style={{ height: "48px" }} />
+                          <div style={{ borderBottom: "1px solid #111", height: "1px" }} />
+                          <div style={{ fontSize: "10px", marginTop: "5px", textAlign: "center", color: "#666" }}>
+                            (.................................)
+                          </div>
+                        </>
+                      )}
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+
               {/* Shipping notes */}
               <div style={{ marginTop: "10px", border: "1px solid #111", padding: "10px", fontSize: "9px" }}>
                 <div style={{ fontWeight: 800, marginBottom: "6px" }}>KETENTUAN PENGIRIMAN / SHIPPING NOTES :</div>
