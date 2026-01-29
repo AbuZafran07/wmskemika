@@ -1322,15 +1322,10 @@ export type Database = {
         Returns: Json
       }
       plan_order_soft_delete: { Args: { order_id: string }; Returns: Json }
-      plan_order_update:
-        | {
-            Args: { header_data: Json; items_data: Json; order_id: string }
-            Returns: Json
-          }
-        | {
-            Args: { header_data: Json; items_data: Json; order_id: string }
-            Returns: Json
-          }
+      plan_order_update: {
+        Args: { header_data: Json; items_data: Json; order_id: string }
+        Returns: Json
+      }
       sales_order_approve: { Args: { order_id: string }; Returns: Json }
       sales_order_cancel: { Args: { order_id: string }; Returns: Json }
       sales_order_create: {
@@ -1338,15 +1333,10 @@ export type Database = {
         Returns: Json
       }
       sales_order_soft_delete: { Args: { order_id: string }; Returns: Json }
-      sales_order_update:
-        | {
-            Args: { header_data: Json; items_data: Json; order_id: string }
-            Returns: Json
-          }
-        | {
-            Args: { header_data: Json; items_data: Json; order_id: string }
-            Returns: Json
-          }
+      sales_order_update: {
+        Args: { header_data: Json; items_data: Json; order_id: string }
+        Returns: Json
+      }
       stock_adjustment_approve: {
         Args: { p_adjustment_id: string }
         Returns: Json
@@ -1363,19 +1353,10 @@ export type Database = {
         Args: { p_adjustment_id: string }
         Returns: Json
       }
-      stock_adjustment_update:
-        | {
-            Args: { adjustment_id: string; header_data: Json; items_data: Json }
-            Returns: Json
-          }
-        | {
-            Args: {
-              header_data: Json
-              items_data: Json
-              p_adjustment_id: string
-            }
-            Returns: Json
-          }
+      stock_adjustment_update: {
+        Args: { adjustment_id: string; header_data: Json; items_data: Json }
+        Returns: Json
+      }
       stock_in_create: {
         Args: { header_data: Json; items_data: Json }
         Returns: Json
