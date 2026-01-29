@@ -85,14 +85,14 @@ export default function RealtimeActivityFeed() {
       });
     });
 
-    // Fetch recent approved/cancelled plan orders
+    // Fetch recent plan orders (including draft for pending approvals)
     const { data: planOrderData } = await supabase
       .from('plan_order_headers')
       .select('id, plan_number, status, approved_at, created_at, suppliers(name)')
-      .in('status', ['approved', 'cancelled', 'pending'])
+      .in('status', ['approved', 'cancelled', 'pending', 'draft'])
       .is('is_deleted', false)
       .order('created_at', { ascending: false })
-      .limit(10);
+      .limit(20);
 
     planOrderData?.forEach((item: any) => {
       if (item.status === 'approved') {
@@ -118,14 +118,14 @@ export default function RealtimeActivityFeed() {
       }
     });
 
-    // Fetch recent approved/cancelled sales orders
+    // Fetch recent sales orders (including draft for pending approvals)
     const { data: salesOrderData } = await supabase
       .from('sales_order_headers')
       .select('id, sales_order_number, status, approved_at, created_at, customers(name)')
-      .in('status', ['approved', 'cancelled', 'pending'])
+      .in('status', ['approved', 'cancelled', 'pending', 'draft'])
       .is('is_deleted', false)
       .order('created_at', { ascending: false })
-      .limit(10);
+      .limit(20);
 
     salesOrderData?.forEach((item: any) => {
       if (item.status === 'approved') {
@@ -151,14 +151,14 @@ export default function RealtimeActivityFeed() {
       }
     });
 
-    // Fetch recent stock adjustments
+    // Fetch recent stock adjustments (including draft/submitted for pending approvals)
     const { data: adjustmentData } = await supabase
       .from('stock_adjustments')
       .select('id, adjustment_number, status, approved_at, created_at, reason')
-      .in('status', ['approved', 'rejected', 'pending'])
+      .in('status', ['approved', 'rejected', 'pending', 'draft', 'submitted'])
       .is('is_deleted', false)
       .order('created_at', { ascending: false })
-      .limit(10);
+      .limit(20);
 
     adjustmentData?.forEach((item: any) => {
       if (item.status === 'approved') {
@@ -198,10 +198,11 @@ export default function RealtimeActivityFeed() {
 
     setActivities(activities.slice(0, 15));
 
-    // Fetch pending approvals
+    // Fetch pending approvals (draft, pending, and submitted status)
     const pending: PendingApproval[] = [];
     
-    planOrderData?.filter((p: any) => p.status === 'pending').forEach((item: any) => {
+    // Include draft and pending status for plan orders
+    planOrderData?.filter((p: any) => ['draft', 'pending'].includes(p.status)).forEach((item: any) => {
       pending.push({
         id: item.id,
         type: 'plan_order',
@@ -211,7 +212,8 @@ export default function RealtimeActivityFeed() {
       });
     });
 
-    salesOrderData?.filter((s: any) => s.status === 'pending').forEach((item: any) => {
+    // Include draft and pending status for sales orders
+    salesOrderData?.filter((s: any) => ['draft', 'pending'].includes(s.status)).forEach((item: any) => {
       pending.push({
         id: item.id,
         type: 'sales_order',
@@ -221,7 +223,8 @@ export default function RealtimeActivityFeed() {
       });
     });
 
-    adjustmentData?.filter((a: any) => a.status === 'pending').forEach((item: any) => {
+    // Include draft, submitted, and pending status for adjustments
+    adjustmentData?.filter((a: any) => ['draft', 'submitted', 'pending'].includes(a.status)).forEach((item: any) => {
       pending.push({
         id: item.id,
         type: 'adjustment',
@@ -232,7 +235,7 @@ export default function RealtimeActivityFeed() {
     });
 
     pending.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-    setPendingApprovals(pending.slice(0, 5));
+    setPendingApprovals(pending.slice(0, 10));
 
     setLoading(false);
   };
