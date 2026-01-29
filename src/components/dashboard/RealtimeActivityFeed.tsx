@@ -207,7 +207,7 @@ export default function RealtimeActivityFeed() {
         id: item.id,
         type: 'plan_order',
         refNo: item.plan_number,
-        description: item.suppliers?.name || 'Unknown',
+        description: `PO - ${item.suppliers?.name || 'Unknown'}`,
         createdAt: new Date(item.created_at),
       });
     });
@@ -218,7 +218,7 @@ export default function RealtimeActivityFeed() {
         id: item.id,
         type: 'sales_order',
         refNo: item.sales_order_number,
-        description: item.customers?.name || 'Unknown',
+        description: `SO - ${item.customers?.name || 'Unknown'}`,
         createdAt: new Date(item.created_at),
       });
     });
@@ -229,13 +229,14 @@ export default function RealtimeActivityFeed() {
         id: item.id,
         type: 'adjustment',
         refNo: item.adjustment_number,
-        description: item.reason,
+        description: `ADJ - ${item.reason || 'Unknown'}`,
         createdAt: new Date(item.created_at),
       });
     });
 
-    pending.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-    setPendingApprovals(pending.slice(0, 5));
+    // Sort by most recent first (descending order)
+    pending.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    setPendingApprovals(pending);
 
     setLoading(false);
   };
@@ -423,7 +424,7 @@ export default function RealtimeActivityFeed() {
           ) : (
             <ScrollArea className="h-[280px] pr-2">
               <div className="space-y-2">
-                {pendingApprovals.slice(0, 5).map((pending) => (
+                {pendingApprovals.map((pending) => (
                   <div
                     key={`${pending.type}_${pending.id}`}
                     className="flex items-center gap-3 p-3 rounded-lg bg-warning/5 border border-warning/20 cursor-pointer hover:bg-warning/10 transition-colors"
@@ -433,7 +434,12 @@ export default function RealtimeActivityFeed() {
                       {getPendingIcon(pending.type)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{pending.refNo}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium truncate">{pending.refNo}</p>
+                        <Badge variant="outline" className="text-[10px] shrink-0">
+                          {pending.type === 'plan_order' ? 'PO' : pending.type === 'sales_order' ? 'SO' : 'ADJ'}
+                        </Badge>
+                      </div>
                       <p className="text-xs text-muted-foreground truncate">{pending.description}</p>
                     </div>
                     <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
