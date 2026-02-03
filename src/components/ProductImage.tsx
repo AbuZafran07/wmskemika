@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Image as ImageIcon } from 'lucide-react';
 import { getProductPhotoUrl } from '@/lib/storage';
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
 interface ProductImageProps {
   photoUrl: string | null | undefined;
@@ -13,6 +15,7 @@ interface ProductImageProps {
 /**
  * Component that displays product photos using signed URLs.
  * Automatically fetches a signed URL for the product photo.
+ * Uses skeleton loader for smooth loading experience.
  */
 export function ProductImage({ 
   photoUrl, 
@@ -23,6 +26,7 @@ export function ProductImage({
 }: ProductImageProps) {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const [error, setError] = useState(false);
 
   useEffect(() => {
@@ -36,6 +40,7 @@ export function ProductImage({
 
       setLoading(true);
       setError(false);
+      setImageLoaded(false);
 
       try {
         const url = await getProductPhotoUrl(photoUrl);
@@ -65,6 +70,7 @@ export function ProductImage({
     };
   }, [photoUrl]);
 
+  // No photo URL or error - show fallback icon
   if (!photoUrl || error) {
     return (
       <div className={fallbackClassName}>
@@ -73,22 +79,33 @@ export function ProductImage({
     );
   }
 
+  // Loading signed URL - show skeleton
   if (loading && showLoader) {
     return (
-      <div className={fallbackClassName}>
-        <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
-      </div>
+      <Skeleton className={cn(className, 'bg-muted')} />
     );
   }
 
+  // Have signed URL - show image with skeleton overlay until loaded
   if (signedUrl) {
     return (
-      <img 
-        src={signedUrl} 
-        alt={alt}
-        className={className}
-        onError={() => setError(true)}
-      />
+      <div className="relative">
+        {!imageLoaded && showLoader && (
+          <Skeleton className={cn(className, 'absolute inset-0 bg-muted')} />
+        )}
+        <img 
+          src={signedUrl} 
+          alt={alt}
+          className={cn(
+            className,
+            'transition-opacity duration-300',
+            imageLoaded ? 'opacity-100' : 'opacity-0'
+          )}
+          loading="lazy"
+          onLoad={() => setImageLoaded(true)}
+          onError={() => setError(true)}
+        />
+      </div>
     );
   }
 
