@@ -440,7 +440,11 @@ export default function Categories() {
                   </TableRow>
                 ) : (
                   paginatedCategories.map((category) => (
-                    <TableRow key={category.id}>
+                    <TableRow 
+                      key={category.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleEdit(category)}
+                    >
                       <TableCell className="font-medium">{category.code}</TableCell>
                       <TableCell>{category.name}</TableCell>
                       <TableCell className="text-muted-foreground">{category.description || '-'}</TableCell>
@@ -449,7 +453,7 @@ export default function Categories() {
                           {category.is_active ? t('status.active') : t('status.inactive')}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="iconSm">
