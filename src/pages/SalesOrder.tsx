@@ -1084,12 +1084,16 @@ export default function SalesOrder() {
                     const showDelete = order.status === "draft" && canDelete("sales_order");
 
                     return (
-                      <TableRow key={order.id}>
+                      <TableRow 
+                        key={order.id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => handleViewDetail(order)}
+                      >
                         <TableCell className="font-medium">{order.sales_order_number}</TableCell>
                         <TableCell>{formatDateID(order.order_date)}</TableCell>
                         <TableCell>
                           <div>
-                            <p className="font-medium">{order.customer?.name}</p>
+                            <p className="font-medium">{order.customer?.name || "-"}</p>
                             <p className="text-xs text-muted-foreground">{order.project_instansi}</p>
                           </div>
                         </TableCell>
@@ -1102,7 +1106,7 @@ export default function SalesOrder() {
                         <TableCell className="text-center">
                           <Badge variant={status.variant}>{language === "en" ? status.label : status.labelId}</Badge>
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="iconSm">
