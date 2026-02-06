@@ -763,7 +763,11 @@ export default function StockAdjustment() {
                   const canApproveThis = adj.status === 'draft' && canApprove;
                   
                   return (
-                    <TableRow key={adj.id}>
+                    <TableRow 
+                      key={adj.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleViewDetail(adj)}
+                    >
                       <TableCell className="font-medium">{adj.adjustment_number}</TableCell>
                       <TableCell>{formatDate(adj.adjustment_date)}</TableCell>
                       <TableCell className="max-w-[200px] truncate">{adj.reason}</TableCell>
@@ -772,7 +776,7 @@ export default function StockAdjustment() {
                           {language === 'en' ? config.label : config.labelId}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon">
