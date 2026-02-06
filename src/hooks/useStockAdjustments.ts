@@ -64,6 +64,18 @@ export function useStockAdjustments() {
 
   useEffect(() => {
     fetchAdjustments();
+
+    // Realtime subscription for stock adjustments
+    const channel = supabase
+      .channel('stock-adjustments-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_adjustments' }, () => {
+        fetchAdjustments();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchAdjustments]);
 
   return { adjustments, loading, refetch: fetchAdjustments };

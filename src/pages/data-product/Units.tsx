@@ -437,7 +437,11 @@ export default function Units() {
                   </TableRow>
                 ) : (
                   paginatedUnits.map((unit) => (
-                    <TableRow key={unit.id}>
+                    <TableRow 
+                      key={unit.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleEdit(unit)}
+                    >
                       <TableCell className="font-medium">{unit.code}</TableCell>
                       <TableCell>{unit.name}</TableCell>
                       <TableCell className="text-muted-foreground">{unit.description || '-'}</TableCell>
@@ -446,7 +450,7 @@ export default function Units() {
                           {unit.is_active ? t('status.active') : t('status.inactive')}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="iconSm">

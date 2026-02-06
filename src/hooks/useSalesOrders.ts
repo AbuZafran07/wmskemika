@@ -149,6 +149,18 @@ export function useSalesOrders() {
 
   useEffect(() => {
     fetchSalesOrders();
+
+    // Realtime subscription for sales orders
+    const channel = supabase
+      .channel('sales-orders-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sales_order_headers' }, () => {
+        fetchSalesOrders();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return { salesOrders, loading, refetch: fetchSalesOrders };

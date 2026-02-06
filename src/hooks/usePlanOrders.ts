@@ -138,6 +138,18 @@ export function usePlanOrders() {
 
   useEffect(() => {
     fetchPlanOrders();
+
+    // Realtime subscription for plan orders
+    const channel = supabase
+      .channel('plan-orders-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'plan_order_headers' }, () => {
+        fetchPlanOrders();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchPlanOrders]);
 
   return { planOrders, loading, refetch: fetchPlanOrders };
