@@ -91,6 +91,18 @@ export function useCategories() {
 
   useEffect(() => {
     fetchCategories();
+
+    // Realtime subscription
+    const channel = supabase
+      .channel('categories-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => {
+        fetchCategories();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return { categories, loading, refetch: fetchCategories };
@@ -119,6 +131,18 @@ export function useUnits() {
 
   useEffect(() => {
     fetchUnits();
+
+    // Realtime subscription
+    const channel = supabase
+      .channel('units-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'units' }, () => {
+        fetchUnits();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return { units, loading, refetch: fetchUnits };
@@ -147,6 +171,18 @@ export function useSuppliers() {
 
   useEffect(() => {
     fetchSuppliers();
+
+    // Realtime subscription
+    const channel = supabase
+      .channel('suppliers-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'suppliers' }, () => {
+        fetchSuppliers();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return { suppliers, loading, refetch: fetchSuppliers };
@@ -175,6 +211,18 @@ export function useCustomers() {
 
   useEffect(() => {
     fetchCustomers();
+
+    // Realtime subscription
+    const channel = supabase
+      .channel('customers-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => {
+        fetchCustomers();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return { customers, loading, refetch: fetchCustomers };
@@ -208,6 +256,18 @@ export function useProducts() {
 
   useEffect(() => {
     fetchProducts();
+
+    // Realtime subscription
+    const channel = supabase
+      .channel('products-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
+        fetchProducts();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return { products, loading, refetch: fetchProducts };

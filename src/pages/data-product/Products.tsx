@@ -622,8 +622,12 @@ export default function Products() {
                   </TableRow>
                 ) : (
                   paginatedProducts.map((product) => (
-                    <TableRow key={product.id}>
-                      <TableCell>
+                    <TableRow 
+                      key={product.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleView(product)}
+                    >
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         <ProductThumbnail 
                           photoPath={product.photo_url} 
                           alt={product.name}
@@ -649,7 +653,7 @@ export default function Products() {
                           {product.is_active ? t('status.active') : t('status.inactive')}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="iconSm">

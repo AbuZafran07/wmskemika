@@ -552,7 +552,11 @@ export default function Customers() {
                   </TableRow>
                 ) : (
                   paginatedCustomers.map((customer) => (
-                    <TableRow key={customer.id}>
+                    <TableRow 
+                      key={customer.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleView(customer)}
+                    >
                       <TableCell className="font-medium">{customer.code}</TableCell>
                       <TableCell>{customer.name}</TableCell>
                       <TableCell>
@@ -568,7 +572,7 @@ export default function Customers() {
                           {customer.is_active ? t('status.active') : t('status.inactive')}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="iconSm">
