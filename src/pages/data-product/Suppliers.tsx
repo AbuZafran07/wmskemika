@@ -522,7 +522,11 @@ export default function Suppliers() {
                   </TableRow>
                 ) : (
                   paginatedSuppliers.map((supplier) => (
-                    <TableRow key={supplier.id}>
+                    <TableRow 
+                      key={supplier.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleView(supplier)}
+                    >
                       <TableCell className="font-medium">{supplier.code}</TableCell>
                       <TableCell>{supplier.name}</TableCell>
                       <TableCell>{supplier.contact_person || '-'}</TableCell>
@@ -533,7 +537,7 @@ export default function Suppliers() {
                           {supplier.is_active ? t('status.active') : t('status.inactive')}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="iconSm">
