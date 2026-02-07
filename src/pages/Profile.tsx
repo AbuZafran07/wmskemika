@@ -330,24 +330,41 @@ export default function Profile() {
 
     setIsChangingPassword(true);
     try {
-      // First verify current password by re-authenticating
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      // Verify current password by attempting re-authentication
+      // Use a separate client call to verify without affecting current session
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
         email: user?.email || '',
         password: currentPassword
       });
 
-      if (signInError) {
+      if (verifyError) {
+        console.error('Password verification failed:', verifyError);
         toast.error(language === 'en' ? 'Current password is incorrect' : 'Password saat ini salah');
         setIsChangingPassword(false);
         return;
       }
+
+      // Small delay to ensure session is properly established after re-auth
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Update password
       const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword
       });
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('Password update error:', updateError);
+        // Provide more specific error message
+        if (updateError.message.includes('same')) {
+          toast.error(language === 'en' ? 'New password must be different from current password' : 'Password baru harus berbeda dari password saat ini');
+        } else if (updateError.message.includes('weak')) {
+          toast.error(language === 'en' ? 'Password is too weak. Use a stronger password.' : 'Password terlalu lemah. Gunakan password yang lebih kuat.');
+        } else {
+          toast.error(language === 'en' ? `Failed to change password: ${updateError.message}` : `Gagal mengubah password: ${updateError.message}`);
+        }
+        setIsChangingPassword(false);
+        return;
+      }
 
       // Clear form
       setCurrentPassword('');
@@ -355,9 +372,9 @@ export default function Profile() {
       setConfirmPassword('');
       
       toast.success(language === 'en' ? 'Password changed successfully' : 'Password berhasil diubah');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error changing password:', error);
-      toast.error(language === 'en' ? 'Failed to change password' : 'Gagal mengubah password');
+      toast.error(language === 'en' ? `Failed to change password: ${error?.message || 'Unknown error'}` : `Gagal mengubah password: ${error?.message || 'Error tidak diketahui'}`);
     }
     setIsChangingPassword(false);
   };
