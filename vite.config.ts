@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "icons/*.png", "logo-kemika.png"],
+      includeAssets: ["favicon.png", "apple-touch-icon.png", "icons/*.png", "logo-kemika.png"],
       manifest: {
         name: "WMS KEMIKA - Warehouse Management System",
         short_name: "WMS KEMIKA",
