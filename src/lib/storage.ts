@@ -10,8 +10,7 @@ export async function uploadFile(
   folder: string = ''
 ): Promise<{ url: string; path: string; originalName: string } | null> {
   try {
-    const fileExt = file.name.split('.').pop();
-    // Preserve original filename in the path: timestamp-uuid-originalname.ext
+    // Preserve original filename in the path: timestamp-originalname
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
     const fileName = `${folder ? folder + '/' : ''}${Date.now()}-${sanitizedName}`;
 
