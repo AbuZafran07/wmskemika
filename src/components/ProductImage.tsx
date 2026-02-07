@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Image as ImageIcon } from 'lucide-react';
 import { getProductPhotoUrl } from '@/lib/storage';
 import { Skeleton } from '@/components/ui/skeleton';
