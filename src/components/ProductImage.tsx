@@ -13,8 +13,8 @@ interface ProductImageProps {
 }
 
 /**
- * Component that displays product photos using signed URLs.
- * Automatically fetches a signed URL for the product photo.
+ * Component that displays product photos using public URLs.
+ * Product-photos bucket is public for better performance.
  * Uses skeleton loader for smooth loading experience.
  */
 export function ProductImage({ 
@@ -24,50 +24,27 @@ export function ProductImage({
   fallbackClassName = 'w-10 h-10 rounded bg-muted flex items-center justify-center',
   showLoader = true
 }: ProductImageProps) {
-  const [signedUrl, setSignedUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    let mounted = true;
-
-    async function fetchSignedUrl() {
-      if (!photoUrl) {
-        setSignedUrl(null);
-        return;
-      }
-
-      setLoading(true);
-      setError(false);
-      setImageLoaded(false);
-
-      try {
-        const url = await getProductPhotoUrl(photoUrl);
-        if (mounted) {
-          if (url) {
-            setSignedUrl(url);
-          } else {
-            setError(true);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to fetch signed URL:', err);
-        if (mounted) {
-          setError(true);
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
+    if (!photoUrl) {
+      setImageUrl(null);
+      return;
     }
 
-    fetchSignedUrl();
-
-    return () => {
-      mounted = false;
-    };
+    setError(false);
+    setImageLoaded(false);
+    
+    // Get public URL (synchronous operation now)
+    getProductPhotoUrl(photoUrl)
+      .then(url => {
+        setImageUrl(url);
+      })
+      .catch(() => {
+        setError(true);
+      });
   }, [photoUrl]);
 
   // No photo URL or error - show fallback icon
@@ -79,22 +56,22 @@ export function ProductImage({
     );
   }
 
-  // Loading signed URL - show skeleton
-  if (loading && showLoader) {
+  // Waiting for URL - show skeleton
+  if (!imageUrl && showLoader) {
     return (
       <Skeleton className={cn(className, 'bg-muted')} />
     );
   }
 
-  // Have signed URL - show image with skeleton overlay until loaded
-  if (signedUrl) {
+  // Have URL - show image with skeleton overlay until loaded
+  if (imageUrl) {
     return (
       <div className="relative">
         {!imageLoaded && showLoader && (
           <Skeleton className={cn(className, 'absolute inset-0 bg-muted')} />
         )}
         <img 
-          src={signedUrl} 
+          src={imageUrl} 
           alt={alt}
           className={cn(
             className,

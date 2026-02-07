@@ -118,7 +118,8 @@ interface ProductThumbnailProps {
 
 /**
  * Clickable product thumbnail component with lazy loading and error handling.
- * Uses signed URLs from Supabase storage for secure image access.
+ * Uses public URLs from Supabase storage for product images.
+ * Product-photos bucket is public for better performance.
  */
 export function ProductThumbnail({
   photoPath,
@@ -128,27 +129,23 @@ export function ProductThumbnail({
 }: ProductThumbnailProps) {
   const [imageError, setImageError] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [signedUrl, setSignedUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
-  // Fetch signed URL when photoPath changes
+  // Get public URL when photoPath changes
   useEffect(() => {
     if (photoPath) {
       setImageError(false);
       setImageLoaded(false);
-      setLoading(true);
+      // getProductPhotoUrl now returns public URL synchronously
       getProductPhotoUrl(photoPath)
         .then(url => {
-          setSignedUrl(url);
-          setLoading(false);
+          setImageUrl(url);
         })
         .catch(() => {
           setImageError(true);
-          setLoading(false);
         });
     } else {
-      setSignedUrl(null);
-      setLoading(false);
+      setImageUrl(null);
     }
   }, [photoPath]);
 
@@ -167,7 +164,7 @@ export function ProductThumbnail({
     );
   }
 
-  if (loading || !signedUrl) {
+  if (!imageUrl) {
     return (
       <div 
         className={`${className} rounded border border-border bg-muted flex items-center justify-center`}
@@ -195,7 +192,7 @@ export function ProductThumbnail({
         </div>
       )}
       <img
-        src={signedUrl}
+        src={imageUrl}
         alt={alt}
         className={`w-full h-full object-cover ${imageLoaded ? '' : 'hidden'}`}
         loading="lazy"

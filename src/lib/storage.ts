@@ -60,13 +60,14 @@ export async function getSignedUrl(
       .createSignedUrl(path, actualExpiry);
 
     if (error) {
-      console.error('Error creating signed URL:', error);
+      // Log detailed error for debugging
+      console.error(`Error creating signed URL for ${bucket}/${path}:`, error.message);
       return null;
     }
 
     return data.signedUrl;
   } catch (error) {
-    console.error('Failed to create signed URL:', error);
+    console.error(`Failed to create signed URL for ${bucket}/${path}:`, error);
     return null;
   }
 }
@@ -102,10 +103,6 @@ export async function getProductPhotoUrl(photoUrlOrPath: string): Promise<string
   if (!photoUrlOrPath) return null;
   
   try {
-    // If it's already a signed URL (contains 'token='), return as-is but it may be expired
-    // If it's a full URL that's not a signed URL, try to extract the path
-    // If it's just a path, use it directly
-    
     let path = photoUrlOrPath;
     
     // Check if it's a Supabase storage URL and extract the path
@@ -122,7 +119,12 @@ export async function getProductPhotoUrl(photoUrlOrPath: string): Promise<string
       path = path.replace('product-photos/', '');
     }
     
-    return await getSignedUrl(path, 'product-photos');
+    // Product-photos bucket is now public, use public URL for better performance
+    const { data } = supabase.storage
+      .from('product-photos')
+      .getPublicUrl(path);
+    
+    return data.publicUrl;
   } catch (error) {
     console.error('Failed to get product photo URL:', error);
     return null;
