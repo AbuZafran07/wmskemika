@@ -228,40 +228,56 @@ export function InboundPdfPreview({ open, onOpenChange, record }: InboundPdfPrev
                 <tr className="bg-white">
                   <td className="border border-gray-300 px-3 py-3">1</td>
                   <td className="border border-gray-300 px-3 py-3">Kesesuaian Barang dengan PO</td>
-                  <td className="border border-gray-300 px-3 py-3 text-center">
-                    <span className="text-gray-400">☐ Sesuai &nbsp; ☐ Tidak</span>
+                  <td className="border border-gray-300 px-3 py-3">
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', whiteSpace: 'nowrap' }}>
+                      <span className="text-gray-600">☐ Sesuai</span>
+                      <span className="text-gray-600">☐ Tidak</span>
+                    </div>
                   </td>
                   <td className="border border-gray-300 px-3 py-3"></td>
                 </tr>
                 <tr className="bg-gray-50">
                   <td className="border border-gray-300 px-3 py-3">2</td>
                   <td className="border border-gray-300 px-3 py-3">Kondisi Kemasan</td>
-                  <td className="border border-gray-300 px-3 py-3 text-center">
-                    <span className="text-gray-400">☐ Baik &nbsp; ☐ Rusak &nbsp; ☐ Bocor</span>
+                  <td className="border border-gray-300 px-3 py-3">
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
+                      <span className="text-gray-600">☐ Baik</span>
+                      <span className="text-gray-600">☐ Rusak</span>
+                      <span className="text-gray-600">☐ Bocor</span>
+                    </div>
                   </td>
                   <td className="border border-gray-300 px-3 py-3"></td>
                 </tr>
                 <tr className="bg-white">
                   <td className="border border-gray-300 px-3 py-3">3</td>
                   <td className="border border-gray-300 px-3 py-3">Label & Batch Terbaca</td>
-                  <td className="border border-gray-300 px-3 py-3 text-center">
-                    <span className="text-gray-400">☐ Ya &nbsp; ☐ Tidak</span>
+                  <td className="border border-gray-300 px-3 py-3">
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', whiteSpace: 'nowrap' }}>
+                      <span className="text-gray-600">☐ Ya</span>
+                      <span className="text-gray-600">☐ Tidak</span>
+                    </div>
                   </td>
                   <td className="border border-gray-300 px-3 py-3"></td>
                 </tr>
                 <tr className="bg-gray-50">
                   <td className="border border-gray-300 px-3 py-3">4</td>
                   <td className="border border-gray-300 px-3 py-3">Expired Date Sesuai</td>
-                  <td className="border border-gray-300 px-3 py-3 text-center">
-                    <span className="text-gray-400">☐ Ya &nbsp; ☐ Tidak</span>
+                  <td className="border border-gray-300 px-3 py-3">
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', whiteSpace: 'nowrap' }}>
+                      <span className="text-gray-600">☐ Ya</span>
+                      <span className="text-gray-600">☐ Tidak</span>
+                    </div>
                   </td>
                   <td className="border border-gray-300 px-3 py-3"></td>
                 </tr>
                 <tr className="bg-white">
                   <td className="border border-gray-300 px-3 py-3">5</td>
                   <td className="border border-gray-300 px-3 py-3">Qty Sesuai dengan Dokumen</td>
-                  <td className="border border-gray-300 px-3 py-3 text-center">
-                    <span className="text-gray-400">☐ Ya &nbsp; ☐ Tidak</span>
+                  <td className="border border-gray-300 px-3 py-3">
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', whiteSpace: 'nowrap' }}>
+                      <span className="text-gray-600">☐ Ya</span>
+                      <span className="text-gray-600">☐ Tidak</span>
+                    </div>
                   </td>
                   <td className="border border-gray-300 px-3 py-3"></td>
                 </tr>
