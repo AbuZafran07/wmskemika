@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Download, CalendarIcon, ArrowUpFromLine, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Download, CalendarIcon, ArrowUpFromLine, Loader2, MoreHorizontal, Eye, Printer } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,15 +19,24 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { usePagination } from '@/hooks/usePagination';
 import { DataTablePagination } from '@/components/DataTablePagination';
+import { OutboundDetailModal } from '@/components/reports/OutboundDetailModal';
+import { OutboundPdfPreview } from '@/components/reports/OutboundPdfPreview';
 
 interface StockOutRecord {
   id: string;
   stock_out_number: string;
   delivery_date: string;
+  notes?: string | null;
   sales_order: {
     sales_order_number: string;
     customer: { name: string } | null;
@@ -49,6 +58,11 @@ export default function OutboundReport() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
+  // Modal states
+  const [selectedOutbound, setSelectedOutbound] = useState<StockOutRecord | null>(null);
+  const [isOutboundDetailOpen, setIsOutboundDetailOpen] = useState(false);
+  const [isOutboundPdfPreviewOpen, setIsOutboundPdfPreviewOpen] = useState(false);
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -58,7 +72,7 @@ export default function OutboundReport() {
     const { data, error } = await supabase
       .from('stock_out_headers')
       .select(`
-        id, stock_out_number, delivery_date,
+        id, stock_out_number, delivery_date, notes,
         sales_order:sales_order_headers(
           sales_order_number,
           customer:customers(name)
@@ -150,6 +164,29 @@ export default function OutboundReport() {
     link.download = `outbound-report-${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
   };
+
+  const handleViewDetail = (record: StockOutRecord) => {
+    setSelectedOutbound(record);
+    setIsOutboundDetailOpen(true);
+  };
+
+  const handlePrintPdf = (record: StockOutRecord) => {
+    setSelectedOutbound(record);
+    setIsOutboundPdfPreviewOpen(true);
+  };
+
+  // Group records for rowspan rendering
+  const getRowSpanGroups = () => {
+    const groups: { record: StockOutRecord; isFirst: boolean; item: StockOutRecord['items'][0] }[] = [];
+    paginatedRecords.forEach(record => {
+      record.items.forEach((item, idx) => {
+        groups.push({ record, isFirst: idx === 0, item });
+      });
+    });
+    return groups;
+  };
+
+  const rowGroups = getRowSpanGroups();
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -259,12 +296,13 @@ export default function OutboundReport() {
                   <TableHead className="text-center">{language === 'en' ? 'Qty' : 'Qty'}</TableHead>
                   <TableHead>{language === 'en' ? 'Batch No' : 'No. Batch'}</TableHead>
                   <TableHead>{language === 'en' ? 'Expiry' : 'Kadaluarsa'}</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedRecords.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
                       {language === 'en' ? 'No outbound records found' : 'Tidak ada data pengiriman'}
                     </TableCell>
                   </TableRow>
@@ -294,6 +332,27 @@ export default function OutboundReport() {
                         </TableCell>
                         <TableCell>{item.batch?.batch_no || '-'}</TableCell>
                         <TableCell>{item.batch?.expired_date ? formatDate(item.batch.expired_date) : '-'}</TableCell>
+                        {idx === 0 ? (
+                          <TableCell rowSpan={record.items.length} className="text-right align-top">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreHorizontal className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleViewDetail(record)}>
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  View Detail
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handlePrintPdf(record)}>
+                                  <Printer className="w-4 h-4 mr-2" />
+                                  Cetak PDF
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        ) : null}
                       </TableRow>
                     ))
                   )
@@ -311,6 +370,18 @@ export default function OutboundReport() {
           />
         </CardContent>
       </Card>
+
+      {/* Modals */}
+      <OutboundDetailModal
+        open={isOutboundDetailOpen}
+        onOpenChange={setIsOutboundDetailOpen}
+        record={selectedOutbound}
+      />
+      <OutboundPdfPreview
+        open={isOutboundPdfPreviewOpen}
+        onOpenChange={setIsOutboundPdfPreviewOpen}
+        record={selectedOutbound}
+      />
     </div>
   );
 }
