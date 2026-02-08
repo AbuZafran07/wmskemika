@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Download, Filter, ArrowDownToLine, CalendarIcon, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Download, ArrowDownToLine, CalendarIcon, Loader2, MoreHorizontal, Eye, Printer } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import {
@@ -15,21 +15,22 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { usePagination } from '@/hooks/usePagination';
 import { DataTablePagination } from '@/components/DataTablePagination';
+import { InboundDetailModal } from '@/components/reports/InboundDetailModal';
+import { InboundPdfPreview } from '@/components/reports/InboundPdfPreview';
 
 interface StockInRecord {
   id: string;
@@ -57,6 +58,11 @@ export default function InboundReport() {
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+
+  // State for modals
+  const [selectedInbound, setSelectedInbound] = useState<StockInRecord | null>(null);
+  const [isInboundDetailOpen, setIsInboundDetailOpen] = useState(false);
+  const [isInboundPdfPreviewOpen, setIsInboundPdfPreviewOpen] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -157,6 +163,16 @@ export default function InboundReport() {
     link.href = url;
     link.download = `inbound-report-${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
+  };
+
+  const handleViewDetail = (record: StockInRecord) => {
+    setSelectedInbound(record);
+    setIsInboundDetailOpen(true);
+  };
+
+  const handlePrintPdf = (record: StockInRecord) => {
+    setSelectedInbound(record);
+    setIsInboundPdfPreviewOpen(true);
   };
 
   return (
@@ -267,12 +283,13 @@ export default function InboundReport() {
                   <TableHead className="text-center">{language === 'en' ? 'Qty' : 'Qty'}</TableHead>
                   <TableHead>{language === 'en' ? 'Batch No' : 'No. Batch'}</TableHead>
                   <TableHead>{language === 'en' ? 'Expiry' : 'Kadaluarsa'}</TableHead>
+                  <TableHead className="text-right">{language === 'en' ? 'Actions' : 'Aksi'}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedRecords.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
                       {language === 'en' ? 'No inbound records found' : 'Tidak ada data penerimaan'}
                     </TableCell>
                   </TableRow>
@@ -302,6 +319,28 @@ export default function InboundReport() {
                         </TableCell>
                         <TableCell>{item.batch_no}</TableCell>
                         <TableCell>{item.expired_date ? formatDate(item.expired_date) : '-'}</TableCell>
+                        {idx === 0 ? (
+                          <TableCell rowSpan={record.items.length} className="text-right align-top">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreHorizontal className="w-4 h-4" />
+                                  <span className="sr-only">Open menu</span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleViewDetail(record)}>
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  {language === 'en' ? 'View Detail' : 'Lihat Detail'}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handlePrintPdf(record)}>
+                                  <Printer className="w-4 h-4 mr-2" />
+                                  {language === 'en' ? 'Print PDF' : 'Cetak PDF'}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        ) : null}
                       </TableRow>
                     ))
                   )
@@ -319,6 +358,18 @@ export default function InboundReport() {
           />
         </CardContent>
       </Card>
+
+      {/* Modals */}
+      <InboundDetailModal 
+        open={isInboundDetailOpen} 
+        onOpenChange={setIsInboundDetailOpen} 
+        record={selectedInbound} 
+      />
+      <InboundPdfPreview 
+        open={isInboundPdfPreviewOpen} 
+        onOpenChange={setIsInboundPdfPreviewOpen} 
+        record={selectedInbound} 
+      />
     </div>
   );
 }
