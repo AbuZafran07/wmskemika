@@ -1,17 +1,12 @@
-import { useState, useRef } from 'react';
-import { format } from 'date-fns';
-import { id as localeId } from 'date-fns/locale';
-import { Printer, X, Loader2 } from 'lucide-react';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
+import { useState, useRef } from "react";
+import { format } from "date-fns";
+import { id as localeId } from "date-fns/locale";
+import { Printer, X, Loader2 } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 
 interface StockInRecord {
   id: string;
@@ -44,34 +39,34 @@ export function InboundPdfPreview({ open, onOpenChange, record }: InboundPdfPrev
   if (!record) return null;
 
   const formatDate = (dateStr: string) => {
-    return format(new Date(dateStr), 'dd MMM yyyy', { locale: localeId });
+    return format(new Date(dateStr), "dd MMM yyyy", { locale: localeId });
   };
 
   const handlePrint = async () => {
     if (!contentRef.current) return;
-    
+
     setIsPrinting(true);
-    
+
     try {
       // Create off-screen container for A4 rendering
-      const offscreenContainer = document.createElement('div');
-      offscreenContainer.style.position = 'absolute';
-      offscreenContainer.style.left = '-9999px';
-      offscreenContainer.style.top = '0';
-      offscreenContainer.style.width = '210mm';
-      offscreenContainer.style.minHeight = '297mm';
-      offscreenContainer.style.padding = '15mm';
-      offscreenContainer.style.backgroundColor = '#ffffff';
-      offscreenContainer.style.boxSizing = 'border-box';
+      const offscreenContainer = document.createElement("div");
+      offscreenContainer.style.position = "absolute";
+      offscreenContainer.style.left = "-9999px";
+      offscreenContainer.style.top = "0";
+      offscreenContainer.style.width = "210mm";
+      offscreenContainer.style.minHeight = "297mm";
+      offscreenContainer.style.padding = "15mm";
+      offscreenContainer.style.backgroundColor = "#ffffff";
+      offscreenContainer.style.boxSizing = "border-box";
       document.body.appendChild(offscreenContainer);
 
       // Clone content
       const clonedContent = contentRef.current.cloneNode(true) as HTMLElement;
-      clonedContent.style.width = '100%';
+      clonedContent.style.width = "100%";
       offscreenContainer.appendChild(clonedContent);
 
       // Wait for images
-      const images = offscreenContainer.querySelectorAll('img');
+      const images = offscreenContainer.querySelectorAll("img");
       await Promise.all(
         Array.from(images).map(
           (img) =>
@@ -82,8 +77,8 @@ export function InboundPdfPreview({ open, onOpenChange, record }: InboundPdfPrev
                 img.onload = () => resolve();
                 img.onerror = () => resolve();
               }
-            })
-        )
+            }),
+        ),
       );
 
       // Capture with html2canvas
@@ -92,27 +87,27 @@ export function InboundPdfPreview({ open, onOpenChange, record }: InboundPdfPrev
         useCORS: true,
         allowTaint: true,
         logging: false,
-        backgroundColor: '#ffffff',
+        backgroundColor: "#ffffff",
       });
 
       // Generate PDF
       const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
       });
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const imgData = canvas.toDataURL("image/jpeg", 0.95);
       const pdfWidth = 210;
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, Math.min(pdfHeight, 297));
+      pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, Math.min(pdfHeight, 297));
       pdf.save(`${record.stock_in_number}-QC-Report.pdf`);
 
       // Cleanup
       document.body.removeChild(offscreenContainer);
     } catch (error) {
-      console.error('PDF generation error:', error);
+      console.error("PDF generation error:", error);
     } finally {
       setIsPrinting(false);
     }
@@ -124,7 +119,7 @@ export function InboundPdfPreview({ open, onOpenChange, record }: InboundPdfPrev
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Printer className="w-5 h-5" />
-            {language === 'en' ? 'Print Inbound QC Report' : 'Cetak Laporan QC Penerimaan'}
+            {language === "en" ? "Print Inbound QC Report" : "Cetak Laporan QC Penerimaan"}
           </DialogTitle>
         </DialogHeader>
 
@@ -133,12 +128,7 @@ export function InboundPdfPreview({ open, onOpenChange, record }: InboundPdfPrev
           {/* Header */}
           <div className="flex items-start justify-between mb-6 pb-4 border-b-2 border-gray-800">
             <div className="flex items-center gap-4">
-              <img 
-                src="/logo-kemika.png" 
-                alt="Kemika Logo" 
-                className="h-14 object-contain"
-                crossOrigin="anonymous"
-              />
+              <img src="/logo-kemika.png" alt="Kemika Logo" className="h-14 object-contain" crossOrigin="anonymous" />
               <div>
                 <h1 className="text-xl font-bold text-gray-900">PT. KEMIKA KARYA PRATAMA</h1>
                 <p className="text-sm text-gray-600">Warehouse Management System</p>
@@ -165,11 +155,11 @@ export function InboundPdfPreview({ open, onOpenChange, record }: InboundPdfPrev
             <div className="space-y-2">
               <div className="flex">
                 <span className="w-28 text-gray-600">Plan Order</span>
-                <span className="font-semibold">: {record.plan_order?.plan_number || '-'}</span>
+                <span className="font-semibold">: {record.plan_order?.plan_number || "-"}</span>
               </div>
               <div className="flex">
                 <span className="w-28 text-gray-600">Supplier</span>
-                <span className="font-semibold">: {record.plan_order?.supplier?.name || '-'}</span>
+                <span className="font-semibold">: {record.plan_order?.supplier?.name || "-"}</span>
               </div>
             </div>
           </div>
@@ -190,19 +180,23 @@ export function InboundPdfPreview({ open, onOpenChange, record }: InboundPdfPrev
               </thead>
               <tbody>
                 {record.items.map((item, idx) => (
-                  <tr key={item.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <tr key={item.id} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
                     <td className="border border-gray-300 px-2 py-2">{idx + 1}</td>
-                    <td className="border border-gray-300 px-2 py-2 font-medium">{item.product?.name || '-'}</td>
-                    <td className="border border-gray-300 px-2 py-2 text-gray-600">{item.product?.sku || '-'}</td>
+                    <td className="border border-gray-300 px-2 py-2 font-medium">{item.product?.name || "-"}</td>
+                    <td className="border border-gray-300 px-2 py-2 text-gray-600">{item.product?.sku || "-"}</td>
                     <td className="border border-gray-300 px-2 py-2 text-center font-semibold">{item.qty_received}</td>
                     <td className="border border-gray-300 px-2 py-2">{item.batch_no}</td>
-                    <td className="border border-gray-300 px-2 py-2">{item.expired_date ? formatDate(item.expired_date) : '-'}</td>
+                    <td className="border border-gray-300 px-2 py-2">
+                      {item.expired_date ? formatDate(item.expired_date) : "-"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr className="bg-gray-100 font-bold">
-                  <td colSpan={3} className="border border-gray-300 px-2 py-2 text-right">Total Qty:</td>
+                  <td colSpan={3} className="border border-gray-300 px-2 py-2 text-right">
+                    Total Qty:
+                  </td>
                   <td className="border border-gray-300 px-2 py-2 text-center">
                     {record.items.reduce((sum, item) => sum + item.qty_received, 0)}
                   </td>
@@ -228,56 +222,40 @@ export function InboundPdfPreview({ open, onOpenChange, record }: InboundPdfPrev
                 <tr className="bg-white">
                   <td className="border border-gray-300 px-3 py-3">1</td>
                   <td className="border border-gray-300 px-3 py-3">Kesesuaian Barang dengan PO</td>
-                  <td className="border border-gray-300 px-3 py-3">
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', whiteSpace: 'nowrap' }}>
-                      <span className="text-gray-600">☐ Sesuai</span>
-                      <span className="text-gray-600">☐ Tidak</span>
-                    </div>
+                  <td className="border border-gray-300 px-3 py-3 text-center">
+                    <span className="text-gray-400">☐ Sesuai &nbsp; ☐ Tidak</span>
                   </td>
                   <td className="border border-gray-300 px-3 py-3"></td>
                 </tr>
                 <tr className="bg-gray-50">
                   <td className="border border-gray-300 px-3 py-3">2</td>
                   <td className="border border-gray-300 px-3 py-3">Kondisi Kemasan</td>
-                  <td className="border border-gray-300 px-3 py-3">
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
-                      <span className="text-gray-600">☐ Baik</span>
-                      <span className="text-gray-600">☐ Rusak</span>
-                      <span className="text-gray-600">☐ Bocor</span>
-                    </div>
+                  <td className="border border-gray-300 px-3 py-3 text-center">
+                    <span className="text-gray-400">☐ Baik &nbsp; ☐ Rusak &nbsp; ☐ Bocor</span>
                   </td>
                   <td className="border border-gray-300 px-3 py-3"></td>
                 </tr>
                 <tr className="bg-white">
                   <td className="border border-gray-300 px-3 py-3">3</td>
                   <td className="border border-gray-300 px-3 py-3">Label & Batch Terbaca</td>
-                  <td className="border border-gray-300 px-3 py-3">
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', whiteSpace: 'nowrap' }}>
-                      <span className="text-gray-600">☐ Ya</span>
-                      <span className="text-gray-600">☐ Tidak</span>
-                    </div>
+                  <td className="border border-gray-300 px-3 py-3 text-center">
+                    <span className="text-gray-400">☐ Ya &nbsp; ☐ Tidak</span>
                   </td>
                   <td className="border border-gray-300 px-3 py-3"></td>
                 </tr>
                 <tr className="bg-gray-50">
                   <td className="border border-gray-300 px-3 py-3">4</td>
                   <td className="border border-gray-300 px-3 py-3">Expired Date Sesuai</td>
-                  <td className="border border-gray-300 px-3 py-3">
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', whiteSpace: 'nowrap' }}>
-                      <span className="text-gray-600">☐ Ya</span>
-                      <span className="text-gray-600">☐ Tidak</span>
-                    </div>
+                  <td className="border border-gray-300 px-3 py-3 text-center">
+                    <span className="text-gray-400">☐ Ya &nbsp; ☐ Tidak</span>
                   </td>
                   <td className="border border-gray-300 px-3 py-3"></td>
                 </tr>
                 <tr className="bg-white">
                   <td className="border border-gray-300 px-3 py-3">5</td>
                   <td className="border border-gray-300 px-3 py-3">Qty Sesuai dengan Dokumen</td>
-                  <td className="border border-gray-300 px-3 py-3">
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', whiteSpace: 'nowrap' }}>
-                      <span className="text-gray-600">☐ Ya</span>
-                      <span className="text-gray-600">☐ Tidak</span>
-                    </div>
+                  <td className="border border-gray-300 px-3 py-3 text-center">
+                    <span className="text-gray-400">☐ Ya &nbsp; ☐ Tidak</span>
                   </td>
                   <td className="border border-gray-300 px-3 py-3"></td>
                 </tr>
@@ -317,7 +295,8 @@ export function InboundPdfPreview({ open, onOpenChange, record }: InboundPdfPrev
 
           {/* Footer */}
           <div className="mt-6 pt-4 border-t text-center text-xs text-gray-500">
-            <p>Dicetak pada: {format(new Date(), 'dd MMM yyyy HH:mm', { locale: localeId })}</p>
+            <p>Dicetak pada: {format(new Date(), "dd MMM yyyy HH:mm", { locale: localeId })}</p>
+            <p>WMS KEMIKA - Warehouse Management System</p>
             <p>© {new Date().getFullYear()} PT. Kemika Karya Pratama</p>
           </div>
         </div>
@@ -326,18 +305,18 @@ export function InboundPdfPreview({ open, onOpenChange, record }: InboundPdfPrev
         <div className="flex justify-end gap-3 pt-4 border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             <X className="w-4 h-4 mr-2" />
-            {language === 'en' ? 'Close' : 'Tutup'}
+            {language === "en" ? "Close" : "Tutup"}
           </Button>
           <Button onClick={handlePrint} disabled={isPrinting}>
             {isPrinting ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                {language === 'en' ? 'Generating...' : 'Memproses...'}
+                {language === "en" ? "Generating..." : "Memproses..."}
               </>
             ) : (
               <>
                 <Printer className="w-4 h-4 mr-2" />
-                {language === 'en' ? 'Print / Save PDF' : 'Cetak / Simpan PDF'}
+                {language === "en" ? "Print / Save PDF" : "Cetak / Simpan PDF"}
               </>
             )}
           </Button>
