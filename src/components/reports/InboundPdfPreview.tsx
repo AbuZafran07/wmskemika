@@ -222,16 +222,23 @@ export function InboundPdfPreview({ open, onOpenChange, record }: InboundPdfPrev
                 <tr className="bg-white">
                   <td className="border border-gray-300 px-3 py-3">1</td>
                   <td className="border border-gray-300 px-3 py-3">Kesesuaian Barang dengan PO</td>
-                  <td className="border border-gray-300 px-3 py-3 text-center">
-                    <span className="text-gray-400">☐ Sesuai &nbsp; ☐ Tidak</span>
+                  <td className="border border-gray-300 px-3 py-3 text-center" style={{ whiteSpace: 'nowrap' }}>
+                    <span className="text-gray-400" style={{ display: 'inline-flex', gap: '16px' }}>
+                      <span>☐ Sesuai</span>
+                      <span>☐ Tidak</span>
+                    </span>
                   </td>
                   <td className="border border-gray-300 px-3 py-3"></td>
                 </tr>
                 <tr className="bg-gray-50">
                   <td className="border border-gray-300 px-3 py-3">2</td>
                   <td className="border border-gray-300 px-3 py-3">Kondisi Kemasan</td>
-                  <td className="border border-gray-300 px-3 py-3 text-center">
-                    <span className="text-gray-400">☐ Baik &nbsp; ☐ Rusak &nbsp; ☐ Bocor</span>
+                  <td className="border border-gray-300 px-3 py-3 text-center" style={{ whiteSpace: 'nowrap' }}>
+                    <span className="text-gray-400" style={{ display: 'inline-flex', gap: '12px' }}>
+                      <span>☐ Baik</span>
+                      <span>☐ Rusak</span>
+                      <span>☐ Bocor</span>
+                    </span>
                   </td>
                   <td className="border border-gray-300 px-3 py-3"></td>
                 </tr>
