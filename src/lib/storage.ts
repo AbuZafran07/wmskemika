@@ -98,36 +98,42 @@ export async function getSecureFileUrl(
  * Gets a signed URL for a product photo.
  * Use this for displaying product images in the UI.
  */
-export async function getProductPhotoUrl(photoUrlOrPath: string): Promise<string | null> {
-  if (!photoUrlOrPath) return null;
-  
-  try {
-    let path = photoUrlOrPath;
+export function getProductPhotoUrl(photoUrlOrPath: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    if (!photoUrlOrPath) {
+      resolve(null);
+      return;
+    }
     
-    // Check if it's a Supabase storage URL and extract the path
-    if (photoUrlOrPath.includes('/storage/v1/object/')) {
-      // Extract path from URL like: .../storage/v1/object/public/product-photos/products/...
-      const match = photoUrlOrPath.match(/\/product-photos\/(.+?)(?:\?|$)/);
-      if (match) {
-        path = match[1];
+    try {
+      let path = photoUrlOrPath;
+      
+      // Check if it's a Supabase storage URL and extract the path
+      if (photoUrlOrPath.includes('/storage/v1/object/')) {
+        // Extract path from URL like: .../storage/v1/object/public/product-photos/products/...
+        const match = photoUrlOrPath.match(/\/product-photos\/(.+?)(?:\?|$)/);
+        if (match) {
+          path = match[1];
+        }
       }
+      
+      // If the path still contains the bucket name prefix, remove it
+      if (path.startsWith('product-photos/')) {
+        path = path.replace('product-photos/', '');
+      }
+      
+      // Product-photos bucket is public, use public URL for better performance
+      const { data } = supabase.storage
+        .from('product-photos')
+        .getPublicUrl(path);
+      
+      // Return the public URL directly
+      resolve(data.publicUrl);
+    } catch (error) {
+      console.error('Failed to get product photo URL:', error);
+      resolve(null);
     }
-    
-    // If the path still contains the bucket name prefix, remove it
-    if (path.startsWith('product-photos/')) {
-      path = path.replace('product-photos/', '');
-    }
-    
-    // Product-photos bucket is now public, use public URL for better performance
-    const { data } = supabase.storage
-      .from('product-photos')
-      .getPublicUrl(path);
-    
-    return data.publicUrl;
-  } catch (error) {
-    console.error('Failed to get product photo URL:', error);
-    return null;
-  }
+  });
 }
 
 /**

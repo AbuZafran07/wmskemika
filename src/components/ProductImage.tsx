@@ -31,16 +31,22 @@ export function ProductImage({
   useEffect(() => {
     if (!photoUrl) {
       setImageUrl(null);
+      setError(false);
       return;
     }
 
     setError(false);
     setImageLoaded(false);
+    setImageUrl(null);
     
-    // Get public URL (synchronous operation now)
+    // Get public URL
     getProductPhotoUrl(photoUrl)
       .then(url => {
-        setImageUrl(url);
+        if (url) {
+          setImageUrl(url);
+        } else {
+          setError(true);
+        }
       })
       .catch(() => {
         setError(true);
