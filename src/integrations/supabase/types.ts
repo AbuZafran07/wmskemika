@@ -416,6 +416,13 @@ export type Database = {
             referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "plan_order_headers_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers_public_view"
+            referencedColumns: ["id"]
+          },
         ]
       }
       plan_order_items: {
@@ -549,6 +556,13 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers_public_view"
             referencedColumns: ["id"]
           },
           {
@@ -1286,6 +1300,36 @@ export type Database = {
           full_name?: string | null
           id?: string | null
           is_active?: boolean | null
+        }
+        Relationships: []
+      }
+      suppliers_public_view: {
+        Row: {
+          city: string | null
+          code: string | null
+          created_at: string | null
+          id: string | null
+          is_active: boolean | null
+          name: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          city?: string | null
+          code?: string | null
+          created_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          name?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          city?: string | null
+          code?: string | null
+          created_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          name?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
