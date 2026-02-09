@@ -136,19 +136,27 @@ export function ProductThumbnail({
     if (photoPath) {
       setImageError(false);
       setImageLoaded(false);
-      // getProductPhotoUrl now returns public URL synchronously
+      setImageUrl(null);
+      
+      // getProductPhotoUrl returns a Promise with the public URL
       getProductPhotoUrl(photoPath)
         .then(url => {
-          setImageUrl(url);
+          if (url) {
+            setImageUrl(url);
+          } else {
+            setImageError(true);
+          }
         })
         .catch(() => {
           setImageError(true);
         });
     } else {
       setImageUrl(null);
+      setImageError(false);
     }
   }, [photoPath]);
 
+  // Show placeholder when no photo or error
   if (!photoPath || imageError) {
     return (
       <div 
@@ -164,13 +172,11 @@ export function ProductThumbnail({
     );
   }
 
+  // Show loading spinner while getting URL
   if (!imageUrl) {
     return (
       <div 
         className={`${className} rounded border border-border bg-muted flex items-center justify-center`}
-        onClick={onClick}
-        role="button"
-        tabIndex={0}
       >
         <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
       </div>
@@ -179,7 +185,7 @@ export function ProductThumbnail({
 
   return (
     <div 
-      className={`${className} rounded border border-border overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all`}
+      className={`${className} rounded border border-border overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all relative`}
       onClick={onClick}
       role="button"
       tabIndex={0}
@@ -187,14 +193,14 @@ export function ProductThumbnail({
       onKeyDown={(e) => e.key === 'Enter' && onClick?.()}
     >
       {!imageLoaded && (
-        <div className="w-full h-full bg-muted flex items-center justify-center">
+        <div className="absolute inset-0 w-full h-full bg-muted flex items-center justify-center">
           <ImageIcon className="w-5 h-5 text-muted-foreground animate-pulse" />
         </div>
       )}
       <img
         src={imageUrl}
         alt={alt}
-        className={`w-full h-full object-cover ${imageLoaded ? '' : 'hidden'}`}
+        className={`w-full h-full object-cover transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
         loading="lazy"
         onError={() => setImageError(true)}
         onLoad={() => setImageLoaded(true)}
