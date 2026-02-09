@@ -261,14 +261,42 @@ export default function StockAdjustment() {
     setIsUploading(false);
   };
 
+  const normalizeDate = (val?: string | null) => {
+    if (!val) return null;
+    // Handles DATE and TIMESTAMP strings safely
+    return val.split('T')[0];
+  };
+
+  const isExpiryChanged = (item: AdjustmentItem) => {
+    if (!item.batch_id || !item.new_expired_date) return false;
+
+    const batch = allBatches.find((b) => b.id === item.batch_id);
+    const oldExpiry = normalizeDate(batch?.expired_date ?? null);
+    const newExpiry = normalizeDate(item.new_expired_date);
+
+    return !!newExpiry && newExpiry !== oldExpiry;
+  };
+
+  const isLineItemComplete = (item: AdjustmentItem) => {
+    if (!item.product_id || !item.batch_id) return false;
+
+    // Valid if: qty changes OR expiry actually changes
+    const qtyChanged = item.adjustment_qty !== 0;
+    return qtyChanged || isExpiryChanged(item);
+  };
+
   const handleSubmit = async () => {
     if (!adjustmentNumber || !reason || adjustmentItems.length === 0) {
       toast.error(language === 'en' ? 'Please fill all required fields' : 'Harap isi semua field wajib');
       return;
     }
 
-    if (adjustmentItems.some(item => !item.product_id || !item.batch_id || item.adjustment_qty === 0)) {
-      toast.error(language === 'en' ? 'Please complete all line items with valid qty (not zero)' : 'Harap lengkapi semua item dengan qty yang valid (bukan nol)');
+    if (adjustmentItems.some((item) => !isLineItemComplete(item))) {
+      toast.error(
+        language === 'en'
+          ? 'Please complete all line items: set Adj. Qty (non-zero) or change New Expiry'
+          : 'Harap lengkapi semua item: isi Adj. Qty (tidak nol) atau ubah Exp. Baru'
+      );
       return;
     }
 
@@ -286,17 +314,19 @@ export default function StockAdjustment() {
         reason,
         attachment_url: attachmentUrl,
       },
-      adjustmentItems.map(item => ({
+      adjustmentItems.map((item) => ({
         product_id: item.product_id,
         batch_id: item.batch_id,
         adjustment_qty: item.adjustment_qty,
         notes: item.notes,
         new_expired_date: item.new_expired_date || null,
       })),
-      attachmentKey ? {
-        file_key: attachmentKey,
-        url: attachmentUrl,
-      } : undefined
+      attachmentKey
+        ? {
+            file_key: attachmentKey,
+            url: attachmentUrl,
+          }
+        : undefined
     );
 
     if (result.success) {
@@ -317,8 +347,12 @@ export default function StockAdjustment() {
       return;
     }
 
-    if (adjustmentItems.some(item => !item.product_id || !item.batch_id || item.adjustment_qty === 0)) {
-      toast.error(language === 'en' ? 'Please complete all line items' : 'Harap lengkapi semua item');
+    if (adjustmentItems.some((item) => !isLineItemComplete(item))) {
+      toast.error(
+        language === 'en'
+          ? 'Please complete all line items: set Adj. Qty (non-zero) or change New Expiry'
+          : 'Harap lengkapi semua item: isi Adj. Qty (tidak nol) atau ubah Exp. Baru'
+      );
       return;
     }
 
@@ -332,7 +366,7 @@ export default function StockAdjustment() {
         reason,
         attachment_url: attachmentUrl,
       },
-      adjustmentItems.map(item => ({
+      adjustmentItems.map((item) => ({
         product_id: item.product_id,
         batch_id: item.batch_id,
         adjustment_qty: item.adjustment_qty,
@@ -690,7 +724,17 @@ export default function StockAdjustment() {
                 )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">{language === 'en' ? 'Expiry Changes' : 'Perubahan Expired'}</span>
-                  <span>{adjustmentItems.filter(i => i.new_expired_date).length}</span>
+                  <span>
+                    {
+                      adjustmentItems.filter((item) => {
+                        if (!item.batch_id || !item.new_expired_date) return false;
+                        const batch = allBatches.find((b) => b.id === item.batch_id);
+                        const oldExpiry = batch?.expired_date ? batch.expired_date.split('T')[0] : null;
+                        const newExpiry = item.new_expired_date.split('T')[0];
+                        return newExpiry !== oldExpiry;
+                      }).length
+                    }
+                  </span>
                 </div>
               </CardContent>
             </Card>
