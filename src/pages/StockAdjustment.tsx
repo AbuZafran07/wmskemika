@@ -76,6 +76,7 @@ interface AdjustmentItem {
   batch_id: string;
   adjustment_qty: number;
   notes: string;
+  new_expired_date: string;
   product?: Partial<Product> & { id: string; name: string };
 }
 
@@ -212,6 +213,7 @@ export default function StockAdjustment() {
       batch_id: '',
       adjustment_qty: 0,
       notes: '',
+      new_expired_date: '',
     }]);
   };
 
@@ -288,6 +290,7 @@ export default function StockAdjustment() {
         batch_id: item.batch_id,
         adjustment_qty: item.adjustment_qty,
         notes: item.notes,
+        new_expired_date: item.new_expired_date || null,
       })),
       attachmentKey ? {
         file_key: attachmentKey,
@@ -333,6 +336,7 @@ export default function StockAdjustment() {
         batch_id: item.batch_id,
         adjustment_qty: item.adjustment_qty,
         notes: item.notes,
+        new_expired_date: item.new_expired_date || null,
       }))
     );
 
@@ -428,16 +432,17 @@ export default function StockAdjustment() {
     // Fetch items
     const { data } = await supabase
       .from('stock_adjustment_items')
-      .select(`*, product:products(id, name, sku)`)
+      .select(`*, product:products(id, name, sku), batch:inventory_batches(expired_date)`)
       .eq('adjustment_id', adj.id);
     
     if (data) {
-      setAdjustmentItems(data.map(item => ({
+      setAdjustmentItems(data.map((item: any) => ({
         id: item.id,
         product_id: item.product_id,
         batch_id: item.batch_id,
         adjustment_qty: item.adjustment_qty,
         notes: item.notes || '',
+        new_expired_date: item.new_expired_date || '',
         product: item.product,
       })));
     }
@@ -530,18 +535,20 @@ export default function StockAdjustment() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[200px]">{language === 'en' ? 'Product' : 'Produk'}</TableHead>
-                      <TableHead className="w-[180px]">Batch</TableHead>
-                      <TableHead className="text-center">{language === 'en' ? 'Current Qty' : 'Qty Saat Ini'}</TableHead>
-                      <TableHead className="text-center">{language === 'en' ? 'Adjustment' : 'Penyesuaian'}</TableHead>
-                      <TableHead>{language === 'en' ? 'Notes' : 'Catatan'}</TableHead>
+                      <TableHead className="w-[180px]">{language === 'en' ? 'Product' : 'Produk'}</TableHead>
+                      <TableHead className="w-[150px]">Batch</TableHead>
+                      <TableHead className="text-center w-[80px]">{language === 'en' ? 'Curr. Qty' : 'Qty Lama'}</TableHead>
+                      <TableHead className="text-center w-[100px]">{language === 'en' ? 'Adj. Qty' : 'Adj. Qty'}</TableHead>
+                      <TableHead className="text-center w-[110px]">{language === 'en' ? 'Curr. Expiry' : 'Exp. Lama'}</TableHead>
+                      <TableHead className="text-center w-[130px]">{language === 'en' ? 'New Expiry' : 'Exp. Baru'}</TableHead>
+                      <TableHead className="w-[120px]">{language === 'en' ? 'Notes' : 'Catatan'}</TableHead>
                       <TableHead className="w-[50px]"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {adjustmentItems.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                           {language === 'en' ? 'No items added yet' : 'Belum ada item'}
                         </TableCell>
                       </TableRow>
@@ -588,18 +595,31 @@ export default function StockAdjustment() {
                               <div className="flex items-center gap-1 justify-center">
                                 <Input
                                   type="number"
-                                  className="w-24 text-center"
+                                  className="w-20 text-center"
                                   value={item.adjustment_qty}
                                   onChange={(e) => handleItemChange(item.id, 'adjustment_qty', parseInt(e.target.value) || 0)}
                                 />
-                                {item.adjustment_qty > 0 && <TrendingUp className="w-4 h-4 text-green-600" />}
-                                {item.adjustment_qty < 0 && <TrendingDown className="w-4 h-4 text-red-600" />}
+                                {item.adjustment_qty > 0 && <TrendingUp className="w-4 h-4 text-success" />}
+                                {item.adjustment_qty < 0 && <TrendingDown className="w-4 h-4 text-destructive" />}
                               </div>
+                            </TableCell>
+                            <TableCell className="text-center text-sm text-muted-foreground">
+                              {selectedBatch?.expired_date ? formatDate(selectedBatch.expired_date) : '-'}
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="date"
+                                className="w-[130px]"
+                                value={item.new_expired_date}
+                                onChange={(e) => handleItemChange(item.id, 'new_expired_date', e.target.value)}
+                                placeholder={language === 'en' ? 'New expiry' : 'Exp. baru'}
+                              />
                             </TableCell>
                             <TableCell>
                               <Input
                                 placeholder="Notes"
                                 value={item.notes}
+                                className="w-[100px]"
                                 onChange={(e) => handleItemChange(item.id, 'notes', e.target.value)}
                               />
                             </TableCell>
@@ -630,11 +650,11 @@ export default function StockAdjustment() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">{language === 'en' ? 'Total Increase' : 'Total Penambahan'}</span>
-                  <span className="text-green-600">+{adjustmentItems.filter(i => i.adjustment_qty > 0).reduce((s, i) => s + i.adjustment_qty, 0)}</span>
+                  <span className="text-success">+{adjustmentItems.filter(i => i.adjustment_qty > 0).reduce((s, i) => s + i.adjustment_qty, 0)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">{language === 'en' ? 'Total Decrease' : 'Total Pengurangan'}</span>
-                  <span className="text-red-600">{adjustmentItems.filter(i => i.adjustment_qty < 0).reduce((s, i) => s + i.adjustment_qty, 0)}</span>
+                  <span className="text-destructive">{adjustmentItems.filter(i => i.adjustment_qty < 0).reduce((s, i) => s + i.adjustment_qty, 0)}</span>
                 </div>
               </CardContent>
             </Card>
@@ -880,14 +900,15 @@ export default function StockAdjustment() {
                       <TableHead>SKU</TableHead>
                       <TableHead>{language === 'en' ? 'Product' : 'Produk'}</TableHead>
                       <TableHead>Batch</TableHead>
-                      <TableHead className="text-center">{language === 'en' ? 'Adjustment' : 'Penyesuaian'}</TableHead>
+                      <TableHead className="text-center">{language === 'en' ? 'Adj. Qty' : 'Adj. Qty'}</TableHead>
+                      <TableHead className="text-center">{language === 'en' ? 'New Expiry' : 'Exp. Baru'}</TableHead>
                       <TableHead>{language === 'en' ? 'Notes' : 'Catatan'}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {itemsLoading ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-4">
+                        <TableCell colSpan={6} className="text-center py-4">
                           <Loader2 className="w-4 h-4 animate-spin mx-auto" />
                         </TableCell>
                       </TableRow>
@@ -898,9 +919,12 @@ export default function StockAdjustment() {
                           <TableCell>{item.product?.name || '-'}</TableCell>
                           <TableCell>{item.batch?.batch_no || '-'}</TableCell>
                           <TableCell className="text-center">
-                            <span className={item.adjustment_qty >= 0 ? 'text-green-600' : 'text-red-600'}>
+                            <span className={item.adjustment_qty >= 0 ? 'text-success' : 'text-destructive'}>
                               {item.adjustment_qty >= 0 ? '+' : ''}{item.adjustment_qty}
                             </span>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {item.new_expired_date ? formatDate(item.new_expired_date) : '-'}
                           </TableCell>
                           <TableCell>{item.notes || '-'}</TableCell>
                         </TableRow>

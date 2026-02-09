@@ -27,6 +27,7 @@ export interface StockAdjustmentItem {
   batch_id: string;
   adjustment_qty: number;
   notes: string | null;
+  new_expired_date?: string | null;
   product?: {
     id: string;
     name: string;
@@ -108,7 +109,7 @@ export function useStockAdjustmentItems(adjustmentId: string | null) {
     if (error) {
       toast.error(getUserFriendlyError(error, ErrorMessages.load.error('items')));
     } else {
-      setItems(data || []);
+      setItems((data || []) as StockAdjustmentItem[]);
     }
     setLoading(false);
   }, [adjustmentId]);
@@ -201,6 +202,7 @@ export async function createStockAdjustment(
     batch_id: string;
     adjustment_qty: number;
     notes?: string;
+    new_expired_date?: string | null;
   }>,
   attachmentMeta?: {
     file_key: string;
@@ -223,6 +225,7 @@ export async function createStockAdjustment(
         batch_id: item.batch_id,
         adjustment_qty: item.adjustment_qty,
         notes: item.notes || '',
+        new_expired_date: item.new_expired_date || null,
       })),
       attachment_meta: attachmentMeta || null,
     });
@@ -255,6 +258,7 @@ export async function updateStockAdjustment(
     batch_id: string;
     adjustment_qty: number;
     notes?: string;
+    new_expired_date?: string | null;
   }>
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -271,6 +275,7 @@ export async function updateStockAdjustment(
         batch_id: item.batch_id,
         adjustment_qty: item.adjustment_qty,
         notes: item.notes || '',
+        new_expired_date: item.new_expired_date || null,
       })),
     });
 
