@@ -305,8 +305,10 @@ export default function PlanOrder() {
   const calculateTotals = (items: OrderItemUI[]) => {
     const subtotal = items.reduce((sum, it) => sum + safeNumber(it.unit_price, 0) * safeNumber(it.planned_qty, 0), 0);
 
-    const disc = clampNumber(safeNumber(discount, 0), 0, 1_000_000_000_000);
-    const afterDiscount = subtotal - disc;
+    // Discount as percentage (0-100%)
+    const discPct = clampNumber(safeNumber(discount, 0), 0, 100);
+    const discValue = (subtotal * discPct) / 100;
+    const afterDiscount = subtotal - discValue;
 
     const taxPct = clampNumber(safeNumber(taxRate, 0), 0, 100);
     const taxValue = (afterDiscount * taxPct) / 100;
@@ -314,7 +316,7 @@ export default function PlanOrder() {
     const ship = clampNumber(safeNumber(shippingCost, 0), 0, 1_000_000_000_000);
 
     const grandTotal = afterDiscount + taxValue + ship;
-    return { subtotal, disc, afterDiscount, taxValue, ship, grandTotal };
+    return { subtotal, discPct, discValue, afterDiscount, taxValue, ship, grandTotal };
   };
 
   const totalsForm = useMemo(() => calculateTotals(orderItems), [orderItems, discount, taxRate, shippingCost]);
@@ -490,7 +492,7 @@ export default function PlanOrder() {
 
     setIsSaving(true);
     try {
-      const { subtotal, disc, grandTotal } = calculateTotals(orderItems);
+      const { subtotal, discValue, grandTotal } = calculateTotals(orderItems);
 
       const payloadHeader: any = {
         plan_number: planNumber,
@@ -508,7 +510,7 @@ export default function PlanOrder() {
 
         status: "draft",
         total_amount: subtotal,
-        discount: disc,
+        discount: discValue,
         tax_rate: safeNumber(taxRate, 0),
         shipping_cost: safeNumber(shippingCost, 0),
         grand_total: grandTotal,
@@ -609,7 +611,7 @@ export default function PlanOrder() {
 
     setIsSaving(true);
     try {
-      const { subtotal, disc, grandTotal } = calculateTotals(orderItems);
+      const { subtotal, discValue, grandTotal } = calculateTotals(orderItems);
 
       const payloadHeader: any = {
         plan_number: planNumber,
@@ -620,7 +622,7 @@ export default function PlanOrder() {
         notes: notes || null,
         po_document_url: poDocumentUrl,
         total_amount: subtotal,
-        discount: disc,
+        discount: discValue,
         tax_rate: safeNumber(taxRate, 0),
         shipping_cost: safeNumber(shippingCost, 0),
         grand_total: grandTotal,
@@ -1253,14 +1255,19 @@ export default function PlanOrder() {
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm">{language === "en" ? "Discount (Nominal)" : "Diskon (Nominal)"}</Label>
+                    <Label className="text-sm">{language === "en" ? "Discount (%)" : "Diskon (%)"}</Label>
                     <Input
                       type="number"
                       className="w-32 text-right"
                       value={discount}
                       min={0}
+                      max={100}
                       onChange={(e) => setDiscount(e.target.value)}
                     />
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">{language === "en" ? "Discount Amount" : "Nilai Diskon"}</span>
+                    <span>-{formatCurrency(totalsForm.discValue)}</span>
                   </div>
                 </div>
 
@@ -2105,8 +2112,10 @@ export default function PlanOrder() {
                 <div style={{ border: "1px solid #111", padding: "10px" }}>
                   {(() => {
                     const subtotal = safeNumber(selectedOrder.total_amount, 0);
-                    const disc = safeNumber(selectedOrder.discount, 0);
-                    const net = subtotal - disc;
+                    const discAmount = safeNumber(selectedOrder.discount, 0);
+                    // Calculate discount percentage from amount for display
+                    const discPct = subtotal > 0 ? (discAmount / subtotal) * 100 : 0;
+                    const net = subtotal - discAmount;
                     const tax = (net * safeNumber(selectedOrder.tax_rate, 0)) / 100;
                     const ship = safeNumber(selectedOrder.shipping_cost, 0);
                     const grand = safeNumber(selectedOrder.grand_total, 0);
@@ -2118,8 +2127,8 @@ export default function PlanOrder() {
                           <b>{formatCurrency(subtotal)}</b>
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                          <span>Discount</span>
-                          <b>-{formatCurrency(disc)}</b>
+                          <span>Discount ({discPct.toFixed(1)}%)</span>
+                          <b>-{formatCurrency(discAmount)}</b>
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
                           <span>Tax ({safeNumber(selectedOrder.tax_rate, 0)}%)</span>
