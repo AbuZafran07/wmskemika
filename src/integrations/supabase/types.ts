@@ -790,6 +790,7 @@ export type Database = {
           batch_id: string
           created_at: string | null
           id: string
+          new_expired_date: string | null
           notes: string | null
           product_id: string
         }
@@ -799,6 +800,7 @@ export type Database = {
           batch_id: string
           created_at?: string | null
           id?: string
+          new_expired_date?: string | null
           notes?: string | null
           product_id: string
         }
@@ -808,6 +810,7 @@ export type Database = {
           batch_id?: string
           created_at?: string | null
           id?: string
+          new_expired_date?: string | null
           notes?: string | null
           product_id?: string
         }
