@@ -170,7 +170,7 @@ export default function AuditLog() {
     return language === 'en' ? info.en : info.id;
   };
 
-  const renderDataPreview = (data: unknown) => {
+  const renderDataPreview = (data: unknown, module?: string) => {
     const record = asRecord(data);
     if (!record) return '-';
     
@@ -183,6 +183,19 @@ export default function AuditLog() {
         <div className="text-sm">
           <p><span className="text-muted-foreground">PO:</span> {String(record.plan_order_number || '')}</p>
           <p><span className="text-muted-foreground">Items:</span> {String(record.total_items || 0)} ({String(record.total_qty_received || 0)} pcs)</p>
+        </div>
+      );
+    }
+
+    // For stock_adjustment, show expiry change info if present
+    if (module === 'stock_adjustment' && record.items && Array.isArray(record.items)) {
+      const expiryChanges = (record.items as any[]).filter(item => item.new_expired_date);
+      return (
+        <div className="text-sm">
+          <p><span className="text-muted-foreground">{language === 'en' ? 'Items:' : 'Item:'}</span> {String(record.total_items || 0)}</p>
+          {expiryChanges.length > 0 && (
+            <p className="text-warning"><span className="text-muted-foreground">{language === 'en' ? 'Expiry Changes:' : 'Ubah Expired:'}</span> {expiryChanges.length}</p>
+          )}
         </div>
       );
     }
@@ -346,13 +359,62 @@ export default function AuditLog() {
                             </div>
                           </TableCell>
                           <TableCell className="max-w-[200px] truncate">
-                            {renderDataPreview(log.new_data)}
+                            {renderDataPreview(log.new_data, log.module)}
                           </TableCell>
                         </TableRow>
                         
                         {isExpanded && (
                           <TableRow>
                             <TableCell colSpan={7} className="bg-muted/30 p-4">
+                              {/* Enhanced display for stock_adjustment expiry changes */}
+                              {log.module === 'stock_adjustment' && asRecord(log.new_data)?.items && (
+                                <div className="mb-4">
+                                  <h4 className="font-medium mb-2 text-sm">
+                                    {language === 'en' ? 'Adjustment Details' : 'Detail Penyesuaian'}
+                                  </h4>
+                                  <div className="bg-background rounded-lg p-3 overflow-auto">
+                                    <table className="w-full text-xs">
+                                      <thead>
+                                        <tr className="border-b">
+                                          <th className="text-left py-1">{language === 'en' ? 'Product' : 'Produk'}</th>
+                                          <th className="text-left py-1">Batch</th>
+                                          <th className="text-center py-1">{language === 'en' ? 'Qty Adj' : 'Adj Qty'}</th>
+                                          <th className="text-center py-1">{language === 'en' ? 'Old Expiry' : 'Exp Lama'}</th>
+                                          <th className="text-center py-1">{language === 'en' ? 'New Expiry' : 'Exp Baru'}</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {(asRecord(log.new_data)!.items as any[]).map((item: any, idx: number) => {
+                                          const hasExpiryChange = item.new_expired_date;
+                                          const isExtended = item.old_expired_date && item.new_expired_date && 
+                                            new Date(item.new_expired_date) > new Date(item.old_expired_date);
+                                          return (
+                                            <tr key={idx} className={`border-b last:border-0 ${hasExpiryChange ? 'bg-warning/5' : ''}`}>
+                                              <td className="py-1">{item.product_name || item.product_id}</td>
+                                              <td className="py-1">{item.batch_no || item.batch_id}</td>
+                                              <td className={`text-center py-1 ${item.adjustment_qty > 0 ? 'text-success' : item.adjustment_qty < 0 ? 'text-destructive' : ''}`}>
+                                                {item.adjustment_qty > 0 ? '+' : ''}{item.adjustment_qty}
+                                              </td>
+                                              <td className="text-center py-1 text-muted-foreground">
+                                                {item.old_expired_date ? formatDate(item.old_expired_date) : '-'}
+                                              </td>
+                                              <td className={`text-center py-1 ${isExtended ? 'text-warning font-medium' : hasExpiryChange ? 'text-primary' : ''}`}>
+                                                {item.new_expired_date ? (
+                                                  <>
+                                                    {formatDate(item.new_expired_date)}
+                                                    {isExtended && <span className="ml-1">⚠️</span>}
+                                                  </>
+                                                ) : '-'}
+                                              </td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              )}
+                              
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {asRecord(log.old_data) && Object.keys(asRecord(log.old_data)!).length > 0 && (
                                   <div>

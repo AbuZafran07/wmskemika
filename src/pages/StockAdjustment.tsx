@@ -1,6 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { securePrint, printStyles } from '@/lib/printUtils';
-import { Plus, Search, Eye, Edit, MoreHorizontal, CheckCircle, XCircle, Loader2, Upload, ArrowLeft, Trash2, Printer, Archive, List, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, Search, Eye, Edit, MoreHorizontal, CheckCircle, XCircle, Loader2, Upload, ArrowLeft, Trash2, Printer, Archive, List, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -607,13 +608,29 @@ export default function StockAdjustment() {
                               {selectedBatch?.expired_date ? formatDate(selectedBatch.expired_date) : '-'}
                             </TableCell>
                             <TableCell>
-                              <Input
-                                type="date"
-                                className="w-[130px]"
-                                value={item.new_expired_date}
-                                onChange={(e) => handleItemChange(item.id, 'new_expired_date', e.target.value)}
-                                placeholder={language === 'en' ? 'New expiry' : 'Exp. baru'}
-                              />
+                              {(() => {
+                                const oldExpiry = selectedBatch?.expired_date;
+                                const newExpiry = item.new_expired_date;
+                                const isExtended = oldExpiry && newExpiry && new Date(newExpiry) > new Date(oldExpiry);
+                                
+                                return (
+                                  <div className="flex flex-col gap-1">
+                                    <Input
+                                      type="date"
+                                      className={`w-[130px] ${isExtended ? 'border-warning ring-1 ring-warning' : ''}`}
+                                      value={item.new_expired_date}
+                                      onChange={(e) => handleItemChange(item.id, 'new_expired_date', e.target.value)}
+                                      placeholder={language === 'en' ? 'New expiry' : 'Exp. baru'}
+                                    />
+                                    {isExtended && (
+                                      <span className="text-[10px] text-warning flex items-center gap-1">
+                                        <AlertTriangle className="w-3 h-3" />
+                                        {language === 'en' ? 'Extended!' : 'Diperpanjang!'}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </TableCell>
                             <TableCell>
                               <Input
@@ -655,6 +672,25 @@ export default function StockAdjustment() {
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">{language === 'en' ? 'Total Decrease' : 'Total Pengurangan'}</span>
                   <span className="text-destructive">{adjustmentItems.filter(i => i.adjustment_qty < 0).reduce((s, i) => s + i.adjustment_qty, 0)}</span>
+                </div>
+                {/* Expiry date extension warnings */}
+                {adjustmentItems.some(item => {
+                  const batch = allBatches.find(b => b.id === item.batch_id);
+                  return batch?.expired_date && item.new_expired_date && 
+                         new Date(item.new_expired_date) > new Date(batch.expired_date);
+                }) && (
+                  <Alert className="bg-warning/10 border-warning">
+                    <AlertTriangle className="w-4 h-4 text-warning" />
+                    <AlertDescription className="text-warning text-xs">
+                      {language === 'en' 
+                        ? 'Warning: Some items have extended expiry dates. Please ensure this is intentional and documented.' 
+                        : 'Peringatan: Beberapa item memiliki tanggal expired yang diperpanjang. Pastikan ini disengaja dan terdokumentasi.'}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">{language === 'en' ? 'Expiry Changes' : 'Perubahan Expired'}</span>
+                  <span>{adjustmentItems.filter(i => i.new_expired_date).length}</span>
                 </div>
               </CardContent>
             </Card>
