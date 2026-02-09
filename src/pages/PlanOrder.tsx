@@ -2072,32 +2072,44 @@ export default function PlanOrder() {
                   </thead>
 
                   <tbody>
-                    {selectedOrderItems?.map((it: any, idx: number) => {
-                      const qty = safeNumber(it.planned_qty, 0);
-                      const price = safeNumber(it.unit_price, 0);
-                      const amount = safeNumber(it.subtotal, qty * price);
+                    {(() => {
+                      // Calculate header-level discount percentage
+                      const headerSubtotal = safeNumber(selectedOrder.total_amount, 0);
+                      const headerDiscAmount = safeNumber(selectedOrder.discount, 0);
+                      const headerDiscPct = headerSubtotal > 0 ? (headerDiscAmount / headerSubtotal) * 100 : 0;
 
-                      return (
-                        <tr key={it.id}>
-                          <td style={{ border: "1px solid #111", padding: "8px 10px", textAlign: "center" }}>
-                            {idx + 1}
-                          </td>
-                          <td style={{ border: "1px solid #111", padding: "8px 10px" }}>{it.product?.sku || "-"}</td>
-                          <td style={{ border: "1px solid #111", padding: "8px 10px" }}>{it.product?.name || "-"}</td>
-                          <td style={{ border: "1px solid #111", padding: "8px 10px", textAlign: "center" }}>{qty}</td>
-                          <td style={{ border: "1px solid #111", padding: "8px 10px" }}>
-                            {it.product?.unit?.name || "-"}
-                          </td>
-                          <td style={{ border: "1px solid #111", padding: "8px 10px", textAlign: "right" }}>
-                            {formatCurrency(price)}
-                          </td>
-                          <td style={{ border: "1px solid #111", padding: "8px 10px", textAlign: "right" }}>0%</td>
-                          <td style={{ border: "1px solid #111", padding: "8px 10px", textAlign: "right" }}>
-                            {formatCurrency(amount)}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                      return selectedOrderItems?.map((it: any, idx: number) => {
+                        const qty = safeNumber(it.planned_qty, 0);
+                        const price = safeNumber(it.unit_price, 0);
+                        const lineSubtotal = qty * price;
+                        // Apply header discount percentage to each line item
+                        const lineDiscAmount = (lineSubtotal * headerDiscPct) / 100;
+                        const lineAmount = lineSubtotal - lineDiscAmount;
+
+                        return (
+                          <tr key={it.id}>
+                            <td style={{ border: "1px solid #111", padding: "8px 10px", textAlign: "center" }}>
+                              {idx + 1}
+                            </td>
+                            <td style={{ border: "1px solid #111", padding: "8px 10px" }}>{it.product?.sku || "-"}</td>
+                            <td style={{ border: "1px solid #111", padding: "8px 10px" }}>{it.product?.name || "-"}</td>
+                            <td style={{ border: "1px solid #111", padding: "8px 10px", textAlign: "center" }}>{qty}</td>
+                            <td style={{ border: "1px solid #111", padding: "8px 10px" }}>
+                              {it.product?.unit?.name || "-"}
+                            </td>
+                            <td style={{ border: "1px solid #111", padding: "8px 10px", textAlign: "right" }}>
+                              {formatCurrency(price)}
+                            </td>
+                            <td style={{ border: "1px solid #111", padding: "8px 10px", textAlign: "right" }}>
+                              {headerDiscPct > 0 ? `${headerDiscPct.toFixed(1)}%` : "0%"}
+                            </td>
+                            <td style={{ border: "1px solid #111", padding: "8px 10px", textAlign: "right" }}>
+                              {formatCurrency(lineAmount)}
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}
                   </tbody>
                 </table>
               </div>
