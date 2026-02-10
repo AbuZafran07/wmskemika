@@ -107,11 +107,11 @@ export function useSalesOrders() {
     if (allUserIds.length > 0) {
       // Fetch profiles and signatures in parallel for all users
       const [profilesResult, signaturesResult] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, email').in('id', allUserIds),
+        supabase.from('profiles_chat_view').select('id, full_name').in('id', allUserIds),
         supabase.from('user_signatures').select('user_id, signature_path').in('user_id', allUserIds)
       ]);
 
-      const profileMap = new Map(profilesResult.data?.map(p => [p.id, p]) || []);
+      const profileMap = new Map(profilesResult.data?.map(p => [p.id as string, p]) || []);
       const signatureMap = new Map(signaturesResult.data?.map(s => [s.user_id, s.signature_path]) || []);
 
       // Get signed URLs for signatures
