@@ -2340,7 +2340,7 @@ export default function PlanOrder() {
                           const approver = (selectedOrder as any)?.approver;
                           const signatureUrl = approver?.signature_url;
                           const approverName = approver?.full_name || "-";
-                          const isApproved = selectedOrder.status === "approved" && selectedOrder.approved_at;
+                          const isApproved = !!selectedOrder.approved_by && !!selectedOrder.approved_at;
 
                           const fallbackSignature = approverName.toLowerCase().includes("ferry")
                             ? `${window.location.origin}/signature-ferry.png`
