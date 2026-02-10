@@ -2235,7 +2235,7 @@ export default function SalesOrder() {
             const approver = (selectedOrder as any)?.approver;
             const signatureUrl = approver?.signature_url;
             const approverName = approver?.full_name || "-";
-            const isApproved = selectedOrder.status === "approved" && selectedOrder.approved_at;
+            const isApproved = !!selectedOrder.approved_by && !!selectedOrder.approved_at;
             const approvedAt = isApproved ? new Date(selectedOrder.approved_at as string) : null;
 
             const fallbackSignature = approverName.toLowerCase().includes("ferry")
