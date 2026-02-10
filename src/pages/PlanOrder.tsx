@@ -21,8 +21,7 @@ import {
   FileDown,
 } from "lucide-react";
 
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
+import { exportSectionBasedPdf } from "@/lib/pdfSectionExport";
 
 import { securePrint, printStyles, sanitizeHtml } from "@/lib/printUtils";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -815,131 +814,13 @@ export default function PlanOrder() {
     setPdfProgress(0);
 
     try {
-      const element = printRef.current;
-
-      // Step 1: Prepare element for capture
-      setPdfProgress(10);
-
-      // Clone and make visible for capture (hidden elements have zero dimensions)
-      const clone = element.cloneNode(true) as HTMLElement;
-      clone.style.position = "absolute";
-      clone.style.left = "-9999px";
-      clone.style.top = "0";
-      clone.style.width = "210mm"; // A4 width
-      clone.style.minHeight = "297mm"; // A4 height
-      clone.style.backgroundColor = "#ffffff";
-      clone.style.padding = "10mm";
-      clone.style.boxSizing = "border-box";
-      document.body.appendChild(clone);
-
-      // Wait for clone to be rendered
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      setPdfProgress(20);
-
-      // Ensure images are loaded
-      const images = clone.querySelectorAll("img");
-      await Promise.all(
-        Array.from(images).map((img) => {
-          return new Promise((resolve) => {
-            if (img.complete) {
-              resolve(null);
-            } else {
-              img.onload = () => resolve(null);
-              img.onerror = () => resolve(null);
-            }
-          });
-        }),
-      );
-
-      setPdfProgress(30);
-
-      // Capture canvas with html2canvas
-      const canvas = await html2canvas(clone, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: false,
-        logging: false,
-        backgroundColor: "#ffffff",
-        imageTimeout: 15000,
-        onclone: (clonedDoc) => {
-          clonedDoc.querySelectorAll("img").forEach((img) => {
-            img.setAttribute("crossorigin", "anonymous");
-          });
-        },
-      });
-
-      // Remove clone after capture
-      document.body.removeChild(clone);
-
-      setPdfProgress(50);
-
-      // Validate canvas dimensions
-      if (!canvas || canvas.width === 0 || canvas.height === 0) {
-        throw new Error("Canvas capture failed - invalid dimensions");
-      }
-
-      // Step 2: Generating PDF (50-80%)
-      setPdfProgress(60);
-
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-      });
-
-      // Get image data as JPEG for better compatibility
-      const imgData = canvas.toDataURL("image/jpeg", 0.92);
-
-      if (!imgData || imgData === "data:,") {
-        throw new Error("Failed to generate image data from canvas");
-      }
-
-      setPdfProgress(70);
-
-      // A4 dimensions in mm
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const margin = 10;
-      const contentWidth = pdfWidth - margin * 2;
-
-      // Calculate image height maintaining aspect ratio
-      const aspectRatio = canvas.height / canvas.width;
-      const imgHeight = contentWidth * aspectRatio;
-
-      // Validate calculated dimensions
-      if (!Number.isFinite(imgHeight) || imgHeight <= 0) {
-        throw new Error("Invalid image dimensions calculated");
-      }
-
-      const contentHeight = pdfHeight - margin * 2;
-      let yPosition = margin;
-      let remainingHeight = imgHeight;
-
-      // Add first page
-      pdf.addImage(imgData, "JPEG", margin, yPosition, contentWidth, imgHeight);
-      remainingHeight -= contentHeight;
-
-      setPdfProgress(80);
-
-      // Handle multi-page content
-      while (remainingHeight > 0) {
-        pdf.addPage();
-        yPosition = margin - (imgHeight - remainingHeight);
-        pdf.addImage(imgData, "JPEG", margin, yPosition, contentWidth, imgHeight);
-        remainingHeight -= contentHeight;
-      }
-
-      // Step 3: Finalizing (80-100%)
-      setPdfProgress(90);
-
-      // Sanitize filename
       const filename = `PurchaseOrder_${selectedOrder.plan_number.replace(/[^a-zA-Z0-9.-]/g, "_")}.pdf`;
 
-      setPdfProgress(95);
-      pdf.save(filename);
-
-      setPdfProgress(100);
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      await exportSectionBasedPdf({
+        element: printRef.current,
+        filename,
+        onProgress: setPdfProgress,
+      });
 
       toast.success(language === "en" ? "PDF saved successfully" : "PDF berhasil disimpan");
     } catch (err) {
@@ -1932,6 +1813,7 @@ export default function PlanOrder() {
         <div ref={printRef}>
           {selectedOrder && (
             <div
+              data-pdf-root
               style={{
                 fontFamily: "Arial, sans-serif",
                 fontSize: "11px",
