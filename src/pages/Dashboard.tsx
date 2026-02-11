@@ -16,6 +16,7 @@ import RealtimeActivityFeed from '@/components/dashboard/RealtimeActivityFeed';
 import { OnlinePresence } from '@/components/dashboard/OnlinePresence';
 import ApprovalRequestNotification from '@/components/dashboard/ApprovalRequestNotification';
 import PendingActionsWidget from '@/components/dashboard/PendingActionsWidget';
+import DocumentCleanupWarning from '@/components/dashboard/DocumentCleanupWarning';
 
 interface DashboardStats {
   totalProducts: number;
@@ -384,6 +385,9 @@ export default function Dashboard() {
           <PendingActionsWidget />
         </div>
       )}
+
+      {/* Document Cleanup Warning */}
+      <DocumentCleanupWarning />
 
       {/* Real-time Activity Feed & Online Presence */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
