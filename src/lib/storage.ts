@@ -1,7 +1,71 @@
 import { supabase } from '@/integrations/supabase/client';
 
+const MAX_DOCUMENT_SIZE = 2 * 1024 * 1024; // 2MB target for documents
+const MAX_IMAGE_SIZE = 500 * 1024; // 500KB target for images
+
 /**
- * Uploads a file to Supabase storage.
+ * Compresses an image file by resizing and reducing quality.
+ */
+async function compressImageFile(
+  file: File,
+  maxSize: number = MAX_IMAGE_SIZE,
+  maxDimension: number = 1920
+): Promise<File> {
+  // Skip non-image files
+  if (!file.type.startsWith('image/')) return file;
+  // Skip if already small enough
+  if (file.size <= maxSize) return file;
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+
+      // Scale down if larger than maxDimension
+      if (width > maxDimension || height > maxDimension) {
+        const ratio = Math.min(maxDimension / width, maxDimension / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { resolve(file); return; }
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Try progressively lower quality
+      let quality = 0.8;
+      const tryCompress = () => {
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) { resolve(file); return; }
+            if (blob.size <= maxSize || quality <= 0.2) {
+              const compressed = new File([blob], file.name.replace(/\.[^.]+$/, '.webp'), {
+                type: 'image/webp',
+              });
+              console.log(`Image compressed: ${(file.size / 1024).toFixed(0)}KB → ${(compressed.size / 1024).toFixed(0)}KB`);
+              resolve(compressed);
+            } else {
+              quality -= 0.15;
+              tryCompress();
+            }
+          },
+          'image/webp',
+          quality
+        );
+      };
+      tryCompress();
+      URL.revokeObjectURL(img.src);
+    };
+    img.onerror = () => resolve(file);
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+/**
+ * Uploads a file to Supabase storage with automatic compression for images.
  * Returns the file path for later retrieval via signed URLs.
  */
 export async function uploadFile(
@@ -10,13 +74,20 @@ export async function uploadFile(
   folder: string = ''
 ): Promise<{ url: string; path: string; originalName: string } | null> {
   try {
+    // Compress image files before upload
+    let fileToUpload = file;
+    if (file.type.startsWith('image/')) {
+      const targetSize = bucket === 'product-photos' ? MAX_IMAGE_SIZE : MAX_DOCUMENT_SIZE;
+      fileToUpload = await compressImageFile(file, targetSize);
+    }
+
     // Preserve original filename in the path: timestamp-originalname
-    const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const sanitizedName = fileToUpload.name.replace(/[^a-zA-Z0-9.-]/g, '_');
     const fileName = `${folder ? folder + '/' : ''}${Date.now()}-${sanitizedName}`;
 
     const { error: uploadError } = await supabase.storage
       .from(bucket)
-      .upload(fileName, file);
+      .upload(fileName, fileToUpload);
 
     if (uploadError) {
       console.error('Upload error:', uploadError);
