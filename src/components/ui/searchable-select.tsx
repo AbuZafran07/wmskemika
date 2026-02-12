@@ -73,7 +73,7 @@ export function SearchableSelect({
       <PopoverContent className={cn("w-full p-0 z-[9999]", className)} align="start" sideOffset={4}>
         <Command>
           <CommandInput placeholder={searchPlaceholder} className="h-9" />
-          <CommandList className="max-h-64 overflow-y-auto">
+          <CommandList className="max-h-64 overflow-y-auto" style={{ maxHeight: '16rem', overflowY: 'auto' }}>
             <CommandEmpty>{emptyMessage}</CommandEmpty>
             <CommandGroup>
               {options.map((option) => (
