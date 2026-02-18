@@ -350,3 +350,36 @@ export async function deleteSalesOrder(orderId: string): Promise<{ success: bool
     return { success: false, error: error instanceof Error ? error.message : 'Failed to delete' };
   }
 }
+
+// Revision Request - any user can request
+export async function requestSalesOrderRevision(orderId: string, reason: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data, error } = await supabase.rpc('sales_order_request_revision', { order_id: orderId, revision_reason: reason });
+    if (error) throw error;
+    return data as { success: boolean; error?: string };
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to request revision' };
+  }
+}
+
+// Approve Revision - admin/super_admin only
+export async function approveSalesOrderRevision(orderId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data, error } = await supabase.rpc('sales_order_approve_revision', { order_id: orderId });
+    if (error) throw error;
+    return data as { success: boolean; error?: string };
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to approve revision' };
+  }
+}
+
+// Reject Revision - admin/super_admin only
+export async function rejectSalesOrderRevision(orderId: string, reason?: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data, error } = await supabase.rpc('sales_order_reject_revision', { order_id: orderId, reject_reason: reason || null });
+    if (error) throw error;
+    return data as { success: boolean; error?: string };
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to reject revision' };
+  }
+}

@@ -395,6 +395,39 @@ export async function deletePlanOrder(orderId: string): Promise<{ success: boole
   }
 }
 
+// Revision Request - any user can request
+export async function requestPlanOrderRevision(orderId: string, reason: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data, error } = await supabase.rpc('plan_order_request_revision', { order_id: orderId, revision_reason: reason });
+    if (error) throw error;
+    return data as { success: boolean; error?: string };
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to request revision' };
+  }
+}
+
+// Approve Revision - admin/super_admin only
+export async function approvePlanOrderRevision(orderId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data, error } = await supabase.rpc('plan_order_approve_revision', { order_id: orderId });
+    if (error) throw error;
+    return data as { success: boolean; error?: string };
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to approve revision' };
+  }
+}
+
+// Reject Revision - admin/super_admin only
+export async function rejectPlanOrderRevision(orderId: string, reason?: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data, error } = await supabase.rpc('plan_order_reject_revision', { order_id: orderId, reject_reason: reason || null });
+    if (error) throw error;
+    return data as { success: boolean; error?: string };
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to reject revision' };
+  }
+}
+
 // Legacy export for backward compatibility (deprecated - use RPC functions instead)
 export async function updatePlanOrderStatus(
   id: string, 

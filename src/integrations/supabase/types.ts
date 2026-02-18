@@ -1363,9 +1363,18 @@ export type Database = {
         Returns: boolean
       }
       plan_order_approve: { Args: { order_id: string }; Returns: Json }
+      plan_order_approve_revision: { Args: { order_id: string }; Returns: Json }
       plan_order_cancel: { Args: { order_id: string }; Returns: Json }
       plan_order_create: {
         Args: { attachment_meta?: Json; header_data: Json; items_data: Json }
+        Returns: Json
+      }
+      plan_order_reject_revision: {
+        Args: { order_id: string; reject_reason?: string }
+        Returns: Json
+      }
+      plan_order_request_revision: {
+        Args: { order_id: string; revision_reason: string }
         Returns: Json
       }
       plan_order_soft_delete: { Args: { order_id: string }; Returns: Json }
@@ -1374,9 +1383,21 @@ export type Database = {
         Returns: Json
       }
       sales_order_approve: { Args: { order_id: string }; Returns: Json }
+      sales_order_approve_revision: {
+        Args: { order_id: string }
+        Returns: Json
+      }
       sales_order_cancel: { Args: { order_id: string }; Returns: Json }
       sales_order_create: {
         Args: { attachment_meta?: Json; header_data: Json; items_data: Json }
+        Returns: Json
+      }
+      sales_order_reject_revision: {
+        Args: { order_id: string; reject_reason?: string }
+        Returns: Json
+      }
+      sales_order_request_revision: {
+        Args: { order_id: string; revision_reason: string }
         Returns: Json
       }
       sales_order_soft_delete: { Args: { order_id: string }; Returns: Json }

@@ -19,6 +19,7 @@ import {
   Package,
   FileText,
   FileDown,
+  RotateCcw,
 } from "lucide-react";
 
 import { exportSectionBasedPdf } from "@/lib/pdfSectionExport";
@@ -76,6 +77,9 @@ import {
   cancelPlanOrder,
   deletePlanOrder,
   logPlanOrderUpload,
+  requestPlanOrderRevision,
+  approvePlanOrderRevision,
+  rejectPlanOrderRevision,
   PlanOrderHeader,
   PlanOrderItem,
 } from "@/hooks/usePlanOrders";
@@ -130,6 +134,7 @@ const statusConfig: Record<
 > = {
   draft: { label: "Draft", labelId: "Draft", variant: "draft" },
   approved: { label: "Approved", labelId: "Disetujui", variant: "approved" },
+  revision_requested: { label: "Revision Requested", labelId: "Revisi Diminta", variant: "pending" },
   partially_received: { label: "Partially Received", labelId: "Diterima Sebagian", variant: "pending" },
   received: { label: "Received", labelId: "Diterima", variant: "success" },
   cancelled: { label: "Cancelled", labelId: "Dibatalkan", variant: "cancelled" },
@@ -184,7 +189,7 @@ export default function PlanOrder() {
   const { allowAdminApprove } = useSettings();
 
   // RBAC
-  const { canCreate, canEdit, canDelete, canCancel, canApproveOrder } = usePermissions();
+  const { canCreate, canEdit, canDelete, canCancel, canApproveOrder, isAdminOrAbove } = usePermissions();
   const canApprove = canApproveOrder("plan_order");
 
   // List/filter state
@@ -237,6 +242,16 @@ export default function PlanOrder() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Revision workflow state
+  const [isRevisionDialogOpen, setIsRevisionDialogOpen] = useState(false);
+  const [isApproveRevisionDialogOpen, setIsApproveRevisionDialogOpen] = useState(false);
+  const [isRejectRevisionDialogOpen, setIsRejectRevisionDialogOpen] = useState(false);
+  const [revisionReason, setRevisionReason] = useState("");
+  const [rejectRevisionReason, setRejectRevisionReason] = useState("");
+  const [isRequestingRevision, setIsRequestingRevision] = useState(false);
+  const [isApprovingRevision, setIsApprovingRevision] = useState(false);
+  const [isRejectingRevision, setIsRejectingRevision] = useState(false);
+
   // Stock In history
   const [stockInHistory, setStockInHistory] = useState<any[]>([]);
   const [stockInHistoryLoading, setStockInHistoryLoading] = useState(false);
@@ -273,7 +288,7 @@ export default function PlanOrder() {
       const matchesDateFrom = !dateFrom || od >= new Date(dateFrom);
       const matchesDateTo = !dateTo || od <= new Date(dateTo);
 
-      const activeStatuses = ["draft", "approved", "partially_received"];
+      const activeStatuses = ["draft", "approved", "partially_received", "revision_requested"];
       const archivedStatuses = ["received", "cancelled"];
       const matchesViewMode =
         viewMode === "active" ? activeStatuses.includes(order.status) : archivedStatuses.includes(order.status);
@@ -715,6 +730,60 @@ export default function PlanOrder() {
     }
     setIsDeleting(false);
     setIsDeleteDialogOpen(false);
+    setSelectedOrder(null);
+  };
+
+  // ===== Revision Workflow Handlers =====
+  const handleRequestRevision = async () => {
+    if (!selectedOrder || !revisionReason.trim()) return;
+    setIsRequestingRevision(true);
+    try {
+      const result = await requestPlanOrderRevision(selectedOrder.id, revisionReason.trim());
+      if (!result.success) throw new Error(result.error || "Failed to request revision");
+      toast.success(language === "en" ? "Revision request submitted" : "Permintaan revisi terkirim");
+      refetch();
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "Failed to request revision");
+    }
+    setIsRequestingRevision(false);
+    setIsRevisionDialogOpen(false);
+    setRevisionReason("");
+    setSelectedOrder(null);
+  };
+
+  const handleApproveRevision = async () => {
+    if (!selectedOrder) return;
+    setIsApprovingRevision(true);
+    try {
+      const result = await approvePlanOrderRevision(selectedOrder.id);
+      if (!result.success) throw new Error(result.error || "Failed to approve revision");
+      toast.success(language === "en" ? "Revision approved, order returned to draft" : "Revisi disetujui, order kembali ke draft");
+      refetch();
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "Failed to approve revision");
+    }
+    setIsApprovingRevision(false);
+    setIsApproveRevisionDialogOpen(false);
+    setSelectedOrder(null);
+  };
+
+  const handleRejectRevision = async () => {
+    if (!selectedOrder) return;
+    setIsRejectingRevision(true);
+    try {
+      const result = await rejectPlanOrderRevision(selectedOrder.id, rejectRevisionReason.trim() || undefined);
+      if (!result.success) throw new Error(result.error || "Failed to reject revision");
+      toast.success(language === "en" ? "Revision rejected, order stays approved" : "Revisi ditolak, order tetap approved");
+      refetch();
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "Failed to reject revision");
+    }
+    setIsRejectingRevision(false);
+    setIsRejectRevisionDialogOpen(false);
+    setRejectRevisionReason("");
     setSelectedOrder(null);
   };
 
@@ -1366,6 +1435,9 @@ export default function PlanOrder() {
                       (order.status === "draft" || order.status === "approved") && canCancel("plan_order");
                     const showEdit = order.status === "draft" && canEdit("plan_order");
                     const showDelete = order.status === "draft" && canDelete("plan_order");
+                    const showRequestRevision = order.status === "approved";
+                    const showApproveRevision = order.status === "revision_requested" && isAdminOrAbove();
+                    const showRejectRevision = order.status === "revision_requested" && isAdminOrAbove();
 
                     return (
                       <TableRow 
@@ -1446,6 +1518,47 @@ export default function PlanOrder() {
                                 >
                                   <Trash2 className="w-4 h-4 mr-2" />
                                   {t("common.delete")}
+                                </DropdownMenuItem>
+                              )}
+
+                              {showRequestRevision && (
+                                <DropdownMenuItem
+                                  className="text-warning"
+                                  onClick={() => {
+                                    setSelectedOrder(order);
+                                    setRevisionReason("");
+                                    setIsRevisionDialogOpen(true);
+                                  }}
+                                >
+                                  <RotateCcw className="w-4 h-4 mr-2" />
+                                  {language === "en" ? "Request Revision" : "Minta Revisi"}
+                                </DropdownMenuItem>
+                              )}
+
+                              {showApproveRevision && (
+                                <DropdownMenuItem
+                                  className="text-success"
+                                  onClick={() => {
+                                    setSelectedOrder(order);
+                                    setIsApproveRevisionDialogOpen(true);
+                                  }}
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-2" />
+                                  {language === "en" ? "Approve Revision" : "Setujui Revisi"}
+                                </DropdownMenuItem>
+                              )}
+
+                              {showRejectRevision && (
+                                <DropdownMenuItem
+                                  className="text-destructive"
+                                  onClick={() => {
+                                    setSelectedOrder(order);
+                                    setRejectRevisionReason("");
+                                    setIsRejectRevisionDialogOpen(true);
+                                  }}
+                                >
+                                  <XCircle className="w-4 h-4 mr-2" />
+                                  {language === "en" ? "Reject Revision" : "Tolak Revisi"}
                                 </DropdownMenuItem>
                               )}
                             </DropdownMenuContent>
@@ -1547,6 +1660,95 @@ export default function PlanOrder() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Revision Request Dialog */}
+      <Dialog open={isRevisionDialogOpen} onOpenChange={setIsRevisionDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{language === "en" ? "Request Revision" : "Minta Revisi"}</DialogTitle>
+            <DialogDescription>
+              {language === "en"
+                ? `Request revision for "${selectedOrder?.plan_number}". Please provide a reason.`
+                : `Ajukan revisi untuk "${selectedOrder?.plan_number}". Harap berikan alasan.`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>{language === "en" ? "Revision Reason" : "Alasan Revisi"} *</Label>
+              <Textarea
+                value={revisionReason}
+                onChange={(e) => setRevisionReason(e.target.value)}
+                placeholder={language === "en" ? "Explain why this order needs revision..." : "Jelaskan mengapa order ini perlu direvisi..."}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRevisionDialogOpen(false)} disabled={isRequestingRevision}>
+              {t("common.cancel")}
+            </Button>
+            <Button onClick={handleRequestRevision} disabled={isRequestingRevision || !revisionReason.trim()}>
+              {isRequestingRevision && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {language === "en" ? "Submit Request" : "Kirim Permintaan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approve Revision Dialog */}
+      <AlertDialog open={isApproveRevisionDialogOpen} onOpenChange={setIsApproveRevisionDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{language === "en" ? "Approve Revision Request" : "Setujui Permintaan Revisi"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === "en"
+                ? `Approving will return "${selectedOrder?.plan_number}" to draft status so it can be edited. Continue?`
+                : `Menyetujui akan mengembalikan "${selectedOrder?.plan_number}" ke status draft sehingga bisa diedit. Lanjutkan?`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isApprovingRevision}>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleApproveRevision} disabled={isApprovingRevision} className="bg-success text-success-foreground hover:bg-success/90">
+              {isApprovingRevision && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {language === "en" ? "Approve Revision" : "Setujui Revisi"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reject Revision Dialog */}
+      <Dialog open={isRejectRevisionDialogOpen} onOpenChange={setIsRejectRevisionDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{language === "en" ? "Reject Revision Request" : "Tolak Permintaan Revisi"}</DialogTitle>
+            <DialogDescription>
+              {language === "en"
+                ? `Rejecting will return "${selectedOrder?.plan_number}" back to approved status.`
+                : `Menolak akan mengembalikan "${selectedOrder?.plan_number}" ke status approved.`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>{language === "en" ? "Rejection Reason (optional)" : "Alasan Penolakan (opsional)"}</Label>
+              <Textarea
+                value={rejectRevisionReason}
+                onChange={(e) => setRejectRevisionReason(e.target.value)}
+                placeholder={language === "en" ? "Explain why the revision is rejected..." : "Jelaskan mengapa revisi ditolak..."}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRejectRevisionDialogOpen(false)} disabled={isRejectingRevision}>
+              {t("common.cancel")}
+            </Button>
+            <Button variant="destructive" onClick={handleRejectRevision} disabled={isRejectingRevision}>
+              {isRejectingRevision && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {language === "en" ? "Reject Revision" : "Tolak Revisi"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Detail Dialog (with Preview / Download / Print / View Doc) */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
@@ -1800,7 +2002,44 @@ export default function PlanOrder() {
             </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="flex-wrap gap-2">
+            {/* Revision actions in detail dialog */}
+            {selectedOrder?.status === "approved" && (
+              <Button
+                variant="outline"
+                className="border-warning text-warning hover:bg-warning/10"
+                onClick={() => {
+                  setRevisionReason("");
+                  setIsRevisionDialogOpen(true);
+                }}
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                {language === "en" ? "Request Revision" : "Minta Revisi"}
+              </Button>
+            )}
+            {selectedOrder?.status === "revision_requested" && isAdminOrAbove() && (
+              <>
+                <Button
+                  variant="outline"
+                  className="border-success text-success hover:bg-success/10"
+                  onClick={() => setIsApproveRevisionDialogOpen(true)}
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  {language === "en" ? "Approve Revision" : "Setujui Revisi"}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="border-destructive text-destructive hover:bg-destructive/10"
+                  onClick={() => {
+                    setRejectRevisionReason("");
+                    setIsRejectRevisionDialogOpen(true);
+                  }}
+                >
+                  <XCircle className="w-4 h-4 mr-2" />
+                  {language === "en" ? "Reject Revision" : "Tolak Revisi"}
+                </Button>
+              </>
+            )}
             <Button variant="outline" onClick={() => setIsDetailDialogOpen(false)}>
               {language === "en" ? "Close" : "Tutup"}
             </Button>
