@@ -1974,15 +1974,15 @@ export default function SalesOrder() {
                 </div>
               </div>
 
-              {/* Allocation row */}
-              <div style={{ marginTop: "10px" }}>
+              {/* Separator + Allocation row */}
+              <div style={{ marginTop: "8px", borderTop: "2px solid #111" }} />
+
+              <div style={{ marginTop: "6px" }}>
                 <span style={{ fontSize: "11px" }}>TIPE ALOKASI : </span>
                 <span style={{ color: "#b91c1c", fontWeight: 700 }}>
                   {String(selectedOrder.allocation_type || "").toUpperCase()}
                 </span>
               </div>
-
-              <div style={{ marginTop: "8px", borderTop: "2px solid #111" }} />
 
               {/* Info rows */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "10px" }}>
