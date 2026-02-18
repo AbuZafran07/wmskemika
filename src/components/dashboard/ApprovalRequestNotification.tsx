@@ -73,7 +73,7 @@ export function ApprovalRequestNotification() {
           id, plan_number, status, created_at, created_by,
           suppliers(name)
         `)
-        .in('status', ['draft', 'pending'])
+        .in('status', ['draft', 'pending', 'revision_requested'])
         .is('is_deleted', false)
         .order('created_at', { ascending: false });
 
@@ -84,7 +84,7 @@ export function ApprovalRequestNotification() {
           id, sales_order_number, status, created_at, created_by,
           customers(name)
         `)
-        .in('status', ['draft', 'pending'])
+        .in('status', ['draft', 'pending', 'revision_requested'])
         .is('is_deleted', false)
         .order('created_at', { ascending: false });
 
@@ -313,11 +313,16 @@ export function ApprovalRequestNotification() {
                     {getTypeIcon(request.type)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-medium">{request.refNo}</p>
                       <Badge variant="outline" className="text-[10px]">
                         {getTypeLabel(request.type)}
                       </Badge>
+                      {request.status === 'revision_requested' && (
+                        <Badge variant="destructive" className="text-[10px] animate-pulse">
+                          {language === 'en' ? 'Revision Request' : 'Minta Revisi'}
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground truncate">{request.description}</p>
                     <div className="flex items-center gap-2 mt-1">

@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface Notification {
   id: string;
-  type: 'low_stock' | 'expiring_soon' | 'expired' | 'info' | 'approval_pending' | 'approved' | 'cancelled' | 'new_order';
+  type: 'low_stock' | 'expiring_soon' | 'expired' | 'info' | 'approval_pending' | 'approved' | 'cancelled' | 'new_order' | 'revision_requested';
   title: string;
   message: string;
   productId?: string;
@@ -207,7 +207,7 @@ export function useNotifications() {
       const { data: pendingPlanOrders } = await supabase
         .from('plan_order_headers')
         .select('id, plan_number, created_at, status, suppliers(name)')
-        .eq('status', 'pending')
+        .in('status', ['pending', 'revision_requested'])
         .is('is_deleted', false)
         .order('created_at', { ascending: false })
         .limit(20);
@@ -215,7 +215,7 @@ export function useNotifications() {
       const { data: pendingSalesOrders } = await supabase
         .from('sales_order_headers')
         .select('id, sales_order_number, created_at, status, customers(name)')
-        .eq('status', 'pending')
+        .in('status', ['pending', 'revision_requested'])
         .is('is_deleted', false)
         .order('created_at', { ascending: false })
         .limit(20);
@@ -228,13 +228,16 @@ export function useNotifications() {
         .order('created_at', { ascending: false })
         .limit(20);
 
-      // Add approval pending notifications
+      // Add approval pending & revision request notifications
       pendingPlanOrders?.forEach((order: any) => {
+        const isRevision = order.status === 'revision_requested';
         notifs.push({
-          id: `pending_po_${order.id}`,
-          type: 'approval_pending',
-          title: 'Plan Order Pending Approval',
-          message: `${order.plan_number} from ${order.suppliers?.name || 'Unknown'} awaits approval`,
+          id: `${isRevision ? 'revision' : 'pending'}_po_${order.id}`,
+          type: isRevision ? 'revision_requested' : 'approval_pending',
+          title: isRevision ? 'Plan Order Revision Request' : 'Plan Order Pending Approval',
+          message: isRevision 
+            ? `${order.plan_number} from ${order.suppliers?.name || 'Unknown'} requests revision`
+            : `${order.plan_number} from ${order.suppliers?.name || 'Unknown'} awaits approval`,
           module: 'plan_order',
           refId: order.id,
           refNo: order.plan_number,
@@ -244,11 +247,14 @@ export function useNotifications() {
       });
 
       pendingSalesOrders?.forEach((order: any) => {
+        const isRevision = order.status === 'revision_requested';
         notifs.push({
-          id: `pending_so_${order.id}`,
-          type: 'approval_pending',
-          title: 'Sales Order Pending Approval',
-          message: `${order.sales_order_number} for ${order.customers?.name || 'Unknown'} awaits approval`,
+          id: `${isRevision ? 'revision' : 'pending'}_so_${order.id}`,
+          type: isRevision ? 'revision_requested' : 'approval_pending',
+          title: isRevision ? 'Sales Order Revision Request' : 'Sales Order Pending Approval',
+          message: isRevision
+            ? `${order.sales_order_number} for ${order.customers?.name || 'Unknown'} requests revision`
+            : `${order.sales_order_number} for ${order.customers?.name || 'Unknown'} awaits approval`,
           module: 'sales_order',
           refId: order.id,
           refNo: order.sales_order_number,
@@ -275,13 +281,14 @@ export function useNotifications() {
       notifs.sort((a, b) => {
         const priority: Record<string, number> = { 
           expired: 0, 
-          approval_pending: 1, 
-          expiring_soon: 2, 
-          low_stock: 3, 
-          new_order: 4,
-          approved: 5,
-          cancelled: 6,
-          info: 7 
+          revision_requested: 1,
+          approval_pending: 2, 
+          expiring_soon: 3, 
+          low_stock: 4, 
+          new_order: 5,
+          approved: 6,
+          cancelled: 7,
+          info: 8 
         };
         const priorityDiff = priority[a.type] - priority[b.type];
         if (priorityDiff !== 0) return priorityDiff;
@@ -295,7 +302,7 @@ export function useNotifications() {
       if (newNotifs.length > 0 && previousNotifIds.current.size > 0) {
         // Determine sound type based on notification priority
         const hasCritical = newNotifs.some(n => n.type === 'expired' || n.type === 'low_stock');
-        const hasWarning = newNotifs.some(n => n.type === 'expiring_soon' || n.type === 'approval_pending');
+        const hasWarning = newNotifs.some(n => n.type === 'expiring_soon' || n.type === 'approval_pending' || n.type === 'revision_requested');
         
         if (soundEnabled) {
           if (hasCritical) {
@@ -310,8 +317,8 @@ export function useNotifications() {
         // Send browser push notifications for critical alerts
         if (pushEnabled && 'Notification' in window && Notification.permission === 'granted') {
           newNotifs.forEach(n => {
-            if (n.type === 'expired' || n.type === 'low_stock' || n.type === 'approval_pending') {
-              const icon = n.type === 'expired' ? '🚨' : n.type === 'low_stock' ? '⚠️' : '🔔';
+            if (n.type === 'expired' || n.type === 'low_stock' || n.type === 'approval_pending' || n.type === 'revision_requested') {
+              const icon = n.type === 'expired' ? '🚨' : n.type === 'low_stock' ? '⚠️' : n.type === 'revision_requested' ? '📝' : '🔔';
               sendBrowserNotification(
                 `${icon} ${n.title}`,
                 n.message,

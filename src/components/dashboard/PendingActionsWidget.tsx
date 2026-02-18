@@ -40,7 +40,7 @@ export function PendingActionsWidget() {
           id, plan_number, status, created_at,
           suppliers(name)
         `)
-        .in('status', ['draft', 'pending'])
+        .in('status', ['draft', 'pending', 'revision_requested'])
         .is('is_deleted', false)
         .order('created_at', { ascending: false })
         .limit(20);
@@ -52,7 +52,7 @@ export function PendingActionsWidget() {
           id, sales_order_number, status, created_at,
           customers(name)
         `)
-        .in('status', ['draft', 'pending'])
+        .in('status', ['draft', 'pending', 'revision_requested'])
         .is('is_deleted', false)
         .order('created_at', { ascending: false })
         .limit(20);
@@ -187,6 +187,8 @@ export function PendingActionsWidget() {
         return <Badge variant="pending">{language === 'en' ? 'Pending' : 'Menunggu Approval'}</Badge>;
       case 'submitted':
         return <Badge variant="pending">{language === 'en' ? 'Submitted' : 'Diajukan'}</Badge>;
+      case 'revision_requested':
+        return <Badge variant="destructive">{language === 'en' ? 'Revision Request' : 'Minta Revisi'}</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
