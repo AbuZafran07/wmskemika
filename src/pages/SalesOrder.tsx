@@ -2025,7 +2025,7 @@ export default function SalesOrder() {
               </div>
 
               {/* ✅ Items table PDF includes discount */}
-              <div style={{ marginTop: "12px" }}>
+              <div data-pdf-section style={{ marginTop: "12px" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #111" }}>
                   <thead>
                     <tr style={{ background: "#0b6b3a", color: "white" }}>
@@ -2101,7 +2101,7 @@ export default function SalesOrder() {
               </div>
 
               {/* Totals area PDF */}
-              <div style={{ marginTop: "12px", display: "grid", gridTemplateColumns: "1fr 260px", gap: "10px" }}>
+              <div data-pdf-section style={{ marginTop: "12px", display: "grid", gridTemplateColumns: "1fr 260px", gap: "10px" }}>
                 <div />
                 <div style={{ borderTop: "1px solid #111", paddingTop: "8px" }}>
                   {(() => {
@@ -2160,7 +2160,7 @@ export default function SalesOrder() {
               </div>
 
               {/* Address + Notes */}
-              <div style={{ marginTop: "12px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0px" }}>
+              <div data-pdf-section style={{ marginTop: "12px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0px" }}>
                 <div style={{ border: "1px solid #111", padding: "10px", minHeight: "70px" }}>
                   <div style={{ fontWeight: 700, fontSize: "10px", marginBottom: "6px", color: "#333" }}>
                     SHIP TO ADDRESS/ALAMAT PENGIRIMAN:
@@ -2174,7 +2174,7 @@ export default function SalesOrder() {
               </div>
 
 {/* Signature area: Always 3 columns (Sales, Finance, Approve) - FIXED ALIGN */}
-<div style={{ marginTop: "16px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0px" }}>
+<div data-pdf-section style={{ marginTop: "16px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0px" }}>
   {/* Helper style (inline) */}
   {(() => {
     const cellBase: React.CSSProperties = {
