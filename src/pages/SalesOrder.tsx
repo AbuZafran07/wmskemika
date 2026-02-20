@@ -1974,14 +1974,22 @@ export default function SalesOrder() {
                 </div>
               </div>
 
-              {/* Separator + Allocation row */}
+              {/* Separator + Allocation & Project row */}
               <div style={{ marginTop: "8px", borderTop: "2px solid #111" }} />
 
-              <div style={{ marginTop: "6px" }}>
-                <span style={{ fontSize: "11px" }}>TIPE ALOKASI : </span>
-                <span style={{ color: "#b91c1c", fontWeight: 700 }}>
-                  {String(selectedOrder.allocation_type || "").toUpperCase()}
-                </span>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "6px" }}>
+                <div>
+                  <span style={{ fontSize: "11px" }}>TIPE ALOKASI : </span>
+                  <span style={{ color: "#b91c1c", fontWeight: 700 }}>
+                    {String(selectedOrder.allocation_type || "").toUpperCase()}
+                  </span>
+                </div>
+                <div>
+                  <span style={{ fontSize: "11px" }}>PROJECT / INSTANSI : </span>
+                  <span style={{ fontWeight: 700 }}>
+                    {selectedOrder.project_instansi || "-"}
+                  </span>
+                </div>
               </div>
 
               {/* Info rows */}
