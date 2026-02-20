@@ -1941,86 +1941,85 @@ export default function SalesOrder() {
         <div ref={printRef}>
           {selectedOrder && (
             <div data-pdf-root style={{ fontFamily: "Arial, sans-serif", fontSize: "11px", color: "#111" }}>
-              {/* Top: Logo + Right Title block */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div>
-                  <img 
-                    src={`${window.location.origin}/logo-kemika.png`} 
-                    crossOrigin="anonymous"
-                    alt="Kemika" 
-                    style={{ height: "42px", objectFit: "contain" }} 
-                  />
-                </div>
+              {/* ===== Header section wrapped as one block to prevent overlap ===== */}
+              <div data-pdf-section>
+                {/* Top: Logo + Right Title block */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", minHeight: "70px" }}>
+                  <div>
+                    <img 
+                      src={`${window.location.origin}/logo-kemika.png`} 
+                      crossOrigin="anonymous"
+                      alt="Kemika" 
+                      style={{ height: "42px", objectFit: "contain" }} 
+                    />
+                  </div>
 
-                <div style={{ textAlign: "right", minWidth: "300px" }}>
-                  <div style={{ fontSize: "20px", fontWeight: 700, letterSpacing: 0.5 }}>SALES ORDER</div>
-                  <div style={{ height: "6px" }} />
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "120px 10px 1fr",
-                      gap: "6px",
-                      justifyContent: "end",
-                    }}
-                  >
-                    <div style={{ textAlign: "left", fontSize: "11px" }}>Sales Order No.</div>
-                    <div>:</div>
-                    <div style={{ fontWeight: 700 }}>{selectedOrder.sales_order_number}</div>
+                  <div style={{ textAlign: "right", minWidth: "300px" }}>
+                    <div style={{ fontSize: "20px", fontWeight: 700, letterSpacing: 0.5 }}>SALES ORDER</div>
+                    <div style={{ height: "6px" }} />
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "120px 10px 1fr",
+                        gap: "6px",
+                        justifyContent: "end",
+                      }}
+                    >
+                      <div style={{ textAlign: "left", fontSize: "11px" }}>Sales Order No.</div>
+                      <div>:</div>
+                      <div style={{ fontWeight: 700 }}>{selectedOrder.sales_order_number}</div>
 
-                    <div style={{ textAlign: "left", fontSize: "11px" }}>SO Date</div>
-                    <div>:</div>
-                    <div style={{ fontWeight: 700 }}>{formatDateID(selectedOrder.order_date)}</div>
+                      <div style={{ textAlign: "left", fontSize: "11px" }}>SO Date</div>
+                      <div>:</div>
+                      <div style={{ fontWeight: 700 }}>{formatDateID(selectedOrder.order_date)}</div>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Separator + Allocation & Project row */}
-              <div style={{ marginTop: "8px", borderTop: "2px solid #111" }} />
+                {/* Separator */}
+                <div style={{ marginTop: "8px", borderTop: "2px solid #111" }} />
 
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "6px" }}>
-                <div>
+                {/* Allocation row */}
+                <div style={{ marginTop: "6px" }}>
                   <span style={{ fontSize: "11px" }}>TIPE ALOKASI : </span>
                   <span style={{ color: "#b91c1c", fontWeight: 700 }}>
                     {String(selectedOrder.allocation_type || "").toUpperCase()}
                   </span>
                 </div>
-                <div>
-                  <span style={{ fontSize: "11px" }}>PROJECT / INSTANSI : </span>
-                  <span style={{ fontWeight: 700 }}>
-                    {selectedOrder.project_instansi || "-"}
-                  </span>
-                </div>
-              </div>
 
-              {/* Info rows */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "10px" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", rowGap: "8px", columnGap: "10px" }}>
-                  <div style={{ color: "#333" }}>SALES</div>
-                  <div style={{ fontWeight: 700 }}>{selectedOrder.sales_name}</div>
+                {/* Info rows */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "10px" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", rowGap: "8px", columnGap: "10px" }}>
+                    <div style={{ color: "#333" }}>SALES</div>
+                    <div style={{ fontWeight: 700 }}>{selectedOrder.sales_name}</div>
 
-                  <div style={{ color: "#333" }}>CUSTOMER</div>
-                  <div style={{ fontWeight: 700 }}>{selectedOrder.customer?.name || "-"}</div>
+                    <div style={{ color: "#333" }}>CUSTOMER</div>
+                    <div style={{ fontWeight: 700 }}>{selectedOrder.customer?.name || "-"}</div>
 
-                  <div style={{ color: "#333" }}>PIC</div>
-                  <div style={{ fontWeight: 700 }}>{selectedOrder.customer?.pic || "-"}</div>
+                    <div style={{ color: "#333" }}>PIC</div>
+                    <div style={{ fontWeight: 700 }}>{selectedOrder.customer?.pic || "-"}</div>
 
-                  <div style={{ color: "#333" }}>PHONE</div>
-                  <div style={{ fontWeight: 700 }}>{selectedOrder.customer?.phone || "-"}</div>
-                </div>
+                    <div style={{ color: "#333" }}>PHONE</div>
+                    <div style={{ fontWeight: 700 }}>{selectedOrder.customer?.phone || "-"}</div>
+                  </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", rowGap: "8px", columnGap: "10px" }}>
-                  <div style={{ color: "#333" }}>TANGGAL</div>
-                  <div style={{ fontWeight: 700 }}>{formatDateID(selectedOrder.order_date)}</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "150px 1fr", rowGap: "8px", columnGap: "10px" }}>
+                    <div style={{ color: "#333" }}>TANGGAL</div>
+                    <div style={{ fontWeight: 700 }}>{formatDateID(selectedOrder.order_date)}</div>
 
-                  <div style={{ color: "#333" }}>PO CUSTOMER</div>
-                  <div style={{ fontWeight: 700 }}>{selectedOrder.customer_po_number}</div>
+                    <div style={{ color: "#333" }}>PO CUSTOMER</div>
+                    <div style={{ fontWeight: 700 }}>{selectedOrder.customer_po_number}</div>
 
-                  <div style={{ color: "#333" }}>BATAS PENGIRIMAN</div>
-                  <div style={{ fontWeight: 700 }}>{formatDateID(selectedOrder.delivery_deadline)}</div>
+                    <div style={{ color: "#333" }}>BATAS PENGIRIMAN</div>
+                    <div style={{ fontWeight: 700 }}>{formatDateID(selectedOrder.delivery_deadline)}</div>
 
-                  <div style={{ color: "#333" }}>PAYMENT TERMS</div>
-                  <div style={{ fontWeight: 700, color: "#b91c1c" }}>
-                    {(selectedOrder.customer?.terms_payment || "-").toString().toUpperCase()}
+                    <div style={{ color: "#333" }}>PAYMENT TERMS</div>
+                    <div style={{ fontWeight: 700, color: "#b91c1c" }}>
+                      {(selectedOrder.customer?.terms_payment || "-").toString().toUpperCase()}
+                    </div>
+
+                    <div style={{ color: "#333" }}>PROJECT / INSTANSI</div>
+                    <div style={{ fontWeight: 700 }}>{selectedOrder.project_instansi || "-"}</div>
                   </div>
                 </div>
               </div>
