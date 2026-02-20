@@ -157,8 +157,8 @@ export async function exportSectionBasedPdf({
     const { canvas, heightMM } = capturedSections[i];
     const remainingSpace = A4_HEIGHT_MM - MARGIN_MM - currentY;
 
-    // If section won't fit and we're not at the top of a new page, add new page
-    if (heightMM > remainingSpace && currentY > MARGIN_MM + 1) {
+    // If section won't fit (with 3mm safety buffer) and we're not at the top of a new page, add new page
+    if (heightMM > remainingSpace - 3 && currentY > MARGIN_MM + 1) {
       pdf.addPage();
       currentY = MARGIN_MM;
     }
