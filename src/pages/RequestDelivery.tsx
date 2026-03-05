@@ -98,6 +98,7 @@ export default function RequestDelivery() {
     }
   };
 
+  const isSuperAdmin = user?.role === 'super_admin';
   const canManage = user?.role && ['super_admin', 'admin', 'sales', 'warehouse'].includes(user.role);
 
   const fetchCards = useCallback(async () => {
