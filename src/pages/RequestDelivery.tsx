@@ -378,6 +378,17 @@ export default function RequestDelivery() {
                         </Badge>
                       </div>
 
+                      {/* Labels */}
+                      {cardLabelsMap[card.id]?.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-1.5">
+                          {cardLabelsMap[card.id].map((label, idx) => (
+                            <span key={idx} className="text-[9px] text-white px-1.5 py-0.5 rounded-sm font-medium" style={{ backgroundColor: label.color }}>
+                              {label.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
                       {/* Customer */}
                       <div className="flex items-center gap-1.5 mb-1.5">
                         <Building2 className="h-3 w-3 text-muted-foreground flex-shrink-0" />
