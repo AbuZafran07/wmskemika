@@ -107,6 +107,11 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const [newComment, setNewComment] = useState("");
   const [sendingComment, setSendingComment] = useState(false);
 
+  // Attachments state
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const isAdmin = user?.role && ['super_admin', 'admin'].includes(user.role);
 
   // Fetch labels & card labels
