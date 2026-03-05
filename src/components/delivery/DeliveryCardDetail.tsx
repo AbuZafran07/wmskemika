@@ -213,14 +213,55 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     setChecklists((data as ChecklistItem[]) || []);
   }, [card]);
 
+  // Fetch stock out details for this SO
+  const fetchStockOutDetails = useCallback(async () => {
+    if (!card) return;
+    try {
+      // Get all stock out headers for this SO
+      const { data: stockOuts } = await supabase
+        .from("stock_out_headers")
+        .select("id, stock_out_number, delivery_date")
+        .eq("sales_order_id", card.sales_order_id)
+        .order("created_at", { ascending: false });
+
+      if (!stockOuts || stockOuts.length === 0) {
+        setStockOutDetails([]);
+        return;
+      }
+
+      const details = [];
+      for (const so of stockOuts) {
+        const { data: outItems } = await supabase
+          .from("stock_out_items")
+          .select("qty_out, product:products(name), batch:inventory_batches(batch_no, expired_date)")
+          .eq("stock_out_id", so.id);
+
+        details.push({
+          stock_out_number: so.stock_out_number,
+          delivery_date: so.delivery_date,
+          items: (outItems || []).map((item: any) => ({
+            product_name: item.product?.name || "-",
+            qty_out: item.qty_out,
+            batch_no: item.batch?.batch_no || "-",
+            expired_date: item.batch?.expired_date || null,
+          })),
+        });
+      }
+      setStockOutDetails(details);
+    } catch (err) {
+      console.error("Error fetching stock out details:", err);
+    }
+  }, [card]);
+
   useEffect(() => {
     if (card) {
       fetchLabels();
       fetchComments();
       fetchAttachments();
       fetchChecklists();
+      fetchStockOutDetails();
     }
-  }, [card, fetchLabels, fetchComments, fetchAttachments, fetchChecklists]);
+  }, [card, fetchLabels, fetchComments, fetchAttachments, fetchChecklists, fetchStockOutDetails]);
 
   // Realtime comments & checklists
   useEffect(() => {
