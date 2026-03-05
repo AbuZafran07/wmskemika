@@ -113,6 +113,8 @@ export default function RequestDelivery() {
         .from("settings")
         .select("id, value")
         .eq("key", "delivery_board_bg")
+        .order("updated_at", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
