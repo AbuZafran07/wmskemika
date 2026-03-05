@@ -81,6 +81,23 @@ export default function RequestDelivery() {
   const [bgInput, setBgInput] = useState("");
   const bgFileRef = useRef<HTMLInputElement>(null);
 
+  const handleSetBg = (url: string) => {
+    setBoardBgUrl(url);
+    localStorage.setItem("delivery-board-bg", url);
+  };
+
+  const handleBgFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target?.result as string;
+        handleSetBg(dataUrl);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const canManage = user?.role && ['super_admin', 'admin', 'sales', 'warehouse'].includes(user.role);
 
   const fetchCards = useCallback(async () => {
