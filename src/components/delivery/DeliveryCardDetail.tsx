@@ -259,6 +259,72 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     fetchComments();
   };
 
+  // Upload attachment
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !card || !user) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Ukuran file maksimal 5MB");
+      return;
+    }
+
+    setUploadingFile(true);
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileKey = `delivery/${card.id}/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("documents")
+        .upload(fileKey, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage.from("documents").getPublicUrl(fileKey);
+
+      await supabase.from("attachments").insert({
+        ref_table: "delivery_requests",
+        ref_id: card.id,
+        module_name: "delivery",
+        file_key: fileKey,
+        url: urlData.publicUrl,
+        mime_type: file.type,
+        file_size: file.size,
+        uploaded_by: user.id,
+      });
+
+      toast.success("File berhasil diupload");
+      fetchAttachments();
+    } catch (err: any) {
+      toast.error("Gagal upload: " + err.message);
+    } finally {
+      setUploadingFile(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  // Delete attachment
+  const deleteAttachment = async (att: Attachment) => {
+    try {
+      await supabase.storage.from("documents").remove([att.file_key]);
+      await supabase.from("attachments").delete().eq("id", att.id);
+      toast.success("File dihapus");
+      fetchAttachments();
+    } catch {
+      toast.error("Gagal menghapus file");
+    }
+  };
+
+  // Format file size
+  const formatSize = (bytes: number | null) => {
+    if (!bytes) return "";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const isImageFile = (mime: string | null) => mime?.startsWith("image/");
+
   if (!card) return null;
 
   const assignedLabels = allLabels.filter(l => cardLabelIds.includes(l.id));
