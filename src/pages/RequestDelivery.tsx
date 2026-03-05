@@ -73,7 +73,6 @@ export default function RequestDelivery() {
   const [addNotes, setAddNotes] = useState("");
   const [soSearchQuery, setSoSearchQuery] = useState("");
   const [cardLabelsMap, setCardLabelsMap] = useState<Record<string, { name: string; color: string }[]>>({});
-  const [checklistsMap, setChecklistsMap] = useState<Record<string, ChecklistItem[]>>({});
   
   // Drag state
   const [draggedCard, setDraggedCard] = useState<DeliveryCard | null>(null);
