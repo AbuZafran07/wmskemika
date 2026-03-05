@@ -456,110 +456,15 @@ export default function RequestDelivery() {
       </Dialog>
 
       {/* Detail Card Dialog */}
-      <Dialog open={!!detailCard} onOpenChange={() => setDetailCard(null)}>
-        <DialogContent className="max-w-lg">
-          {detailCard && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Truck className="h-5 w-5 text-primary" />
-                  {detailCard.sales_order_number}
-                </DialogTitle>
-              </DialogHeader>
-              <div className="space-y-3 text-sm">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <span className="text-muted-foreground text-xs">Customer</span>
-                    <p className="font-medium">{detailCard.customer_name}</p>
-                    <p className="text-xs text-muted-foreground">{detailCard.customer_code}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground text-xs">Sales</span>
-                    <p className="font-medium">{detailCard.sales_name}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground text-xs">Tipe Alokasi</span>
-                    <p className="font-medium">{detailCard.allocation_type}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground text-xs">Project/Instansi</span>
-                    <p className="font-medium">{detailCard.project_instansi}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground text-xs">Deadline Pengiriman</span>
-                    <p className="font-medium">
-                      {detailCard.delivery_deadline ? format(new Date(detailCard.delivery_deadline), "dd MMMM yyyy", { locale: idLocale }) : "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground text-xs">Status Board</span>
-                    <Badge className={cn("mt-1", BOARD_COLUMNS.find(c => c.id === detailCard.board_status)?.color, "text-white")}>
-                      {BOARD_COLUMNS.find(c => c.id === detailCard.board_status)?.label}
-                    </Badge>
-                  </div>
-                </div>
-
-                {detailCard.ship_to_address && (
-                  <div>
-                    <span className="text-muted-foreground text-xs">Alamat Pengiriman</span>
-                    <p className="text-xs">{detailCard.ship_to_address}</p>
-                  </div>
-                )}
-
-                {/* Items */}
-                <div>
-                  <span className="text-muted-foreground text-xs block mb-1">Produk</span>
-                  <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full text-xs">
-                      <thead className="bg-muted/50">
-                        <tr>
-                          <th className="text-left p-2 font-medium">Produk</th>
-                          <th className="text-center p-2 font-medium">Qty</th>
-                          <th className="text-center p-2 font-medium">Terkirim</th>
-                          <th className="text-center p-2 font-medium">Sisa</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {detailCard.items.map((item, idx) => (
-                          <tr key={idx} className="border-t">
-                            <td className="p-2">{item.product_name}</td>
-                            <td className="p-2 text-center">{item.ordered_qty}</td>
-                            <td className="p-2 text-center">{item.qty_delivered}</td>
-                            <td className="p-2 text-center font-medium">{item.ordered_qty - item.qty_delivered}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {detailCard.notes && (
-                  <div>
-                    <span className="text-muted-foreground text-xs">Catatan Board</span>
-                    <p className="text-xs italic">{detailCard.notes}</p>
-                  </div>
-                )}
-              </div>
-              <DialogFooter className="flex-col sm:flex-row gap-2">
-                {canManage && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setMoveDialogCard(detailCard);
-                      setMoveTarget(detailCard.board_status);
-                      setDetailCard(null);
-                    }}
-                  >
-                    <ChevronRight className="h-4 w-4 mr-1" /> Pindahkan
-                  </Button>
-                )}
-                <Button variant="secondary" size="sm" onClick={() => setDetailCard(null)}>Tutup</Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      <DeliveryCardDetail
+        card={detailCard}
+        onClose={() => setDetailCard(null)}
+        onMoveRequest={(card) => {
+          setMoveDialogCard(card);
+          setMoveTarget(card.board_status as BoardStatus);
+        }}
+        canManage={!!canManage}
+      />
 
       {/* Move Dialog */}
       <Dialog open={!!moveDialogCard} onOpenChange={() => setMoveDialogCard(null)}>
