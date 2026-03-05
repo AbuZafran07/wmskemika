@@ -652,6 +652,49 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                 </div>
               </div>
 
+              {/* Stock Out / Delivery Details */}
+              {stockOutDetails.length > 0 && (
+                <div>
+                  <span className="text-muted-foreground text-xs block mb-1">📦 Detail Pengiriman (Stock Out)</span>
+                  <div className="space-y-3">
+                    {stockOutDetails.map((so, soIdx) => (
+                      <div key={soIdx} className="border rounded-lg overflow-hidden">
+                        <div className="bg-primary/10 px-2 py-1.5 flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-primary">{so.stock_out_number}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {format(new Date(so.delivery_date), "dd MMM yyyy", { locale: idLocale })}
+                          </span>
+                        </div>
+                        <table className="w-full text-xs">
+                          <thead className="bg-muted/50">
+                            <tr>
+                              <th className="text-left p-2 font-medium">Produk</th>
+                              <th className="text-center p-2 font-medium">Qty Kirim</th>
+                              <th className="text-left p-2 font-medium">No. Batch</th>
+                              <th className="text-left p-2 font-medium">Expiry</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {so.items.map((item, idx) => (
+                              <tr key={idx} className="border-t">
+                                <td className="p-2">{item.product_name}</td>
+                                <td className="p-2 text-center font-medium">{item.qty_out}</td>
+                                <td className="p-2 font-mono text-[10px]">{item.batch_no}</td>
+                                <td className="p-2 text-[10px]">
+                                  {item.expired_date
+                                    ? format(new Date(item.expired_date), "dd MMM yyyy", { locale: idLocale })
+                                    : "-"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+
               {card.notes && (
                 <div className="text-sm">
                   <span className="text-muted-foreground text-xs">Catatan Board</span>
