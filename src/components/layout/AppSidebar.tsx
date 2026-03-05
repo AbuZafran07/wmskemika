@@ -24,15 +24,18 @@ import {
   TrendingUpDown,
   CalendarClock,
   Truck,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { canAccessMenu, MenuKey } from "@/lib/permissions";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface MenuItem {
   key: string;
-  menuKey?: MenuKey; // Maps to permission system
+  menuKey?: MenuKey;
   labelKey: string;
   icon: React.ElementType;
   href?: string;
@@ -40,73 +43,22 @@ interface MenuItem {
   children?: MenuItem[];
 }
 
-/**
- * Menu structure with permission keys
- * Settings and User Management only visible to super_admin
- */
 const menuItems: { groupKey: string; items: MenuItem[] }[] = [
   {
     groupKey: "menu.summary",
     items: [
-      { 
-        key: "dashboard", 
-        menuKey: "dashboard",
-        labelKey: "menu.dashboard", 
-        icon: LayoutDashboard, 
-        href: "/dashboard" 
-      },
-      {
-        key: "requestDelivery",
-        menuKey: "requestDelivery",
-        labelKey: "menu.requestDelivery",
-        subLabelKey: "menu.requestDeliverySub",
-        icon: Truck,
-        href: "/request-delivery",
-      },
+      { key: "dashboard", menuKey: "dashboard", labelKey: "menu.dashboard", icon: LayoutDashboard, href: "/dashboard" },
+      { key: "requestDelivery", menuKey: "requestDelivery", labelKey: "menu.requestDelivery", subLabelKey: "menu.requestDeliverySub", icon: Truck, href: "/request-delivery" },
     ],
   },
   {
     groupKey: "menu.transactions",
     items: [
-      {
-        key: "planOrder",
-        menuKey: "planOrder",
-        labelKey: "menu.planOrder",
-        subLabelKey: "menu.planOrderSub",
-        icon: ClipboardList,
-        href: "/plan-order",
-      },
-      {
-        key: "stockIn",
-        menuKey: "stockIn",
-        labelKey: "menu.stockIn",
-        subLabelKey: "menu.stockInSub",
-        icon: ArrowDownToLine,
-        href: "/stock-in",
-      },
-      {
-        key: "salesOrder",
-        menuKey: "salesOrder",
-        labelKey: "menu.salesOrder",
-        subLabelKey: "menu.salesOrderSub",
-        icon: ShoppingCart,
-        href: "/sales-order",
-      },
-      {
-        key: "stockOut",
-        menuKey: "stockOut",
-        labelKey: "menu.stockOut",
-        subLabelKey: "menu.stockOutSub",
-        icon: ArrowUpFromLine,
-        href: "/stock-out",
-      },
-      { 
-        key: "stockAdjustment", 
-        menuKey: "stockAdjustment",
-        labelKey: "menu.stockAdjustment", 
-        icon: Settings2, 
-        href: "/stock-adjustment" 
-      },
+      { key: "planOrder", menuKey: "planOrder", labelKey: "menu.planOrder", subLabelKey: "menu.planOrderSub", icon: ClipboardList, href: "/plan-order" },
+      { key: "stockIn", menuKey: "stockIn", labelKey: "menu.stockIn", subLabelKey: "menu.stockInSub", icon: ArrowDownToLine, href: "/stock-in" },
+      { key: "salesOrder", menuKey: "salesOrder", labelKey: "menu.salesOrder", subLabelKey: "menu.salesOrderSub", icon: ShoppingCart, href: "/sales-order" },
+      { key: "stockOut", menuKey: "stockOut", labelKey: "menu.stockOut", subLabelKey: "menu.stockOutSub", icon: ArrowUpFromLine, href: "/stock-out" },
+      { key: "stockAdjustment", menuKey: "stockAdjustment", labelKey: "menu.stockAdjustment", icon: Settings2, href: "/stock-adjustment" },
     ],
   },
   {
@@ -124,27 +76,9 @@ const menuItems: { groupKey: string; items: MenuItem[] }[] = [
           { key: "customers", menuKey: "customers", labelKey: "menu.customers", icon: UserCircle, href: "/data-product/customers" },
         ],
       },
-      { 
-        key: "dataStock", 
-        menuKey: "dataStock",
-        labelKey: "menu.dataStock", 
-        icon: Database, 
-        href: "/data-stock" 
-      },
-      {
-        key: "userManagement",
-        menuKey: "userManagement",
-        labelKey: "menu.userManagement",
-        icon: Users,
-        href: "/user-management",
-      },
-      {
-        key: "settings",
-        menuKey: "settings",
-        labelKey: "menu.settings",
-        icon: Settings2,
-        href: "/settings",
-      },
+      { key: "dataStock", menuKey: "dataStock", labelKey: "menu.dataStock", icon: Database, href: "/data-stock" },
+      { key: "userManagement", menuKey: "userManagement", labelKey: "menu.userManagement", icon: Users, href: "/user-management" },
+      { key: "settings", menuKey: "settings", labelKey: "menu.settings", icon: Settings2, href: "/settings" },
     ],
   },
   {
@@ -164,13 +98,15 @@ const menuItems: { groupKey: string; items: MenuItem[] }[] = [
 interface AppSidebarProps {
   isMobile: boolean;
   isOpen: boolean;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
   onClose: () => void;
   onNavigate: () => void;
 }
 
 const SCROLL_POSITION_KEY = "sidebar-scroll-position";
 
-export default function AppSidebar({ isMobile, isOpen, onClose, onNavigate }: AppSidebarProps) {
+export default function AppSidebar({ isMobile, isOpen, isCollapsed, onToggleCollapse, onClose, onNavigate }: AppSidebarProps) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const location = useLocation();
@@ -207,40 +143,22 @@ export default function AppSidebar({ isMobile, isOpen, onClose, onNavigate }: Ap
     if (isMobile) onNavigate();
   };
 
-  /**
-   * Check if user can access a menu item
-   * HIDE items user cannot access (not disable)
-   */
   const canAccess = (item: MenuItem): boolean => {
     if (!user) return false;
-    
-    // If item has menuKey, check permission
-    if (item.menuKey) {
-      return canAccessMenu(user.role, item.menuKey);
-    }
-    
-    // For parent items with children, check if any child is accessible
-    if (item.children) {
-      return item.children.some(child => canAccess(child));
-    }
-    
+    if (item.menuKey) return canAccessMenu(user.role, item.menuKey);
+    if (item.children) return item.children.some(child => canAccess(child));
     return true;
   };
 
-  /**
-   * Filter children that user can access
-   */
   const getAccessibleChildren = (children: MenuItem[]): MenuItem[] => {
     return children.filter(child => canAccess(child));
   };
 
   const renderMenuItem = (item: MenuItem, depth = 0) => {
-    // HIDE menu items user cannot access
     if (!canAccess(item)) return null;
 
     const hasChildren = item.children && item.children.length > 0;
     
-    // For parent with children, only show if has accessible children
     if (hasChildren) {
       const accessibleChildren = getAccessibleChildren(item.children!);
       if (accessibleChildren.length === 0) return null;
@@ -250,6 +168,67 @@ export default function AppSidebar({ isMobile, isOpen, onClose, onNavigate }: Ap
     const active = item.href ? isActive(item.href) : hasChildren && isParentActive(item.children!);
     const Icon = item.icon;
 
+    // Collapsed mode
+    if (isCollapsed && !isMobile) {
+      if (hasChildren) {
+        const accessibleChildren = getAccessibleChildren(item.children!);
+        return (
+          <Tooltip key={item.key} delayDuration={0}>
+            <TooltipTrigger asChild>
+              <div className={cn(
+                "flex items-center justify-center w-10 h-10 mx-auto rounded-lg transition-all duration-200 cursor-pointer",
+                "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                active && "bg-sidebar-accent text-sidebar-primary",
+              )}>
+                <Icon className="w-5 h-5" />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="flex flex-col gap-1 p-2">
+              <span className="font-semibold text-xs mb-1">{t(item.labelKey)}</span>
+              {accessibleChildren.map(child => (
+                <NavLink
+                  key={child.key}
+                  to={child.href!}
+                  onClick={handleNavClick}
+                  className={({ isActive: navActive }) => cn(
+                    "text-xs px-2 py-1 rounded hover:bg-accent transition-colors",
+                    navActive && "bg-accent font-medium"
+                  )}
+                >
+                  {t(child.labelKey)}
+                </NavLink>
+              ))}
+            </TooltipContent>
+          </Tooltip>
+        );
+      }
+
+      return (
+        <Tooltip key={item.key} delayDuration={0}>
+          <TooltipTrigger asChild>
+            <NavLink
+              to={item.href!}
+              onClick={handleNavClick}
+              data-active={active}
+              className={({ isActive: navActive }) =>
+                cn(
+                  "flex items-center justify-center w-10 h-10 mx-auto rounded-lg transition-all duration-200",
+                  "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                  (navActive || active) && "bg-sidebar-accent text-sidebar-primary",
+                )
+              }
+            >
+              <Icon className="w-5 h-5" />
+            </NavLink>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <span className="text-xs">{t(item.labelKey)}</span>
+          </TooltipContent>
+        </Tooltip>
+      );
+    }
+
+    // Expanded mode (original)
     if (hasChildren) {
       const accessibleChildren = getAccessibleChildren(item.children!);
       
@@ -303,9 +282,6 @@ export default function AppSidebar({ isMobile, isOpen, onClose, onNavigate }: Ap
     );
   };
 
-  /**
-   * Filter groups that have at least one accessible item
-   */
   const getVisibleGroups = () => {
     return menuItems.filter(group => {
       return group.items.some(item => canAccess(item));
@@ -315,29 +291,55 @@ export default function AppSidebar({ isMobile, isOpen, onClose, onNavigate }: Ap
   const visibleGroups = getVisibleGroups();
 
   return (
-    <aside className={cn("h-full sidebar-gradient sidebar-shadow flex flex-col", isMobile ? "w-full" : "w-full")}>
-      {/* Navigation - scrollable */}
-      <nav ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-3 space-y-6">
-        {visibleGroups.map((group) => {
-          const visibleItems = group.items.filter(item => canAccess(item));
-          if (visibleItems.length === 0) return null;
-          
-          return (
-            <div key={group.groupKey}>
-              <h2 className="px-3 mb-2 text-xs font-semibold text-sidebar-foreground/80 uppercase tracking-wider">
-                {t(group.groupKey)}
-              </h2>
+    <TooltipProvider>
+      <aside className={cn("h-full sidebar-gradient sidebar-shadow flex flex-col transition-all duration-300", isMobile ? "w-full" : "w-full")}>
+        {/* Collapse toggle button - desktop only */}
+        {!isMobile && (
+          <div className={cn("flex items-center px-2 pt-2", isCollapsed ? "justify-center" : "justify-end")}>
+            <button
+              onClick={onToggleCollapse}
+              className="p-1.5 rounded-lg text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+              title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {isCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+            </button>
+          </div>
+        )}
 
-              <div className="space-y-1">{visibleItems.map((item) => renderMenuItem(item))}</div>
-            </div>
-          );
-        })}
-      </nav>
+        {/* Navigation - scrollable */}
+        <nav ref={scrollContainerRef} onScroll={handleScroll} className={cn("flex-1 overflow-y-auto space-y-6", isCollapsed && !isMobile ? "p-2" : "p-3")}>
+          {visibleGroups.map((group) => {
+            const visibleItems = group.items.filter(item => canAccess(item));
+            if (visibleItems.length === 0) return null;
+            
+            return (
+              <div key={group.groupKey}>
+                {!isCollapsed && (
+                  <h2 className="px-3 mb-2 text-xs font-semibold text-sidebar-foreground/80 uppercase tracking-wider">
+                    {t(group.groupKey)}
+                  </h2>
+                )}
+                {isCollapsed && !isMobile && (
+                  <div className="w-6 border-t border-sidebar-border/50 mx-auto mb-2" />
+                )}
 
-      {/* Footer */}
-      <div className="p-4 border-t border-sidebar-border flex-shrink-0">
-        <p className="text-xs text-sidebar-foreground/60 text-center">© 2026 PT. Kemika Karya Pratama</p>
-      </div>
-    </aside>
+                <div className={cn("space-y-1", isCollapsed && !isMobile && "flex flex-col items-center")}>
+                  {visibleItems.map((item) => renderMenuItem(item))}
+                </div>
+              </div>
+            );
+          })}
+        </nav>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-sidebar-border flex-shrink-0">
+          {isCollapsed && !isMobile ? (
+            <p className="text-[8px] text-sidebar-foreground/60 text-center">KKP</p>
+          ) : (
+            <p className="text-xs text-sidebar-foreground/60 text-center">© 2026 PT. Kemika Karya Pratama</p>
+          )}
+        </div>
+      </aside>
+    </TooltipProvider>
   );
 }
