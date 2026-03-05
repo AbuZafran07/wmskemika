@@ -68,6 +68,7 @@ export default function RequestDelivery() {
   const [availableSOs, setAvailableSOs] = useState<any[]>([]);
   const [selectedSOId, setSelectedSOId] = useState<string>("");
   const [addNotes, setAddNotes] = useState("");
+  const [cardLabelsMap, setCardLabelsMap] = useState<Record<string, { name: string; color: string }[]>>({});
   
   // Drag state
   const [draggedCard, setDraggedCard] = useState<DeliveryCard | null>(null);
