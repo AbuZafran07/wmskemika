@@ -430,9 +430,12 @@ export default function RequestDelivery() {
                       <div className="flex items-center justify-between pt-1.5 border-t border-border/40">
                         <div className="flex items-center gap-1">
                           <Calendar className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-[10px] text-muted-foreground">
-                            {card.delivery_deadline ? format(new Date(card.delivery_deadline), "dd MMM yy") : "-"}
-                          </span>
+                          <div className="flex flex-col">
+                            <span className="text-[8px] text-muted-foreground/70 leading-tight">Deadline Pengiriman</span>
+                            <span className="text-[10px] text-muted-foreground font-medium">
+                              {card.delivery_deadline ? format(new Date(card.delivery_deadline), "dd MMM yy") : "-"}
+                            </span>
+                          </div>
                         </div>
                         <div className="flex items-center gap-1">
                           <User className="h-3 w-3 text-muted-foreground" />
