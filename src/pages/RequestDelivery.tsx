@@ -167,24 +167,10 @@ export default function RequestDelivery() {
     setCardLabelsMap(map);
   }, []);
 
-  const fetchChecklists = useCallback(async () => {
-    const { data } = await supabase
-      .from("delivery_checklists")
-      .select("*");
-    if (!data) return;
-    const map: Record<string, ChecklistItem[]> = {};
-    data.forEach((item: any) => {
-      if (!map[item.delivery_request_id]) map[item.delivery_request_id] = [];
-      map[item.delivery_request_id].push(item);
-    });
-    setChecklistsMap(map);
-  }, []);
-
   useEffect(() => {
     fetchCards();
     fetchCardLabels();
-    fetchChecklists();
-  }, [fetchCards, fetchCardLabels, fetchChecklists]);
+  }, [fetchCards, fetchCardLabels]);
 
   // Realtime subscription
   useEffect(() => {
@@ -196,12 +182,9 @@ export default function RequestDelivery() {
       .on("postgres_changes", { event: "*", schema: "public", table: "delivery_card_labels" }, () => {
         fetchCardLabels();
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "delivery_checklists" }, () => {
-        fetchChecklists();
-      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [fetchCards, fetchCardLabels, fetchChecklists]);
+  }, [fetchCards, fetchCardLabels]);
 
   // Check if card can move to checking (all checklists must be checked)
   const canMoveToChecking = (cardId: string): boolean => {
