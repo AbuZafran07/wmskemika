@@ -589,7 +589,10 @@ export default function RequestDelivery() {
         </div>
       </div>
 
-      {/* Add SO Dialog */}
+      {/* Bottom Marquee Ticker */}
+      <DeliveryMarqueeTicker />
+
+
       <Dialog open={addDialogOpen} onOpenChange={(open) => { setAddDialogOpen(open); if (!open) { setSoSearchQuery(""); setSelectedSOId(""); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
