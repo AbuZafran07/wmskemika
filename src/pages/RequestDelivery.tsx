@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Plus, Package, Calendar, User, Building2, Truck, RefreshCw, Search, CheckSquare, Image, X } from "lucide-react";
+import { Plus, Package, Calendar, User, Building2, Truck, RefreshCw, Search, CheckSquare, Image, X, Maximize2, Minimize2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -76,6 +76,7 @@ export default function RequestDelivery() {
   const [draggedCard, setDraggedCard] = useState<DeliveryCard | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [boardBgUrl, setBoardBgUrl] = useState<string>("");
+  const [isFullView, setIsFullView] = useState(false);
   const [bgInput, setBgInput] = useState("");
   const bgFileRef = useRef<HTMLInputElement>(null);
 
@@ -646,6 +647,10 @@ export default function RequestDelivery() {
               </PopoverContent>
             </Popover>
           )}
+          <Button variant="outline" size="sm" onClick={() => setIsFullView(!isFullView)} title={isFullView ? "Normal View" : "Full View - Lihat Semua Kolom"}>
+            {isFullView ? <Minimize2 className="h-4 w-4 mr-1" /> : <Maximize2 className="h-4 w-4 mr-1" />}
+            {isFullView ? "Normal" : "Full View"}
+          </Button>
           <Button variant="outline" size="sm" onClick={fetchCards}>
             <RefreshCw className="h-4 w-4 mr-1" /> Refresh
           </Button>
@@ -658,15 +663,16 @@ export default function RequestDelivery() {
       </div>
 
       {/* Board */}
-      <div ref={scrollRef} className="flex-1 overflow-x-auto overflow-y-hidden relative z-10">
-        <div className="flex gap-3 p-4 h-full min-w-max">
+      <div ref={scrollRef} className={cn("flex-1 overflow-y-hidden relative z-10", isFullView ? "overflow-x-hidden" : "overflow-x-auto")}>
+        <div className={cn("flex gap-3 p-4 h-full", isFullView ? "w-full" : "min-w-max")}>
           {BOARD_COLUMNS.map((column) => {
             const columnCards = getColumnCards(column.id);
             return (
               <div
                 key={column.id}
                 className={cn(
-                  "flex flex-col w-[280px] flex-shrink-0 rounded-xl bg-muted/30 border border-border/50 transition-colors",
+                  "flex flex-col rounded-xl bg-muted/30 border border-border/50 transition-colors",
+                  isFullView ? "flex-1 min-w-0" : "w-[280px] flex-shrink-0",
                   dragOverColumn === column.id && "border-primary/50 bg-primary/5"
                 )}
                 onDragOver={(e) => handleDragOver(e, column.id)}
