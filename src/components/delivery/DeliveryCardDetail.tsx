@@ -92,7 +92,6 @@ interface Props {
 
 export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canManage }: Props) {
   const { user } = useAuth();
-  // No tabs needed - single scrollable view
 
   // Labels state
   const [allLabels, setAllLabels] = useState<Label[]>([]);
@@ -112,6 +111,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const [uploadingFile, setUploadingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const isSuperAdmin = user?.role === 'super_admin';
   const isAdmin = user?.role && ['super_admin', 'admin'].includes(user.role);
 
   // Fetch labels & card labels
@@ -136,7 +136,6 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
     if (!data) { setComments([]); return; }
 
-    // Get user profiles for comments
     const userIds = [...new Set(data.map(c => c.user_id))];
     const { data: profiles } = await supabase
       .from("profiles")
@@ -209,7 +208,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     fetchLabels();
   };
 
-  // Create new label
+  // Create new label (super_admin only)
   const createLabel = async () => {
     if (!newLabelName.trim() || !user) return;
     setCreatingLabel(true);
@@ -228,7 +227,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     fetchLabels();
   };
 
-  // Delete label
+  // Delete label (super_admin only)
   const deleteLabel = async (labelId: string) => {
     const { error } = await supabase.from("delivery_labels").delete().eq("id", labelId);
     if (error) toast.error("Gagal menghapus label");
@@ -315,7 +314,6 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     }
   };
 
-  // Format file size
   const formatSize = (bytes: number | null) => {
     if (!bytes) return "";
     if (bytes < 1024) return `${bytes} B`;
@@ -331,8 +329,8 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
   return (
     <Dialog open={!!card} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-5 pb-0">
           <DialogTitle className="flex items-center gap-2">
             <Truck className="h-5 w-5 text-primary" />
             {card.sales_order_number}
@@ -340,7 +338,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         </DialogHeader>
 
         {/* Labels section */}
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5 px-6 pb-2">
           {assignedLabels.map(label => (
             <Badge
               key={label.id}
@@ -376,7 +374,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                         <span className="truncate">{label.name}</span>
                         {cardLabelIds.includes(label.id) && <span className="text-primary ml-auto text-[10px]">✓</span>}
                       </button>
-                      {isAdmin && (
+                      {isSuperAdmin && (
                         <button onClick={() => deleteLabel(label.id)} className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive/80 p-1">
                           <Trash2 className="h-3 w-3" />
                         </button>
@@ -385,7 +383,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                   ))}
                   {allLabels.length === 0 && <p className="text-xs text-muted-foreground text-center py-2">Belum ada label</p>}
                 </div>
-                {isAdmin && (
+                {isSuperAdmin && (
                   <div className="border-t pt-2 space-y-2">
                     <p className="text-[11px] font-medium text-muted-foreground">Buat Label Baru</p>
                     <Input
@@ -415,168 +413,173 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           )}
         </div>
 
-        {/* Single scrollable content: Detail + Products + Comments */}
-        <ScrollArea className="flex-1 max-h-[60vh]">
-          <div className="space-y-4 pr-2">
-            {/* Detail info */}
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <span className="text-muted-foreground text-xs">Customer</span>
-                <p className="font-medium">{card.customer_name}</p>
-                <p className="text-xs text-muted-foreground">{card.customer_code}</p>
+        {/* Two-column layout: Left = Details, Right = Comments & Activity */}
+        <div className="flex flex-1 min-h-0 border-t">
+          {/* LEFT PANEL - Details, Products, Attachments */}
+          <ScrollArea className="flex-1 min-w-0 border-r">
+            <div className="space-y-4 p-4">
+              {/* Detail info */}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-muted-foreground text-xs">Customer</span>
+                  <p className="font-medium">{card.customer_name}</p>
+                  <p className="text-xs text-muted-foreground">{card.customer_code}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground text-xs">Sales</span>
+                  <p className="font-medium">{card.sales_name}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground text-xs">Tipe Alokasi</span>
+                  <p className="font-medium">{card.allocation_type}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground text-xs">Project/Instansi</span>
+                  <p className="font-medium">{card.project_instansi}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground text-xs">Deadline Pengiriman</span>
+                  <p className="font-medium">
+                    {card.delivery_deadline ? format(new Date(card.delivery_deadline), "dd MMMM yyyy", { locale: idLocale }) : "-"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground text-xs">Status Board</span>
+                  <Badge className={cn("mt-1", BOARD_COLUMNS.find(c => c.id === card.board_status)?.color, "text-white")}>
+                    {BOARD_COLUMNS.find(c => c.id === card.board_status)?.label}
+                  </Badge>
+                </div>
               </div>
-              <div>
-                <span className="text-muted-foreground text-xs">Sales</span>
-                <p className="font-medium">{card.sales_name}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground text-xs">Tipe Alokasi</span>
-                <p className="font-medium">{card.allocation_type}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground text-xs">Project/Instansi</span>
-                <p className="font-medium">{card.project_instansi}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground text-xs">Deadline Pengiriman</span>
-                <p className="font-medium">
-                  {card.delivery_deadline ? format(new Date(card.delivery_deadline), "dd MMMM yyyy", { locale: idLocale }) : "-"}
-                </p>
-              </div>
-              <div>
-                <span className="text-muted-foreground text-xs">Status Board</span>
-                <Badge className={cn("mt-1", BOARD_COLUMNS.find(c => c.id === card.board_status)?.color, "text-white")}>
-                  {BOARD_COLUMNS.find(c => c.id === card.board_status)?.label}
-                </Badge>
-              </div>
-            </div>
 
-            {card.ship_to_address && (
-              <div className="text-sm">
-                <span className="text-muted-foreground text-xs">Alamat Pengiriman</span>
-                <p className="text-xs">{card.ship_to_address}</p>
-              </div>
-            )}
+              {card.ship_to_address && (
+                <div className="text-sm">
+                  <span className="text-muted-foreground text-xs">Alamat Pengiriman</span>
+                  <p className="text-xs">{card.ship_to_address}</p>
+                </div>
+              )}
 
-            {/* Products table */}
-            <div>
-              <span className="text-muted-foreground text-xs block mb-1">Produk</span>
-              <div className="border rounded-lg overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead className="bg-muted/50">
-                    <tr>
-                      <th className="text-left p-2 font-medium">Produk</th>
-                      <th className="text-center p-2 font-medium">Qty</th>
-                      <th className="text-center p-2 font-medium">Terkirim</th>
-                      <th className="text-center p-2 font-medium">Sisa</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {card.items.map((item, idx) => (
-                      <tr key={idx} className="border-t">
-                        <td className="p-2">{item.product_name}</td>
-                        <td className="p-2 text-center">{item.ordered_qty}</td>
-                        <td className="p-2 text-center">{item.qty_delivered}</td>
-                        <td className="p-2 text-center font-medium">{item.ordered_qty - item.qty_delivered}</td>
+              {/* Products table */}
+              <div>
+                <span className="text-muted-foreground text-xs block mb-1">Produk</span>
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="text-left p-2 font-medium">Produk</th>
+                        <th className="text-center p-2 font-medium">Qty</th>
+                        <th className="text-center p-2 font-medium">Terkirim</th>
+                        <th className="text-center p-2 font-medium">Sisa</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {card.notes && (
-              <div className="text-sm">
-                <span className="text-muted-foreground text-xs">Catatan Board</span>
-                <p className="text-xs italic">{card.notes}</p>
-              </div>
-            )}
-
-            {/* Attachments */}
-            <div className="border-t pt-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Paperclip className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs font-semibold">Lampiran</span>
-                {attachments.length > 0 && (
-                  <Badge variant="secondary" className="h-4 text-[10px] px-1.5">{attachments.length}</Badge>
-                )}
-                {canManage && (
-                  <>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      className="hidden"
-                      onChange={handleFileUpload}
-                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-6 text-[11px] px-2 gap-1 ml-auto"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploadingFile}
-                    >
-                      {uploadingFile ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
-                      Upload
-                    </Button>
-                  </>
-                )}
+                    </thead>
+                    <tbody>
+                      {card.items.map((item, idx) => (
+                        <tr key={idx} className="border-t">
+                          <td className="p-2">{item.product_name}</td>
+                          <td className="p-2 text-center">{item.ordered_qty}</td>
+                          <td className="p-2 text-center">{item.qty_delivered}</td>
+                          <td className="p-2 text-center font-medium">{item.ordered_qty - item.qty_delivered}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
-              {attachments.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-2">Belum ada lampiran</p>
-              ) : (
-                <div className="space-y-2">
-                  {attachments.map(att => (
-                    <div key={att.id} className="flex items-center gap-2 p-2 rounded-lg border bg-muted/30 group">
-                      <div className="w-8 h-8 rounded bg-muted flex items-center justify-center flex-shrink-0">
-                        {isImageFile(att.mime_type) ? (
-                          <Image className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <FileText className="h-4 w-4 text-muted-foreground" />
+              {card.notes && (
+                <div className="text-sm">
+                  <span className="text-muted-foreground text-xs">Catatan Board</span>
+                  <p className="text-xs italic">{card.notes}</p>
+                </div>
+              )}
+
+              {/* Attachments */}
+              <div className="border-t pt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Paperclip className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-xs font-semibold">Lampiran</span>
+                  {attachments.length > 0 && (
+                    <Badge variant="secondary" className="h-4 text-[10px] px-1.5">{attachments.length}</Badge>
+                  )}
+                  {canManage && (
+                    <>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        onChange={handleFileUpload}
+                        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-6 text-[11px] px-2 gap-1 ml-auto"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingFile}
+                      >
+                        {uploadingFile ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                        Upload
+                      </Button>
+                    </>
+                  )}
+                </div>
+
+                {attachments.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-2">Belum ada lampiran</p>
+                ) : (
+                  <div className="space-y-2">
+                    {attachments.map(att => (
+                      <div key={att.id} className="flex items-center gap-2 p-2 rounded-lg border bg-muted/30 group">
+                        <div className="w-8 h-8 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                          {isImageFile(att.mime_type) ? (
+                            <Image className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate">{att.file_key.split("/").pop()}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {formatSize(att.file_size)} • {att.uploader_name}
+                            {att.uploaded_at && ` • ${formatDistanceToNow(new Date(att.uploaded_at), { addSuffix: true, locale: idLocale })}`}
+                          </p>
+                        </div>
+                        <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 p-1">
+                          <Download className="h-3.5 w-3.5" />
+                        </a>
+                        {(att.uploaded_by === user?.id || isAdmin) && (
+                          <button
+                            onClick={() => deleteAttachment(att)}
+                            className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive/80 p-1"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">{att.file_key.split("/").pop()}</p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {formatSize(att.file_size)} • {att.uploader_name}
-                          {att.uploaded_at && ` • ${formatDistanceToNow(new Date(att.uploaded_at), { addSuffix: true, locale: idLocale })}`}
-                        </p>
-                      </div>
-                      <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 p-1">
-                        <Download className="h-3.5 w-3.5" />
-                      </a>
-                      {(att.uploaded_by === user?.id || isAdmin) && (
-                        <button
-                          onClick={() => deleteAttachment(att)}
-                          className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive/80 p-1"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </ScrollArea>
+
+          {/* RIGHT PANEL - Comments & Activity */}
+          <div className="w-[340px] flex-shrink-0 flex flex-col min-h-0">
+            <div className="flex items-center gap-2 px-4 py-3 border-b">
+              <MessageSquare className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs font-semibold">Comments & Activity</span>
+              {comments.length > 0 && (
+                <Badge variant="secondary" className="h-4 text-[10px] px-1.5">{comments.length}</Badge>
               )}
             </div>
 
-            {/* Comments & Activity - below products */}
-            <div className="border-t pt-4">
-              <div className="flex items-center gap-2 mb-3">
-                <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs font-semibold">Comments & Activity</span>
-                {comments.length > 0 && (
-                  <Badge variant="secondary" className="h-4 text-[10px] px-1.5">{comments.length}</Badge>
-                )}
-              </div>
-
-              {/* New comment input */}
-              <div className="flex gap-2 mb-3">
+            {/* Comment input */}
+            <div className="px-4 py-3 border-b">
+              <div className="flex gap-2">
                 <Textarea
                   value={newComment}
                   onChange={e => setNewComment(e.target.value)}
                   placeholder="Tulis komentar..."
-                  className="text-xs min-h-[60px] resize-none"
+                  className="text-xs min-h-[50px] resize-none"
                   onKeyDown={e => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
@@ -593,50 +596,54 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                   <Send className="h-3.5 w-3.5" />
                 </Button>
               </div>
-
-              {/* Comments list */}
-              {comments.length === 0 ? (
-                <div className="text-center py-4 text-muted-foreground">
-                  <p className="text-xs">Belum ada komentar</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {comments.map(comment => (
-                    <div key={comment.id} className={cn(
-                      "flex gap-2 group",
-                      comment.type === "activity" && "opacity-70"
-                    )}>
-                      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 text-[10px] font-bold text-primary">
-                        {comment.user_name?.charAt(0)?.toUpperCase() || "?"}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold">{comment.user_name}</span>
-                          <span className="text-[10px] text-muted-foreground">
-                            {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true, locale: idLocale })}
-                          </span>
-                          {(comment.user_id === user?.id || isAdmin) && (
-                            <button
-                              onClick={() => deleteComment(comment.id)}
-                              className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive/80 ml-auto"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          )}
-                        </div>
-                        <p className={cn("text-xs mt-0.5", comment.type === "activity" ? "italic text-muted-foreground" : "text-foreground")}>
-                          {comment.message}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
-          </div>
-        </ScrollArea>
 
-        <DialogFooter className="flex-col sm:flex-row gap-2">
+            {/* Comments list */}
+            <ScrollArea className="flex-1">
+              <div className="px-4 py-3">
+                {comments.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground">
+                    <p className="text-xs">Belum ada komentar</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {comments.map(comment => (
+                      <div key={comment.id} className={cn(
+                        "flex gap-2 group",
+                        comment.type === "activity" && "opacity-70"
+                      )}>
+                        <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 text-[10px] font-bold text-primary">
+                          {comment.user_name?.charAt(0)?.toUpperCase() || "?"}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold">{comment.user_name}</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true, locale: idLocale })}
+                            </span>
+                            {(comment.user_id === user?.id || isAdmin) && (
+                              <button
+                                onClick={() => deleteComment(comment.id)}
+                                className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive/80 ml-auto"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+                          <p className={cn("text-xs mt-0.5 whitespace-pre-wrap break-words", comment.type === "activity" ? "italic text-muted-foreground" : "text-foreground")}>
+                            {comment.message}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+        </div>
+
+        <DialogFooter className="px-6 py-3 border-t flex-col sm:flex-row gap-2">
           {canManage && (
             <Button variant="outline" size="sm" onClick={() => { onMoveRequest(card); onClose(); }}>
               <ChevronRight className="h-4 w-4 mr-1" /> Pindahkan
