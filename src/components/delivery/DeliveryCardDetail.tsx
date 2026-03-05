@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { Truck, ChevronRight, Tag, MessageSquare, Send, X, Plus, Trash2, Paperclip, FileText, Image, Download, Loader2 } from "lucide-react";
+import { Truck, ChevronRight, Tag, MessageSquare, Send, X, Plus, Trash2, Paperclip, FileText, Image, Download, Loader2, CheckSquare } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -84,6 +85,15 @@ interface Attachment {
   uploader_name?: string;
 }
 
+interface ChecklistItem {
+  id: string;
+  delivery_request_id: string;
+  label: string;
+  is_checked: boolean;
+  checked_by: string | null;
+  checked_at: string | null;
+}
+
 interface Props {
   card: DeliveryCard | null;
   onClose: () => void;
@@ -112,8 +122,12 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const [uploadingFile, setUploadingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Checklist state
+  const [checklists, setChecklists] = useState<ChecklistItem[]>([]);
+
   const isSuperAdmin = user?.role === 'super_admin';
   const isAdmin = user?.role && ['super_admin', 'admin'].includes(user.role);
+  const canCheckChecklist = user?.role && ['super_admin', 'purchasing', 'finance'].includes(user.role);
 
   // Fetch labels & card labels
   const fetchLabels = useCallback(async () => {
@@ -177,25 +191,39 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     })));
   }, [card]);
 
+  // Fetch checklists
+  const fetchChecklists = useCallback(async () => {
+    if (!card) return;
+    const { data } = await supabase
+      .from("delivery_checklists")
+      .select("*")
+      .eq("delivery_request_id", card.id);
+    setChecklists((data as ChecklistItem[]) || []);
+  }, [card]);
+
   useEffect(() => {
     if (card) {
       fetchLabels();
       fetchComments();
       fetchAttachments();
+      fetchChecklists();
     }
-  }, [card, fetchLabels, fetchComments, fetchAttachments]);
+  }, [card, fetchLabels, fetchComments, fetchAttachments, fetchChecklists]);
 
-  // Realtime comments
+  // Realtime comments & checklists
   useEffect(() => {
     if (!card) return;
     const channel = supabase
-      .channel(`comments_${card.id}`)
+      .channel(`detail_${card.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "delivery_comments", filter: `delivery_request_id=eq.${card.id}` }, () => {
         fetchComments();
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "delivery_checklists", filter: `delivery_request_id=eq.${card.id}` }, () => {
+        fetchChecklists();
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [card, fetchComments]);
+  }, [card, fetchComments, fetchChecklists]);
 
   // Toggle label on card
   const toggleLabel = async (labelId: string) => {
@@ -259,7 +287,65 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     fetchComments();
   };
 
-  // Upload attachment
+  // Toggle checklist & auto-move to checking
+  const handleToggleChecklist = async (checklistId: string, currentChecked: boolean) => {
+    if (!user || !canCheckChecklist || !card) {
+      toast.error("Hanya Purchasing, Finance, atau Super Admin yang dapat mencentang checklist ini");
+      return;
+    }
+    try {
+      const newChecked = !currentChecked;
+      const { error } = await supabase
+        .from("delivery_checklists")
+        .update({
+          is_checked: newChecked,
+          checked_by: newChecked ? user.id : null,
+          checked_at: newChecked ? new Date().toISOString() : null,
+        })
+        .eq("id", checklistId);
+      if (error) throw error;
+
+      // Check if ALL checklists for this card are now checked
+      // Re-fetch to get latest state
+      const { data: latestChecklists } = await supabase
+        .from("delivery_checklists")
+        .select("*")
+        .eq("delivery_request_id", card.id);
+
+      const allChecked = latestChecklists && latestChecklists.length > 0 && latestChecklists.every((cl: any) => cl.is_checked);
+      
+      if (allChecked && card.board_status === "new_order") {
+        // Auto-move to checking
+        await supabase
+          .from("delivery_requests")
+          .update({
+            board_status: "checking",
+            moved_by: user.id,
+            moved_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", card.id);
+        
+        // Log activity comment
+        await supabase.from("delivery_comments").insert({
+          delivery_request_id: card.id,
+          user_id: user.id,
+          message: `✅ Checklist "Proses Sales Order" dicentang. Card otomatis dipindahkan ke Checking.`,
+          type: "activity",
+        });
+
+        toast.success("Checklist selesai! Card otomatis dipindahkan ke Checking");
+        onClose(); // Close detail, parent will refetch
+        return;
+      }
+
+      fetchChecklists();
+    } catch (err: any) {
+      toast.error("Gagal update checklist: " + err.message);
+    }
+  };
+
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !card || !user) return;
@@ -455,6 +541,45 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                   </Badge>
                 </div>
               </div>
+
+              {/* Checklist section */}
+              {checklists.length > 0 && (
+                <div className="border rounded-lg p-3 bg-muted/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckSquare className="h-4 w-4 text-primary" />
+                    <span className="text-xs font-semibold">Checklist</span>
+                  </div>
+                  <div className="space-y-2">
+                    {checklists.map((cl) => (
+                      <div key={cl.id} className="flex items-center gap-3 p-2 rounded-md bg-background border">
+                        <Checkbox
+                          checked={cl.is_checked}
+                          disabled={!canCheckChecklist}
+                          onCheckedChange={() => handleToggleChecklist(cl.id, cl.is_checked)}
+                        />
+                        <div className="flex-1">
+                          <span className={cn(
+                            "text-sm font-medium",
+                            cl.is_checked && "line-through text-muted-foreground"
+                          )}>
+                            {cl.label}
+                          </span>
+                          {cl.is_checked && cl.checked_at && (
+                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                              ✓ Dicentang {formatDistanceToNow(new Date(cl.checked_at), { addSuffix: true, locale: idLocale })}
+                            </p>
+                          )}
+                          {!canCheckChecklist && !cl.is_checked && (
+                            <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+                              Hanya Purchasing / Finance / Super Admin
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {card.ship_to_address && (
                 <div className="text-sm">

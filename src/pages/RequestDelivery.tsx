@@ -9,11 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Plus, Package, Calendar, User, Building2, Truck, RefreshCw, Tag, Search, CheckSquare } from "lucide-react";
+import { Plus, Package, Calendar, User, Building2, Truck, RefreshCw, Search, CheckSquare } from "lucide-react";
 import { format } from "date-fns";
-import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import DeliveryCardDetail from "@/components/delivery/DeliveryCardDetail";
 
@@ -42,7 +40,6 @@ interface DeliveryCard {
   delivery_date_target: string | null;
   created_at: string;
   updated_at: string;
-  // Joined SO data
   sales_order_number: string;
   customer_name: string;
   customer_code: string;
@@ -59,15 +56,6 @@ interface DeliveryCard {
   items: { product_name: string; ordered_qty: number; qty_delivered: number }[];
 }
 
-interface ChecklistItem {
-  id: string;
-  delivery_request_id: string;
-  label: string;
-  is_checked: boolean;
-  checked_by: string | null;
-  checked_at: string | null;
-}
-
 export default function RequestDelivery() {
   const { user } = useAuth();
   const { t } = useLanguage();
@@ -82,14 +70,11 @@ export default function RequestDelivery() {
   const [addNotes, setAddNotes] = useState("");
   const [soSearchQuery, setSoSearchQuery] = useState("");
   const [cardLabelsMap, setCardLabelsMap] = useState<Record<string, { name: string; color: string }[]>>({});
-  const [checklistsMap, setChecklistsMap] = useState<Record<string, ChecklistItem[]>>({});
   
-  // Drag state
   const [draggedCard, setDraggedCard] = useState<DeliveryCard | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
 
   const canManage = user?.role && ['super_admin', 'admin', 'sales', 'warehouse'].includes(user.role);
-  const canCheckChecklist = user?.role && ['super_admin', 'purchasing', 'finance'].includes(user.role);
 
   const fetchCards = useCallback(async () => {
     try {
@@ -178,24 +163,10 @@ export default function RequestDelivery() {
     setCardLabelsMap(map);
   }, []);
 
-  const fetchChecklists = useCallback(async () => {
-    const { data } = await supabase
-      .from("delivery_checklists")
-      .select("*");
-    if (!data) return;
-    const map: Record<string, ChecklistItem[]> = {};
-    data.forEach((item: any) => {
-      if (!map[item.delivery_request_id]) map[item.delivery_request_id] = [];
-      map[item.delivery_request_id].push(item);
-    });
-    setChecklistsMap(map);
-  }, []);
-
   useEffect(() => {
     fetchCards();
     fetchCardLabels();
-    fetchChecklists();
-  }, [fetchCards, fetchCardLabels, fetchChecklists]);
+  }, [fetchCards, fetchCardLabels]);
 
   // Realtime subscription
   useEffect(() => {
@@ -207,33 +178,13 @@ export default function RequestDelivery() {
       .on("postgres_changes", { event: "*", schema: "public", table: "delivery_card_labels" }, () => {
         fetchCardLabels();
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "delivery_checklists" }, () => {
-        fetchChecklists();
-      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [fetchCards, fetchCardLabels, fetchChecklists]);
-
-  // Check if card can move to checking (all checklists must be checked)
-  const canMoveToChecking = (cardId: string): boolean => {
-    const checklists = checklistsMap[cardId] || [];
-    if (checklists.length === 0) return false;
-    return checklists.every(cl => cl.is_checked);
-  };
+  }, [fetchCards, fetchCardLabels]);
 
   // Move card to new column
   const moveCard = async (cardId: string, newStatus: BoardStatus) => {
     if (!user) return;
-    
-    // Check automation: new_order → checking requires all checklists checked
-    const card = cards.find(c => c.id === cardId);
-    if (card?.board_status === "new_order" && newStatus === "checking") {
-      if (!canMoveToChecking(cardId)) {
-        toast.error("Checklist 'Proses Sales Order' harus dicentang terlebih dahulu oleh Purchasing/Finance sebelum card bisa dipindahkan ke Checking");
-        return;
-      }
-    }
-
     try {
       const { error } = await supabase
         .from("delivery_requests")
@@ -249,28 +200,6 @@ export default function RequestDelivery() {
       fetchCards();
     } catch (err: any) {
       toast.error("Gagal memindahkan card: " + err.message);
-    }
-  };
-
-  // Toggle checklist item
-  const handleToggleChecklist = async (checklistId: string, currentChecked: boolean) => {
-    if (!user || !canCheckChecklist) {
-      toast.error("Hanya Purchasing, Finance, atau Super Admin yang dapat mencentang checklist ini");
-      return;
-    }
-    try {
-      const { error } = await supabase
-        .from("delivery_checklists")
-        .update({
-          is_checked: !currentChecked,
-          checked_by: !currentChecked ? user.id : null,
-          checked_at: !currentChecked ? new Date().toISOString() : null,
-        })
-        .eq("id", checklistId);
-      if (error) throw error;
-      fetchChecklists();
-    } catch (err: any) {
-      toast.error("Gagal update checklist: " + err.message);
     }
   };
 
@@ -304,7 +233,6 @@ export default function RequestDelivery() {
       setAddNotes("");
       setSoSearchQuery("");
       fetchCards();
-      fetchChecklists();
     } catch (err: any) {
       if (err.message?.includes("duplicate") || err.message?.includes("unique")) {
         toast.error("Sales Order ini sudah ada di board");
@@ -314,7 +242,7 @@ export default function RequestDelivery() {
     }
   };
 
-  // Fetch available SOs (approved, not yet on board)
+  // Fetch available SOs
   const fetchAvailableSOs = async () => {
     const { data: existingIds } = await supabase
       .from("delivery_requests")
@@ -322,7 +250,7 @@ export default function RequestDelivery() {
     
     const usedIds = existingIds?.map(e => e.sales_order_id) || [];
 
-    let query = supabase
+    const { data } = await supabase
       .from("sales_order_headers")
       .select("id, sales_order_number, customer_id, customers!inner(name), project_instansi, allocation_type, sales_name, customer_po_number")
       .eq("is_deleted", false)
@@ -330,12 +258,10 @@ export default function RequestDelivery() {
       .order("created_at", { ascending: false })
       .limit(200);
 
-    const { data } = await query;
     const filtered = data?.filter(so => !usedIds.includes(so.id)) || [];
     setAvailableSOs(filtered);
   };
 
-  // Filter SOs by search query
   const filteredSOs = availableSOs.filter(so => {
     if (!soSearchQuery.trim()) return true;
     const q = soSearchQuery.toLowerCase();
@@ -362,9 +288,7 @@ export default function RequestDelivery() {
     setDragOverColumn(columnId);
   };
 
-  const handleDragLeave = () => {
-    setDragOverColumn(null);
-  };
+  const handleDragLeave = () => { setDragOverColumn(null); };
 
   const handleDrop = (e: React.DragEvent, columnId: string) => {
     e.preventDefault();
@@ -375,10 +299,7 @@ export default function RequestDelivery() {
     setDraggedCard(null);
   };
 
-  const handleDragEnd = () => {
-    setDraggedCard(null);
-    setDragOverColumn(null);
-  };
+  const handleDragEnd = () => { setDraggedCard(null); setDragOverColumn(null); };
 
   const getColumnCards = (columnId: string) => cards.filter(c => c.board_status === columnId);
 
@@ -450,138 +371,96 @@ export default function RequestDelivery() {
 
                 {/* Cards Container */}
                 <div className="flex-1 overflow-y-auto p-2 space-y-2" style={{ maxHeight: "calc(100vh - 11rem)" }}>
-                  {columnCards.map((card) => {
-                    const cardChecklists = checklistsMap[card.id] || [];
-                    const allChecked = cardChecklists.length > 0 && cardChecklists.every(cl => cl.is_checked);
-                    
-                    return (
-                      <Card
-                        key={card.id}
-                        draggable={canManage}
-                        onDragStart={(e) => handleDragStart(e, card)}
-                        onDragEnd={handleDragEnd}
-                        className={cn(
-                          "p-3 cursor-pointer hover:shadow-md transition-all border-border/60 bg-card",
-                          draggedCard?.id === card.id && "opacity-40 scale-95",
-                          canManage && "cursor-grab active:cursor-grabbing"
-                        )}
-                        onClick={() => setDetailCard(card)}
-                      >
-                        {/* SO Number & Status */}
-                        <div className="flex items-start justify-between gap-1 mb-1">
-                          <span className="text-[11px] font-bold text-primary truncate">{card.sales_order_number}</span>
-                          <Badge className={cn("text-[9px] px-1.5 py-0 h-4 flex-shrink-0", getStatusBadgeColor(card.so_status))}>
-                            {card.so_status}
-                          </Badge>
-                        </div>
-                        {/* Created date */}
-                        <p className="text-[9px] text-muted-foreground mb-2">
-                          Dibuat: {format(new Date(card.created_at), "dd MMM yy, HH:mm")}
-                        </p>
+                  {columnCards.map((card) => (
+                    <Card
+                      key={card.id}
+                      draggable={canManage}
+                      onDragStart={(e) => handleDragStart(e, card)}
+                      onDragEnd={handleDragEnd}
+                      className={cn(
+                        "p-3 cursor-pointer hover:shadow-md transition-all border-border/60 bg-card",
+                        draggedCard?.id === card.id && "opacity-40 scale-95",
+                        canManage && "cursor-grab active:cursor-grabbing"
+                      )}
+                      onClick={() => setDetailCard(card)}
+                    >
+                      {/* SO Number & Status */}
+                      <div className="flex items-start justify-between gap-1 mb-1">
+                        <span className="text-[11px] font-bold text-primary truncate">{card.sales_order_number}</span>
+                        <Badge className={cn("text-[9px] px-1.5 py-0 h-4 flex-shrink-0", getStatusBadgeColor(card.so_status))}>
+                          {card.so_status}
+                        </Badge>
+                      </div>
+                      {/* Created date */}
+                      <p className="text-[9px] text-muted-foreground mb-2">
+                        Dibuat: {format(new Date(card.created_at), "dd MMM yy, HH:mm")}
+                      </p>
 
-                        {/* Labels */}
-                        {cardLabelsMap[card.id]?.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mb-1.5">
-                            {cardLabelsMap[card.id].map((label, idx) => (
-                              <span key={idx} className="text-[9px] text-white px-1.5 py-0.5 rounded-sm font-medium" style={{ backgroundColor: label.color }}>
-                                {label.name}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Customer */}
-                        <div className="flex items-center gap-1.5 mb-1.5">
-                          <Building2 className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                          <span className="text-[11px] text-foreground truncate font-medium">{card.customer_name}</span>
-                        </div>
-
-                        {/* Customer PO Number */}
-                        <p className="text-[10px] text-muted-foreground truncate mb-1">
-                          PO: <span className="font-medium text-foreground/80">{card.customer_po_number}</span>
-                        </p>
-
-                        {/* Project */}
-                        <p className="text-[10px] text-muted-foreground truncate mb-2">
-                          {card.project_instansi} • {card.allocation_type}
-                        </p>
-
-                        {/* Checklist section - show on new_order cards */}
-                        {card.board_status === "new_order" && cardChecklists.length > 0 && (
-                          <div className="mb-2 p-1.5 rounded bg-muted/50 border border-border/40">
-                            {cardChecklists.map((cl) => (
-                              <div
-                                key={cl.id}
-                                className="flex items-center gap-2"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <Checkbox
-                                  checked={cl.is_checked}
-                                  disabled={!canCheckChecklist}
-                                  onCheckedChange={() => handleToggleChecklist(cl.id, cl.is_checked)}
-                                  className="h-3.5 w-3.5"
-                                />
-                                <span className={cn(
-                                  "text-[10px] font-medium",
-                                  cl.is_checked ? "text-green-600 line-through" : "text-foreground"
-                                )}>
-                                  {cl.label}
-                                </span>
-                                {cl.is_checked && (
-                                  <CheckSquare className="h-3 w-3 text-green-500 ml-auto" />
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Show checklist status badge on non-new_order cards if it was checked */}
-                        {card.board_status !== "new_order" && allChecked && (
-                          <div className="flex items-center gap-1 mb-2">
-                            <CheckSquare className="h-3 w-3 text-green-500" />
-                            <span className="text-[9px] text-green-600 font-medium">SO Diproses</span>
-                          </div>
-                        )}
-
-                        {/* Items preview */}
-                        <div className="space-y-0.5 mb-2">
-                          {card.items.slice(0, 2).map((item, idx) => (
-                            <div key={idx} className="flex items-center gap-1">
-                              <Package className="h-2.5 w-2.5 text-muted-foreground flex-shrink-0" />
-                              <span className="text-[10px] text-muted-foreground truncate">
-                                {item.product_name} × {item.ordered_qty}
-                              </span>
-                            </div>
+                      {/* Labels */}
+                      {cardLabelsMap[card.id]?.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-1.5">
+                          {cardLabelsMap[card.id].map((label, idx) => (
+                            <span key={idx} className="text-[9px] text-white px-1.5 py-0.5 rounded-sm font-medium" style={{ backgroundColor: label.color }}>
+                              {label.name}
+                            </span>
                           ))}
-                          {card.items.length > 2 && (
-                            <span className="text-[9px] text-muted-foreground/70">+{card.items.length - 2} produk lainnya</span>
-                          )}
                         </div>
+                      )}
 
-                        {/* Footer */}
-                        <div className="flex items-center justify-between pt-1.5 border-t border-border/40">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3 text-muted-foreground" />
-                            <div className="flex flex-col">
-                              <span className="text-[8px] text-muted-foreground/70 leading-tight">Deadline Pengiriman</span>
-                              <span className="text-[10px] text-muted-foreground font-medium">
-                                {card.delivery_deadline ? format(new Date(card.delivery_deadline), "dd MMM yy") : "-"}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <User className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-[10px] text-muted-foreground truncate max-w-[70px]">{card.sales_name}</span>
-                          </div>
-                        </div>
+                      {/* Customer */}
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <Building2 className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                        <span className="text-[11px] text-foreground truncate font-medium">{card.customer_name}</span>
+                      </div>
 
-                        {/* Notes */}
-                        {card.notes && (
-                          <p className="text-[9px] text-muted-foreground/80 mt-1.5 italic truncate">📝 {card.notes}</p>
+                      {/* Customer PO Number */}
+                      <p className="text-[10px] text-muted-foreground truncate mb-1">
+                        PO: <span className="font-medium text-foreground/80">{card.customer_po_number}</span>
+                      </p>
+
+                      {/* Project */}
+                      <p className="text-[10px] text-muted-foreground truncate mb-2">
+                        {card.project_instansi} • {card.allocation_type}
+                      </p>
+
+                      {/* Items preview */}
+                      <div className="space-y-0.5 mb-2">
+                        {card.items.slice(0, 2).map((item, idx) => (
+                          <div key={idx} className="flex items-center gap-1">
+                            <Package className="h-2.5 w-2.5 text-muted-foreground flex-shrink-0" />
+                            <span className="text-[10px] text-muted-foreground truncate">
+                              {item.product_name} × {item.ordered_qty}
+                            </span>
+                          </div>
+                        ))}
+                        {card.items.length > 2 && (
+                          <span className="text-[9px] text-muted-foreground/70">+{card.items.length - 2} produk lainnya</span>
                         )}
-                      </Card>
-                    );
-                  })}
+                      </div>
+
+                      {/* Footer */}
+                      <div className="flex items-center justify-between pt-1.5 border-t border-border/40">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3 text-muted-foreground" />
+                          <div className="flex flex-col">
+                            <span className="text-[8px] text-muted-foreground/70 leading-tight">Deadline Pengiriman</span>
+                            <span className="text-[10px] text-muted-foreground font-medium">
+                              {card.delivery_deadline ? format(new Date(card.delivery_deadline), "dd MMM yy") : "-"}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <User className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-[10px] text-muted-foreground truncate max-w-[70px]">{card.sales_name}</span>
+                        </div>
+                      </div>
+
+                      {/* Notes */}
+                      {card.notes && (
+                        <p className="text-[9px] text-muted-foreground/80 mt-1.5 italic truncate">📝 {card.notes}</p>
+                      )}
+                    </Card>
+                  ))}
 
                   {columnCards.length === 0 && (
                     <div className="text-center py-8 text-muted-foreground/50">
@@ -604,7 +483,6 @@ export default function RequestDelivery() {
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium mb-1 block">Pilih Sales Order (Approved)</label>
-              {/* Search input */}
               <div className="relative mb-2">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -614,7 +492,6 @@ export default function RequestDelivery() {
                   className="pl-9"
                 />
               </div>
-              {/* SO List */}
               <div className="border rounded-md max-h-[240px] overflow-y-auto">
                 {filteredSOs.length === 0 ? (
                   <div className="p-4 text-sm text-muted-foreground text-center">
@@ -667,7 +544,7 @@ export default function RequestDelivery() {
       {/* Detail Card Dialog */}
       <DeliveryCardDetail
         card={detailCard as any}
-        onClose={() => setDetailCard(null)}
+        onClose={() => { setDetailCard(null); fetchCards(); }}
         onMoveRequest={(card) => {
           setMoveDialogCard(card as any);
           setMoveTarget(card.board_status as BoardStatus);
@@ -686,31 +563,16 @@ export default function RequestDelivery() {
               <p className="text-sm text-muted-foreground">
                 Pindahkan <strong>{moveDialogCard.sales_order_number}</strong> ke:
               </p>
-              
-              {/* Show checklist warning if moving from new_order to checking */}
-              {moveDialogCard.board_status === "new_order" && !canMoveToChecking(moveDialogCard.id) && (
-                <div className="p-2 rounded bg-yellow-500/10 border border-yellow-500/30 text-xs text-yellow-700 dark:text-yellow-400">
-                  ⚠️ Checklist "Proses Sales Order" belum dicentang. Card tidak bisa dipindahkan ke Checking sampai checklist dicentang oleh Purchasing/Finance.
-                </div>
-              )}
-
               <Select value={moveTarget} onValueChange={(v) => setMoveTarget(v as BoardStatus)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {BOARD_COLUMNS.map((col) => {
-                    const isCheckingBlocked = moveDialogCard.board_status === "new_order" && col.id === "checking" && !canMoveToChecking(moveDialogCard.id);
-                    return (
-                      <SelectItem 
-                        key={col.id} 
-                        value={col.id} 
-                        disabled={col.id === moveDialogCard.board_status || isCheckingBlocked}
-                      >
-                        {col.label} {col.id === moveDialogCard.board_status ? "(saat ini)" : ""} {isCheckingBlocked ? "🔒" : ""}
-                      </SelectItem>
-                    );
-                  })}
+                  {BOARD_COLUMNS.map((col) => (
+                    <SelectItem key={col.id} value={col.id} disabled={col.id === moveDialogCard.board_status}>
+                      {col.label} {col.id === moveDialogCard.board_status ? "(saat ini)" : ""}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
