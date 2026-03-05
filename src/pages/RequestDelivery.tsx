@@ -337,6 +337,11 @@ export default function RequestDelivery() {
   // Drag handlers
   const handleDragStart = (e: React.DragEvent, card: DeliveryCard) => {
     if (!canManage) return;
+    // Block dragging cards in on_hold_delivery
+    if (card.board_status === "on_hold_delivery") {
+      e.preventDefault();
+      return;
+    }
     setDraggedCard(card);
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", card.id);
