@@ -674,7 +674,7 @@ export default function RequestDelivery() {
                 max={120}
                 step={5}
                 value={zoomLevel}
-                onChange={(e) => setZoomLevel(Number(e.target.value))}
+                onChange={(e) => handleSetZoom(Number(e.target.value))}
                 className="w-20 h-1.5 accent-primary cursor-pointer"
                 title={`Zoom: ${zoomLevel}%`}
               />
