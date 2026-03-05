@@ -76,8 +76,21 @@ export default function RequestDelivery() {
   const [draggedCard, setDraggedCard] = useState<DeliveryCard | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [boardBgUrl, setBoardBgUrl] = useState<string>("");
-  const [isFullView, setIsFullView] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(70); // percentage: 50-120
+  const [isFullView, setIsFullView] = useState(() => localStorage.getItem('delivery_full_view') === 'true');
+  const [zoomLevel, setZoomLevel] = useState(() => {
+    const saved = localStorage.getItem('delivery_zoom_level');
+    return saved ? Number(saved) : 70;
+  });
+
+  const handleSetFullView = (val: boolean) => {
+    setIsFullView(val);
+    localStorage.setItem('delivery_full_view', String(val));
+  };
+
+  const handleSetZoom = (val: number) => {
+    setZoomLevel(val);
+    localStorage.setItem('delivery_zoom_level', String(val));
+  };
   const [bgInput, setBgInput] = useState("");
   const bgFileRef = useRef<HTMLInputElement>(null);
 
@@ -648,7 +661,7 @@ export default function RequestDelivery() {
               </PopoverContent>
             </Popover>
           )}
-          <Button variant="outline" size="sm" onClick={() => setIsFullView(!isFullView)} title={isFullView ? "Normal View" : "Full View - Lihat Semua Kolom"}>
+          <Button variant="outline" size="sm" onClick={() => handleSetFullView(!isFullView)} title={isFullView ? "Normal View" : "Full View - Lihat Semua Kolom"}>
             {isFullView ? <Minimize2 className="h-4 w-4 mr-1" /> : <Maximize2 className="h-4 w-4 mr-1" />}
             {isFullView ? "Normal" : "Full View"}
           </Button>
@@ -661,7 +674,7 @@ export default function RequestDelivery() {
                 max={120}
                 step={5}
                 value={zoomLevel}
-                onChange={(e) => setZoomLevel(Number(e.target.value))}
+                onChange={(e) => handleSetZoom(Number(e.target.value))}
                 className="w-20 h-1.5 accent-primary cursor-pointer"
                 title={`Zoom: ${zoomLevel}%`}
               />
