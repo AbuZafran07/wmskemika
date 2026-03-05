@@ -191,25 +191,39 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     })));
   }, [card]);
 
+  // Fetch checklists
+  const fetchChecklists = useCallback(async () => {
+    if (!card) return;
+    const { data } = await supabase
+      .from("delivery_checklists")
+      .select("*")
+      .eq("delivery_request_id", card.id);
+    setChecklists((data as ChecklistItem[]) || []);
+  }, [card]);
+
   useEffect(() => {
     if (card) {
       fetchLabels();
       fetchComments();
       fetchAttachments();
+      fetchChecklists();
     }
-  }, [card, fetchLabels, fetchComments, fetchAttachments]);
+  }, [card, fetchLabels, fetchComments, fetchAttachments, fetchChecklists]);
 
-  // Realtime comments
+  // Realtime comments & checklists
   useEffect(() => {
     if (!card) return;
     const channel = supabase
-      .channel(`comments_${card.id}`)
+      .channel(`detail_${card.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "delivery_comments", filter: `delivery_request_id=eq.${card.id}` }, () => {
         fetchComments();
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "delivery_checklists", filter: `delivery_request_id=eq.${card.id}` }, () => {
+        fetchChecklists();
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [card, fetchComments]);
+  }, [card, fetchComments, fetchChecklists]);
 
   // Toggle label on card
   const toggleLabel = async (labelId: string) => {
