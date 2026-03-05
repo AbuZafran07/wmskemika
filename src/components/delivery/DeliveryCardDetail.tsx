@@ -72,6 +72,17 @@ interface Comment {
   user_avatar?: string;
 }
 
+interface Attachment {
+  id: string;
+  file_key: string;
+  url: string;
+  mime_type: string | null;
+  file_size: number | null;
+  uploaded_at: string | null;
+  uploaded_by: string | null;
+  uploader_name?: string;
+}
+
 interface Props {
   card: DeliveryCard | null;
   onClose: () => void;
