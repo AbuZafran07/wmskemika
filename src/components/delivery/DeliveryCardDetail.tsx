@@ -867,33 +867,43 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                     <span className="text-xs font-semibold">Checklist</span>
                   </div>
                   <div className="space-y-2">
-                    {checklists.map((cl) => (
-                      <div key={cl.id} className="flex items-center gap-3 p-2 rounded-md bg-background border">
-                        <Checkbox
-                          checked={cl.is_checked}
-                          disabled={!canCheckChecklist}
-                          onCheckedChange={() => handleToggleChecklist(cl.id, cl.is_checked)}
-                        />
-                        <div className="flex-1">
-                          <span className={cn(
-                            "text-sm font-medium",
-                            cl.is_checked && "line-through text-muted-foreground"
-                          )}>
-                            {cl.label}
-                          </span>
-                          {cl.is_checked && cl.checked_at && (
-                            <p className="text-[10px] text-muted-foreground mt-0.5">
-                              ✓ Dicentang {formatDistanceToNow(new Date(cl.checked_at), { addSuffix: true, locale: idLocale })}
-                            </p>
-                          )}
-                          {!canCheckChecklist && !cl.is_checked && (
-                            <p className="text-[10px] text-muted-foreground/70 mt-0.5">
-                              Hanya Purchasing / Finance / Super Admin
-                            </p>
-                          )}
+                    {checklists.map((cl) => {
+                      const isFinanceChecklist = cl.label === "Verifikasi Administrasi Finance";
+                      const canCheckThisItem = isFinanceChecklist
+                        ? ['super_admin', 'finance'].includes(user?.role || '')
+                        : canCheckChecklist;
+                      const hintText = isFinanceChecklist
+                        ? "Hanya Finance / Super Admin"
+                        : "Hanya Purchasing / Finance / Super Admin";
+
+                      return (
+                        <div key={cl.id} className="flex items-center gap-3 p-2 rounded-md bg-background border">
+                          <Checkbox
+                            checked={cl.is_checked}
+                            disabled={!canCheckThisItem}
+                            onCheckedChange={() => handleToggleChecklist(cl.id, cl.is_checked)}
+                          />
+                          <div className="flex-1">
+                            <span className={cn(
+                              "text-sm font-medium",
+                              cl.is_checked && "line-through text-muted-foreground"
+                            )}>
+                              {cl.label}
+                            </span>
+                            {cl.is_checked && cl.checked_at && (
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                ✓ Dicentang {formatDistanceToNow(new Date(cl.checked_at), { addSuffix: true, locale: idLocale })}
+                              </p>
+                            )}
+                            {!canCheckThisItem && !cl.is_checked && (
+                              <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+                                {hintText}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
