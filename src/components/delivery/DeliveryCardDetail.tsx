@@ -326,7 +326,6 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           })
           .eq("id", card.id);
         
-        // Log activity comment
         await supabase.from("delivery_comments").insert({
           delivery_request_id: card.id,
           user_id: user.id,
@@ -335,7 +334,31 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         });
 
         toast.success("Checklist selesai! Card otomatis dipindahkan ke Checking");
-        onClose(); // Close detail, parent will refetch
+        onClose();
+        return;
+      }
+
+      // If unchecked and card is in checking, auto-move back to new_order
+      if (!allChecked && card.board_status === "checking") {
+        await supabase
+          .from("delivery_requests")
+          .update({
+            board_status: "new_order",
+            moved_by: user.id,
+            moved_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", card.id);
+        
+        await supabase.from("delivery_comments").insert({
+          delivery_request_id: card.id,
+          user_id: user.id,
+          message: `⬅️ Checklist "Proses Sales Order" di-unchecklist. Card otomatis dipindahkan kembali ke New Orders.`,
+          type: "activity",
+        });
+
+        toast.info("Checklist dibatalkan. Card dipindahkan kembali ke New Orders");
+        onClose();
         return;
       }
 
