@@ -58,14 +58,6 @@ interface DeliveryCard {
   items: { product_name: string; ordered_qty: number; qty_delivered: number }[];
 }
 
-interface ChecklistItem {
-  id: string;
-  delivery_request_id: string;
-  label: string;
-  is_checked: boolean;
-  checked_by: string | null;
-  checked_at: string | null;
-}
 
 export default function RequestDelivery() {
   const { user } = useAuth();
