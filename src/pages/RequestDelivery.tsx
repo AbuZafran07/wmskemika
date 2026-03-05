@@ -186,26 +186,9 @@ export default function RequestDelivery() {
     return () => { supabase.removeChannel(channel); };
   }, [fetchCards, fetchCardLabels]);
 
-  // Check if card can move to checking (all checklists must be checked)
-  const canMoveToChecking = (cardId: string): boolean => {
-    const checklists = checklistsMap[cardId] || [];
-    if (checklists.length === 0) return false;
-    return checklists.every(cl => cl.is_checked);
-  };
-
   // Move card to new column
   const moveCard = async (cardId: string, newStatus: BoardStatus) => {
     if (!user) return;
-    
-    // Check automation: new_order → checking requires all checklists checked
-    const card = cards.find(c => c.id === cardId);
-    if (card?.board_status === "new_order" && newStatus === "checking") {
-      if (!canMoveToChecking(cardId)) {
-        toast.error("Checklist 'Proses Sales Order' harus dicentang terlebih dahulu oleh Purchasing/Finance sebelum card bisa dipindahkan ke Checking");
-        return;
-      }
-    }
-
     try {
       const { error } = await supabase
         .from("delivery_requests")
@@ -221,28 +204,6 @@ export default function RequestDelivery() {
       fetchCards();
     } catch (err: any) {
       toast.error("Gagal memindahkan card: " + err.message);
-    }
-  };
-
-  // Toggle checklist item
-  const handleToggleChecklist = async (checklistId: string, currentChecked: boolean) => {
-    if (!user || !canCheckChecklist) {
-      toast.error("Hanya Purchasing, Finance, atau Super Admin yang dapat mencentang checklist ini");
-      return;
-    }
-    try {
-      const { error } = await supabase
-        .from("delivery_checklists")
-        .update({
-          is_checked: !currentChecked,
-          checked_by: !currentChecked ? user.id : null,
-          checked_at: !currentChecked ? new Date().toISOString() : null,
-        })
-        .eq("id", checklistId);
-      if (error) throw error;
-      fetchChecklists();
-    } catch (err: any) {
-      toast.error("Gagal update checklist: " + err.message);
     }
   };
 
