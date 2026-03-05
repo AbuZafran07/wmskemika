@@ -360,6 +360,7 @@ export function canViewPurchasePrice(role: UserRole | undefined): boolean {
  */
 export const ROUTE_TO_MENU: Record<string, MenuKey> = {
   '/dashboard': 'dashboard',
+  '/request-delivery': 'requestDelivery',
   '/plan-order': 'planOrder',
   '/stock-in': 'stockIn',
   '/sales-order': 'salesOrder',

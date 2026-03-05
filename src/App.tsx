@@ -64,6 +64,11 @@ const App = () => (
                       <Dashboard />
                     </RouteGuard>
                   } />
+                  <Route path="/request-delivery" element={
+                    <RouteGuard menuKey="requestDelivery">
+                      <RequestDelivery />
+                    </RouteGuard>
+                  } />
                   
                   {/* Transactions */}
                   <Route path="/plan-order" element={
