@@ -5,16 +5,15 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, GripVertical, Package, Calendar, User, Building2, ChevronRight, Truck, RefreshCw } from "lucide-react";
+import { Plus, Package, Calendar, User, Building2, Truck, RefreshCw, Tag } from "lucide-react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { canPerformAction } from "@/lib/permissions";
+import DeliveryCardDetail from "@/components/delivery/DeliveryCardDetail";
 
 // Board columns definition
 const BOARD_COLUMNS = [
@@ -69,6 +68,7 @@ export default function RequestDelivery() {
   const [availableSOs, setAvailableSOs] = useState<any[]>([]);
   const [selectedSOId, setSelectedSOId] = useState<string>("");
   const [addNotes, setAddNotes] = useState("");
+  const [cardLabelsMap, setCardLabelsMap] = useState<Record<string, { name: string; color: string }[]>>({});
   
   // Drag state
   const [draggedCard, setDraggedCard] = useState<DeliveryCard | null>(null);
@@ -148,9 +148,29 @@ export default function RequestDelivery() {
     }
   }, []);
 
+  const fetchCardLabels = useCallback(async () => {
+    const { data: cardLabels } = await supabase
+      .from("delivery_card_labels")
+      .select("delivery_request_id, label_id");
+    const { data: labels } = await supabase
+      .from("delivery_labels")
+      .select("id, name, color");
+    if (!cardLabels || !labels) return;
+    const labelsById = Object.fromEntries(labels.map(l => [l.id, l]));
+    const map: Record<string, { name: string; color: string }[]> = {};
+    cardLabels.forEach(cl => {
+      const label = labelsById[cl.label_id];
+      if (!label) return;
+      if (!map[cl.delivery_request_id]) map[cl.delivery_request_id] = [];
+      map[cl.delivery_request_id].push({ name: label.name, color: label.color });
+    });
+    setCardLabelsMap(map);
+  }, []);
+
   useEffect(() => {
     fetchCards();
-  }, [fetchCards]);
+    fetchCardLabels();
+  }, [fetchCards, fetchCardLabels]);
 
   // Realtime subscription
   useEffect(() => {
@@ -159,9 +179,12 @@ export default function RequestDelivery() {
       .on("postgres_changes", { event: "*", schema: "public", table: "delivery_requests" }, () => {
         fetchCards();
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "delivery_card_labels" }, () => {
+        fetchCardLabels();
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [fetchCards]);
+  }, [fetchCards, fetchCardLabels]);
 
   // Move card to new column
   const moveCard = async (cardId: string, newStatus: BoardStatus) => {
@@ -355,6 +378,17 @@ export default function RequestDelivery() {
                         </Badge>
                       </div>
 
+                      {/* Labels */}
+                      {cardLabelsMap[card.id]?.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-1.5">
+                          {cardLabelsMap[card.id].map((label, idx) => (
+                            <span key={idx} className="text-[9px] text-white px-1.5 py-0.5 rounded-sm font-medium" style={{ backgroundColor: label.color }}>
+                              {label.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
                       {/* Customer */}
                       <div className="flex items-center gap-1.5 mb-1.5">
                         <Building2 className="h-3 w-3 text-muted-foreground flex-shrink-0" />
@@ -457,110 +491,15 @@ export default function RequestDelivery() {
       </Dialog>
 
       {/* Detail Card Dialog */}
-      <Dialog open={!!detailCard} onOpenChange={() => setDetailCard(null)}>
-        <DialogContent className="max-w-lg">
-          {detailCard && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Truck className="h-5 w-5 text-primary" />
-                  {detailCard.sales_order_number}
-                </DialogTitle>
-              </DialogHeader>
-              <div className="space-y-3 text-sm">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <span className="text-muted-foreground text-xs">Customer</span>
-                    <p className="font-medium">{detailCard.customer_name}</p>
-                    <p className="text-xs text-muted-foreground">{detailCard.customer_code}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground text-xs">Sales</span>
-                    <p className="font-medium">{detailCard.sales_name}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground text-xs">Tipe Alokasi</span>
-                    <p className="font-medium">{detailCard.allocation_type}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground text-xs">Project/Instansi</span>
-                    <p className="font-medium">{detailCard.project_instansi}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground text-xs">Deadline Pengiriman</span>
-                    <p className="font-medium">
-                      {detailCard.delivery_deadline ? format(new Date(detailCard.delivery_deadline), "dd MMMM yyyy", { locale: idLocale }) : "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground text-xs">Status Board</span>
-                    <Badge className={cn("mt-1", BOARD_COLUMNS.find(c => c.id === detailCard.board_status)?.color, "text-white")}>
-                      {BOARD_COLUMNS.find(c => c.id === detailCard.board_status)?.label}
-                    </Badge>
-                  </div>
-                </div>
-
-                {detailCard.ship_to_address && (
-                  <div>
-                    <span className="text-muted-foreground text-xs">Alamat Pengiriman</span>
-                    <p className="text-xs">{detailCard.ship_to_address}</p>
-                  </div>
-                )}
-
-                {/* Items */}
-                <div>
-                  <span className="text-muted-foreground text-xs block mb-1">Produk</span>
-                  <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full text-xs">
-                      <thead className="bg-muted/50">
-                        <tr>
-                          <th className="text-left p-2 font-medium">Produk</th>
-                          <th className="text-center p-2 font-medium">Qty</th>
-                          <th className="text-center p-2 font-medium">Terkirim</th>
-                          <th className="text-center p-2 font-medium">Sisa</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {detailCard.items.map((item, idx) => (
-                          <tr key={idx} className="border-t">
-                            <td className="p-2">{item.product_name}</td>
-                            <td className="p-2 text-center">{item.ordered_qty}</td>
-                            <td className="p-2 text-center">{item.qty_delivered}</td>
-                            <td className="p-2 text-center font-medium">{item.ordered_qty - item.qty_delivered}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {detailCard.notes && (
-                  <div>
-                    <span className="text-muted-foreground text-xs">Catatan Board</span>
-                    <p className="text-xs italic">{detailCard.notes}</p>
-                  </div>
-                )}
-              </div>
-              <DialogFooter className="flex-col sm:flex-row gap-2">
-                {canManage && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setMoveDialogCard(detailCard);
-                      setMoveTarget(detailCard.board_status);
-                      setDetailCard(null);
-                    }}
-                  >
-                    <ChevronRight className="h-4 w-4 mr-1" /> Pindahkan
-                  </Button>
-                )}
-                <Button variant="secondary" size="sm" onClick={() => setDetailCard(null)}>Tutup</Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      <DeliveryCardDetail
+        card={detailCard as any}
+        onClose={() => setDetailCard(null)}
+        onMoveRequest={(card) => {
+          setMoveDialogCard(card as any);
+          setMoveTarget(card.board_status as BoardStatus);
+        }}
+        canManage={!!canManage}
+      />
 
       {/* Move Dialog */}
       <Dialog open={!!moveDialogCard} onOpenChange={() => setMoveDialogCard(null)}>
