@@ -119,6 +119,11 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [sendingComment, setSendingComment] = useState(false);
+  const [showMentionList, setShowMentionList] = useState(false);
+  const [mentionSearch, setMentionSearch] = useState("");
+  const [mentionStartIndex, setMentionStartIndex] = useState(-1);
+  const [allMentionUsers, setAllMentionUsers] = useState<{ id: string; name: string; avatar_url: string | null }[]>([]);
+  const commentRef = useRef<HTMLTextAreaElement>(null);
 
   // Attachments state
   const [attachments, setAttachments] = useState<Attachment[]>([]);
