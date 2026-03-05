@@ -350,12 +350,29 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     fetchComments();
   };
 
-  // Toggle checklist & auto-move to checking
+  // Toggle checklist & auto-move logic
   const handleToggleChecklist = async (checklistId: string, currentChecked: boolean) => {
-    if (!user || !canCheckChecklist || !card) {
-      toast.error("Hanya Purchasing, Finance, atau Super Admin yang dapat mencentang checklist ini");
+    if (!user || !card) return;
+
+    // Find the checklist item to check role permission per-item
+    const checklistItem = checklists.find(cl => cl.id === checklistId);
+    if (!checklistItem) return;
+
+    // "Verifikasi Administrasi Finance" can only be checked by finance & super_admin
+    const isFinanceChecklist = checklistItem.label === "Verifikasi Administrasi Finance";
+    const canCheckThisItem = isFinanceChecklist
+      ? ['super_admin', 'finance'].includes(user.role || '')
+      : canCheckChecklist;
+
+    if (!canCheckThisItem) {
+      toast.error(
+        isFinanceChecklist
+          ? "Hanya Finance atau Super Admin yang dapat mencentang checklist ini"
+          : "Hanya Purchasing, Finance, atau Super Admin yang dapat mencentang checklist ini"
+      );
       return;
     }
+
     try {
       const newChecked = !currentChecked;
       const { error } = await supabase
@@ -368,7 +385,6 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         .eq("id", checklistId);
       if (error) throw error;
 
-      // Check if ALL checklists for this card are now checked
       // Re-fetch to get latest state
       const { data: latestChecklists } = await supabase
         .from("delivery_checklists")
@@ -428,6 +444,69 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       fetchChecklists();
     } catch (err: any) {
       toast.error("Gagal update checklist: " + err.message);
+    }
+  };
+
+  // Delete card handler with options
+  const handleDeleteCard = async () => {
+    if (!user || !card || !canDeleteCard) return;
+    setDeletingCard(true);
+    try {
+      if (deleteAction === "delivered") {
+        // Move to delivered with date note
+        await supabase
+          .from("delivery_requests")
+          .update({
+            board_status: "delivered",
+            moved_by: user.id,
+            moved_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            notes: `Sudah terkirim pada ${deliveredDate}. ${card.notes || ""}`.trim(),
+          })
+          .eq("id", card.id);
+
+        await supabase.from("delivery_comments").insert({
+          delivery_request_id: card.id,
+          user_id: user.id,
+          message: `✅ Card dipindahkan ke Delivered. Tanggal pengiriman: ${deliveredDate}`,
+          type: "activity",
+        });
+
+        toast.success("Card dipindahkan ke Delivered");
+      } else {
+        // Move back to new_order
+        await supabase
+          .from("delivery_requests")
+          .update({
+            board_status: "new_order",
+            moved_by: user.id,
+            moved_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", card.id);
+
+        // Uncheck all checklists for this card
+        await supabase
+          .from("delivery_checklists")
+          .update({ is_checked: false, checked_by: null, checked_at: null })
+          .eq("delivery_request_id", card.id);
+
+        await supabase.from("delivery_comments").insert({
+          delivery_request_id: card.id,
+          user_id: user.id,
+          message: `🔄 Card dikembalikan ke New Orders oleh ${user.role === 'finance' ? 'Finance' : 'Super Admin'}.`,
+          type: "activity",
+        });
+
+        toast.success("Card dikembalikan ke New Orders");
+      }
+
+      setShowDeleteDialog(false);
+      onClose();
+    } catch (err: any) {
+      toast.error("Gagal memproses card: " + err.message);
+    } finally {
+      setDeletingCard(false);
     }
   };
 
