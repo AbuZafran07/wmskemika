@@ -148,9 +148,29 @@ export default function RequestDelivery() {
     }
   }, []);
 
+  const fetchCardLabels = useCallback(async () => {
+    const { data: cardLabels } = await supabase
+      .from("delivery_card_labels")
+      .select("delivery_request_id, label_id");
+    const { data: labels } = await supabase
+      .from("delivery_labels")
+      .select("id, name, color");
+    if (!cardLabels || !labels) return;
+    const labelsById = Object.fromEntries(labels.map(l => [l.id, l]));
+    const map: Record<string, { name: string; color: string }[]> = {};
+    cardLabels.forEach(cl => {
+      const label = labelsById[cl.label_id];
+      if (!label) return;
+      if (!map[cl.delivery_request_id]) map[cl.delivery_request_id] = [];
+      map[cl.delivery_request_id].push({ name: label.name, color: label.color });
+    });
+    setCardLabelsMap(map);
+  }, []);
+
   useEffect(() => {
     fetchCards();
-  }, [fetchCards]);
+    fetchCardLabels();
+  }, [fetchCards, fetchCardLabels]);
 
   // Realtime subscription
   useEffect(() => {
@@ -159,9 +179,12 @@ export default function RequestDelivery() {
       .on("postgres_changes", { event: "*", schema: "public", table: "delivery_requests" }, () => {
         fetchCards();
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "delivery_card_labels" }, () => {
+        fetchCardLabels();
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [fetchCards]);
+  }, [fetchCards, fetchCardLabels]);
 
   // Move card to new column
   const moveCard = async (cardId: string, newStatus: BoardStatus) => {
