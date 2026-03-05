@@ -474,31 +474,13 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
         toast.success("Card dipindahkan ke Delivered");
       } else {
-        // Move back to new_order
-        await supabase
-          .from("delivery_requests")
-          .update({
-            board_status: "new_order",
-            moved_by: user.id,
-            moved_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", card.id);
+        // Remove card from board entirely (delete related data first)
+        await supabase.from("delivery_checklists").delete().eq("delivery_request_id", card.id);
+        await supabase.from("delivery_card_labels").delete().eq("delivery_request_id", card.id);
+        await supabase.from("delivery_comments").delete().eq("delivery_request_id", card.id);
+        await supabase.from("delivery_requests").delete().eq("id", card.id);
 
-        // Uncheck all checklists for this card
-        await supabase
-          .from("delivery_checklists")
-          .update({ is_checked: false, checked_by: null, checked_at: null })
-          .eq("delivery_request_id", card.id);
-
-        await supabase.from("delivery_comments").insert({
-          delivery_request_id: card.id,
-          user_id: user.id,
-          message: `🔄 Card dikembalikan ke New Orders oleh ${user.role === 'finance' ? 'Finance' : 'Super Admin'}.`,
-          type: "activity",
-        });
-
-        toast.success("Card dikembalikan ke New Orders");
+        toast.success("Card dihapus dari board. SO dapat ditambahkan kembali ke board.");
       }
 
       setShowDeleteDialog(false);
