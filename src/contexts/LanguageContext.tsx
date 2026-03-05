@@ -45,6 +45,8 @@ const translations: Record<Language, Record<string, string>> = {
 
     // Menu Items
     "menu.dashboard": "Dashboard",
+    "menu.requestDelivery": "Request Delivery",
+    "menu.requestDeliverySub": "Delivery Schedule",
     "menu.planOrder": "Plan Order",
     "menu.planOrderSub": "Inbound Plan",
     "menu.stockIn": "Stock In",
