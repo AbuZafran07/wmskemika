@@ -483,48 +483,88 @@ export default function RequestDelivery() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* Background changer */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Image className="h-4 w-4 mr-1" /> Background
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-72" align="end">
-              <div className="space-y-3">
-                <p className="text-sm font-medium">Ganti Background Board</p>
-                <div className="space-y-2">
-                  <label className="text-xs text-muted-foreground">Upload gambar:</label>
-                  <input
-                    ref={bgFileRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleBgFile}
-                    className="block w-full text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:bg-primary file:text-primary-foreground cursor-pointer"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs text-muted-foreground">Atau URL gambar:</label>
-                  <div className="flex gap-1">
-                    <Input
-                      value={bgInput}
-                      onChange={(e) => setBgInput(e.target.value)}
-                      placeholder="https://..."
-                      className="text-xs h-8"
-                    />
-                    <Button size="sm" className="h-8" onClick={() => { handleSetBg(bgInput); setBgInput(""); }}>
-                      Set
-                    </Button>
+          {/* Background changer - super_admin only */}
+          {isSuperAdmin && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Image className="h-4 w-4 mr-1" /> Background
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="end">
+                <div className="space-y-3">
+                  <p className="text-sm font-medium">Ganti Background Board</p>
+                  
+                  {/* Preset backgrounds */}
+                  <div className="space-y-2">
+                    <label className="text-xs text-muted-foreground font-medium">Pilih Preset:</label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[
+                        { label: "Default", value: "", preview: "bg-muted" },
+                        { label: "Warehouse", value: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=1920&q=80", preview: "bg-amber-800" },
+                        { label: "City", value: "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=1920&q=80", preview: "bg-slate-700" },
+                        { label: "Ocean", value: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920&q=80", preview: "bg-cyan-600" },
+                        { label: "Forest", value: "https://images.unsplash.com/photo-1448375240586-882707db888b?w=1920&q=80", preview: "bg-emerald-800" },
+                        { label: "Sunset", value: "https://images.unsplash.com/photo-1495616811223-4d98c6e9c869?w=1920&q=80", preview: "bg-orange-600" },
+                        { label: "Night", value: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1920&q=80", preview: "bg-indigo-900" },
+                        { label: "Abstract", value: "https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=1920&q=80", preview: "bg-purple-700" },
+                      ].map((preset) => (
+                        <button
+                          key={preset.label}
+                          onClick={() => handleSetBg(preset.value)}
+                          className={cn(
+                            "flex flex-col items-center gap-1 p-1.5 rounded-lg border transition-all hover:scale-105",
+                            boardBgUrl === preset.value
+                              ? "border-primary ring-2 ring-primary/30"
+                              : "border-border hover:border-primary/50"
+                          )}
+                        >
+                          <div className={cn("w-full h-8 rounded", preset.preview)} 
+                            style={preset.value ? { 
+                              backgroundImage: `url(${preset.value})`, 
+                              backgroundSize: "cover", 
+                              backgroundPosition: "center" 
+                            } : undefined}
+                          />
+                          <span className="text-[10px] text-muted-foreground truncate w-full text-center">{preset.label}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
+
+                  <div className="border-t pt-3 space-y-2">
+                    <label className="text-xs text-muted-foreground font-medium">Upload gambar:</label>
+                    <input
+                      ref={bgFileRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleBgFile}
+                      className="block w-full text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:bg-primary file:text-primary-foreground cursor-pointer"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs text-muted-foreground font-medium">Atau URL gambar:</label>
+                    <div className="flex gap-1">
+                      <Input
+                        value={bgInput}
+                        onChange={(e) => setBgInput(e.target.value)}
+                        placeholder="https://..."
+                        className="text-xs h-8"
+                      />
+                      <Button size="sm" className="h-8" onClick={() => { handleSetBg(bgInput); setBgInput(""); }}>
+                        Set
+                      </Button>
+                    </div>
+                  </div>
+                  {boardBgUrl && (
+                    <Button variant="destructive" size="sm" className="w-full" onClick={() => handleSetBg("")}>
+                      <X className="h-3 w-3 mr-1" /> Hapus Background
+                    </Button>
+                  )}
                 </div>
-                {boardBgUrl && (
-                  <Button variant="destructive" size="sm" className="w-full" onClick={() => handleSetBg("")}>
-                    <X className="h-3 w-3 mr-1" /> Hapus Background
-                  </Button>
-                )}
-              </div>
-            </PopoverContent>
-          </Popover>
+              </PopoverContent>
+            </Popover>
+          )}
           <Button variant="outline" size="sm" onClick={fetchCards}>
             <RefreshCw className="h-4 w-4 mr-1" /> Refresh
           </Button>
