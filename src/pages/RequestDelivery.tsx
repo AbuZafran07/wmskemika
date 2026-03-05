@@ -647,6 +647,10 @@ export default function RequestDelivery() {
               </PopoverContent>
             </Popover>
           )}
+          <Button variant="outline" size="sm" onClick={() => setIsFullView(!isFullView)} title={isFullView ? "Normal View" : "Full View - Lihat Semua Kolom"}>
+            {isFullView ? <Minimize2 className="h-4 w-4 mr-1" /> : <Maximize2 className="h-4 w-4 mr-1" />}
+            {isFullView ? "Normal" : "Full View"}
+          </Button>
           <Button variant="outline" size="sm" onClick={fetchCards}>
             <RefreshCw className="h-4 w-4 mr-1" /> Refresh
           </Button>
