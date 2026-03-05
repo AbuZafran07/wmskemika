@@ -36,6 +36,7 @@ export const ROLES = {
 
 export type MenuKey = 
   | 'dashboard'
+  | 'requestDelivery'
   | 'planOrder'
   | 'stockIn'
   | 'salesOrder'
