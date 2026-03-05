@@ -757,7 +757,7 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
     return grouped;
   };
 
-  const totalUnread = globalUnreadCount + unreadCount;
+  const totalUnread = globalUnreadCount + unreadCount + globalChatUnread;
 
   if (isMinimized) {
     return (
