@@ -157,6 +157,8 @@ export default function RequestDelivery() {
 
     if (saveResult.error) {
       toast.error(`Gagal menyimpan background: ${saveResult.error.message}`);
+    } else {
+      toast.success(url ? "Background board berhasil disimpan" : "Background board berhasil dihapus");
     }
   };
 
