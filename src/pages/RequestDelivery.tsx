@@ -75,6 +75,11 @@ export default function RequestDelivery() {
   
   const [draggedCard, setDraggedCard] = useState<DeliveryCard | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+  const [boardBgUrl, setBoardBgUrl] = useState<string>(() => {
+    return localStorage.getItem("delivery-board-bg") || "";
+  });
+  const [bgInput, setBgInput] = useState("");
+  const bgFileRef = useRef<HTMLInputElement>(null);
 
   const canManage = user?.role && ['super_admin', 'admin', 'sales', 'warehouse'].includes(user.role);
 
