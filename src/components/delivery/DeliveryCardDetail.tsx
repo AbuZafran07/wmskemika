@@ -125,6 +125,18 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   // Checklist state
   const [checklists, setChecklists] = useState<ChecklistItem[]>([]);
 
+  // Stock out delivery details
+  const [stockOutDetails, setStockOutDetails] = useState<{
+    stock_out_number: string;
+    delivery_date: string;
+    items: {
+      product_name: string;
+      qty_out: number;
+      batch_no: string;
+      expired_date: string | null;
+    }[];
+  }[]>([]);
+
   const isSuperAdmin = user?.role === 'super_admin';
   const isAdmin = user?.role && ['super_admin', 'admin'].includes(user.role);
   const canCheckChecklist = user?.role && ['super_admin', 'purchasing', 'finance'].includes(user.role);
