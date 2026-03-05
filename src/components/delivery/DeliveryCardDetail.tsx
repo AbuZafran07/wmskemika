@@ -125,6 +125,18 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   // Checklist state
   const [checklists, setChecklists] = useState<ChecklistItem[]>([]);
 
+  // Stock out delivery details
+  const [stockOutDetails, setStockOutDetails] = useState<{
+    stock_out_number: string;
+    delivery_date: string;
+    items: {
+      product_name: string;
+      qty_out: number;
+      batch_no: string;
+      expired_date: string | null;
+    }[];
+  }[]>([]);
+
   const isSuperAdmin = user?.role === 'super_admin';
   const isAdmin = user?.role && ['super_admin', 'admin'].includes(user.role);
   const canCheckChecklist = user?.role && ['super_admin', 'purchasing', 'finance'].includes(user.role);
@@ -201,14 +213,55 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     setChecklists((data as ChecklistItem[]) || []);
   }, [card]);
 
+  // Fetch stock out details for this SO
+  const fetchStockOutDetails = useCallback(async () => {
+    if (!card) return;
+    try {
+      // Get all stock out headers for this SO
+      const { data: stockOuts } = await supabase
+        .from("stock_out_headers")
+        .select("id, stock_out_number, delivery_date")
+        .eq("sales_order_id", card.sales_order_id)
+        .order("created_at", { ascending: false });
+
+      if (!stockOuts || stockOuts.length === 0) {
+        setStockOutDetails([]);
+        return;
+      }
+
+      const details = [];
+      for (const so of stockOuts) {
+        const { data: outItems } = await supabase
+          .from("stock_out_items")
+          .select("qty_out, product:products(name), batch:inventory_batches(batch_no, expired_date)")
+          .eq("stock_out_id", so.id);
+
+        details.push({
+          stock_out_number: so.stock_out_number,
+          delivery_date: so.delivery_date,
+          items: (outItems || []).map((item: any) => ({
+            product_name: item.product?.name || "-",
+            qty_out: item.qty_out,
+            batch_no: item.batch?.batch_no || "-",
+            expired_date: item.batch?.expired_date || null,
+          })),
+        });
+      }
+      setStockOutDetails(details);
+    } catch (err) {
+      console.error("Error fetching stock out details:", err);
+    }
+  }, [card]);
+
   useEffect(() => {
     if (card) {
       fetchLabels();
       fetchComments();
       fetchAttachments();
       fetchChecklists();
+      fetchStockOutDetails();
     }
-  }, [card, fetchLabels, fetchComments, fetchAttachments, fetchChecklists]);
+  }, [card, fetchLabels, fetchComments, fetchAttachments, fetchChecklists, fetchStockOutDetails]);
 
   // Realtime comments & checklists
   useEffect(() => {
@@ -598,6 +651,49 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                   </table>
                 </div>
               </div>
+
+              {/* Stock Out / Delivery Details */}
+              {stockOutDetails.length > 0 && (
+                <div>
+                  <span className="text-muted-foreground text-xs block mb-1">📦 Detail Pengiriman (Stock Out)</span>
+                  <div className="space-y-3">
+                    {stockOutDetails.map((so, soIdx) => (
+                      <div key={soIdx} className="border rounded-lg overflow-hidden">
+                        <div className="bg-primary/10 px-2 py-1.5 flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-primary">{so.stock_out_number}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {format(new Date(so.delivery_date), "dd MMM yyyy", { locale: idLocale })}
+                          </span>
+                        </div>
+                        <table className="w-full text-xs">
+                          <thead className="bg-muted/50">
+                            <tr>
+                              <th className="text-left p-2 font-medium">Produk</th>
+                              <th className="text-center p-2 font-medium">Qty Kirim</th>
+                              <th className="text-left p-2 font-medium">No. Batch</th>
+                              <th className="text-left p-2 font-medium">Expiry</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {so.items.map((item, idx) => (
+                              <tr key={idx} className="border-t">
+                                <td className="p-2">{item.product_name}</td>
+                                <td className="p-2 text-center font-medium">{item.qty_out}</td>
+                                <td className="p-2 font-mono text-[10px]">{item.batch_no}</td>
+                                <td className="p-2 text-[10px]">
+                                  {item.expired_date
+                                    ? format(new Date(item.expired_date), "dd MMM yyyy", { locale: idLocale })
+                                    : "-"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {card.notes && (
                 <div className="text-sm">

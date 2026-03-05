@@ -330,6 +330,89 @@ export default function StockOut() {
 
       toast.success(language === "en" ? "Stock Out saved successfully" : "Stock Out berhasil disimpan");
 
+      // === AUTOMATION: Move delivery card from Checking → Approval Delivery ===
+      try {
+        // Find delivery card for this SO in "checking" status
+        const { data: deliveryCard } = await supabase
+          .from("delivery_requests")
+          .select("id")
+          .eq("sales_order_id", selectedSalesOrderId)
+          .eq("board_status", "checking")
+          .maybeSingle();
+
+        if (deliveryCard) {
+          const { data: currentUser } = await supabase.auth.getUser();
+          const userId = currentUser?.user?.id;
+
+          // Move card to approval_delivery
+          await supabase
+            .from("delivery_requests")
+            .update({
+              board_status: "approval_delivery",
+              moved_by: userId,
+              moved_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", deliveryCard.id);
+
+          // Log activity
+          if (userId) {
+            await supabase.from("delivery_comments").insert({
+              delivery_request_id: deliveryCard.id,
+              user_id: userId,
+              message: `📦 Stock Out "${stockOutNumber}" telah dibuat. Card otomatis dipindahkan ke Approval Delivery Order.`,
+              type: "activity",
+            });
+          }
+
+          // Check if SO still has remaining items (partial delivery)
+          const { data: remainingItems } = await supabase
+            .from("sales_order_items")
+            .select("id, ordered_qty, qty_delivered")
+            .eq("sales_order_id", selectedSalesOrderId);
+
+          const hasRemaining = remainingItems?.some(
+            (item) => (item.ordered_qty - (item.qty_delivered || 0)) > 0
+          );
+
+          if (hasRemaining) {
+            // Create new card in new_order for remaining items
+            const { data: newCard } = await supabase
+              .from("delivery_requests")
+              .insert({
+                sales_order_id: selectedSalesOrderId,
+                board_status: "new_order",
+                notes: `Sisa pengiriman dari Stock Out ${stockOutNumber}`,
+                created_by: userId,
+              })
+              .select("id")
+              .single();
+
+            if (newCard?.id) {
+              // Auto-create checklist
+              await supabase.from("delivery_checklists").insert({
+                delivery_request_id: newCard.id,
+                label: "Proses Sales Order",
+              });
+
+              if (userId) {
+                await supabase.from("delivery_comments").insert({
+                  delivery_request_id: newCard.id,
+                  user_id: userId,
+                  message: `🔄 Card baru dibuat otomatis untuk sisa barang dari pengiriman partial (Stock Out: ${stockOutNumber}).`,
+                  type: "activity",
+                });
+              }
+            }
+
+            toast.info("Pengiriman partial: Card baru dibuat di New Orders untuk sisa barang");
+          }
+        }
+      } catch (automationErr) {
+        console.error("Delivery board automation error:", automationErr);
+        // Don't fail the stock out if automation fails
+      }
+
       // Reset form + refresh list so the status/availability updates immediately
       await fetchSalesOrders();
       setSelectedSalesOrderId("");
