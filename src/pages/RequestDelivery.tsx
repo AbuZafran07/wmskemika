@@ -79,34 +79,84 @@ export default function RequestDelivery() {
   const [bgInput, setBgInput] = useState("");
   const bgFileRef = useRef<HTMLInputElement>(null);
 
+  const extractBoardBackgroundUrl = (value: unknown): string => {
+    if (!value) return "";
+
+    if (typeof value === "string") {
+      const raw = value.trim();
+      if (!raw) return "";
+
+      if (raw.startsWith("{")) {
+        try {
+          const parsed = JSON.parse(raw) as { url?: unknown };
+          return typeof parsed.url === "string" ? parsed.url : "";
+        } catch {
+          return "";
+        }
+      }
+
+      return raw;
+    }
+
+    if (typeof value === "object") {
+      const url = (value as { url?: unknown }).url;
+      return typeof url === "string" ? url : "";
+    }
+
+    return "";
+  };
+
   // Load background from settings table (shared across all users)
   useEffect(() => {
     const loadBg = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("settings")
-        .select("value")
+        .select("id, value")
         .eq("key", "delivery_board_bg")
+        .order("updated_at", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(1)
         .maybeSingle();
-      if (data?.value) {
-        setBoardBgUrl(typeof data.value === 'string' ? data.value : (data.value as any)?.url || "");
+
+      if (error) {
+        console.error("Gagal load background board:", error);
+        return;
       }
+
+      setBoardBgUrl(extractBoardBackgroundUrl(data?.value));
     };
+
     loadBg();
   }, []);
 
   const handleSetBg = async (url: string) => {
     setBoardBgUrl(url);
-    // Save to settings table so all users see it
-    const { data: existing } = await supabase
+
+    const payload = url ? { url } : null;
+
+    const { data: existing, error: existingError } = await supabase
       .from("settings")
       .select("id")
       .eq("key", "delivery_board_bg")
+      .order("updated_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
-    
-    if (existing) {
-      await supabase.from("settings").update({ value: JSON.stringify({ url }), updated_at: new Date().toISOString() }).eq("key", "delivery_board_bg");
-    } else {
-      await supabase.from("settings").insert({ key: "delivery_board_bg", value: JSON.stringify({ url }) });
+
+    if (existingError) {
+      toast.error("Gagal membaca pengaturan background");
+      return;
+    }
+
+    const saveResult = existing?.id
+      ? await supabase
+          .from("settings")
+          .update({ value: payload, updated_at: new Date().toISOString() })
+          .eq("id", existing.id)
+      : await supabase.from("settings").insert({ key: "delivery_board_bg", value: payload });
+
+    if (saveResult.error) {
+      toast.error(`Gagal menyimpan background: ${saveResult.error.message}`);
     }
   };
 
@@ -121,7 +171,7 @@ export default function RequestDelivery() {
       const { error } = await supabase.storage.from("documents").upload(fileKey, file);
       if (error) throw error;
       const { data: urlData } = supabase.storage.from("documents").getPublicUrl(fileKey);
-      handleSetBg(urlData.publicUrl);
+      await handleSetBg(urlData.publicUrl);
     } catch (err: any) {
       toast.error("Gagal upload background: " + err.message);
     }

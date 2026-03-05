@@ -758,19 +758,24 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
   };
 
   const totalUnread = globalUnreadCount + unreadCount + globalChatUnread;
+  const floatingWidgetStyle = {
+    bottom: "max(1rem, env(safe-area-inset-bottom))",
+    right: "max(1rem, env(safe-area-inset-right))",
+  } as const;
 
   if (isMinimized) {
     return (
       <Button
         onClick={() => setIsMinimized(false)}
-        className={`fixed bottom-4 right-4 h-16 w-16 rounded-full shadow-lg z-50 p-0 overflow-hidden bg-white border border-gray-200 transition-all duration-300 ease-out hover:scale-110 hover:shadow-[0_0_20px_rgba(59,130,246,0.5)] ${totalUnread > 0 ? "animate-bounce" : ""}`}
+        className={`fixed h-16 w-16 rounded-full shadow-lg z-50 p-0 bg-background border border-border transition-all duration-300 ease-out hover:scale-110 hover:shadow-[0_0_20px_hsl(var(--primary)/0.45)] ${totalUnread > 0 ? "animate-bounce" : ""}`}
         size="icon"
+        style={floatingWidgetStyle}
       >
-        <img src={ktalkIcon} alt="K'talk" className="h-full w-full object-cover" />
+        <img src={ktalkIcon} alt="K'talk" className="h-full w-full rounded-full object-cover" />
         {totalUnread > 0 && (
           <Badge
             variant="destructive"
-            className="absolute -top-1 -right-1 h-6 w-6 flex items-center justify-center p-0 text-xs font-bold"
+            className="absolute top-0 right-0 h-6 w-6 flex items-center justify-center p-0 text-xs font-bold"
           >
             {totalUnread > 99 ? "99+" : totalUnread}
           </Badge>
@@ -781,7 +786,8 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
 
   return (
     <Card
-      className={`fixed bottom-4 right-4 shadow-xl z-50 transition-all duration-300 ${isExpanded ? "w-[500px] h-[600px]" : "w-[350px] h-[450px]"}`}
+      className={`fixed shadow-xl z-50 transition-all duration-300 ${isExpanded ? "w-[500px] h-[600px]" : "w-[350px] h-[450px]"}`}
+      style={floatingWidgetStyle}
     >
       <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
         <CardTitle className="flex items-center gap-2 text-base">
