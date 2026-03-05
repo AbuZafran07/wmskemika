@@ -355,6 +355,12 @@ export default function StockOut() {
             })
             .eq("id", deliveryCard.id);
 
+          // Auto-create checklist "Verifikasi Administrasi Finance"
+          await supabase.from("delivery_checklists").insert({
+            delivery_request_id: deliveryCard.id,
+            label: "Verifikasi Administrasi Finance",
+          });
+
           // Log activity
           if (userId) {
             await supabase.from("delivery_comments").insert({

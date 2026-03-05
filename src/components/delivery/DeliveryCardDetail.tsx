@@ -10,7 +10,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { Truck, ChevronRight, Tag, MessageSquare, Send, X, Plus, Trash2, Paperclip, FileText, Image, Download, Loader2, CheckSquare } from "lucide-react";
+import { Truck, ChevronRight, Tag, MessageSquare, Send, X, Plus, Trash2, Paperclip, FileText, Image, Download, Loader2, CheckSquare, AlertTriangle, Calendar } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { format, formatDistanceToNow } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -137,9 +139,17 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     }[];
   }[]>([]);
 
+  // Delete card dialog state
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteAction, setDeleteAction] = useState<"new_order" | "delivered">("new_order");
+  const [deliveredDate, setDeliveredDate] = useState(new Date().toISOString().split("T")[0]);
+  const [deletingCard, setDeletingCard] = useState(false);
+
   const isSuperAdmin = user?.role === 'super_admin';
+  const isFinance = user?.role === 'finance';
   const isAdmin = user?.role && ['super_admin', 'admin'].includes(user.role);
   const canCheckChecklist = user?.role && ['super_admin', 'purchasing', 'finance'].includes(user.role);
+  const canDeleteCard = user?.role && ['super_admin', 'finance'].includes(user.role);
 
   // Fetch labels & card labels
   const fetchLabels = useCallback(async () => {
@@ -340,12 +350,29 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     fetchComments();
   };
 
-  // Toggle checklist & auto-move to checking
+  // Toggle checklist & auto-move logic
   const handleToggleChecklist = async (checklistId: string, currentChecked: boolean) => {
-    if (!user || !canCheckChecklist || !card) {
-      toast.error("Hanya Purchasing, Finance, atau Super Admin yang dapat mencentang checklist ini");
+    if (!user || !card) return;
+
+    // Find the checklist item to check role permission per-item
+    const checklistItem = checklists.find(cl => cl.id === checklistId);
+    if (!checklistItem) return;
+
+    // "Verifikasi Administrasi Finance" can only be checked by finance & super_admin
+    const isFinanceChecklist = checklistItem.label === "Verifikasi Administrasi Finance";
+    const canCheckThisItem = isFinanceChecklist
+      ? ['super_admin', 'finance'].includes(user.role || '')
+      : canCheckChecklist;
+
+    if (!canCheckThisItem) {
+      toast.error(
+        isFinanceChecklist
+          ? "Hanya Finance atau Super Admin yang dapat mencentang checklist ini"
+          : "Hanya Purchasing, Finance, atau Super Admin yang dapat mencentang checklist ini"
+      );
       return;
     }
+
     try {
       const newChecked = !currentChecked;
       const { error } = await supabase
@@ -358,7 +385,6 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         .eq("id", checklistId);
       if (error) throw error;
 
-      // Check if ALL checklists for this card are now checked
       // Re-fetch to get latest state
       const { data: latestChecklists } = await supabase
         .from("delivery_checklists")
@@ -418,6 +444,69 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       fetchChecklists();
     } catch (err: any) {
       toast.error("Gagal update checklist: " + err.message);
+    }
+  };
+
+  // Delete card handler with options
+  const handleDeleteCard = async () => {
+    if (!user || !card || !canDeleteCard) return;
+    setDeletingCard(true);
+    try {
+      if (deleteAction === "delivered") {
+        // Move to delivered with date note
+        await supabase
+          .from("delivery_requests")
+          .update({
+            board_status: "delivered",
+            moved_by: user.id,
+            moved_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            notes: `Sudah terkirim pada ${deliveredDate}. ${card.notes || ""}`.trim(),
+          })
+          .eq("id", card.id);
+
+        await supabase.from("delivery_comments").insert({
+          delivery_request_id: card.id,
+          user_id: user.id,
+          message: `✅ Card dipindahkan ke Delivered. Tanggal pengiriman: ${deliveredDate}`,
+          type: "activity",
+        });
+
+        toast.success("Card dipindahkan ke Delivered");
+      } else {
+        // Move back to new_order
+        await supabase
+          .from("delivery_requests")
+          .update({
+            board_status: "new_order",
+            moved_by: user.id,
+            moved_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", card.id);
+
+        // Uncheck all checklists for this card
+        await supabase
+          .from("delivery_checklists")
+          .update({ is_checked: false, checked_by: null, checked_at: null })
+          .eq("delivery_request_id", card.id);
+
+        await supabase.from("delivery_comments").insert({
+          delivery_request_id: card.id,
+          user_id: user.id,
+          message: `🔄 Card dikembalikan ke New Orders oleh ${user.role === 'finance' ? 'Finance' : 'Super Admin'}.`,
+          type: "activity",
+        });
+
+        toast.success("Card dikembalikan ke New Orders");
+      }
+
+      setShowDeleteDialog(false);
+      onClose();
+    } catch (err: any) {
+      toast.error("Gagal memproses card: " + err.message);
+    } finally {
+      setDeletingCard(false);
     }
   };
 
@@ -778,33 +867,43 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                     <span className="text-xs font-semibold">Checklist</span>
                   </div>
                   <div className="space-y-2">
-                    {checklists.map((cl) => (
-                      <div key={cl.id} className="flex items-center gap-3 p-2 rounded-md bg-background border">
-                        <Checkbox
-                          checked={cl.is_checked}
-                          disabled={!canCheckChecklist}
-                          onCheckedChange={() => handleToggleChecklist(cl.id, cl.is_checked)}
-                        />
-                        <div className="flex-1">
-                          <span className={cn(
-                            "text-sm font-medium",
-                            cl.is_checked && "line-through text-muted-foreground"
-                          )}>
-                            {cl.label}
-                          </span>
-                          {cl.is_checked && cl.checked_at && (
-                            <p className="text-[10px] text-muted-foreground mt-0.5">
-                              ✓ Dicentang {formatDistanceToNow(new Date(cl.checked_at), { addSuffix: true, locale: idLocale })}
-                            </p>
-                          )}
-                          {!canCheckChecklist && !cl.is_checked && (
-                            <p className="text-[10px] text-muted-foreground/70 mt-0.5">
-                              Hanya Purchasing / Finance / Super Admin
-                            </p>
-                          )}
+                    {checklists.map((cl) => {
+                      const isFinanceChecklist = cl.label === "Verifikasi Administrasi Finance";
+                      const canCheckThisItem = isFinanceChecklist
+                        ? ['super_admin', 'finance'].includes(user?.role || '')
+                        : canCheckChecklist;
+                      const hintText = isFinanceChecklist
+                        ? "Hanya Finance / Super Admin"
+                        : "Hanya Purchasing / Finance / Super Admin";
+
+                      return (
+                        <div key={cl.id} className="flex items-center gap-3 p-2 rounded-md bg-background border">
+                          <Checkbox
+                            checked={cl.is_checked}
+                            disabled={!canCheckThisItem}
+                            onCheckedChange={() => handleToggleChecklist(cl.id, cl.is_checked)}
+                          />
+                          <div className="flex-1">
+                            <span className={cn(
+                              "text-sm font-medium",
+                              cl.is_checked && "line-through text-muted-foreground"
+                            )}>
+                              {cl.label}
+                            </span>
+                            {cl.is_checked && cl.checked_at && (
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                ✓ Dicentang {formatDistanceToNow(new Date(cl.checked_at), { addSuffix: true, locale: idLocale })}
+                              </p>
+                            )}
+                            {!canCheckThisItem && !cl.is_checked && (
+                              <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+                                {hintText}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -893,6 +992,11 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         </div>
 
         <DialogFooter className="px-6 py-3 border-t flex-col sm:flex-row gap-2">
+          {canDeleteCard && (
+            <Button variant="destructive" size="sm" onClick={() => setShowDeleteDialog(true)} className="mr-auto">
+              <Trash2 className="h-4 w-4 mr-1" /> Hapus Card
+            </Button>
+          )}
           {canManage && (
             <Button variant="outline" size="sm" onClick={() => { onMoveRequest(card); onClose(); }}>
               <ChevronRight className="h-4 w-4 mr-1" /> Pindahkan
@@ -901,6 +1005,76 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           <Button variant="secondary" size="sm" onClick={onClose}>Tutup</Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Delete Card Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Hapus Card Delivery
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Pilih tindakan untuk card <span className="font-semibold text-foreground">{card.sales_order_number}</span>:
+            </p>
+            <div className="space-y-3">
+              <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors">
+                <input
+                  type="radio"
+                  name="deleteAction"
+                  value="new_order"
+                  checked={deleteAction === "new_order"}
+                  onChange={() => setDeleteAction("new_order")}
+                  className="mt-0.5"
+                />
+                <div>
+                  <p className="text-sm font-medium">Kembalikan ke New Orders</p>
+                  <p className="text-xs text-muted-foreground">Card akan kembali ke daftar New Orders untuk diproses ulang.</p>
+                </div>
+              </label>
+              <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors">
+                <input
+                  type="radio"
+                  name="deleteAction"
+                  value="delivered"
+                  checked={deleteAction === "delivered"}
+                  onChange={() => setDeleteAction("delivered")}
+                  className="mt-0.5"
+                />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Pindahkan ke Delivered</p>
+                  <p className="text-xs text-muted-foreground mb-2">Tandai card sudah terkirim dengan tanggal pengiriman.</p>
+                  {deleteAction === "delivered" && (
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="date"
+                        value={deliveredDate}
+                        onChange={(e) => setDeliveredDate(e.target.value)}
+                        className="h-8 text-xs w-auto"
+                      />
+                    </div>
+                  )}
+                </div>
+              </label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setShowDeleteDialog(false)}>Batal</Button>
+            <Button
+              variant={deleteAction === "delivered" ? "default" : "destructive"}
+              size="sm"
+              onClick={handleDeleteCard}
+              disabled={deletingCard}
+            >
+              {deletingCard && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              {deleteAction === "delivered" ? "Pindah ke Delivered" : "Kembalikan ke New Orders"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
