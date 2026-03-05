@@ -431,6 +431,10 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                   <p className="font-medium">{card.sales_name}</p>
                 </div>
                 <div>
+                  <span className="text-muted-foreground text-xs">No. PO Customer</span>
+                  <p className="font-medium">{card.customer_po_number}</p>
+                </div>
+                <div>
                   <span className="text-muted-foreground text-xs">Tipe Alokasi</span>
                   <p className="font-medium">{card.allocation_type}</p>
                 </div>
