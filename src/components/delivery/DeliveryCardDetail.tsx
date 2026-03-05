@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { Truck, ChevronRight, Tag, MessageSquare, Send, X, Plus, Trash2 } from "lucide-react";
+import { Truck, ChevronRight, Tag, MessageSquare, Send, X, Plus, Trash2, Paperclip, FileText, Image, Download, Loader2 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -72,6 +72,17 @@ interface Comment {
   user_avatar?: string;
 }
 
+interface Attachment {
+  id: string;
+  file_key: string;
+  url: string;
+  mime_type: string | null;
+  file_size: number | null;
+  uploaded_at: string | null;
+  uploaded_by: string | null;
+  uploader_name?: string;
+}
+
 interface Props {
   card: DeliveryCard | null;
   onClose: () => void;
@@ -95,6 +106,11 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [sendingComment, setSendingComment] = useState(false);
+
+  // Attachments state
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isAdmin = user?.role && ['super_admin', 'admin'].includes(user.role);
 
@@ -138,12 +154,36 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     setComments(mapped);
   }, [card]);
 
+  // Fetch attachments
+  const fetchAttachments = useCallback(async () => {
+    if (!card) return;
+    const { data } = await supabase
+      .from("attachments")
+      .select("*")
+      .eq("ref_table", "delivery_requests")
+      .eq("ref_id", card.id)
+      .order("uploaded_at", { ascending: false });
+
+    if (!data) { setAttachments([]); return; }
+
+    const userIds = [...new Set(data.map(a => a.uploaded_by).filter(Boolean))] as string[];
+    const { data: profiles } = userIds.length > 0
+      ? await supabase.from("profiles").select("id, full_name").in("id", userIds)
+      : { data: [] };
+
+    setAttachments(data.map(a => ({
+      ...a,
+      uploader_name: profiles?.find(p => p.id === a.uploaded_by)?.full_name || "Unknown",
+    })));
+  }, [card]);
+
   useEffect(() => {
     if (card) {
       fetchLabels();
       fetchComments();
+      fetchAttachments();
     }
-  }, [card, fetchLabels, fetchComments]);
+  }, [card, fetchLabels, fetchComments, fetchAttachments]);
 
   // Realtime comments
   useEffect(() => {
@@ -218,6 +258,72 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     await supabase.from("delivery_comments").delete().eq("id", commentId);
     fetchComments();
   };
+
+  // Upload attachment
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !card || !user) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Ukuran file maksimal 5MB");
+      return;
+    }
+
+    setUploadingFile(true);
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileKey = `delivery/${card.id}/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("documents")
+        .upload(fileKey, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage.from("documents").getPublicUrl(fileKey);
+
+      await supabase.from("attachments").insert({
+        ref_table: "delivery_requests",
+        ref_id: card.id,
+        module_name: "delivery",
+        file_key: fileKey,
+        url: urlData.publicUrl,
+        mime_type: file.type,
+        file_size: file.size,
+        uploaded_by: user.id,
+      });
+
+      toast.success("File berhasil diupload");
+      fetchAttachments();
+    } catch (err: any) {
+      toast.error("Gagal upload: " + err.message);
+    } finally {
+      setUploadingFile(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  // Delete attachment
+  const deleteAttachment = async (att: Attachment) => {
+    try {
+      await supabase.storage.from("documents").remove([att.file_key]);
+      await supabase.from("attachments").delete().eq("id", att.id);
+      toast.success("File dihapus");
+      fetchAttachments();
+    } catch {
+      toast.error("Gagal menghapus file");
+    }
+  };
+
+  // Format file size
+  const formatSize = (bytes: number | null) => {
+    if (!bytes) return "";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const isImageFile = (mime: string | null) => mime?.startsWith("image/");
 
   if (!card) return null;
 
@@ -385,6 +491,74 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                 <p className="text-xs italic">{card.notes}</p>
               </div>
             )}
+
+            {/* Attachments */}
+            <div className="border-t pt-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Paperclip className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs font-semibold">Lampiran</span>
+                {attachments.length > 0 && (
+                  <Badge variant="secondary" className="h-4 text-[10px] px-1.5">{attachments.length}</Badge>
+                )}
+                {canManage && (
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-6 text-[11px] px-2 gap-1 ml-auto"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingFile}
+                    >
+                      {uploadingFile ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                      Upload
+                    </Button>
+                  </>
+                )}
+              </div>
+
+              {attachments.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-2">Belum ada lampiran</p>
+              ) : (
+                <div className="space-y-2">
+                  {attachments.map(att => (
+                    <div key={att.id} className="flex items-center gap-2 p-2 rounded-lg border bg-muted/30 group">
+                      <div className="w-8 h-8 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                        {isImageFile(att.mime_type) ? (
+                          <Image className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">{att.file_key.split("/").pop()}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {formatSize(att.file_size)} • {att.uploader_name}
+                          {att.uploaded_at && ` • ${formatDistanceToNow(new Date(att.uploaded_at), { addSuffix: true, locale: idLocale })}`}
+                        </p>
+                      </div>
+                      <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 p-1">
+                        <Download className="h-3.5 w-3.5" />
+                      </a>
+                      {(att.uploaded_by === user?.id || isAdmin) && (
+                        <button
+                          onClick={() => deleteAttachment(att)}
+                          className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive/80 p-1"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Comments & Activity - below products */}
             <div className="border-t pt-4">
