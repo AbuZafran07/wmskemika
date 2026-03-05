@@ -44,6 +44,7 @@ interface DeliveryCard {
   sales_order_number: string;
   customer_name: string;
   customer_code: string;
+  customer_po_number: string;
   allocation_type: string;
   project_instansi: string;
   sales_name: string;
@@ -430,6 +431,10 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                   <p className="font-medium">{card.sales_name}</p>
                 </div>
                 <div>
+                  <span className="text-muted-foreground text-xs">No. PO Customer</span>
+                  <p className="font-medium">{card.customer_po_number}</p>
+                </div>
+                <div>
                   <span className="text-muted-foreground text-xs">Tipe Alokasi</span>
                   <p className="font-medium">{card.allocation_type}</p>
                 </div>
@@ -546,7 +551,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                         <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 p-1">
                           <Download className="h-3.5 w-3.5" />
                         </a>
-                        {(att.uploaded_by === user?.id || isAdmin) && (
+                        {isSuperAdmin && (
                           <button
                             onClick={() => deleteAttachment(att)}
                             className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive/80 p-1"

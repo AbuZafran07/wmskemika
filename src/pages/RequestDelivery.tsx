@@ -44,6 +44,7 @@ interface DeliveryCard {
   sales_order_number: string;
   customer_name: string;
   customer_code: string;
+  customer_po_number: string;
   allocation_type: string;
   project_instansi: string;
   sales_name: string;
@@ -122,6 +123,7 @@ export default function RequestDelivery() {
           sales_order_number: so?.sales_order_number || "-",
           customer_name: (so?.customers as any)?.name || "-",
           customer_code: (so?.customers as any)?.code || "-",
+          customer_po_number: so?.customer_po_number || "-",
           allocation_type: so?.allocation_type || "-",
           project_instansi: so?.project_instansi || "-",
           sales_name: so?.sales_name || "-",
@@ -394,6 +396,11 @@ export default function RequestDelivery() {
                         <Building2 className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                         <span className="text-[11px] text-foreground truncate font-medium">{card.customer_name}</span>
                       </div>
+
+                      {/* Customer PO Number */}
+                      <p className="text-[10px] text-muted-foreground truncate mb-1">
+                        PO: <span className="font-medium text-foreground/80">{card.customer_po_number}</span>
+                      </p>
 
                       {/* Project */}
                       <p className="text-[10px] text-muted-foreground truncate mb-2">

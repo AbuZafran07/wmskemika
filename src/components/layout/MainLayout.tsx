@@ -15,14 +15,19 @@ interface OnlineUser {
 }
 
 const SIDEBAR_WIDTH_KEY = 'sidebar-width';
+const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed';
 const MIN_SIDEBAR_WIDTH = 220;
 const DEFAULT_SIDEBAR_WIDTH = 280;
 const MAX_SIDEBAR_WIDTH = 420;
+const COLLAPSED_SIDEBAR_WIDTH = 64;
 
 export default function MainLayout() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
+  });
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY);
     return saved ? Math.min(Math.max(parseInt(saved, 10), MIN_SIDEBAR_WIDTH), MAX_SIDEBAR_WIDTH) : DEFAULT_SIDEBAR_WIDTH;
@@ -30,16 +35,25 @@ export default function MainLayout() {
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
-  // Persist sidebar width to localStorage
+  // Persist sidebar state
   useEffect(() => {
     localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
   }, [sidebarWidth]);
 
+  useEffect(() => {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, isCollapsed.toString());
+  }, [isCollapsed]);
+
+  const toggleCollapsed = useCallback(() => {
+    setIsCollapsed(prev => !prev);
+  }, []);
+
   // Handle resize
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (isCollapsed) return;
     e.preventDefault();
     setIsResizing(true);
-  }, []);
+  }, [isCollapsed]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isResizing) return;
@@ -147,20 +161,24 @@ export default function MainLayout() {
         {/* Desktop Sidebar - only visible on lg+ */}
         <div
           ref={sidebarRef}
-          className="hidden lg:flex relative flex-shrink-0 group"
-          style={{ width: sidebarWidth }}
+          className="hidden lg:flex relative flex-shrink-0 group transition-all duration-300 ease-in-out"
+          style={{ width: isCollapsed ? COLLAPSED_SIDEBAR_WIDTH : sidebarWidth }}
         >
           <AppSidebar 
             isMobile={false}
             isOpen={true}
+            isCollapsed={isCollapsed}
+            onToggleCollapse={toggleCollapsed}
             onClose={() => {}}
             onNavigate={() => {}}
           />
-          {/* Resize handle */}
-          <div
-            className="resize-handle"
-            onMouseDown={handleMouseDown}
-          />
+          {/* Resize handle - hidden when collapsed */}
+          {!isCollapsed && (
+            <div
+              className="resize-handle"
+              onMouseDown={handleMouseDown}
+            />
+          )}
         </div>
 
         {/* Mobile Drawer Overlay */}
@@ -187,6 +205,8 @@ export default function MainLayout() {
           <AppSidebar 
             isMobile={true}
             isOpen={isMobileDrawerOpen}
+            isCollapsed={false}
+            onToggleCollapse={() => {}}
             onClose={closeMobileDrawer}
             onNavigate={closeMobileDrawer}
           />
