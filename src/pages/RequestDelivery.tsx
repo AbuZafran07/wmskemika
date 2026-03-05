@@ -458,10 +458,10 @@ export default function RequestDelivery() {
 
       {/* Detail Card Dialog */}
       <DeliveryCardDetail
-        card={detailCard}
+        card={detailCard as any}
         onClose={() => setDetailCard(null)}
         onMoveRequest={(card) => {
-          setMoveDialogCard(card);
+          setMoveDialogCard(card as any);
           setMoveTarget(card.board_status as BoardStatus);
         }}
         canManage={!!canManage}
