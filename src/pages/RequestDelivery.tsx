@@ -683,8 +683,12 @@ export default function RequestDelivery() {
                 </SelectTrigger>
                 <SelectContent>
                   {BOARD_COLUMNS.map((col) => (
-                    <SelectItem key={col.id} value={col.id} disabled={col.id === moveDialogCard.board_status}>
-                      {col.label} {col.id === moveDialogCard.board_status ? "(saat ini)" : ""}
+                    <SelectItem 
+                      key={col.id} 
+                      value={col.id} 
+                      disabled={col.id === moveDialogCard.board_status || col.id === "on_hold_delivery"}
+                    >
+                      {col.label} {col.id === moveDialogCard.board_status ? "(saat ini)" : ""} {col.id === "on_hold_delivery" ? "🔒" : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
