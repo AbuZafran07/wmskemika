@@ -85,6 +85,15 @@ interface Attachment {
   uploader_name?: string;
 }
 
+interface ChecklistItem {
+  id: string;
+  delivery_request_id: string;
+  label: string;
+  is_checked: boolean;
+  checked_by: string | null;
+  checked_at: string | null;
+}
+
 interface Props {
   card: DeliveryCard | null;
   onClose: () => void;
