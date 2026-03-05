@@ -333,6 +333,44 @@ export type Database = {
           },
         ]
       }
+      delivery_checklists: {
+        Row: {
+          checked_at: string | null
+          checked_by: string | null
+          created_at: string
+          delivery_request_id: string
+          id: string
+          is_checked: boolean
+          label: string
+        }
+        Insert: {
+          checked_at?: string | null
+          checked_by?: string | null
+          created_at?: string
+          delivery_request_id: string
+          id?: string
+          is_checked?: boolean
+          label: string
+        }
+        Update: {
+          checked_at?: string | null
+          checked_by?: string | null
+          created_at?: string
+          delivery_request_id?: string
+          id?: string
+          is_checked?: boolean
+          label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_checklists_delivery_request_id_fkey"
+            columns: ["delivery_request_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       delivery_comments: {
         Row: {
           created_at: string
