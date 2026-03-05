@@ -88,7 +88,6 @@ export default function RequestDelivery() {
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
 
   const canManage = user?.role && ['super_admin', 'admin', 'sales', 'warehouse'].includes(user.role);
-  const canCheckChecklist = user?.role && ['super_admin', 'purchasing', 'finance'].includes(user.role);
 
   const fetchCards = useCallback(async () => {
     try {
