@@ -287,7 +287,65 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     fetchComments();
   };
 
-  // Upload attachment
+  // Toggle checklist & auto-move to checking
+  const handleToggleChecklist = async (checklistId: string, currentChecked: boolean) => {
+    if (!user || !canCheckChecklist || !card) {
+      toast.error("Hanya Purchasing, Finance, atau Super Admin yang dapat mencentang checklist ini");
+      return;
+    }
+    try {
+      const newChecked = !currentChecked;
+      const { error } = await supabase
+        .from("delivery_checklists")
+        .update({
+          is_checked: newChecked,
+          checked_by: newChecked ? user.id : null,
+          checked_at: newChecked ? new Date().toISOString() : null,
+        })
+        .eq("id", checklistId);
+      if (error) throw error;
+
+      // Check if ALL checklists for this card are now checked
+      // Re-fetch to get latest state
+      const { data: latestChecklists } = await supabase
+        .from("delivery_checklists")
+        .select("*")
+        .eq("delivery_request_id", card.id);
+
+      const allChecked = latestChecklists && latestChecklists.length > 0 && latestChecklists.every((cl: any) => cl.is_checked);
+      
+      if (allChecked && card.board_status === "new_order") {
+        // Auto-move to checking
+        await supabase
+          .from("delivery_requests")
+          .update({
+            board_status: "checking",
+            moved_by: user.id,
+            moved_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", card.id);
+        
+        // Log activity comment
+        await supabase.from("delivery_comments").insert({
+          delivery_request_id: card.id,
+          user_id: user.id,
+          message: `✅ Checklist "Proses Sales Order" dicentang. Card otomatis dipindahkan ke Checking.`,
+          type: "activity",
+        });
+
+        toast.success("Checklist selesai! Card otomatis dipindahkan ke Checking");
+        onClose(); // Close detail, parent will refetch
+        return;
+      }
+
+      fetchChecklists();
+    } catch (err: any) {
+      toast.error("Gagal update checklist: " + err.message);
+    }
+  };
+
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !card || !user) return;
