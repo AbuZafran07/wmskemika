@@ -460,9 +460,20 @@ export default function RequestDelivery() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)]">
+    <div 
+      className="flex flex-col h-[calc(100vh-4rem)] relative"
+      style={boardBgUrl ? {
+        backgroundImage: `url(${boardBgUrl})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      } : undefined}
+    >
+      {/* Background overlay for readability */}
+      {boardBgUrl && <div className="absolute inset-0 bg-background/70 dark:bg-background/80 pointer-events-none z-0" />}
+      
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-card flex-shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b bg-card/90 backdrop-blur-sm flex-shrink-0 relative z-10">
         <div className="flex items-center gap-3">
           <Truck className="h-6 w-6 text-primary" />
           <div>
@@ -471,6 +482,48 @@ export default function RequestDelivery() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Background changer */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Image className="h-4 w-4 mr-1" /> Background
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72" align="end">
+              <div className="space-y-3">
+                <p className="text-sm font-medium">Ganti Background Board</p>
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground">Upload gambar:</label>
+                  <input
+                    ref={bgFileRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleBgFile}
+                    className="block w-full text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:bg-primary file:text-primary-foreground cursor-pointer"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground">Atau URL gambar:</label>
+                  <div className="flex gap-1">
+                    <Input
+                      value={bgInput}
+                      onChange={(e) => setBgInput(e.target.value)}
+                      placeholder="https://..."
+                      className="text-xs h-8"
+                    />
+                    <Button size="sm" className="h-8" onClick={() => { handleSetBg(bgInput); setBgInput(""); }}>
+                      Set
+                    </Button>
+                  </div>
+                </div>
+                {boardBgUrl && (
+                  <Button variant="destructive" size="sm" className="w-full" onClick={() => handleSetBg("")}>
+                    <X className="h-3 w-3 mr-1" /> Hapus Background
+                  </Button>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
           <Button variant="outline" size="sm" onClick={fetchCards}>
             <RefreshCw className="h-4 w-4 mr-1" /> Refresh
           </Button>
