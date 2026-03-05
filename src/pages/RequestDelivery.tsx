@@ -76,6 +76,7 @@ export default function RequestDelivery() {
   const [draggedCard, setDraggedCard] = useState<DeliveryCard | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [boardBgUrl, setBoardBgUrl] = useState<string>("");
+  const [isFullView, setIsFullView] = useState(false);
   const [bgInput, setBgInput] = useState("");
   const bgFileRef = useRef<HTMLInputElement>(null);
 
