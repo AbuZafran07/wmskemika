@@ -1028,28 +1028,65 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
             </div>
 
             {/* Comment input */}
-            <div className="px-4 py-3 border-b">
+            <div className="px-4 py-3 border-b relative">
               <div className="flex gap-2">
-                <Textarea
-                  value={newComment}
-                  onChange={e => setNewComment(e.target.value)}
-                  placeholder="Tulis komentar..."
-                  className="text-xs min-h-[50px] resize-none"
-                  onKeyDown={e => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      sendComment();
-                    }
-                  }}
-                />
-                <Button
-                  size="sm"
-                  onClick={sendComment}
-                  disabled={!newComment.trim() || sendingComment}
-                  className="self-end h-8"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                </Button>
+                <div className="flex-1 relative">
+                  <Textarea
+                    ref={commentRef}
+                    value={newComment}
+                    onChange={handleCommentChange}
+                    placeholder="Tulis komentar... (ketik @ untuk mention)"
+                    className="text-xs min-h-[50px] resize-none"
+                    onKeyDown={e => {
+                      if (e.key === "Enter" && !e.shiftKey && !showMentionList) {
+                        e.preventDefault();
+                        sendComment();
+                      }
+                    }}
+                  />
+                  {/* Mention autocomplete */}
+                  {showMentionList && filteredMentionUsers.length > 0 && (
+                    <div className="absolute bottom-full left-0 right-0 mb-1 bg-popover border rounded-lg shadow-lg max-h-32 overflow-y-auto z-20">
+                      {filteredMentionUsers.slice(0, 5).map(mu => (
+                        <button
+                          key={mu.id}
+                          className="w-full flex items-center gap-2 p-2 hover:bg-muted transition-colors text-left"
+                          onClick={() => insertCommentMention(mu)}
+                        >
+                          <Avatar className="h-5 w-5">
+                            {mu.avatar_url && <AvatarImage src={mu.avatar_url} />}
+                            <AvatarFallback className="text-[9px]">{mu.name?.charAt(0)?.toUpperCase()}</AvatarFallback>
+                          </Avatar>
+                          <span className="text-xs font-medium truncate">{mu.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-col gap-1 self-end">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => {
+                      setNewComment(prev => prev + "@");
+                      setShowMentionList(true);
+                      setMentionStartIndex(newComment.length);
+                      setMentionSearch("");
+                      commentRef.current?.focus();
+                    }}
+                  >
+                    <AtSign className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={sendComment}
+                    disabled={!newComment.trim() || sendingComment}
+                    className="h-8"
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
             </div>
 
