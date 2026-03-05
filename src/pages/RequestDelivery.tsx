@@ -77,6 +77,7 @@ export default function RequestDelivery() {
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [boardBgUrl, setBoardBgUrl] = useState<string>("");
   const [isFullView, setIsFullView] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(70); // percentage: 50-120
   const [bgInput, setBgInput] = useState("");
   const bgFileRef = useRef<HTMLInputElement>(null);
 
