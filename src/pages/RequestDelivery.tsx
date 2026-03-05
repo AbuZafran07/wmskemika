@@ -28,8 +28,8 @@ const BOARD_COLUMNS = [
   { id: "pengiriman_rabu", label: "Pengiriman Rabu", color: "bg-emerald-600" },
   { id: "pengiriman_kamis", label: "Pengiriman Kamis", color: "bg-emerald-600" },
   { id: "pengiriman_jumat", label: "Pengiriman Jumat", color: "bg-emerald-600" },
-  { id: "delivered", label: "Delivered", color: "bg-green-700" },
-  { id: "delivered_sample", label: "Delivered Sample", color: "bg-teal-700" },
+  { id: "delivered", label: "Delivered", color: "bg-sky-700" },
+  { id: "delivered_sample", label: "Delivered Sample", color: "bg-rose-700" },
 ] as const;
 
 type BoardStatus = typeof BOARD_COLUMNS[number]["id"];
