@@ -139,9 +139,17 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     }[];
   }[]>([]);
 
+  // Delete card dialog state
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteAction, setDeleteAction] = useState<"new_order" | "delivered">("new_order");
+  const [deliveredDate, setDeliveredDate] = useState(new Date().toISOString().split("T")[0]);
+  const [deletingCard, setDeletingCard] = useState(false);
+
   const isSuperAdmin = user?.role === 'super_admin';
+  const isFinance = user?.role === 'finance';
   const isAdmin = user?.role && ['super_admin', 'admin'].includes(user.role);
   const canCheckChecklist = user?.role && ['super_admin', 'purchasing', 'finance'].includes(user.role);
+  const canDeleteCard = user?.role && ['super_admin', 'finance'].includes(user.role);
 
   // Fetch labels & card labels
   const fetchLabels = useCallback(async () => {
