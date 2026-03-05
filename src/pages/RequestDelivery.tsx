@@ -123,6 +123,7 @@ export default function RequestDelivery() {
           sales_order_number: so?.sales_order_number || "-",
           customer_name: (so?.customers as any)?.name || "-",
           customer_code: (so?.customers as any)?.code || "-",
+          customer_po_number: so?.customer_po_number || "-",
           allocation_type: so?.allocation_type || "-",
           project_instansi: so?.project_instansi || "-",
           sales_name: so?.sales_name || "-",
