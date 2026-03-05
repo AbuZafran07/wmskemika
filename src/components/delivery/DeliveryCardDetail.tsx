@@ -693,7 +693,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                     ))}
                   </div>
                 </div>
-              )
+              )}
 
               {card.notes && (
                 <div className="text-sm">
