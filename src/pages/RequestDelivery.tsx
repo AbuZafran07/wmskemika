@@ -75,26 +75,55 @@ export default function RequestDelivery() {
   
   const [draggedCard, setDraggedCard] = useState<DeliveryCard | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
-  const [boardBgUrl, setBoardBgUrl] = useState<string>(() => {
-    return localStorage.getItem("delivery-board-bg") || "";
-  });
+  const [boardBgUrl, setBoardBgUrl] = useState<string>("");
   const [bgInput, setBgInput] = useState("");
   const bgFileRef = useRef<HTMLInputElement>(null);
 
-  const handleSetBg = (url: string) => {
+  // Load background from settings table (shared across all users)
+  useEffect(() => {
+    const loadBg = async () => {
+      const { data } = await supabase
+        .from("settings")
+        .select("value")
+        .eq("key", "delivery_board_bg")
+        .maybeSingle();
+      if (data?.value) {
+        setBoardBgUrl(typeof data.value === 'string' ? data.value : (data.value as any)?.url || "");
+      }
+    };
+    loadBg();
+  }, []);
+
+  const handleSetBg = async (url: string) => {
     setBoardBgUrl(url);
-    localStorage.setItem("delivery-board-bg", url);
+    // Save to settings table so all users see it
+    const { data: existing } = await supabase
+      .from("settings")
+      .select("id")
+      .eq("key", "delivery_board_bg")
+      .maybeSingle();
+    
+    if (existing) {
+      await supabase.from("settings").update({ value: JSON.stringify({ url }), updated_at: new Date().toISOString() }).eq("key", "delivery_board_bg");
+    } else {
+      await supabase.from("settings").insert({ key: "delivery_board_bg", value: JSON.stringify({ url }) });
+    }
   };
 
-  const handleBgFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBgFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const dataUrl = ev.target?.result as string;
-        handleSetBg(dataUrl);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+    
+    // Upload to storage instead of using data URL
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileKey = `board-bg/${Date.now()}.${fileExt}`;
+      const { error } = await supabase.storage.from("documents").upload(fileKey, file);
+      if (error) throw error;
+      const { data: urlData } = supabase.storage.from("documents").getPublicUrl(fileKey);
+      handleSetBg(urlData.publicUrl);
+    } catch (err: any) {
+      toast.error("Gagal upload background: " + err.message);
     }
   };
 
