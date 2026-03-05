@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { Bell, Truck, Clock, CheckSquare, Package, AlertTriangle } from "lucide-react";
+import { Bell, Truck, Clock, CheckSquare, Package, AlertTriangle, FileText, ShoppingCart, Clipboard } from "lucide-react";
 
 interface TickerItem {
   id: string;
   message: string;
-  type: "system" | "move" | "checklist" | "info" | "warning";
+  type: "system" | "move" | "checklist" | "info" | "warning" | "approval";
   timestamp: Date;
 }
 
@@ -16,6 +16,7 @@ const TYPE_ICONS: Record<TickerItem["type"], React.ReactNode> = {
   checklist: <CheckSquare className="h-3.5 w-3.5" />,
   info: <Bell className="h-3.5 w-3.5" />,
   warning: <AlertTriangle className="h-3.5 w-3.5" />,
+  approval: <FileText className="h-3.5 w-3.5" />,
 };
 
 const TYPE_COLORS: Record<TickerItem["type"], string> = {
@@ -24,6 +25,7 @@ const TYPE_COLORS: Record<TickerItem["type"], string> = {
   checklist: "text-emerald-300",
   info: "text-blue-300",
   warning: "text-red-300",
+  approval: "text-purple-300",
 };
 
 const COLUMN_LABELS: Record<string, string> = {
@@ -40,6 +42,18 @@ const COLUMN_LABELS: Record<string, string> = {
   delivered_sample: "Delivered Sample",
 };
 
+const STATUS_LABELS: Record<string, string> = {
+  draft: "Draft",
+  submitted: "Menunggu Approval",
+  pending: "Menunggu Approval",
+  approved: "Disetujui",
+  rejected: "Ditolak",
+  cancelled: "Dibatalkan",
+  revision_requested: "Minta Revisi",
+  completed: "Selesai",
+  partial: "Partial",
+};
+
 export default function DeliveryMarqueeTicker() {
   const [items, setItems] = useState<TickerItem[]>([]);
   const tickerRef = useRef<HTMLDivElement>(null);
@@ -53,7 +67,7 @@ export default function DeliveryMarqueeTicker() {
       timestamp: new Date(),
     };
     setItems(prev => {
-      const updated = [newItem, ...prev].slice(0, 50); // keep max 50
+      const updated = [newItem, ...prev].slice(0, 50);
       return updated;
     });
   }, []);
@@ -83,9 +97,41 @@ export default function DeliveryMarqueeTicker() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Listen to realtime changes on delivery_requests
+  // Load initial pending approval counts
   useEffect(() => {
-    // First, build initial state
+    const loadPendingCounts = async () => {
+      const pendingStatuses = ['submitted', 'pending', 'revision_requested'];
+      
+      const [poRes, soRes, adjRes] = await Promise.all([
+        supabase.from("plan_order_headers").select("id", { count: "exact", head: true })
+          .in("status", pendingStatuses).eq("is_deleted", false),
+        supabase.from("sales_order_headers").select("id", { count: "exact", head: true })
+          .in("status", pendingStatuses).eq("is_deleted", false),
+        supabase.from("stock_adjustments").select("id", { count: "exact", head: true })
+          .in("status", pendingStatuses).eq("is_deleted", false),
+      ]);
+
+      const poCount = poRes.count || 0;
+      const soCount = soRes.count || 0;
+      const adjCount = adjRes.count || 0;
+      const total = poCount + soCount + adjCount;
+
+      if (total > 0) {
+        const parts: string[] = [];
+        if (poCount > 0) parts.push(`${poCount} Plan Order`);
+        if (soCount > 0) parts.push(`${soCount} Sales Order`);
+        if (adjCount > 0) parts.push(`${adjCount} Stock Adjustment`);
+        addTickerItem(
+          `📋 Pending Approval: ${parts.join(", ")} menunggu persetujuan`,
+          "approval"
+        );
+      }
+    };
+    loadPendingCounts();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Listen to realtime changes on delivery_requests + approval tables
+  useEffect(() => {
     const buildInitialState = async () => {
       const { data } = await supabase
         .from("delivery_requests")
@@ -100,6 +146,7 @@ export default function DeliveryMarqueeTicker() {
 
     const channel = supabase
       .channel("delivery_ticker_realtime")
+      // Delivery requests
       .on("postgres_changes", {
         event: "UPDATE",
         schema: "public",
@@ -110,7 +157,6 @@ export default function DeliveryMarqueeTicker() {
         const newStatus = newRow.board_status;
 
         if (oldStatus && oldStatus !== newStatus) {
-          // Fetch SO number for better message
           const { data: soData } = await supabase
             .from("sales_order_headers")
             .select("sales_order_number")
@@ -121,25 +167,16 @@ export default function DeliveryMarqueeTicker() {
           const fromLabel = COLUMN_LABELS[oldStatus] || oldStatus;
           const toLabel = COLUMN_LABELS[newStatus] || newStatus;
 
-          // Detect if system-moved (time guard)
           const isSystemMove = 
             (oldStatus === "approval_delivery" && newStatus === "on_hold_delivery") ||
             (oldStatus === "on_hold_delivery" && newStatus === "approval_delivery");
 
           if (isSystemMove) {
-            addTickerItem(
-              `⏰ ${soNum} otomatis dipindahkan: ${fromLabel} → ${toLabel}`,
-              "system"
-            );
+            addTickerItem(`⏰ ${soNum} otomatis dipindahkan: ${fromLabel} → ${toLabel}`, "system");
           } else {
-            addTickerItem(
-              `🚚 ${soNum} dipindahkan: ${fromLabel} → ${toLabel}`,
-              "move"
-            );
+            addTickerItem(`🚚 ${soNum} dipindahkan: ${fromLabel} → ${toLabel}`, "move");
           }
         }
-
-        // Update ref
         prevCardsRef.current[newRow.id] = newStatus;
       })
       .on("postgres_changes", {
@@ -177,22 +214,71 @@ export default function DeliveryMarqueeTicker() {
           addTickerItem(`✅ Checklist dicentang: "${newRow.label}"`, "checklist");
         }
       })
+      // Plan Order status changes
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "plan_order_headers",
+      }, (payload) => {
+        const newRow = payload.new as any;
+        const oldRow = payload.old as any;
+        if (oldRow.status !== newRow.status) {
+          const statusLabel = STATUS_LABELS[newRow.status] || newRow.status;
+          if (['submitted', 'pending'].includes(newRow.status)) {
+            addTickerItem(`📋 Plan Order ${newRow.plan_number} membutuhkan approval`, "approval");
+          } else if (newRow.status === 'approved') {
+            addTickerItem(`✅ Plan Order ${newRow.plan_number} telah disetujui`, "approval");
+          } else if (newRow.status === 'revision_requested') {
+            addTickerItem(`🔄 Plan Order ${newRow.plan_number} diminta revisi`, "warning");
+          } else if (newRow.status === 'cancelled') {
+            addTickerItem(`❌ Plan Order ${newRow.plan_number} dibatalkan`, "warning");
+          }
+        }
+      })
+      // Sales Order status changes
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "sales_order_headers",
+      }, (payload) => {
+        const newRow = payload.new as any;
+        const oldRow = payload.old as any;
+        if (oldRow.status !== newRow.status) {
+          if (['submitted', 'pending'].includes(newRow.status)) {
+            addTickerItem(`📋 Sales Order ${newRow.sales_order_number} membutuhkan approval`, "approval");
+          } else if (newRow.status === 'approved') {
+            addTickerItem(`✅ Sales Order ${newRow.sales_order_number} telah disetujui`, "approval");
+          } else if (newRow.status === 'revision_requested') {
+            addTickerItem(`🔄 Sales Order ${newRow.sales_order_number} diminta revisi`, "warning");
+          } else if (newRow.status === 'cancelled') {
+            addTickerItem(`❌ Sales Order ${newRow.sales_order_number} dibatalkan`, "warning");
+          }
+        }
+      })
+      // Stock Adjustment status changes
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "stock_adjustments",
+      }, (payload) => {
+        const newRow = payload.new as any;
+        const oldRow = payload.old as any;
+        if (oldRow.status !== newRow.status) {
+          if (['submitted', 'pending'].includes(newRow.status)) {
+            addTickerItem(`📋 Stock Adjustment ${newRow.adjustment_number} membutuhkan approval`, "approval");
+          } else if (newRow.status === 'approved') {
+            addTickerItem(`✅ Stock Adjustment ${newRow.adjustment_number} telah disetujui`, "approval");
+          } else if (newRow.status === 'revision_requested') {
+            addTickerItem(`🔄 Stock Adjustment ${newRow.adjustment_number} diminta revisi`, "warning");
+          }
+        }
+      })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Build the ticker text from items
-  const tickerText = items.length > 0
-    ? items.map(item => {
-        const time = item.timestamp.toLocaleTimeString("id-ID", { 
-          hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" 
-        });
-        return `${time} — ${item.message}`;
-      }).join("     •     ")
-    : "📡 Menunggu aktivitas...";
 
   return (
     <div className="relative w-full h-8 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-t border-slate-700/50 overflow-hidden flex-shrink-0">
