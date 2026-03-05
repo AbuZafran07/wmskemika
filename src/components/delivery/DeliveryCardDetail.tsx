@@ -992,6 +992,11 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         </div>
 
         <DialogFooter className="px-6 py-3 border-t flex-col sm:flex-row gap-2">
+          {canDeleteCard && (
+            <Button variant="destructive" size="sm" onClick={() => setShowDeleteDialog(true)} className="mr-auto">
+              <Trash2 className="h-4 w-4 mr-1" /> Hapus Card
+            </Button>
+          )}
           {canManage && (
             <Button variant="outline" size="sm" onClick={() => { onMoveRequest(card); onClose(); }}>
               <ChevronRight className="h-4 w-4 mr-1" /> Pindahkan
@@ -1000,6 +1005,76 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           <Button variant="secondary" size="sm" onClick={onClose}>Tutup</Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Delete Card Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Hapus Card Delivery
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Pilih tindakan untuk card <span className="font-semibold text-foreground">{card.sales_order_number}</span>:
+            </p>
+            <div className="space-y-3">
+              <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors">
+                <input
+                  type="radio"
+                  name="deleteAction"
+                  value="new_order"
+                  checked={deleteAction === "new_order"}
+                  onChange={() => setDeleteAction("new_order")}
+                  className="mt-0.5"
+                />
+                <div>
+                  <p className="text-sm font-medium">Kembalikan ke New Orders</p>
+                  <p className="text-xs text-muted-foreground">Card akan kembali ke daftar New Orders untuk diproses ulang.</p>
+                </div>
+              </label>
+              <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors">
+                <input
+                  type="radio"
+                  name="deleteAction"
+                  value="delivered"
+                  checked={deleteAction === "delivered"}
+                  onChange={() => setDeleteAction("delivered")}
+                  className="mt-0.5"
+                />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Pindahkan ke Delivered</p>
+                  <p className="text-xs text-muted-foreground mb-2">Tandai card sudah terkirim dengan tanggal pengiriman.</p>
+                  {deleteAction === "delivered" && (
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="date"
+                        value={deliveredDate}
+                        onChange={(e) => setDeliveredDate(e.target.value)}
+                        className="h-8 text-xs w-auto"
+                      />
+                    </div>
+                  )}
+                </div>
+              </label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setShowDeleteDialog(false)}>Batal</Button>
+            <Button
+              variant={deleteAction === "delivered" ? "default" : "destructive"}
+              size="sm"
+              onClick={handleDeleteCard}
+              disabled={deletingCard}
+            >
+              {deletingCard && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              {deleteAction === "delivered" ? "Pindah ke Delivered" : "Kembalikan ke New Orders"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
