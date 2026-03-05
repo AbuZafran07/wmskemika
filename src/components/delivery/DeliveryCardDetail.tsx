@@ -141,7 +141,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
   // Delete card dialog state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [deleteAction, setDeleteAction] = useState<"new_order" | "delivered">("new_order");
+  const [deleteAction, setDeleteAction] = useState<"remove_from_board" | "delivered">("remove_from_board");
   const [deliveredDate, setDeliveredDate] = useState(new Date().toISOString().split("T")[0]);
   const [deletingCard, setDeletingCard] = useState(false);
 
@@ -474,31 +474,13 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
         toast.success("Card dipindahkan ke Delivered");
       } else {
-        // Move back to new_order
-        await supabase
-          .from("delivery_requests")
-          .update({
-            board_status: "new_order",
-            moved_by: user.id,
-            moved_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", card.id);
+        // Remove card from board entirely (delete related data first)
+        await supabase.from("delivery_checklists").delete().eq("delivery_request_id", card.id);
+        await supabase.from("delivery_card_labels").delete().eq("delivery_request_id", card.id);
+        await supabase.from("delivery_comments").delete().eq("delivery_request_id", card.id);
+        await supabase.from("delivery_requests").delete().eq("id", card.id);
 
-        // Uncheck all checklists for this card
-        await supabase
-          .from("delivery_checklists")
-          .update({ is_checked: false, checked_by: null, checked_at: null })
-          .eq("delivery_request_id", card.id);
-
-        await supabase.from("delivery_comments").insert({
-          delivery_request_id: card.id,
-          user_id: user.id,
-          message: `🔄 Card dikembalikan ke New Orders oleh ${user.role === 'finance' ? 'Finance' : 'Super Admin'}.`,
-          type: "activity",
-        });
-
-        toast.success("Card dikembalikan ke New Orders");
+        toast.success("Card dihapus dari board. SO dapat ditambahkan kembali ke board.");
       }
 
       setShowDeleteDialog(false);
@@ -1024,14 +1006,14 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                 <input
                   type="radio"
                   name="deleteAction"
-                  value="new_order"
-                  checked={deleteAction === "new_order"}
-                  onChange={() => setDeleteAction("new_order")}
+                  value="remove_from_board"
+                  checked={deleteAction === "remove_from_board"}
+                  onChange={() => setDeleteAction("remove_from_board")}
                   className="mt-0.5"
                 />
                 <div>
-                  <p className="text-sm font-medium">Kembalikan ke New Orders</p>
-                  <p className="text-xs text-muted-foreground">Card akan kembali ke daftar New Orders untuk diproses ulang.</p>
+                  <p className="text-sm font-medium">Hapus dari Board</p>
+                  <p className="text-xs text-muted-foreground">Card akan dihapus. SO dapat ditambahkan kembali ke board melalui dialog "Tambah Sales Order".</p>
                 </div>
               </label>
               <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors">
@@ -1070,7 +1052,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
               disabled={deletingCard}
             >
               {deletingCard && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-              {deleteAction === "delivered" ? "Pindah ke Delivered" : "Kembalikan ke New Orders"}
+              {deleteAction === "delivered" ? "Pindah ke Delivered" : "Hapus dari Board"}
             </Button>
           </DialogFooter>
         </DialogContent>
