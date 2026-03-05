@@ -1,0 +1,2 @@
+-- Drop unique constraint on sales_order_id to allow multiple delivery cards per SO (for partial deliveries)
+ALTER TABLE public.delivery_requests DROP CONSTRAINT IF EXISTS delivery_requests_sales_order_id_key;
