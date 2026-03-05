@@ -373,12 +373,16 @@ export default function RequestDelivery() {
                       onClick={() => setDetailCard(card)}
                     >
                       {/* SO Number & Status */}
-                      <div className="flex items-start justify-between gap-1 mb-2">
+                      <div className="flex items-start justify-between gap-1 mb-1">
                         <span className="text-[11px] font-bold text-primary truncate">{card.sales_order_number}</span>
                         <Badge className={cn("text-[9px] px-1.5 py-0 h-4 flex-shrink-0", getStatusBadgeColor(card.so_status))}>
                           {card.so_status}
                         </Badge>
                       </div>
+                      {/* Created date */}
+                      <p className="text-[9px] text-muted-foreground mb-2">
+                        Dibuat: {format(new Date(card.created_at), "dd MMM yy, HH:mm")}
+                      </p>
 
                       {/* Labels */}
                       {cardLabelsMap[card.id]?.length > 0 && (
@@ -426,9 +430,12 @@ export default function RequestDelivery() {
                       <div className="flex items-center justify-between pt-1.5 border-t border-border/40">
                         <div className="flex items-center gap-1">
                           <Calendar className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-[10px] text-muted-foreground">
-                            {card.delivery_deadline ? format(new Date(card.delivery_deadline), "dd MMM yy") : "-"}
-                          </span>
+                          <div className="flex flex-col">
+                            <span className="text-[8px] text-muted-foreground/70 leading-tight">Deadline Pengiriman</span>
+                            <span className="text-[10px] text-muted-foreground font-medium">
+                              {card.delivery_deadline ? format(new Date(card.delivery_deadline), "dd MMM yy") : "-"}
+                            </span>
+                          </div>
                         </div>
                         <div className="flex items-center gap-1">
                           <User className="h-3 w-3 text-muted-foreground" />
