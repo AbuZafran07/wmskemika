@@ -36,6 +36,7 @@ export const ROLES = {
 
 export type MenuKey = 
   | 'dashboard'
+  | 'requestDelivery'
   | 'planOrder'
   | 'stockIn'
   | 'salesOrder'
@@ -64,6 +65,9 @@ export type MenuKey =
 export const MENU_ACCESS: Record<MenuKey, UserRole[]> = {
   // Dashboard - All roles
   dashboard: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales', 'viewer'],
+  
+  // Request Delivery - All roles can view
+  requestDelivery: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales', 'viewer'],
   
   // Transactions
   planOrder: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse'],
@@ -356,6 +360,7 @@ export function canViewPurchasePrice(role: UserRole | undefined): boolean {
  */
 export const ROUTE_TO_MENU: Record<string, MenuKey> = {
   '/dashboard': 'dashboard',
+  '/request-delivery': 'requestDelivery',
   '/plan-order': 'planOrder',
   '/stock-in': 'stockIn',
   '/sales-order': 'salesOrder',

@@ -23,6 +23,7 @@ import {
   Package,
   TrendingUpDown,
   CalendarClock,
+  Truck,
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -53,7 +54,15 @@ const menuItems: { groupKey: string; items: MenuItem[] }[] = [
         labelKey: "menu.dashboard", 
         icon: LayoutDashboard, 
         href: "/dashboard" 
-      }
+      },
+      {
+        key: "requestDelivery",
+        menuKey: "requestDelivery",
+        labelKey: "menu.requestDelivery",
+        subLabelKey: "menu.requestDeliverySub",
+        icon: Truck,
+        href: "/request-delivery",
+      },
     ],
   },
   {

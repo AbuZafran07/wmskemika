@@ -12,6 +12,7 @@ import { RouteGuard } from "@/components/RouteGuard";
 import Login from "./pages/Login";
 import MainLayout from "./components/layout/MainLayout";
 import Dashboard from "./pages/Dashboard";
+import RequestDelivery from "./pages/RequestDelivery";
 import PlanOrder from "./pages/PlanOrder";
 import StockIn from "./pages/StockIn";
 import SalesOrder from "./pages/SalesOrder";
@@ -61,6 +62,11 @@ const App = () => (
                   <Route path="/dashboard" element={
                     <RouteGuard menuKey="dashboard">
                       <Dashboard />
+                    </RouteGuard>
+                  } />
+                  <Route path="/request-delivery" element={
+                    <RouteGuard menuKey="requestDelivery">
+                      <RequestDelivery />
                     </RouteGuard>
                   } />
                   
