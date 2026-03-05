@@ -492,6 +492,74 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
               </div>
             )}
 
+            {/* Attachments */}
+            <div className="border-t pt-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Paperclip className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs font-semibold">Lampiran</span>
+                {attachments.length > 0 && (
+                  <Badge variant="secondary" className="h-4 text-[10px] px-1.5">{attachments.length}</Badge>
+                )}
+                {canManage && (
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-6 text-[11px] px-2 gap-1 ml-auto"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingFile}
+                    >
+                      {uploadingFile ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                      Upload
+                    </Button>
+                  </>
+                )}
+              </div>
+
+              {attachments.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-2">Belum ada lampiran</p>
+              ) : (
+                <div className="space-y-2">
+                  {attachments.map(att => (
+                    <div key={att.id} className="flex items-center gap-2 p-2 rounded-lg border bg-muted/30 group">
+                      <div className="w-8 h-8 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                        {isImageFile(att.mime_type) ? (
+                          <Image className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">{att.file_key.split("/").pop()}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {formatSize(att.file_size)} • {att.uploader_name}
+                          {att.uploaded_at && ` • ${formatDistanceToNow(new Date(att.uploaded_at), { addSuffix: true, locale: idLocale })}`}
+                        </p>
+                      </div>
+                      <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 p-1">
+                        <Download className="h-3.5 w-3.5" />
+                      </a>
+                      {(att.uploaded_by === user?.id || isAdmin) && (
+                        <button
+                          onClick={() => deleteAttachment(att)}
+                          className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive/80 p-1"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Comments & Activity - below products */}
             <div className="border-t pt-4">
               <div className="flex items-center gap-2 mb-3">
