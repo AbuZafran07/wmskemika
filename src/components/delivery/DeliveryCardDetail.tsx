@@ -154,12 +154,36 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     setComments(mapped);
   }, [card]);
 
+  // Fetch attachments
+  const fetchAttachments = useCallback(async () => {
+    if (!card) return;
+    const { data } = await supabase
+      .from("attachments")
+      .select("*")
+      .eq("ref_table", "delivery_requests")
+      .eq("ref_id", card.id)
+      .order("uploaded_at", { ascending: false });
+
+    if (!data) { setAttachments([]); return; }
+
+    const userIds = [...new Set(data.map(a => a.uploaded_by).filter(Boolean))] as string[];
+    const { data: profiles } = userIds.length > 0
+      ? await supabase.from("profiles").select("id, full_name").in("id", userIds)
+      : { data: [] };
+
+    setAttachments(data.map(a => ({
+      ...a,
+      uploader_name: profiles?.find(p => p.id === a.uploaded_by)?.full_name || "Unknown",
+    })));
+  }, [card]);
+
   useEffect(() => {
     if (card) {
       fetchLabels();
       fetchComments();
+      fetchAttachments();
     }
-  }, [card, fetchLabels, fetchComments]);
+  }, [card, fetchLabels, fetchComments, fetchAttachments]);
 
   // Realtime comments
   useEffect(() => {
