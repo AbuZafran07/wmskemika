@@ -182,9 +182,38 @@ export default function RequestDelivery() {
     return () => { supabase.removeChannel(channel); };
   }, [fetchCards, fetchCardLabels]);
 
+  const PENGIRIMAN_COLUMNS = ["pengiriman_senin", "pengiriman_selasa", "pengiriman_rabu", "pengiriman_kamis", "pengiriman_jumat"];
+
   // Move card to new column
   const moveCard = async (cardId: string, newStatus: BoardStatus) => {
     if (!user) return;
+
+    // Find the card being moved
+    const cardToMove = cards.find(c => c.id === cardId);
+    if (!cardToMove) return;
+
+    // === VALIDATION: approval_delivery → pengiriman_* ===
+    if (cardToMove.board_status === "approval_delivery" && PENGIRIMAN_COLUMNS.includes(newStatus)) {
+      // Only sales & super_admin can move
+      if (!['super_admin', 'sales'].includes(user.role || '')) {
+        toast.error("Hanya Sales atau Super Admin yang dapat memindahkan card ke Pengiriman Hari");
+        return;
+      }
+
+      // Check if "Verifikasi Administrasi Finance" is checked
+      const { data: checklists } = await supabase
+        .from("delivery_checklists")
+        .select("*")
+        .eq("delivery_request_id", cardId)
+        .eq("label", "Verifikasi Administrasi Finance");
+
+      const financeChecked = checklists && checklists.length > 0 && checklists[0].is_checked;
+      if (!financeChecked) {
+        toast.error("Checklist 'Verifikasi Administrasi Finance' harus dicentang oleh Finance terlebih dahulu");
+        return;
+      }
+    }
+
     try {
       const { error } = await supabase
         .from("delivery_requests")
@@ -196,6 +225,25 @@ export default function RequestDelivery() {
         })
         .eq("id", cardId);
       if (error) throw error;
+
+      // Auto-create upload checklists when moving to pengiriman columns
+      if (PENGIRIMAN_COLUMNS.includes(newStatus) && cardToMove.board_status === "approval_delivery") {
+        const checklistLabels = ["Upload Foto Pengiriman", "Upload Dokumen Delivery Order"];
+        for (const label of checklistLabels) {
+          await supabase.from("delivery_checklists").insert({
+            delivery_request_id: cardId,
+            label,
+          });
+        }
+
+        await supabase.from("delivery_comments").insert({
+          delivery_request_id: cardId,
+          user_id: user.id,
+          message: `📦 Card dipindahkan ke ${BOARD_COLUMNS.find(c => c.id === newStatus)?.label}. Checklist pengiriman otomatis ditambahkan.`,
+          type: "activity",
+        });
+      }
+
       toast.success(`Card dipindahkan ke ${BOARD_COLUMNS.find(c => c.id === newStatus)?.label}`);
       fetchCards();
     } catch (err: any) {

@@ -350,6 +350,8 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     fetchComments();
   };
 
+  const PENGIRIMAN_COLUMNS = ["pengiriman_senin", "pengiriman_selasa", "pengiriman_rabu", "pengiriman_kamis", "pengiriman_jumat"];
+
   // Toggle checklist & auto-move logic
   const handleToggleChecklist = async (checklistId: string, currentChecked: boolean) => {
     if (!user || !card) return;
@@ -360,16 +362,26 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
     // "Verifikasi Administrasi Finance" can only be checked by finance & super_admin
     const isFinanceChecklist = checklistItem.label === "Verifikasi Administrasi Finance";
-    const canCheckThisItem = isFinanceChecklist
-      ? ['super_admin', 'finance'].includes(user.role || '')
-      : canCheckChecklist;
+    // "Upload Foto Pengiriman" & "Upload Dokumen Delivery Order" can only be checked by warehouse & super_admin
+    const isUploadChecklist = ["Upload Foto Pengiriman", "Upload Dokumen Delivery Order"].includes(checklistItem.label);
+    
+    let canCheckThisItem = false;
+    if (isFinanceChecklist) {
+      canCheckThisItem = ['super_admin', 'finance'].includes(user.role || '');
+    } else if (isUploadChecklist) {
+      canCheckThisItem = ['super_admin', 'warehouse'].includes(user.role || '');
+    } else {
+      canCheckThisItem = !!canCheckChecklist;
+    }
 
     if (!canCheckThisItem) {
-      toast.error(
-        isFinanceChecklist
-          ? "Hanya Finance atau Super Admin yang dapat mencentang checklist ini"
-          : "Hanya Purchasing, Finance, atau Super Admin yang dapat mencentang checklist ini"
-      );
+      if (isFinanceChecklist) {
+        toast.error("Hanya Finance atau Super Admin yang dapat mencentang checklist ini");
+      } else if (isUploadChecklist) {
+        toast.error("Hanya Warehouse atau Super Admin yang dapat mencentang checklist ini");
+      } else {
+        toast.error("Hanya Purchasing, Finance, atau Super Admin yang dapat mencentang checklist ini");
+      }
       return;
     }
 
@@ -437,6 +449,43 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         });
 
         toast.info("Checklist dibatalkan. Card dipindahkan kembali ke New Orders");
+        onClose();
+        return;
+      }
+
+      // Auto-move from pengiriman columns to delivered/delivered_sample
+      if (allChecked && PENGIRIMAN_COLUMNS.includes(card.board_status)) {
+        // Check if card has "sample" label
+        const { data: cardLabelsData } = await supabase
+          .from("delivery_card_labels")
+          .select("label_id, delivery_labels!inner(name)")
+          .eq("delivery_request_id", card.id);
+
+        const hasSampleLabel = cardLabelsData?.some((cl: any) => 
+          cl.delivery_labels?.name?.toLowerCase().includes("sample")
+        );
+
+        const targetStatus = hasSampleLabel ? "delivered_sample" : "delivered";
+        const targetLabel = hasSampleLabel ? "Delivered Sample" : "Delivered";
+
+        await supabase
+          .from("delivery_requests")
+          .update({
+            board_status: targetStatus,
+            moved_by: user.id,
+            moved_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", card.id);
+        
+        await supabase.from("delivery_comments").insert({
+          delivery_request_id: card.id,
+          user_id: user.id,
+          message: `✅ Semua checklist pengiriman selesai. Card otomatis dipindahkan ke ${targetLabel}.`,
+          type: "activity",
+        });
+
+        toast.success(`Checklist selesai! Card otomatis dipindahkan ke ${targetLabel}`);
         onClose();
         return;
       }
