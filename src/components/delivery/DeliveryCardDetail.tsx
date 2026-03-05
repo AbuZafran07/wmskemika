@@ -1046,7 +1046,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                   />
                   {/* Mention autocomplete */}
                   {showMentionList && filteredMentionUsers.length > 0 && (
-                    <div className="absolute bottom-full left-0 right-0 mb-1 bg-popover border rounded-lg shadow-lg max-h-32 overflow-y-auto z-20">
+                    <div className="absolute bottom-full left-0 right-8 mb-1 bg-popover border rounded-lg shadow-xl max-h-40 overflow-y-auto z-[9999]">
                       {filteredMentionUsers.slice(0, 5).map(mu => (
                         <button
                           key={mu.id}
