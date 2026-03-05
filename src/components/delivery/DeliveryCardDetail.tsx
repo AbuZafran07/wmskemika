@@ -44,6 +44,7 @@ interface DeliveryCard {
   sales_order_number: string;
   customer_name: string;
   customer_code: string;
+  customer_po_number: string;
   allocation_type: string;
   project_instansi: string;
   sales_name: string;
