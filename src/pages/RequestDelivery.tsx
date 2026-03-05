@@ -536,7 +536,7 @@ export default function RequestDelivery() {
       </div>
 
       {/* Board */}
-      <div ref={scrollRef} className="flex-1 overflow-x-auto overflow-y-hidden">
+      <div ref={scrollRef} className="flex-1 overflow-x-auto overflow-y-hidden relative z-10">
         <div className="flex gap-3 p-4 h-full min-w-max">
           {BOARD_COLUMNS.map((column) => {
             const columnCards = getColumnCards(column.id);
