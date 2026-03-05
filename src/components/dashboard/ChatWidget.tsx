@@ -302,6 +302,13 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
   useEffect(() => {
     if (!isMinimized && user) {
       markMessagesAsRead();
+      // Mark global chat as seen when viewing it
+      if (selectedUser === null) {
+        const now = new Date().toISOString();
+        localStorage.setItem('ktalk_last_seen_global', now);
+        setLastSeenGlobal(now);
+        setGlobalChatUnread(0);
+      }
     }
   }, [isMinimized, selectedUser, user]);
 
