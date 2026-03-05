@@ -110,6 +110,9 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
   const [globalUnreadCount, setGlobalUnreadCount] = useState(0);
   const [unreadByUser, setUnreadByUser] = useState<Record<string, number>>({});
   const [globalChatUnread, setGlobalChatUnread] = useState(0);
+  const [lastSeenGlobal, setLastSeenGlobal] = useState<string>(() => {
+    return localStorage.getItem('ktalk_last_seen_global') || new Date(0).toISOString();
+  });
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
