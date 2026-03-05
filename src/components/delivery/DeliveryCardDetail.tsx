@@ -542,45 +542,6 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                 </div>
               </div>
 
-              {/* Checklist section */}
-              {checklists.length > 0 && (
-                <div className="border rounded-lg p-3 bg-muted/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CheckSquare className="h-4 w-4 text-primary" />
-                    <span className="text-xs font-semibold">Checklist</span>
-                  </div>
-                  <div className="space-y-2">
-                    {checklists.map((cl) => (
-                      <div key={cl.id} className="flex items-center gap-3 p-2 rounded-md bg-background border">
-                        <Checkbox
-                          checked={cl.is_checked}
-                          disabled={!canCheckChecklist}
-                          onCheckedChange={() => handleToggleChecklist(cl.id, cl.is_checked)}
-                        />
-                        <div className="flex-1">
-                          <span className={cn(
-                            "text-sm font-medium",
-                            cl.is_checked && "line-through text-muted-foreground"
-                          )}>
-                            {cl.label}
-                          </span>
-                          {cl.is_checked && cl.checked_at && (
-                            <p className="text-[10px] text-muted-foreground mt-0.5">
-                              ✓ Dicentang {formatDistanceToNow(new Date(cl.checked_at), { addSuffix: true, locale: idLocale })}
-                            </p>
-                          )}
-                          {!canCheckChecklist && !cl.is_checked && (
-                            <p className="text-[10px] text-muted-foreground/70 mt-0.5">
-                              Hanya Purchasing / Finance / Super Admin
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {card.ship_to_address && (
                 <div className="text-sm">
                   <span className="text-muted-foreground text-xs">Alamat Pengiriman</span>
