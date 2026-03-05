@@ -1052,7 +1052,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
               disabled={deletingCard}
             >
               {deletingCard && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-              {deleteAction === "delivered" ? "Pindah ke Delivered" : "Kembalikan ke New Orders"}
+              {deleteAction === "delivered" ? "Pindah ke Delivered" : "Hapus dari Board"}
             </Button>
           </DialogFooter>
         </DialogContent>
