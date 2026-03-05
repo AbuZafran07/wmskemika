@@ -269,6 +269,23 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     }
   }, [card]);
 
+  // Fetch users for mentions
+  useEffect(() => {
+    const fetchMentionUsers = async () => {
+      const { data } = await supabase.from("profiles_chat_view").select("id, full_name, avatar_url");
+      if (data) {
+        setAllMentionUsers(data.map(u => ({ id: u.id || '', name: u.full_name || 'User', avatar_url: u.avatar_url })));
+      }
+    };
+    fetchMentionUsers();
+  }, []);
+
+  const filteredMentionUsers = useMemo(() => {
+    if (!mentionSearch) return allMentionUsers.filter(u => u.id !== user?.id);
+    const search = mentionSearch.toLowerCase();
+    return allMentionUsers.filter(u => u.id !== user?.id && u.name.toLowerCase().includes(search));
+  }, [allMentionUsers, mentionSearch, user?.id]);
+
   useEffect(() => {
     if (card) {
       fetchLabels();
