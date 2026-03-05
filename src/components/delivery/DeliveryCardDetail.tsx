@@ -1006,14 +1006,14 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                 <input
                   type="radio"
                   name="deleteAction"
-                  value="new_order"
-                  checked={deleteAction === "new_order"}
-                  onChange={() => setDeleteAction("new_order")}
+                  value="remove_from_board"
+                  checked={deleteAction === "remove_from_board"}
+                  onChange={() => setDeleteAction("remove_from_board")}
                   className="mt-0.5"
                 />
                 <div>
-                  <p className="text-sm font-medium">Kembalikan ke New Orders</p>
-                  <p className="text-xs text-muted-foreground">Card akan kembali ke daftar New Orders untuk diproses ulang.</p>
+                  <p className="text-sm font-medium">Hapus dari Board</p>
+                  <p className="text-xs text-muted-foreground">Card akan dihapus. SO dapat ditambahkan kembali ke board melalui dialog "Tambah Sales Order".</p>
                 </div>
               </label>
               <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors">
