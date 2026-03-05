@@ -487,13 +487,14 @@ export default function RequestDelivery() {
                   {columnCards.map((card) => (
                     <Card
                       key={card.id}
-                      draggable={canManage}
+                      draggable={canManage && card.board_status !== "on_hold_delivery"}
                       onDragStart={(e) => handleDragStart(e, card)}
                       onDragEnd={handleDragEnd}
                       className={cn(
                         "p-3 cursor-pointer hover:shadow-md transition-all border-border/60 bg-card",
                         draggedCard?.id === card.id && "opacity-40 scale-95",
-                        canManage && "cursor-grab active:cursor-grabbing"
+                        canManage && card.board_status !== "on_hold_delivery" && "cursor-grab active:cursor-grabbing",
+                        card.board_status === "on_hold_delivery" && "opacity-75 cursor-not-allowed border-orange-500/30"
                       )}
                       onClick={() => setDetailCard(card)}
                     >
