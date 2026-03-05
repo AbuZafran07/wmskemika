@@ -297,6 +297,104 @@ export type Database = {
         }
         Relationships: []
       }
+      delivery_card_labels: {
+        Row: {
+          created_at: string
+          delivery_request_id: string
+          id: string
+          label_id: string
+        }
+        Insert: {
+          created_at?: string
+          delivery_request_id: string
+          id?: string
+          label_id: string
+        }
+        Update: {
+          created_at?: string
+          delivery_request_id?: string
+          id?: string
+          label_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_card_labels_delivery_request_id_fkey"
+            columns: ["delivery_request_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_card_labels_label_id_fkey"
+            columns: ["label_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_labels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      delivery_comments: {
+        Row: {
+          created_at: string
+          delivery_request_id: string
+          id: string
+          message: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          delivery_request_id: string
+          id?: string
+          message: string
+          type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          delivery_request_id?: string
+          id?: string
+          message?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_comments_delivery_request_id_fkey"
+            columns: ["delivery_request_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      delivery_labels: {
+        Row: {
+          color: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       delivery_requests: {
         Row: {
           assigned_to: string | null
