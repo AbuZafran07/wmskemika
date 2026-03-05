@@ -122,8 +122,12 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const [uploadingFile, setUploadingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Checklist state
+  const [checklists, setChecklists] = useState<ChecklistItem[]>([]);
+
   const isSuperAdmin = user?.role === 'super_admin';
   const isAdmin = user?.role && ['super_admin', 'admin'].includes(user.role);
+  const canCheckChecklist = user?.role && ['super_admin', 'purchasing', 'finance'].includes(user.role);
 
   // Fetch labels & card labels
   const fetchLabels = useCallback(async () => {
