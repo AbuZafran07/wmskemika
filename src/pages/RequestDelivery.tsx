@@ -163,10 +163,58 @@ export default function RequestDelivery() {
     setCardLabelsMap(map);
   }, []);
 
+  // Client-side time check: sync on_hold status on page load
+  const syncOnHoldStatus = useCallback(async () => {
+    try {
+      const now = new Date();
+      const wibTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+      const hour = wibTime.getHours();
+
+      if (hour >= 15) {
+        // After 15:00 WIB: any card still in approval_delivery should be moved to on_hold
+        const { data: staleCards } = await supabase
+          .from("delivery_requests")
+          .select("id")
+          .eq("board_status", "approval_delivery");
+
+        if (staleCards && staleCards.length > 0) {
+          for (const card of staleCards) {
+            await supabase.from("delivery_requests").update({
+              board_status: "on_hold_delivery",
+              moved_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            }).eq("id", card.id);
+          }
+          fetchCards();
+        }
+      } else if (hour >= 10) {
+        // After 10:00 WIB: any card still in on_hold should be moved back to approval
+        const { data: heldCards } = await supabase
+          .from("delivery_requests")
+          .select("id")
+          .eq("board_status", "on_hold_delivery");
+
+        if (heldCards && heldCards.length > 0) {
+          for (const card of heldCards) {
+            await supabase.from("delivery_requests").update({
+              board_status: "approval_delivery",
+              moved_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            }).eq("id", card.id);
+          }
+          fetchCards();
+        }
+      }
+    } catch (err) {
+      console.error("syncOnHoldStatus error:", err);
+    }
+  }, [fetchCards]);
+
   useEffect(() => {
     fetchCards();
     fetchCardLabels();
-  }, [fetchCards, fetchCardLabels]);
+    syncOnHoldStatus();
+  }, [fetchCards, fetchCardLabels, syncOnHoldStatus]);
 
   // Realtime subscription
   useEffect(() => {
