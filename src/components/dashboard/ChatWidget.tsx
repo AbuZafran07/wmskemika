@@ -261,13 +261,13 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
       setUnreadByUser(countByUser);
     }
 
-    // Fetch global chat unread (messages in global chat not from current user)
+    // Fetch global chat unread (messages in global chat not from current user, after last seen)
     const { data: globalUnread, error: globalError } = await supabase
       .from("chat_messages")
       .select("id")
       .eq("is_global", true)
       .neq("sender_id", user.id)
-      .is("read_at", null);
+      .gt("created_at", lastSeenGlobal);
     
     if (!globalError && globalUnread) {
       setGlobalChatUnread(globalUnread.length);
