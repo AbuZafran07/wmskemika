@@ -110,6 +110,9 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
   const [globalUnreadCount, setGlobalUnreadCount] = useState(0);
   const [unreadByUser, setUnreadByUser] = useState<Record<string, number>>({});
   const [globalChatUnread, setGlobalChatUnread] = useState(0);
+  const [lastSeenGlobal, setLastSeenGlobal] = useState<string>(() => {
+    return localStorage.getItem('ktalk_last_seen_global') || new Date(0).toISOString();
+  });
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -258,13 +261,13 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
       setUnreadByUser(countByUser);
     }
 
-    // Fetch global chat unread (messages in global chat not from current user)
+    // Fetch global chat unread (messages in global chat not from current user, after last seen)
     const { data: globalUnread, error: globalError } = await supabase
       .from("chat_messages")
       .select("id")
       .eq("is_global", true)
       .neq("sender_id", user.id)
-      .is("read_at", null);
+      .gt("created_at", lastSeenGlobal);
     
     if (!globalError && globalUnread) {
       setGlobalChatUnread(globalUnread.length);
@@ -299,6 +302,13 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
   useEffect(() => {
     if (!isMinimized && user) {
       markMessagesAsRead();
+      // Mark global chat as seen when viewing it
+      if (selectedUser === null) {
+        const now = new Date().toISOString();
+        localStorage.setItem('ktalk_last_seen_global', now);
+        setLastSeenGlobal(now);
+        setGlobalChatUnread(0);
+      }
     }
   }, [isMinimized, selectedUser, user]);
 
@@ -747,7 +757,7 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
     return grouped;
   };
 
-  const totalUnread = globalUnreadCount + unreadCount;
+  const totalUnread = globalUnreadCount + unreadCount + globalChatUnread;
 
   if (isMinimized) {
     return (

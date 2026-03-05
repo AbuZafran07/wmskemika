@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { Truck, ChevronRight, Tag, MessageSquare, Send, X, Plus, Trash2, Paperclip, FileText, Image, Download, Loader2, CheckSquare, AlertTriangle, Calendar } from "lucide-react";
+import { Truck, ChevronRight, Tag, MessageSquare, Send, X, Plus, Trash2, Paperclip, FileText, Image, Download, Loader2, CheckSquare, AlertTriangle, Calendar, AtSign } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { format, formatDistanceToNow } from "date-fns";
@@ -118,6 +119,11 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [sendingComment, setSendingComment] = useState(false);
+  const [showMentionList, setShowMentionList] = useState(false);
+  const [mentionSearch, setMentionSearch] = useState("");
+  const [mentionStartIndex, setMentionStartIndex] = useState(-1);
+  const [allMentionUsers, setAllMentionUsers] = useState<{ id: string; name: string; avatar_url: string | null }[]>([]);
+  const commentRef = useRef<HTMLTextAreaElement>(null);
 
   // Attachments state
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -263,6 +269,23 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     }
   }, [card]);
 
+  // Fetch users for mentions
+  useEffect(() => {
+    const fetchMentionUsers = async () => {
+      const { data } = await supabase.from("profiles_chat_view").select("id, full_name, avatar_url");
+      if (data) {
+        setAllMentionUsers(data.map(u => ({ id: u.id || '', name: u.full_name || 'User', avatar_url: u.avatar_url })));
+      }
+    };
+    fetchMentionUsers();
+  }, []);
+
+  const filteredMentionUsers = useMemo(() => {
+    if (!mentionSearch) return allMentionUsers.filter(u => u.id !== user?.id);
+    const search = mentionSearch.toLowerCase();
+    return allMentionUsers.filter(u => u.id !== user?.id && u.name.toLowerCase().includes(search));
+  }, [allMentionUsers, mentionSearch, user?.id]);
+
   useEffect(() => {
     if (card) {
       fetchLabels();
@@ -324,6 +347,59 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     const { error } = await supabase.from("delivery_labels").delete().eq("id", labelId);
     if (error) toast.error("Gagal menghapus label");
     else fetchLabels();
+  };
+
+  // Handle comment input with mention detection
+  const handleCommentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    const cursorPosition = e.target.selectionStart || 0;
+    setNewComment(value);
+
+    const textBeforeCursor = value.slice(0, cursorPosition);
+    const lastAtIndex = textBeforeCursor.lastIndexOf("@");
+
+    if (lastAtIndex !== -1) {
+      const textAfterAt = textBeforeCursor.slice(lastAtIndex + 1);
+      if (!textAfterAt.includes(" ") && !textAfterAt.includes("\n")) {
+        setShowMentionList(true);
+        setMentionStartIndex(lastAtIndex);
+        setMentionSearch(textAfterAt);
+      } else {
+        setShowMentionList(false);
+      }
+    } else {
+      setShowMentionList(false);
+    }
+  };
+
+  const insertCommentMention = (mentionUser: { id: string; name: string }) => {
+    if (mentionStartIndex === -1) return;
+    const beforeMention = newComment.slice(0, mentionStartIndex);
+    const afterMention = newComment.slice(mentionStartIndex + mentionSearch.length + 1);
+    const mentionText = `@${mentionUser.name.split(" ")[0]} `;
+    setNewComment(beforeMention + mentionText + afterMention);
+    setShowMentionList(false);
+    setMentionStartIndex(-1);
+    setMentionSearch("");
+    commentRef.current?.focus();
+  };
+
+  const renderCommentMessage = (text: string) => {
+    const parts = text.split(/(@\S+)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith("@")) {
+        const mentionName = part.slice(1).toLowerCase();
+        const isMentionedUser = allMentionUsers.some(u => u.name.split(" ")[0].toLowerCase() === mentionName);
+        if (isMentionedUser) {
+          return (
+            <span key={i} className="font-semibold text-primary bg-primary/10 px-0.5 rounded">
+              {part}
+            </span>
+          );
+        }
+      }
+      return part;
+    });
   };
 
   // Send comment
@@ -952,28 +1028,65 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
             </div>
 
             {/* Comment input */}
-            <div className="px-4 py-3 border-b">
+            <div className="px-4 py-3 border-b relative">
               <div className="flex gap-2">
-                <Textarea
-                  value={newComment}
-                  onChange={e => setNewComment(e.target.value)}
-                  placeholder="Tulis komentar..."
-                  className="text-xs min-h-[50px] resize-none"
-                  onKeyDown={e => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      sendComment();
-                    }
-                  }}
-                />
-                <Button
-                  size="sm"
-                  onClick={sendComment}
-                  disabled={!newComment.trim() || sendingComment}
-                  className="self-end h-8"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                </Button>
+                <div className="flex-1 relative">
+                  <Textarea
+                    ref={commentRef}
+                    value={newComment}
+                    onChange={handleCommentChange}
+                    placeholder="Tulis komentar... (ketik @ untuk mention)"
+                    className="text-xs min-h-[50px] resize-none"
+                    onKeyDown={e => {
+                      if (e.key === "Enter" && !e.shiftKey && !showMentionList) {
+                        e.preventDefault();
+                        sendComment();
+                      }
+                    }}
+                  />
+                  {/* Mention autocomplete */}
+                  {showMentionList && filteredMentionUsers.length > 0 && (
+                    <div className="absolute bottom-full left-0 right-0 mb-1 bg-popover border rounded-lg shadow-lg max-h-32 overflow-y-auto z-20">
+                      {filteredMentionUsers.slice(0, 5).map(mu => (
+                        <button
+                          key={mu.id}
+                          className="w-full flex items-center gap-2 p-2 hover:bg-muted transition-colors text-left"
+                          onClick={() => insertCommentMention(mu)}
+                        >
+                          <Avatar className="h-5 w-5">
+                            {mu.avatar_url && <AvatarImage src={mu.avatar_url} />}
+                            <AvatarFallback className="text-[9px]">{mu.name?.charAt(0)?.toUpperCase()}</AvatarFallback>
+                          </Avatar>
+                          <span className="text-xs font-medium truncate">{mu.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-col gap-1 self-end">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => {
+                      setNewComment(prev => prev + "@");
+                      setShowMentionList(true);
+                      setMentionStartIndex(newComment.length);
+                      setMentionSearch("");
+                      commentRef.current?.focus();
+                    }}
+                  >
+                    <AtSign className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={sendComment}
+                    disabled={!newComment.trim() || sendingComment}
+                    className="h-8"
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -1010,7 +1123,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                             )}
                           </div>
                           <p className={cn("text-xs mt-0.5 whitespace-pre-wrap break-words", comment.type === "activity" ? "italic text-muted-foreground" : "text-foreground")}>
-                            {comment.message}
+                            {comment.type === "activity" ? comment.message : renderCommentMessage(comment.message)}
                           </p>
                         </div>
                       </div>
