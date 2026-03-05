@@ -251,7 +251,12 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 export function useLanguage() {
   const context = useContext(LanguageContext);
   if (context === undefined) {
-    throw new Error("useLanguage must be used within a LanguageProvider");
+    // Fallback for HMR / hot-reload edge cases
+    return {
+      language: 'id' as const,
+      setLanguage: () => {},
+      t: (key: string) => key,
+    };
   }
   return context;
 }
