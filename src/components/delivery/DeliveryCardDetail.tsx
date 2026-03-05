@@ -621,7 +621,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                             <span className="text-[10px] text-muted-foreground">
                               {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true, locale: idLocale })}
                             </span>
-                            {(comment.user_id === user?.id || isAdmin) && (
+                            {isSuperAdmin && (
                               <button
                                 onClick={() => deleteComment(comment.id)}
                                 className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive/80 ml-auto"
