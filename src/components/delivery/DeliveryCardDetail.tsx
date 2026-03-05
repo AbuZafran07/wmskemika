@@ -132,7 +132,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       .from("delivery_comments")
       .select("*")
       .eq("delivery_request_id", card.id)
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: false });
 
     if (!data) { setComments([]); return; }
 
