@@ -1123,7 +1123,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                             )}
                           </div>
                           <p className={cn("text-xs mt-0.5 whitespace-pre-wrap break-words", comment.type === "activity" ? "italic text-muted-foreground" : "text-foreground")}>
-                            {comment.message}
+                            {comment.type === "activity" ? comment.message : renderCommentMessage(comment.message)}
                           </p>
                         </div>
                       </div>
