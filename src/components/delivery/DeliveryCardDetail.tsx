@@ -81,7 +81,7 @@ interface Props {
 
 export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canManage }: Props) {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<"detail" | "comments">("detail");
+  // No tabs needed - single scrollable view
 
   // Labels state
   const [allLabels, setAllLabels] = useState<Label[]>([]);
