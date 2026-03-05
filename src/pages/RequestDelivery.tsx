@@ -695,8 +695,10 @@ export default function RequestDelivery() {
                       draggable={canManage && card.board_status !== "on_hold_delivery"}
                       onDragStart={(e) => handleDragStart(e, card)}
                       onDragEnd={handleDragEnd}
+                      title={isFullView ? `${card.sales_order_number}\n${card.customer_name}\nPO: ${card.customer_po_number}\n${card.project_instansi} • ${card.allocation_type}\nSales: ${card.sales_name}\nDeadline: ${card.delivery_deadline ? format(new Date(card.delivery_deadline), "dd MMM yy") : "-"}\nItems: ${card.items.map(i => `${i.product_name} ×${i.ordered_qty}`).join(", ")}${card.notes ? `\nNotes: ${card.notes}` : ""}` : undefined}
                       className={cn(
-                        "p-3 cursor-pointer hover:shadow-md transition-all border-border/60 bg-card",
+                        "cursor-pointer hover:shadow-md transition-all border-border/60 bg-card",
+                        isFullView ? "p-1.5 hover:scale-[1.05] hover:z-20 hover:shadow-lg" : "p-3",
                         draggedCard?.id === card.id && "opacity-40 scale-95",
                         canManage && card.board_status !== "on_hold_delivery" && "cursor-grab active:cursor-grabbing",
                         card.board_status === "on_hold_delivery" && "opacity-75 cursor-not-allowed border-orange-500/30"
@@ -705,21 +707,24 @@ export default function RequestDelivery() {
                     >
                       {/* SO Number & Status */}
                       <div className="flex items-start justify-between gap-1 mb-1">
-                        <span className="text-[11px] font-bold text-primary truncate">{card.sales_order_number}</span>
-                        <Badge className={cn("text-[9px] px-1.5 py-0 h-4 flex-shrink-0", getStatusBadgeColor(card.so_status))}>
+                        <span className={cn("font-bold text-primary truncate", isFullView ? "text-[9px]" : "text-[11px]")}>{card.sales_order_number}</span>
+                        <Badge className={cn("px-1.5 py-0 flex-shrink-0", isFullView ? "text-[7px] h-3.5" : "text-[9px] h-4", getStatusBadgeColor(card.so_status))}>
                           {card.so_status}
                         </Badge>
                       </div>
-                      {/* Created date */}
-                      <p className="text-[9px] text-muted-foreground mb-2">
-                        Dibuat: {format(new Date(card.created_at), "dd MMM yy, HH:mm")}
-                      </p>
+
+                      {/* Created date - hide in full view */}
+                      {!isFullView && (
+                        <p className="text-[9px] text-muted-foreground mb-2">
+                          Dibuat: {format(new Date(card.created_at), "dd MMM yy, HH:mm")}
+                        </p>
+                      )}
 
                       {/* Labels */}
                       {cardLabelsMap[card.id]?.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mb-1.5">
+                        <div className="flex flex-wrap gap-0.5 mb-1">
                           {cardLabelsMap[card.id].map((label, idx) => (
-                            <span key={idx} className="text-[9px] text-white px-1.5 py-0.5 rounded-sm font-medium" style={{ backgroundColor: label.color }}>
+                            <span key={idx} className={cn("text-white px-1 py-0 rounded-sm font-medium", isFullView ? "text-[7px]" : "text-[9px] px-1.5 py-0.5")} style={{ backgroundColor: label.color }}>
                               {label.name}
                             </span>
                           ))}
@@ -727,55 +732,63 @@ export default function RequestDelivery() {
                       )}
 
                       {/* Customer */}
-                      <div className="flex items-center gap-1.5 mb-1.5">
-                        <Building2 className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                        <span className="text-[11px] text-foreground truncate font-medium">{card.customer_name}</span>
+                      <div className="flex items-center gap-1 mb-1">
+                        <Building2 className={cn("text-muted-foreground flex-shrink-0", isFullView ? "h-2.5 w-2.5" : "h-3 w-3")} />
+                        <span className={cn("text-foreground truncate font-medium", isFullView ? "text-[9px]" : "text-[11px]")}>{card.customer_name}</span>
                       </div>
 
-                      {/* Customer PO Number */}
-                      <p className="text-[10px] text-muted-foreground truncate mb-1">
-                        PO: <span className="font-medium text-foreground/80">{card.customer_po_number}</span>
-                      </p>
+                      {/* Customer PO Number - hide in full view */}
+                      {!isFullView && (
+                        <p className="text-[10px] text-muted-foreground truncate mb-1">
+                          PO: <span className="font-medium text-foreground/80">{card.customer_po_number}</span>
+                        </p>
+                      )}
 
-                      {/* Project */}
-                      <p className="text-[10px] text-muted-foreground truncate mb-2">
-                        {card.project_instansi} • {card.allocation_type}
-                      </p>
+                      {/* Project - compact in full view */}
+                      {!isFullView && (
+                        <p className="text-[10px] text-muted-foreground truncate mb-2">
+                          {card.project_instansi} • {card.allocation_type}
+                        </p>
+                      )}
 
-                      {/* Items preview */}
-                      <div className="space-y-0.5 mb-2">
-                        {card.items.slice(0, 2).map((item, idx) => (
-                          <div key={idx} className="flex items-center gap-1">
-                            <Package className="h-2.5 w-2.5 text-muted-foreground flex-shrink-0" />
-                            <span className="text-[10px] text-muted-foreground truncate">
-                              {item.product_name} × {item.ordered_qty}
-                            </span>
-                          </div>
-                        ))}
-                        {card.items.length > 2 && (
-                          <span className="text-[9px] text-muted-foreground/70">+{card.items.length - 2} produk lainnya</span>
-                        )}
-                      </div>
+                      {/* Items preview - hide in full view */}
+                      {!isFullView && (
+                        <div className="space-y-0.5 mb-2">
+                          {card.items.slice(0, 2).map((item, idx) => (
+                            <div key={idx} className="flex items-center gap-1">
+                              <Package className="h-2.5 w-2.5 text-muted-foreground flex-shrink-0" />
+                              <span className="text-[10px] text-muted-foreground truncate">
+                                {item.product_name} × {item.ordered_qty}
+                              </span>
+                            </div>
+                          ))}
+                          {card.items.length > 2 && (
+                            <span className="text-[9px] text-muted-foreground/70">+{card.items.length - 2} produk lainnya</span>
+                          )}
+                        </div>
+                      )}
 
                       {/* Footer */}
-                      <div className="flex items-center justify-between pt-1.5 border-t border-border/40">
+                      <div className={cn("flex items-center justify-between border-t border-border/40", isFullView ? "pt-1" : "pt-1.5")}>
                         <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3 text-destructive" />
+                          <Calendar className={cn("text-destructive", isFullView ? "h-2.5 w-2.5" : "h-3 w-3")} />
                           <div className="flex flex-col">
-                            <span className="text-[8px] text-destructive font-semibold leading-tight">Deadline Pengiriman</span>
-                            <span className="text-[10px] text-destructive font-bold">
+                            {!isFullView && <span className="text-[8px] text-destructive font-semibold leading-tight">Deadline Pengiriman</span>}
+                            <span className={cn("text-destructive font-bold", isFullView ? "text-[8px]" : "text-[10px]")}>
                               {card.delivery_deadline ? format(new Date(card.delivery_deadline), "dd MMM yy") : "-"}
                             </span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <User className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-[10px] text-muted-foreground truncate max-w-[70px]">{card.sales_name}</span>
-                        </div>
+                        {!isFullView && (
+                          <div className="flex items-center gap-1">
+                            <User className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-[10px] text-muted-foreground truncate max-w-[70px]">{card.sales_name}</span>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Notes */}
-                      {card.notes && (
+                      {/* Notes - hide in full view */}
+                      {!isFullView && card.notes && (
                         <p className="text-[9px] text-muted-foreground/80 mt-1.5 italic truncate">📝 {card.notes}</p>
                       )}
                     </Card>
