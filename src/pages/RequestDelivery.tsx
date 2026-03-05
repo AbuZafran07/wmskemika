@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Plus, Package, Calendar, User, Building2, Truck, RefreshCw, Search, CheckSquare } from "lucide-react";
+import { Plus, Package, Calendar, User, Building2, Truck, RefreshCw, Search, CheckSquare, Image, X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import DeliveryCardDetail from "@/components/delivery/DeliveryCardDetail";
@@ -74,6 +75,28 @@ export default function RequestDelivery() {
   
   const [draggedCard, setDraggedCard] = useState<DeliveryCard | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+  const [boardBgUrl, setBoardBgUrl] = useState<string>(() => {
+    return localStorage.getItem("delivery-board-bg") || "";
+  });
+  const [bgInput, setBgInput] = useState("");
+  const bgFileRef = useRef<HTMLInputElement>(null);
+
+  const handleSetBg = (url: string) => {
+    setBoardBgUrl(url);
+    localStorage.setItem("delivery-board-bg", url);
+  };
+
+  const handleBgFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target?.result as string;
+        handleSetBg(dataUrl);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const canManage = user?.role && ['super_admin', 'admin', 'sales', 'warehouse'].includes(user.role);
 
@@ -437,9 +460,20 @@ export default function RequestDelivery() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)]">
+    <div 
+      className="flex flex-col h-[calc(100vh-4rem)] relative"
+      style={boardBgUrl ? {
+        backgroundImage: `url(${boardBgUrl})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      } : undefined}
+    >
+      {/* Background overlay for readability */}
+      {boardBgUrl && <div className="absolute inset-0 bg-background/70 dark:bg-background/80 pointer-events-none z-0" />}
+      
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-card flex-shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b bg-card/90 backdrop-blur-sm flex-shrink-0 relative z-10">
         <div className="flex items-center gap-3">
           <Truck className="h-6 w-6 text-primary" />
           <div>
@@ -448,6 +482,48 @@ export default function RequestDelivery() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Background changer */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Image className="h-4 w-4 mr-1" /> Background
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72" align="end">
+              <div className="space-y-3">
+                <p className="text-sm font-medium">Ganti Background Board</p>
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground">Upload gambar:</label>
+                  <input
+                    ref={bgFileRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleBgFile}
+                    className="block w-full text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:bg-primary file:text-primary-foreground cursor-pointer"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground">Atau URL gambar:</label>
+                  <div className="flex gap-1">
+                    <Input
+                      value={bgInput}
+                      onChange={(e) => setBgInput(e.target.value)}
+                      placeholder="https://..."
+                      className="text-xs h-8"
+                    />
+                    <Button size="sm" className="h-8" onClick={() => { handleSetBg(bgInput); setBgInput(""); }}>
+                      Set
+                    </Button>
+                  </div>
+                </div>
+                {boardBgUrl && (
+                  <Button variant="destructive" size="sm" className="w-full" onClick={() => handleSetBg("")}>
+                    <X className="h-3 w-3 mr-1" /> Hapus Background
+                  </Button>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
           <Button variant="outline" size="sm" onClick={fetchCards}>
             <RefreshCw className="h-4 w-4 mr-1" /> Refresh
           </Button>
@@ -460,7 +536,7 @@ export default function RequestDelivery() {
       </div>
 
       {/* Board */}
-      <div ref={scrollRef} className="flex-1 overflow-x-auto overflow-y-hidden">
+      <div ref={scrollRef} className="flex-1 overflow-x-auto overflow-y-hidden relative z-10">
         <div className="flex gap-3 p-4 h-full min-w-max">
           {BOARD_COLUMNS.map((column) => {
             const columnCards = getColumnCards(column.id);
