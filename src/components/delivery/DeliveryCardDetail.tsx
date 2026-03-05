@@ -349,6 +349,59 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     else fetchLabels();
   };
 
+  // Handle comment input with mention detection
+  const handleCommentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    const cursorPosition = e.target.selectionStart || 0;
+    setNewComment(value);
+
+    const textBeforeCursor = value.slice(0, cursorPosition);
+    const lastAtIndex = textBeforeCursor.lastIndexOf("@");
+
+    if (lastAtIndex !== -1) {
+      const textAfterAt = textBeforeCursor.slice(lastAtIndex + 1);
+      if (!textAfterAt.includes(" ") && !textAfterAt.includes("\n")) {
+        setShowMentionList(true);
+        setMentionStartIndex(lastAtIndex);
+        setMentionSearch(textAfterAt);
+      } else {
+        setShowMentionList(false);
+      }
+    } else {
+      setShowMentionList(false);
+    }
+  };
+
+  const insertCommentMention = (mentionUser: { id: string; name: string }) => {
+    if (mentionStartIndex === -1) return;
+    const beforeMention = newComment.slice(0, mentionStartIndex);
+    const afterMention = newComment.slice(mentionStartIndex + mentionSearch.length + 1);
+    const mentionText = `@${mentionUser.name.split(" ")[0]} `;
+    setNewComment(beforeMention + mentionText + afterMention);
+    setShowMentionList(false);
+    setMentionStartIndex(-1);
+    setMentionSearch("");
+    commentRef.current?.focus();
+  };
+
+  const renderCommentMessage = (text: string) => {
+    const parts = text.split(/(@\S+)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith("@")) {
+        const mentionName = part.slice(1).toLowerCase();
+        const isMentionedUser = allMentionUsers.some(u => u.name.split(" ")[0].toLowerCase() === mentionName);
+        if (isMentionedUser) {
+          return (
+            <span key={i} className="font-semibold text-primary bg-primary/10 px-0.5 rounded">
+              {part}
+            </span>
+          );
+        }
+      }
+      return part;
+    });
+  };
+
   // Send comment
   const sendComment = async () => {
     if (!newComment.trim() || !user || !card) return;
