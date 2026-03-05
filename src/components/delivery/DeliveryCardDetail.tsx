@@ -81,7 +81,7 @@ interface Props {
 
 export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canManage }: Props) {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<"detail" | "comments">("detail");
+  // No tabs needed - single scrollable view
 
   // Labels state
   const [allLabels, setAllLabels] = useState<Label[]>([]);
@@ -309,112 +309,120 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           )}
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b">
-          <button
-            onClick={() => setActiveTab("detail")}
-            className={cn("px-4 py-2 text-xs font-medium border-b-2 transition-colors",
-              activeTab === "detail" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Detail
-          </button>
-          <button
-            onClick={() => setActiveTab("comments")}
-            className={cn("px-4 py-2 text-xs font-medium border-b-2 transition-colors flex items-center gap-1",
-              activeTab === "comments" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <MessageSquare className="h-3 w-3" /> Comments & Activity
-            {comments.length > 0 && (
-              <Badge variant="secondary" className="h-4 text-[10px] px-1.5">{comments.length}</Badge>
-            )}
-          </button>
-        </div>
-
-        {/* Tab Content */}
-        <ScrollArea className="flex-1 max-h-[50vh]">
-          {activeTab === "detail" ? (
-            <div className="space-y-3 text-sm pr-2">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <span className="text-muted-foreground text-xs">Customer</span>
-                  <p className="font-medium">{card.customer_name}</p>
-                  <p className="text-xs text-muted-foreground">{card.customer_code}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground text-xs">Sales</span>
-                  <p className="font-medium">{card.sales_name}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground text-xs">Tipe Alokasi</span>
-                  <p className="font-medium">{card.allocation_type}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground text-xs">Project/Instansi</span>
-                  <p className="font-medium">{card.project_instansi}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground text-xs">Deadline Pengiriman</span>
-                  <p className="font-medium">
-                    {card.delivery_deadline ? format(new Date(card.delivery_deadline), "dd MMMM yyyy", { locale: idLocale }) : "-"}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground text-xs">Status Board</span>
-                  <Badge className={cn("mt-1", BOARD_COLUMNS.find(c => c.id === card.board_status)?.color, "text-white")}>
-                    {BOARD_COLUMNS.find(c => c.id === card.board_status)?.label}
-                  </Badge>
-                </div>
-              </div>
-
-              {card.ship_to_address && (
-                <div>
-                  <span className="text-muted-foreground text-xs">Alamat Pengiriman</span>
-                  <p className="text-xs">{card.ship_to_address}</p>
-                </div>
-              )}
-
-              {/* Items */}
+        {/* Single scrollable content: Detail + Products + Comments */}
+        <ScrollArea className="flex-1 max-h-[60vh]">
+          <div className="space-y-4 pr-2">
+            {/* Detail info */}
+            <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <span className="text-muted-foreground text-xs block mb-1">Produk</span>
-                <div className="border rounded-lg overflow-hidden">
-                  <table className="w-full text-xs">
-                    <thead className="bg-muted/50">
-                      <tr>
-                        <th className="text-left p-2 font-medium">Produk</th>
-                        <th className="text-center p-2 font-medium">Qty</th>
-                        <th className="text-center p-2 font-medium">Terkirim</th>
-                        <th className="text-center p-2 font-medium">Sisa</th>
+                <span className="text-muted-foreground text-xs">Customer</span>
+                <p className="font-medium">{card.customer_name}</p>
+                <p className="text-xs text-muted-foreground">{card.customer_code}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground text-xs">Sales</span>
+                <p className="font-medium">{card.sales_name}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground text-xs">Tipe Alokasi</span>
+                <p className="font-medium">{card.allocation_type}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground text-xs">Project/Instansi</span>
+                <p className="font-medium">{card.project_instansi}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground text-xs">Deadline Pengiriman</span>
+                <p className="font-medium">
+                  {card.delivery_deadline ? format(new Date(card.delivery_deadline), "dd MMMM yyyy", { locale: idLocale }) : "-"}
+                </p>
+              </div>
+              <div>
+                <span className="text-muted-foreground text-xs">Status Board</span>
+                <Badge className={cn("mt-1", BOARD_COLUMNS.find(c => c.id === card.board_status)?.color, "text-white")}>
+                  {BOARD_COLUMNS.find(c => c.id === card.board_status)?.label}
+                </Badge>
+              </div>
+            </div>
+
+            {card.ship_to_address && (
+              <div className="text-sm">
+                <span className="text-muted-foreground text-xs">Alamat Pengiriman</span>
+                <p className="text-xs">{card.ship_to_address}</p>
+              </div>
+            )}
+
+            {/* Products table */}
+            <div>
+              <span className="text-muted-foreground text-xs block mb-1">Produk</span>
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="text-left p-2 font-medium">Produk</th>
+                      <th className="text-center p-2 font-medium">Qty</th>
+                      <th className="text-center p-2 font-medium">Terkirim</th>
+                      <th className="text-center p-2 font-medium">Sisa</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {card.items.map((item, idx) => (
+                      <tr key={idx} className="border-t">
+                        <td className="p-2">{item.product_name}</td>
+                        <td className="p-2 text-center">{item.ordered_qty}</td>
+                        <td className="p-2 text-center">{item.qty_delivered}</td>
+                        <td className="p-2 text-center font-medium">{item.ordered_qty - item.qty_delivered}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {card.items.map((item, idx) => (
-                        <tr key={idx} className="border-t">
-                          <td className="p-2">{item.product_name}</td>
-                          <td className="p-2 text-center">{item.ordered_qty}</td>
-                          <td className="p-2 text-center">{item.qty_delivered}</td>
-                          <td className="p-2 text-center font-medium">{item.ordered_qty - item.qty_delivered}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {card.notes && (
+              <div className="text-sm">
+                <span className="text-muted-foreground text-xs">Catatan Board</span>
+                <p className="text-xs italic">{card.notes}</p>
+              </div>
+            )}
+
+            {/* Comments & Activity - below products */}
+            <div className="border-t pt-4">
+              <div className="flex items-center gap-2 mb-3">
+                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs font-semibold">Comments & Activity</span>
+                {comments.length > 0 && (
+                  <Badge variant="secondary" className="h-4 text-[10px] px-1.5">{comments.length}</Badge>
+                )}
               </div>
 
-              {card.notes && (
-                <div>
-                  <span className="text-muted-foreground text-xs">Catatan Board</span>
-                  <p className="text-xs italic">{card.notes}</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-3 pr-2">
+              {/* New comment input */}
+              <div className="flex gap-2 mb-3">
+                <Textarea
+                  value={newComment}
+                  onChange={e => setNewComment(e.target.value)}
+                  placeholder="Tulis komentar..."
+                  className="text-xs min-h-[60px] resize-none"
+                  onKeyDown={e => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      sendComment();
+                    }
+                  }}
+                />
+                <Button
+                  size="sm"
+                  onClick={sendComment}
+                  disabled={!newComment.trim() || sendingComment}
+                  className="self-end h-8"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+
               {/* Comments list */}
               {comments.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                <div className="text-center py-4 text-muted-foreground">
                   <p className="text-xs">Belum ada komentar</p>
                 </div>
               ) : (
@@ -450,32 +458,8 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                   ))}
                 </div>
               )}
-
-              {/* New comment input */}
-              <div className="flex gap-2 pt-2 border-t">
-                <Textarea
-                  value={newComment}
-                  onChange={e => setNewComment(e.target.value)}
-                  placeholder="Tulis komentar..."
-                  className="text-xs min-h-[60px] resize-none"
-                  onKeyDown={e => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      sendComment();
-                    }
-                  }}
-                />
-                <Button
-                  size="sm"
-                  onClick={sendComment}
-                  disabled={!newComment.trim() || sendingComment}
-                  className="self-end h-8"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                </Button>
-              </div>
             </div>
-          )}
+          </div>
         </ScrollArea>
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
