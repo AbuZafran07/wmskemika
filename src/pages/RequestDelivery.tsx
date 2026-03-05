@@ -76,8 +76,21 @@ export default function RequestDelivery() {
   const [draggedCard, setDraggedCard] = useState<DeliveryCard | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [boardBgUrl, setBoardBgUrl] = useState<string>("");
-  const [isFullView, setIsFullView] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(70); // percentage: 50-120
+  const [isFullView, setIsFullView] = useState(() => localStorage.getItem('delivery_full_view') === 'true');
+  const [zoomLevel, setZoomLevel] = useState(() => {
+    const saved = localStorage.getItem('delivery_zoom_level');
+    return saved ? Number(saved) : 70;
+  });
+
+  const handleSetFullView = (val: boolean) => {
+    setIsFullView(val);
+    localStorage.setItem('delivery_full_view', String(val));
+  };
+
+  const handleSetZoom = (val: number) => {
+    setZoomLevel(val);
+    localStorage.setItem('delivery_zoom_level', String(val));
+  };
   const [bgInput, setBgInput] = useState("");
   const bgFileRef = useRef<HTMLInputElement>(null);
 
