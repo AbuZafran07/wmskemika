@@ -14,6 +14,7 @@ import { Plus, Package, Calendar, User, Building2, Truck, RefreshCw, Search, Che
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import DeliveryCardDetail from "@/components/delivery/DeliveryCardDetail";
+import DeliveryMarqueeTicker from "@/components/delivery/DeliveryMarqueeTicker";
 
 // Board columns definition
 const BOARD_COLUMNS = [
@@ -588,7 +589,10 @@ export default function RequestDelivery() {
         </div>
       </div>
 
-      {/* Add SO Dialog */}
+      {/* Bottom Marquee Ticker */}
+      <DeliveryMarqueeTicker />
+
+
       <Dialog open={addDialogOpen} onOpenChange={(open) => { setAddDialogOpen(open); if (!open) { setSoSearchQuery(""); setSelectedSOId(""); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
