@@ -66,6 +66,9 @@ export const MENU_ACCESS: Record<MenuKey, UserRole[]> = {
   // Dashboard - All roles
   dashboard: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales', 'viewer'],
   
+  // Request Delivery - All roles can view
+  requestDelivery: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales', 'viewer'],
+  
   // Transactions
   planOrder: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse'],
   stockIn: ['super_admin', 'admin', 'warehouse'],
