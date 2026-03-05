@@ -1,0 +1,255 @@
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
+import { Bell, Truck, Clock, CheckSquare, Package, AlertTriangle } from "lucide-react";
+
+interface TickerItem {
+  id: string;
+  message: string;
+  type: "system" | "move" | "checklist" | "info" | "warning";
+  timestamp: Date;
+}
+
+const TYPE_ICONS: Record<TickerItem["type"], React.ReactNode> = {
+  system: <Clock className="h-3.5 w-3.5" />,
+  move: <Truck className="h-3.5 w-3.5" />,
+  checklist: <CheckSquare className="h-3.5 w-3.5" />,
+  info: <Bell className="h-3.5 w-3.5" />,
+  warning: <AlertTriangle className="h-3.5 w-3.5" />,
+};
+
+const TYPE_COLORS: Record<TickerItem["type"], string> = {
+  system: "text-amber-300",
+  move: "text-sky-300",
+  checklist: "text-emerald-300",
+  info: "text-blue-300",
+  warning: "text-red-300",
+};
+
+const COLUMN_LABELS: Record<string, string> = {
+  new_order: "New Orders",
+  checking: "Checking...",
+  on_hold_delivery: "On Hold Delivery Order",
+  approval_delivery: "Approval Delivery Order",
+  pengiriman_senin: "Pengiriman Senin",
+  pengiriman_selasa: "Pengiriman Selasa",
+  pengiriman_rabu: "Pengiriman Rabu",
+  pengiriman_kamis: "Pengiriman Kamis",
+  pengiriman_jumat: "Pengiriman Jumat",
+  delivered: "Delivered",
+  delivered_sample: "Delivered Sample",
+};
+
+export default function DeliveryMarqueeTicker() {
+  const [items, setItems] = useState<TickerItem[]>([]);
+  const tickerRef = useRef<HTMLDivElement>(null);
+  const prevCardsRef = useRef<Record<string, string>>({});
+
+  const addTickerItem = useCallback((message: string, type: TickerItem["type"] = "info") => {
+    const newItem: TickerItem = {
+      id: crypto.randomUUID(),
+      message,
+      type,
+      timestamp: new Date(),
+    };
+    setItems(prev => {
+      const updated = [newItem, ...prev].slice(0, 50); // keep max 50
+      return updated;
+    });
+  }, []);
+
+  // Add initial welcome message
+  useEffect(() => {
+    const now = new Date();
+    const wibTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+    const hour = wibTime.getHours();
+    const min = wibTime.getMinutes();
+    
+    addTickerItem(
+      `📡 Board aktif — ${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')} WIB — Notifikasi real-time aktif`,
+      "info"
+    );
+
+    if (hour >= 15) {
+      addTickerItem(
+        "⏰ Sudah lewat jam 15:00 WIB — Card di Approval Delivery otomatis dipindahkan ke On Hold",
+        "warning"
+      );
+    } else if (hour >= 10) {
+      addTickerItem(
+        "✅ Jam kerja aktif — Card On Hold sudah dipindahkan kembali ke Approval Delivery",
+        "system"
+      );
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Listen to realtime changes on delivery_requests
+  useEffect(() => {
+    // First, build initial state
+    const buildInitialState = async () => {
+      const { data } = await supabase
+        .from("delivery_requests")
+        .select("id, board_status, sales_order_id");
+      if (data) {
+        const map: Record<string, string> = {};
+        data.forEach(d => { map[d.id] = d.board_status; });
+        prevCardsRef.current = map;
+      }
+    };
+    buildInitialState();
+
+    const channel = supabase
+      .channel("delivery_ticker_realtime")
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "delivery_requests",
+      }, async (payload) => {
+        const newRow = payload.new as any;
+        const oldStatus = prevCardsRef.current[newRow.id];
+        const newStatus = newRow.board_status;
+
+        if (oldStatus && oldStatus !== newStatus) {
+          // Fetch SO number for better message
+          const { data: soData } = await supabase
+            .from("sales_order_headers")
+            .select("sales_order_number")
+            .eq("id", newRow.sales_order_id)
+            .single();
+          
+          const soNum = soData?.sales_order_number || "—";
+          const fromLabel = COLUMN_LABELS[oldStatus] || oldStatus;
+          const toLabel = COLUMN_LABELS[newStatus] || newStatus;
+
+          // Detect if system-moved (time guard)
+          const isSystemMove = 
+            (oldStatus === "approval_delivery" && newStatus === "on_hold_delivery") ||
+            (oldStatus === "on_hold_delivery" && newStatus === "approval_delivery");
+
+          if (isSystemMove) {
+            addTickerItem(
+              `⏰ ${soNum} otomatis dipindahkan: ${fromLabel} → ${toLabel}`,
+              "system"
+            );
+          } else {
+            addTickerItem(
+              `🚚 ${soNum} dipindahkan: ${fromLabel} → ${toLabel}`,
+              "move"
+            );
+          }
+        }
+
+        // Update ref
+        prevCardsRef.current[newRow.id] = newStatus;
+      })
+      .on("postgres_changes", {
+        event: "INSERT",
+        schema: "public",
+        table: "delivery_requests",
+      }, async (payload) => {
+        const newRow = payload.new as any;
+        const { data: soData } = await supabase
+          .from("sales_order_headers")
+          .select("sales_order_number")
+          .eq("id", newRow.sales_order_id)
+          .single();
+        
+        const soNum = soData?.sales_order_number || "—";
+        addTickerItem(`📦 Card baru ditambahkan: ${soNum}`, "info");
+        prevCardsRef.current[newRow.id] = newRow.board_status;
+      })
+      .on("postgres_changes", {
+        event: "DELETE",
+        schema: "public",
+        table: "delivery_requests",
+      }, (payload) => {
+        const oldRow = payload.old as any;
+        addTickerItem(`🗑️ Card dihapus dari board`, "warning");
+        delete prevCardsRef.current[oldRow.id];
+      })
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "delivery_checklists",
+      }, async (payload) => {
+        const newRow = payload.new as any;
+        if (newRow.is_checked) {
+          addTickerItem(`✅ Checklist dicentang: "${newRow.label}"`, "checklist");
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Build the ticker text from items
+  const tickerText = items.length > 0
+    ? items.map(item => {
+        const time = item.timestamp.toLocaleTimeString("id-ID", { 
+          hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" 
+        });
+        return `${time} — ${item.message}`;
+      }).join("     •     ")
+    : "📡 Menunggu aktivitas...";
+
+  return (
+    <div className="relative w-full h-8 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-t border-slate-700/50 overflow-hidden flex-shrink-0">
+      {/* Glow effect */}
+      <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-transparent to-amber-500/5 pointer-events-none" />
+      
+      {/* Label badge */}
+      <div className="absolute left-0 top-0 h-full z-10 flex items-center px-2.5 bg-gradient-to-r from-slate-900 via-slate-900 to-transparent">
+        <div className="flex items-center gap-1.5 bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider border border-blue-500/30">
+          <Bell className="h-3 w-3 animate-pulse" />
+          <span>LIVE</span>
+        </div>
+      </div>
+
+      {/* Scrolling marquee */}
+      <div className="absolute inset-0 pl-20 flex items-center overflow-hidden">
+        <div
+          ref={tickerRef}
+          className="whitespace-nowrap animate-marquee inline-flex items-center gap-1"
+        >
+          {items.length > 0 ? items.map((item, idx) => (
+            <React.Fragment key={item.id}>
+              {idx > 0 && <span className="text-slate-600 mx-3">•</span>}
+              <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium", TYPE_COLORS[item.type])}>
+                {TYPE_ICONS[item.type]}
+                <span className="text-slate-500 text-[10px]">
+                  {item.timestamp.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })}
+                </span>
+                <span className="text-slate-200">{item.message}</span>
+              </span>
+            </React.Fragment>
+          )) : (
+            <span className="text-xs text-slate-400">📡 Menunggu aktivitas...</span>
+          )}
+          {/* Duplicate for seamless loop */}
+          {items.length > 0 && (
+            <>
+              <span className="text-slate-600 mx-6">|</span>
+              {items.map((item, idx) => (
+                <React.Fragment key={`dup-${item.id}`}>
+                  {idx > 0 && <span className="text-slate-600 mx-3">•</span>}
+                  <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium", TYPE_COLORS[item.type])}>
+                    {TYPE_ICONS[item.type]}
+                    <span className="text-slate-500 text-[10px]">
+                      {item.timestamp.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })}
+                    </span>
+                    <span className="text-slate-200">{item.message}</span>
+                  </span>
+                </React.Fragment>
+              ))}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Right fade */}
+      <div className="absolute right-0 top-0 h-full w-12 bg-gradient-to-l from-slate-900 to-transparent pointer-events-none z-10" />
+    </div>
+  );
+}
