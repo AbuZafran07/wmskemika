@@ -297,6 +297,56 @@ export type Database = {
         }
         Relationships: []
       }
+      delivery_requests: {
+        Row: {
+          assigned_to: string | null
+          board_status: string
+          created_at: string
+          created_by: string | null
+          delivery_date_target: string | null
+          id: string
+          moved_at: string | null
+          moved_by: string | null
+          notes: string | null
+          sales_order_id: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          board_status?: string
+          created_at?: string
+          created_by?: string | null
+          delivery_date_target?: string | null
+          id?: string
+          moved_at?: string | null
+          moved_by?: string | null
+          notes?: string | null
+          sales_order_id: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          board_status?: string
+          created_at?: string
+          created_by?: string | null
+          delivery_date_target?: string | null
+          id?: string
+          moved_at?: string | null
+          moved_by?: string | null
+          notes?: string | null
+          sales_order_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_requests_sales_order_id_fkey"
+            columns: ["sales_order_id"]
+            isOneToOne: true
+            referencedRelation: "sales_order_headers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_batches: {
         Row: {
           batch_no: string
