@@ -192,6 +192,18 @@ export default function RequestDelivery() {
     const cardToMove = cards.find(c => c.id === cardId);
     if (!cardToMove) return;
 
+    // === BLOCK: Cards in on_hold_delivery cannot be moved manually ===
+    if (cardToMove.board_status === "on_hold_delivery") {
+      toast.error("Card di On Hold Delivery Order tidak dapat dipindahkan secara manual. Card akan otomatis pindah ke Approval Delivery Order setelah jam 10:00 WIB.");
+      return;
+    }
+
+    // === BLOCK: Cannot move cards INTO on_hold_delivery manually ===
+    if (newStatus === "on_hold_delivery") {
+      toast.error("Card tidak dapat dipindahkan secara manual ke On Hold Delivery Order. Perpindahan dilakukan otomatis oleh sistem.");
+      return;
+    }
+
     // === VALIDATION: approval_delivery → pengiriman_* ===
     if (cardToMove.board_status === "approval_delivery" && PENGIRIMAN_COLUMNS.includes(newStatus)) {
       // Only sales & super_admin can move
