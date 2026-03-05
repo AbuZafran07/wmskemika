@@ -397,6 +397,11 @@ export default function RequestDelivery() {
                         <span className="text-[11px] text-foreground truncate font-medium">{card.customer_name}</span>
                       </div>
 
+                      {/* Customer PO Number */}
+                      <p className="text-[10px] text-muted-foreground truncate mb-1">
+                        PO: <span className="font-medium text-foreground/80">{card.customer_po_number}</span>
+                      </p>
+
                       {/* Project */}
                       <p className="text-[10px] text-muted-foreground truncate mb-2">
                         {card.project_instansi} • {card.allocation_type}

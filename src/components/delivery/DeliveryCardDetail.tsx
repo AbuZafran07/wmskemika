@@ -546,7 +546,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                         <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 p-1">
                           <Download className="h-3.5 w-3.5" />
                         </a>
-                        {(att.uploaded_by === user?.id || isAdmin) && (
+                        {isSuperAdmin && (
                           <button
                             onClick={() => deleteAttachment(att)}
                             className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive/80 p-1"
