@@ -143,6 +143,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
   // Stock out delivery details
   const [stockOutDetails, setStockOutDetails] = useState<{
+    id: string;
     stock_out_number: string;
     delivery_date: string;
     items: {
@@ -152,6 +153,10 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       expired_date: string | null;
     }[];
   }[]>([]);
+
+  // Delivery number (DO) state
+  const [deliveryNumbers, setDeliveryNumbers] = useState<Record<string, string>>({});
+  const [savingDO, setSavingDO] = useState(false);
 
   // Delete card dialog state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -254,6 +259,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       }
 
       const details = [];
+      const doNumbers: Record<string, string> = {};
       for (const so of stockOuts) {
         const { data: outItems } = await supabase
           .from("stock_out_items")
@@ -261,6 +267,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           .eq("stock_out_id", so.id);
 
         details.push({
+          id: so.id,
           stock_out_number: so.stock_out_number,
           delivery_date: so.delivery_date,
           items: (outItems || []).map((item: any) => ({
@@ -270,8 +277,10 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
             expired_date: item.batch?.expired_date || null,
           })),
         });
+        doNumbers[so.id] = so.stock_out_number;
       }
       setStockOutDetails(details);
+      setDeliveryNumbers(doNumbers);
     } catch (err) {
       console.error("Error fetching stock out details:", err);
     }
@@ -579,6 +588,19 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
       // Auto-move from pengiriman columns to delivered/delivered_sample
       if (allChecked && PENGIRIMAN_COLUMNS.includes(card.board_status)) {
+        // Check if delivery number (DO) has been updated for all stock outs
+        if (stockOutDetails.length > 0) {
+          const allDOFilled = stockOutDetails.every(so => {
+            const doNum = deliveryNumbers[so.id];
+            return doNum && doNum.trim() !== '';
+          });
+          if (!allDOFilled) {
+            toast.error("Nomor Delivery (DO) harus diisi terlebih dahulu sebelum card dapat dipindahkan ke Delivered.");
+            fetchChecklists();
+            return;
+          }
+        }
+
         // Check if card has "sample" label
         const { data: cardLabelsData } = await supabase
           .from("delivery_card_labels")
@@ -617,6 +639,38 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       fetchChecklists();
     } catch (err: any) {
       toast.error("Gagal update checklist: " + err.message);
+    }
+  };
+
+  // Save delivery number (DO) to stock_out_headers
+  const handleSaveDeliveryNumber = async (stockOutId: string) => {
+    if (!user || !card) return;
+    const doNumber = deliveryNumbers[stockOutId]?.trim();
+    if (!doNumber) {
+      toast.error("Nomor Delivery (DO) tidak boleh kosong");
+      return;
+    }
+    setSavingDO(true);
+    try {
+      const { error } = await supabase
+        .from("stock_out_headers")
+        .update({ stock_out_number: doNumber })
+        .eq("id", stockOutId);
+      if (error) throw error;
+
+      await supabase.from("delivery_comments").insert({
+        delivery_request_id: card.id,
+        user_id: user.id,
+        message: `📝 Nomor Delivery (DO) diperbarui menjadi: ${doNumber}`,
+        type: "activity",
+      });
+
+      toast.success("Nomor DO berhasil disimpan");
+      fetchStockOutDetails();
+    } catch (err: any) {
+      toast.error("Gagal menyimpan nomor DO: " + err.message);
+    } finally {
+      setSavingDO(false);
     }
   };
 
@@ -1116,6 +1170,39 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                       );
                     })}
                   </div>
+
+                  {/* DO Number Input - only in pengiriman columns */}
+                  {PENGIRIMAN_COLUMNS.includes(card.board_status) && stockOutDetails.length > 0 && (
+                    <div className="mt-3 pt-3 border-t space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Truck className="h-3.5 w-3.5 text-primary" />
+                        <span className="text-xs font-semibold">Nomor Delivery (DO)</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        Input nomor DO riil dari warehouse. Nomor ini akan menggantikan nomor Stock Out di Outbound Report.
+                      </p>
+                      {stockOutDetails.map((so) => (
+                        <div key={so.id} className="flex items-center gap-2">
+                          <Input
+                            value={deliveryNumbers[so.id] || ''}
+                            onChange={(e) => setDeliveryNumbers(prev => ({ ...prev, [so.id]: e.target.value }))}
+                            placeholder="Masukkan No. DO..."
+                            className="h-8 text-xs flex-1"
+                            disabled={!canManage || savingDO}
+                          />
+                          <Button
+                            size="sm"
+                            className="h-8 text-xs px-3"
+                            onClick={() => handleSaveDeliveryNumber(so.id)}
+                            disabled={!canManage || savingDO || !deliveryNumbers[so.id]?.trim()}
+                          >
+                            {savingDO ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 mr-1" />}
+                            Simpan
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
