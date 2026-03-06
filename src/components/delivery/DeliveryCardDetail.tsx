@@ -735,6 +735,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const assignedLabels = allLabels.filter(l => cardLabelIds.includes(l.id));
 
   return (
+    <>
     <Dialog open={!!card} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-5 pb-0">
