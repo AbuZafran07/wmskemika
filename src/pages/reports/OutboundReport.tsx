@@ -350,7 +350,7 @@ export default function OutboundReport() {
                                   <TooltipProvider>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <Info className="h-3.5 w-3.5 text-blue-500 cursor-help shrink-0" />
+                                        <Info className="h-3.5 w-3.5 text-primary cursor-help shrink-0" />
                                       </TooltipTrigger>
                                       <TooltipContent side="right" className="text-xs">
                                         <p className="font-semibold">Tgl. Rencana Asli:</p>
