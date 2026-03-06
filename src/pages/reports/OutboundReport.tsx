@@ -146,10 +146,12 @@ export default function OutboundReport() {
     const rows: string[][] = [];
 
     filteredRecords.forEach(record => {
+      const displayNo = record.delivery_number || record.stock_out_number;
+      const displayDate = record.delivery_actual_date || record.delivery_date;
       record.items.forEach(item => {
         rows.push([
-          record.stock_out_number,
-          formatDate(record.delivery_date),
+          displayNo,
+          formatDate(displayDate),
           record.sales_order?.sales_order_number || '',
           record.sales_order?.customer?.name || '',
           item.product?.name || '',
