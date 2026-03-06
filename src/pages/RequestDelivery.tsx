@@ -276,6 +276,7 @@ export default function RequestDelivery() {
       .from("delivery_labels")
       .select("id, name, color");
     if (!cardLabels || !labels) return;
+    setAllLabels(labels);
     const labelsById = Object.fromEntries(labels.map(l => [l.id, l]));
     const map: Record<string, { name: string; color: string }[]> = {};
     cardLabels.forEach(cl => {
