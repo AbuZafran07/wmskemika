@@ -757,7 +757,8 @@ export default function RequestDelivery() {
                         isFullView ? "p-1.5 hover:scale-[1.05] hover:z-20 hover:shadow-lg" : "p-3",
                         draggedCard?.id === card.id && "opacity-40 scale-95",
                         canManage && card.board_status !== "on_hold_delivery" && "cursor-grab active:cursor-grabbing",
-                        card.board_status === "on_hold_delivery" && "opacity-75 cursor-not-allowed border-orange-500/30"
+                        card.board_status === "on_hold_delivery" && "opacity-75 cursor-not-allowed border-orange-500/30",
+                        cardLabelsMap[card.id]?.some(l => /urgent|cito/i.test(l.name)) && "ring-2 ring-destructive/70 border-destructive/50 animate-pulse"
                       )}
                       onClick={() => setDetailCard(card)}
                     >
