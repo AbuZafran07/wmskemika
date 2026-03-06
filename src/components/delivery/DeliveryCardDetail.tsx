@@ -1122,7 +1122,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           </ScrollArea>
 
           {/* RIGHT PANEL - Comments & Activity */}
-          <div className="w-[340px] flex-shrink-0 flex flex-col min-h-0">
+          <div className="w-full md:w-[340px] flex-shrink-0 flex flex-col min-h-0 border-t md:border-t-0">
             <div className="flex items-center gap-2 px-4 py-3 border-b">
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
               <span className="text-xs font-semibold">Comments & Activity</span>
