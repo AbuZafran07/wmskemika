@@ -114,6 +114,14 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState(LABEL_COLORS[0]);
   const [creatingLabel, setCreatingLabel] = useState(false);
+  const [labelSearchQuery, setLabelSearchQuery] = useState("");
+  const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
+  const [editLabelName, setEditLabelName] = useState("");
+  const [editLabelColor, setEditLabelColor] = useState("");
+  
+  // Urgent/Cito reason dialog
+  const [urgentReasonDialog, setUrgentReasonDialog] = useState<{ labelId: string; labelName: string } | null>(null);
+  const [urgentReason, setUrgentReason] = useState("");
 
   // Comments state
   const [comments, setComments] = useState<Comment[]>([]);
