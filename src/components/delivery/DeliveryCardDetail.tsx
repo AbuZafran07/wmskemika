@@ -1341,14 +1341,22 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
             <Textarea
               value={urgentReason}
               onChange={e => setUrgentReason(e.target.value)}
-              placeholder={`Contoh: Barang dibutuhkan segera oleh customer untuk proyek...`}
-              rows={3}
+              placeholder={`Contoh: Barang dibutuhkan segera oleh customer untuk proyek X, deadline pengiriman besok pagi...`}
+              rows={4}
               autoFocus
             />
+            <div className="flex items-center justify-between">
+              <p className={`text-xs ${urgentReason.trim().length < 60 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                {urgentReason.trim().length}/60 karakter minimum
+              </p>
+              {urgentReason.trim().length >= 60 && (
+                <span className="text-xs text-green-600">✓ Cukup</span>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setUrgentReasonDialog(null)}>Batal</Button>
-            <Button size="sm" onClick={confirmUrgentLabel} disabled={!urgentReason.trim()}>
+            <Button size="sm" onClick={confirmUrgentLabel} disabled={urgentReason.trim().length < 60}>
               Konfirmasi & Kirim
             </Button>
           </DialogFooter>
