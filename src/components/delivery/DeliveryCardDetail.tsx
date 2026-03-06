@@ -766,7 +766,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                   <Tag className="h-3 w-3" /> Label
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-80 p-3" align="start">
+              <PopoverContent className="w-80 p-3" align="start" onWheel={(e) => e.stopPropagation()}>
                 <p className="text-xs font-semibold mb-2">Label</p>
                 {/* Search */}
                 <div className="relative mb-2">
@@ -779,7 +779,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                   />
                 </div>
                 {/* Scrollable label list */}
-                <div className="mb-3 max-h-48 overflow-y-auto border rounded-md">
+                <div className="mb-3 max-h-48 overflow-y-auto overscroll-contain border rounded-md p-1" style={{ WebkitOverflowScrolling: 'touch' }}>
                   <div className="space-y-1 pr-2">
                     {allLabels
                       .filter(l => l.name.toLowerCase().includes(labelSearchQuery.toLowerCase()))
