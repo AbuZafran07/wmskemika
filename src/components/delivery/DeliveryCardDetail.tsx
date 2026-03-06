@@ -646,33 +646,39 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     }
   };
 
-  // Save delivery number (DO) to stock_out_headers
+  // Save delivery number (DO) & actual date to stock_out_headers
   const handleSaveDeliveryNumber = async (stockOutId: string) => {
     if (!user || !card) return;
     const doNumber = deliveryNumbers[stockOutId]?.trim();
+    const doDate = deliveryDates[stockOutId]?.trim();
     if (!doNumber) {
       toast.error("Nomor Delivery (DO) tidak boleh kosong");
       return;
     }
     setSavingDO(true);
     try {
+      const updateData: Record<string, any> = { delivery_number: doNumber };
+      if (doDate) {
+        updateData.delivery_actual_date = doDate;
+      }
       const { error } = await supabase
         .from("stock_out_headers")
-        .update({ stock_out_number: doNumber })
+        .update(updateData)
         .eq("id", stockOutId);
       if (error) throw error;
 
+      const dateInfo = doDate ? `, Tanggal DO: ${doDate}` : '';
       await supabase.from("delivery_comments").insert({
         delivery_request_id: card.id,
         user_id: user.id,
-        message: `📝 Nomor Delivery (DO) diperbarui menjadi: ${doNumber}`,
+        message: `📝 Nomor DO: ${doNumber}${dateInfo}`,
         type: "activity",
       });
 
-      toast.success("Nomor DO berhasil disimpan");
+      toast.success("Data DO berhasil disimpan");
       fetchStockOutDetails();
     } catch (err: any) {
-      toast.error("Gagal menyimpan nomor DO: " + err.message);
+      toast.error("Gagal menyimpan data DO: " + err.message);
     } finally {
       setSavingDO(false);
     }
