@@ -534,6 +534,59 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         .eq("id", checklistId);
       if (error) throw error;
 
+      // Auto-add/remove "Ready to Deliver" label when finance checklist is toggled on approval_delivery
+      if (isFinanceChecklist && card.board_status === "approval_delivery") {
+        const { data: readyLabel } = await supabase
+          .from("delivery_labels")
+          .select("id")
+          .ilike("name", "%ready to deliver%")
+          .maybeSingle();
+
+        if (readyLabel) {
+          if (newChecked) {
+            // Add label if not already present
+            const { data: existing } = await supabase
+              .from("delivery_card_labels")
+              .select("id")
+              .eq("delivery_request_id", card.id)
+              .eq("label_id", readyLabel.id)
+              .maybeSingle();
+
+            if (!existing) {
+              await supabase.from("delivery_card_labels").insert({
+                delivery_request_id: card.id,
+                label_id: readyLabel.id,
+              });
+            }
+
+            await supabase.from("delivery_comments").insert({
+              delivery_request_id: card.id,
+              user_id: user.id,
+              message: `🏷️ Label "Ready to Deliver" otomatis ditambahkan setelah Verifikasi Administrasi Finance dicentang.`,
+              type: "activity",
+            });
+
+            fetchLabels();
+          } else {
+            // Remove label when unchecked
+            await supabase
+              .from("delivery_card_labels")
+              .delete()
+              .eq("delivery_request_id", card.id)
+              .eq("label_id", readyLabel.id);
+
+            await supabase.from("delivery_comments").insert({
+              delivery_request_id: card.id,
+              user_id: user.id,
+              message: `🏷️ Label "Ready to Deliver" otomatis dihapus karena Verifikasi Administrasi Finance di-uncheck.`,
+              type: "activity",
+            });
+
+            fetchLabels();
+          }
+        }
+      }
+
       // Re-fetch to get latest state
       const { data: latestChecklists } = await supabase
         .from("delivery_checklists")
