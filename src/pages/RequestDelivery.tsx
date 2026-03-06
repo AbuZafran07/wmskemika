@@ -10,8 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Plus, Package, Calendar, User, Building2, Truck, RefreshCw, Search, CheckSquare, Image, X, Maximize2, Minimize2, ZoomIn, ZoomOut, CheckCircle2 } from "lucide-react";
+import { Plus, Package, Calendar, User, Building2, Truck, RefreshCw, Search, CheckSquare, Image, X, Maximize2, Minimize2, ZoomIn, ZoomOut, CheckCircle2, Filter } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import DeliveryCardDetail from "@/components/delivery/DeliveryCardDetail";
@@ -72,6 +73,8 @@ export default function RequestDelivery() {
   const [addNotes, setAddNotes] = useState("");
   const [soSearchQuery, setSoSearchQuery] = useState("");
   const [cardLabelsMap, setCardLabelsMap] = useState<Record<string, { name: string; color: string }[]>>({});
+  const [allLabels, setAllLabels] = useState<{ id: string; name: string; color: string }[]>([]);
+  const [filterLabelNames, setFilterLabelNames] = useState<string[]>([]);
   
   const [draggedCard, setDraggedCard] = useState<DeliveryCard | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
@@ -273,6 +276,7 @@ export default function RequestDelivery() {
       .from("delivery_labels")
       .select("id, name, color");
     if (!cardLabels || !labels) return;
+    setAllLabels(labels);
     const labelsById = Object.fromEntries(labels.map(l => [l.id, l]));
     const map: Record<string, { name: string; color: string }[]> = {};
     cardLabels.forEach(cl => {
@@ -599,7 +603,16 @@ export default function RequestDelivery() {
 
   const handleDragEnd = () => { setDraggedCard(null); setDragOverColumn(null); };
 
-  const getColumnCards = (columnId: string) => cards.filter(c => c.board_status === columnId);
+  const getColumnCards = (columnId: string) => {
+    let filtered = cards.filter(c => c.board_status === columnId);
+    if (filterLabelNames.length > 0) {
+      filtered = filtered.filter(c => {
+        const labels = cardLabelsMap[c.id] || [];
+        return filterLabelNames.some(fn => labels.some(l => l.name === fn));
+      });
+    }
+    return filtered;
+  };
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
@@ -642,118 +655,204 @@ export default function RequestDelivery() {
             <p className="text-xs text-muted-foreground">Kanban Board Jadwal Pengiriman</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Background changer - super_admin only */}
-          {isSuperAdmin && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Image className="h-4 w-4 mr-1" /> Background
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80" align="end">
-                <div className="space-y-3">
-                  <p className="text-sm font-medium">Ganti Background Board</p>
-                  
-                  {/* Preset backgrounds */}
-                  <div className="space-y-2">
-                    <label className="text-xs text-muted-foreground font-medium">Pilih Preset:</label>
-                    <div className="grid grid-cols-4 gap-2">
-                      {[
-                        { label: "Default", value: "", preview: "bg-muted" },
-                        { label: "Warehouse", value: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=1920&q=80", preview: "bg-amber-800" },
-                        { label: "City", value: "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=1920&q=80", preview: "bg-slate-700" },
-                        { label: "Ocean", value: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920&q=80", preview: "bg-cyan-600" },
-                        { label: "Forest", value: "https://images.unsplash.com/photo-1448375240586-882707db888b?w=1920&q=80", preview: "bg-emerald-800" },
-                        { label: "Sunset", value: "https://images.unsplash.com/photo-1495616811223-4d98c6e9c869?w=1920&q=80", preview: "bg-orange-600" },
-                        { label: "Night", value: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1920&q=80", preview: "bg-indigo-900" },
-                        { label: "Abstract", value: "https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=1920&q=80", preview: "bg-purple-700" },
-                      ].map((preset) => (
-                        <button
-                          key={preset.label}
-                          onClick={() => handleSetBg(preset.value)}
-                          className={cn(
-                            "flex flex-col items-center gap-1 p-1.5 rounded-lg border transition-all hover:scale-105",
-                            boardBgUrl === preset.value
-                              ? "border-primary ring-2 ring-primary/30"
-                              : "border-border hover:border-primary/50"
-                          )}
-                        >
-                          <div className={cn("w-full h-8 rounded", preset.preview)} 
-                            style={preset.value ? { 
-                              backgroundImage: `url(${preset.value})`, 
-                              backgroundSize: "cover", 
-                              backgroundPosition: "center" 
-                            } : undefined}
-                          />
-                          <span className="text-[10px] text-muted-foreground truncate w-full text-center">{preset.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="border-t pt-3 space-y-2">
-                    <label className="text-xs text-muted-foreground font-medium">Upload gambar:</label>
-                    <input
-                      ref={bgFileRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleBgFile}
-                      className="block w-full text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:bg-primary file:text-primary-foreground cursor-pointer"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs text-muted-foreground font-medium">Atau URL gambar:</label>
-                    <div className="flex gap-1">
-                      <Input
-                        value={bgInput}
-                        onChange={(e) => setBgInput(e.target.value)}
-                        placeholder="https://..."
-                        className="text-xs h-8"
-                      />
-                      <Button size="sm" className="h-8" onClick={() => { handleSetBg(bgInput); setBgInput(""); }}>
-                        Set
+        <div className="flex items-center gap-1.5">
+          <TooltipProvider delayDuration={200}>
+            {/* Background changer - super_admin only */}
+            {isSuperAdmin && (
+              <Popover>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="icon" className="h-8 w-8">
+                        <Image className="h-4 w-4" />
                       </Button>
+                    </PopoverTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent><p>Background</p></TooltipContent>
+                </Tooltip>
+                <PopoverContent className="w-80" align="end">
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium">Ganti Background Board</p>
+                    
+                    {/* Preset backgrounds */}
+                    <div className="space-y-2">
+                      <label className="text-xs text-muted-foreground font-medium">Pilih Preset:</label>
+                      <div className="grid grid-cols-4 gap-2">
+                        {[
+                          { label: "Default", value: "", preview: "bg-muted" },
+                          { label: "Warehouse", value: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=1920&q=80", preview: "bg-amber-800" },
+                          { label: "City", value: "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=1920&q=80", preview: "bg-slate-700" },
+                          { label: "Ocean", value: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920&q=80", preview: "bg-cyan-600" },
+                          { label: "Forest", value: "https://images.unsplash.com/photo-1448375240586-882707db888b?w=1920&q=80", preview: "bg-emerald-800" },
+                          { label: "Sunset", value: "https://images.unsplash.com/photo-1495616811223-4d98c6e9c869?w=1920&q=80", preview: "bg-orange-600" },
+                          { label: "Night", value: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1920&q=80", preview: "bg-indigo-900" },
+                          { label: "Abstract", value: "https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=1920&q=80", preview: "bg-purple-700" },
+                        ].map((preset) => (
+                          <button
+                            key={preset.label}
+                            onClick={() => handleSetBg(preset.value)}
+                            className={cn(
+                              "flex flex-col items-center gap-1 p-1.5 rounded-lg border transition-all hover:scale-105",
+                              boardBgUrl === preset.value
+                                ? "border-primary ring-2 ring-primary/30"
+                                : "border-border hover:border-primary/50"
+                            )}
+                          >
+                            <div className={cn("w-full h-8 rounded", preset.preview)} 
+                              style={preset.value ? { 
+                                backgroundImage: `url(${preset.value})`, 
+                                backgroundSize: "cover", 
+                                backgroundPosition: "center" 
+                              } : undefined}
+                            />
+                            <span className="text-[10px] text-muted-foreground truncate w-full text-center">{preset.label}</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
+
+                    <div className="border-t pt-3 space-y-2">
+                      <label className="text-xs text-muted-foreground font-medium">Upload gambar:</label>
+                      <input
+                        ref={bgFileRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleBgFile}
+                        className="block w-full text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:bg-primary file:text-primary-foreground cursor-pointer"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs text-muted-foreground font-medium">Atau URL gambar:</label>
+                      <div className="flex gap-1">
+                        <Input
+                          value={bgInput}
+                          onChange={(e) => setBgInput(e.target.value)}
+                          placeholder="https://..."
+                          className="text-xs h-8"
+                        />
+                        <Button size="sm" className="h-8" onClick={() => { handleSetBg(bgInput); setBgInput(""); }}>
+                          Set
+                        </Button>
+                      </div>
+                    </div>
+                    {boardBgUrl && (
+                      <Button variant="destructive" size="sm" className="w-full" onClick={() => handleSetBg("")}>
+                        <X className="h-3 w-3 mr-1" /> Hapus Background
+                      </Button>
+                    )}
                   </div>
-                  {boardBgUrl && (
-                    <Button variant="destructive" size="sm" className="w-full" onClick={() => handleSetBg("")}>
-                      <X className="h-3 w-3 mr-1" /> Hapus Background
+                </PopoverContent>
+              </Popover>
+            )}
+
+            {/* Label Filter */}
+            <Popover>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="icon" className={cn("h-8 w-8 relative", filterLabelNames.length > 0 && "border-primary text-primary")}>
+                      <Filter className="h-4 w-4" />
+                      {filterLabelNames.length > 0 && (
+                        <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[9px] flex items-center justify-center font-bold">
+                          {filterLabelNames.length}
+                        </span>
+                      )}
                     </Button>
-                  )}
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent><p>Filter Label</p></TooltipContent>
+              </Tooltip>
+              <PopoverContent className="w-56" align="end">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">Filter Label</p>
+                    {filterLabelNames.length > 0 && (
+                      <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => setFilterLabelNames([])}>
+                        Reset
+                      </Button>
+                    )}
+                  </div>
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {allLabels.map((label) => (
+                      <button
+                        key={label.id}
+                        onClick={() => {
+                          setFilterLabelNames(prev => 
+                            prev.includes(label.name) 
+                              ? prev.filter(n => n !== label.name) 
+                              : [...prev, label.name]
+                          );
+                        }}
+                        className={cn(
+                          "flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-xs transition-colors hover:bg-muted",
+                          filterLabelNames.includes(label.name) && "bg-muted"
+                        )}
+                      >
+                        <span className="h-3 w-3 rounded-sm flex-shrink-0" style={{ backgroundColor: label.color }} />
+                        <span className="truncate text-foreground">{label.name}</span>
+                        {filterLabelNames.includes(label.name) && (
+                          <CheckCircle2 className="h-3.5 w-3.5 text-primary ml-auto flex-shrink-0" />
+                        )}
+                      </button>
+                    ))}
+                    {allLabels.length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-2">Belum ada label</p>
+                    )}
+                  </div>
                 </div>
               </PopoverContent>
             </Popover>
-          )}
-          <Button variant="outline" size="sm" onClick={() => handleSetFullView(!isFullView)} title={isFullView ? "Normal View" : "Full View - Lihat Semua Kolom"}>
-            {isFullView ? <Minimize2 className="h-4 w-4 mr-1" /> : <Maximize2 className="h-4 w-4 mr-1" />}
-            {isFullView ? "Normal" : "Full View"}
-          </Button>
-          {isFullView && (
-            <div className="flex items-center gap-2 bg-muted/50 rounded-md px-2 py-1">
-              <ZoomOut className="h-3.5 w-3.5 text-muted-foreground" />
-              <input
-                type="range"
-                min={50}
-                max={120}
-                step={5}
-                value={zoomLevel}
-                onChange={(e) => handleSetZoom(Number(e.target.value))}
-                className="w-20 h-1.5 accent-primary cursor-pointer"
-                title={`Zoom: ${zoomLevel}%`}
-              />
-              <ZoomIn className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-[10px] text-muted-foreground font-medium w-8">{zoomLevel}%</span>
-            </div>
-          )}
-          <Button variant="outline" size="sm" onClick={fetchCards}>
-            <RefreshCw className="h-4 w-4 mr-1" /> Refresh
-          </Button>
-          {canManage && (
-            <Button size="sm" onClick={() => { setAddDialogOpen(true); fetchAvailableSOs(); }}>
-              <Plus className="h-4 w-4 mr-1" /> Tambah SO
-            </Button>
-          )}
+
+            {/* Full View Toggle */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleSetFullView(!isFullView)}>
+                  {isFullView ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p>{isFullView ? "Normal View" : "Full View"}</p></TooltipContent>
+            </Tooltip>
+
+            {isFullView && (
+              <div className="flex items-center gap-2 bg-muted/50 rounded-md px-2 py-1">
+                <ZoomOut className="h-3.5 w-3.5 text-muted-foreground" />
+                <input
+                  type="range"
+                  min={50}
+                  max={120}
+                  step={5}
+                  value={zoomLevel}
+                  onChange={(e) => handleSetZoom(Number(e.target.value))}
+                  className="w-20 h-1.5 accent-primary cursor-pointer"
+                  title={`Zoom: ${zoomLevel}%`}
+                />
+                <ZoomIn className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[10px] text-muted-foreground font-medium w-8">{zoomLevel}%</span>
+              </div>
+            )}
+
+            {/* Refresh */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" className="h-8 w-8" onClick={fetchCards}>
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p>Refresh</p></TooltipContent>
+            </Tooltip>
+
+            {/* Add SO */}
+            {canManage && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="sm" onClick={() => { setAddDialogOpen(true); fetchAvailableSOs(); }}>
+                    <Plus className="h-4 w-4 mr-1" /> Tambah SO
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Tambah Sales Order ke Board</p></TooltipContent>
+              </Tooltip>
+            )}
+          </TooltipProvider>
         </div>
       </div>
 
