@@ -1323,5 +1323,36 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         </DialogContent>
       </Dialog>
     </Dialog>
+
+      {/* Urgent/Cito Reason Dialog */}
+      <Dialog open={!!urgentReasonDialog} onOpenChange={() => setUrgentReasonDialog(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-warning" />
+              Alasan Label {urgentReasonDialog?.labelName}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Jelaskan alasan mengapa card ini ditandai <span className="font-semibold text-foreground">{urgentReasonDialog?.labelName}</span>:
+            </p>
+            <Textarea
+              value={urgentReason}
+              onChange={e => setUrgentReason(e.target.value)}
+              placeholder={`Contoh: Barang dibutuhkan segera oleh customer untuk proyek...`}
+              rows={3}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setUrgentReasonDialog(null)}>Batal</Button>
+            <Button size="sm" onClick={confirmUrgentLabel} disabled={!urgentReason.trim()}>
+              Konfirmasi & Kirim
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Dialog>
   );
 }
