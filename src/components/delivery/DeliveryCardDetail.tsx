@@ -566,7 +566,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
               type: "activity",
             });
 
-            fetchCardLabels();
+            fetchLabels();
           } else {
             // Remove label when unchecked
             await supabase
