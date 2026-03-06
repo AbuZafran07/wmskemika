@@ -383,9 +383,21 @@ export default function RequestDelivery() {
     const cardToMove = cards.find(c => c.id === cardId);
     if (!cardToMove) return;
 
+    // === BLOCK: Cards in new_order cannot be moved manually ===
+    if (cardToMove.board_status === "new_order") {
+      toast.error("Card di New Orders tidak dapat dipindahkan secara manual. Card akan otomatis pindah ke Checking setelah checklist 'Proses Sales Order' dicentang.");
+      return;
+    }
+
     // === BLOCK: Cards in checking cannot be moved manually ===
     if (cardToMove.board_status === "checking") {
       toast.error("Card di Checking tidak dapat dipindahkan secara manual. Card akan otomatis pindah ke Approval Delivery setelah proses Stock Out oleh Warehouse.");
+      return;
+    }
+
+    // === BLOCK: Cards in approval_delivery can only move to pengiriman columns ===
+    if (cardToMove.board_status === "approval_delivery" && !PENGIRIMAN_COLUMNS.includes(newStatus)) {
+      toast.error("Card di Approval Delivery hanya dapat dipindahkan ke kolom Pengiriman Hari.");
       return;
     }
 
