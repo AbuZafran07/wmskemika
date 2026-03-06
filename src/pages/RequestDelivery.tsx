@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Plus, Package, Calendar, User, Building2, Truck, RefreshCw, Search, CheckSquare, Image, X, Maximize2, Minimize2, ZoomIn, ZoomOut } from "lucide-react";
+import { Plus, Package, Calendar, User, Building2, Truck, RefreshCw, Search, CheckSquare, Image, X, Maximize2, Minimize2, ZoomIn, ZoomOut, CheckCircle2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -806,7 +806,12 @@ export default function RequestDelivery() {
                     >
                       {/* SO Number & Status */}
                       <div className="flex items-start justify-between gap-1 mb-1">
-                        <span className={cn("font-bold text-primary truncate", isFullView ? "text-[9px]" : "text-[11px]")}>{card.sales_order_number}</span>
+                        <div className="flex items-center gap-1 truncate min-w-0">
+                          {cardLabelsMap[card.id]?.some(l => /ready to deliver/i.test(l.name)) && (
+                            <CheckCircle2 className={cn("text-success flex-shrink-0", isFullView ? "h-3 w-3" : "h-3.5 w-3.5")} />
+                          )}
+                          <span className={cn("font-bold text-primary truncate", isFullView ? "text-[9px]" : "text-[11px]")}>{card.sales_order_number}</span>
+                        </div>
                         <Badge className={cn("px-1.5 py-0 flex-shrink-0", isFullView ? "text-[7px] h-3.5" : "text-[9px] h-4", getStatusBadgeColor(card.so_status))}>
                           {card.so_status}
                         </Badge>
