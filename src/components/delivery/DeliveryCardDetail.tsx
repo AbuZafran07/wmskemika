@@ -1170,6 +1170,39 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                       );
                     })}
                   </div>
+
+                  {/* DO Number Input - only in pengiriman columns */}
+                  {PENGIRIMAN_COLUMNS.includes(card.board_status) && stockOutDetails.length > 0 && (
+                    <div className="mt-3 pt-3 border-t space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Truck className="h-3.5 w-3.5 text-primary" />
+                        <span className="text-xs font-semibold">Nomor Delivery (DO)</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        Input nomor DO riil dari warehouse. Nomor ini akan menggantikan nomor Stock Out di Outbound Report.
+                      </p>
+                      {stockOutDetails.map((so) => (
+                        <div key={so.id} className="flex items-center gap-2">
+                          <Input
+                            value={deliveryNumbers[so.id] || ''}
+                            onChange={(e) => setDeliveryNumbers(prev => ({ ...prev, [so.id]: e.target.value }))}
+                            placeholder="Masukkan No. DO..."
+                            className="h-8 text-xs flex-1"
+                            disabled={!canManage || savingDO}
+                          />
+                          <Button
+                            size="sm"
+                            className="h-8 text-xs px-3"
+                            onClick={() => handleSaveDeliveryNumber(so.id)}
+                            disabled={!canManage || savingDO || !deliveryNumbers[so.id]?.trim()}
+                          >
+                            {savingDO ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 mr-1" />}
+                            Simpan
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
