@@ -74,7 +74,7 @@ export default function OutboundReport() {
     const { data, error } = await supabase
       .from('stock_out_headers')
       .select(`
-        id, stock_out_number, delivery_date, notes,
+        id, stock_out_number, delivery_date, delivery_number, delivery_actual_date, notes,
         sales_order:sales_order_headers(
           sales_order_number,
           customer:customers(name)
