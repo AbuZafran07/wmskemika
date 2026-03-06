@@ -383,6 +383,12 @@ export default function RequestDelivery() {
     const cardToMove = cards.find(c => c.id === cardId);
     if (!cardToMove) return;
 
+    // === BLOCK: Cards in delivered / delivered_sample are final state ===
+    if (cardToMove.board_status === "delivered" || cardToMove.board_status === "delivered_sample") {
+      toast.error("Card yang sudah Delivered tidak dapat dipindahkan. Status ini adalah final.");
+      return;
+    }
+
     // === BLOCK: Cards in new_order cannot be moved manually ===
     if (cardToMove.board_status === "new_order") {
       toast.error("Card di New Orders tidak dapat dipindahkan secara manual. Card akan otomatis pindah ke Checking setelah checklist 'Proses Sales Order' dicentang.");
