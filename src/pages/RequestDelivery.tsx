@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Plus, Package, Calendar, User, Building2, Truck, RefreshCw, Search, CheckSquare, Image, X, Maximize2, Minimize2, ZoomIn, ZoomOut } from "lucide-react";
+import { Plus, Package, Calendar, User, Building2, Truck, RefreshCw, Search, CheckSquare, Image, X, Maximize2, Minimize2, ZoomIn, ZoomOut, CheckCircle2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
