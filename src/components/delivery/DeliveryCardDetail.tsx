@@ -765,31 +765,86 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                   <Tag className="h-3 w-3" /> Label
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-72 p-3" align="start">
+              <PopoverContent className="w-80 p-3" align="start">
                 <p className="text-xs font-semibold mb-2">Label</p>
-                <div className="space-y-1 max-h-40 overflow-y-auto mb-3">
-                  {allLabels.map(label => (
-                    <div key={label.id} className="flex items-center gap-2 group">
-                      <button
-                        onClick={() => toggleLabel(label.id)}
-                        className={cn(
-                          "flex-1 flex items-center gap-2 text-left rounded px-2 py-1.5 text-xs hover:bg-muted transition-colors",
-                          cardLabelIds.includes(label.id) && "ring-2 ring-primary/50"
-                        )}
-                      >
-                        <span className="w-5 h-4 rounded-sm flex-shrink-0" style={{ backgroundColor: label.color }} />
-                        <span className="truncate">{label.name}</span>
-                        {cardLabelIds.includes(label.id) && <span className="text-primary ml-auto text-[10px]">✓</span>}
-                      </button>
-                      {isSuperAdmin && (
-                        <button onClick={() => deleteLabel(label.id)} className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive/80 p-1">
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  {allLabels.length === 0 && <p className="text-xs text-muted-foreground text-center py-2">Belum ada label</p>}
+                {/* Search */}
+                <div className="relative mb-2">
+                  <Search className="absolute left-2 top-1.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    value={labelSearchQuery}
+                    onChange={e => setLabelSearchQuery(e.target.value)}
+                    placeholder="Cari label..."
+                    className="h-7 text-xs pl-7"
+                  />
                 </div>
+                {/* Scrollable label list */}
+                <ScrollArea className="mb-3" style={{ maxHeight: "12rem" }}>
+                  <div className="space-y-1 pr-2">
+                    {allLabels
+                      .filter(l => l.name.toLowerCase().includes(labelSearchQuery.toLowerCase()))
+                      .map(label => (
+                      <div key={label.id} className="flex items-center gap-1 group">
+                        {editingLabelId === label.id ? (
+                          /* Edit mode */
+                          <div className="flex-1 space-y-1.5 p-1.5 rounded bg-muted/50">
+                            <Input
+                              value={editLabelName}
+                              onChange={e => setEditLabelName(e.target.value)}
+                              className="h-6 text-xs"
+                              onKeyDown={e => e.key === "Enter" && updateLabel(label.id)}
+                              autoFocus
+                            />
+                            <div className="flex gap-1 flex-wrap">
+                              {LABEL_COLORS.map(c => (
+                                <button key={c} onClick={() => setEditLabelColor(c)}
+                                  className={cn("w-4 h-4 rounded-full transition-all", editLabelColor === c && "ring-2 ring-offset-1 ring-primary")}
+                                  style={{ backgroundColor: c }} />
+                              ))}
+                            </div>
+                            <div className="flex gap-1">
+                              <Button size="sm" className="h-5 text-[10px] px-2" onClick={() => updateLabel(label.id)}>
+                                <Check className="h-3 w-3 mr-0.5" /> Simpan
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-5 text-[10px] px-2" onClick={() => setEditingLabelId(null)}>
+                                Batal
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          /* Normal mode */
+                          <>
+                            <button
+                              onClick={() => toggleLabel(label.id)}
+                              className={cn(
+                                "flex-1 flex items-center gap-2 text-left rounded px-2 py-1.5 text-xs hover:bg-muted transition-colors",
+                                cardLabelIds.includes(label.id) && "ring-2 ring-primary/50"
+                              )}
+                            >
+                              <span className="w-5 h-4 rounded-sm flex-shrink-0" style={{ backgroundColor: label.color }} />
+                              <span className="truncate">{label.name}</span>
+                              {cardLabelIds.includes(label.id) && <span className="text-primary ml-auto text-[10px]">✓</span>}
+                            </button>
+                            {isSuperAdmin && (
+                              <>
+                                <button onClick={() => { setEditingLabelId(label.id); setEditLabelName(label.name); setEditLabelColor(label.color); }} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground p-1">
+                                  <Pencil className="h-3 w-3" />
+                                </button>
+                                <button onClick={() => deleteLabel(label.id)} className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive/80 p-1">
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    ))}
+                    {allLabels.filter(l => l.name.toLowerCase().includes(labelSearchQuery.toLowerCase())).length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-2">
+                        {labelSearchQuery ? "Label tidak ditemukan" : "Belum ada label"}
+                      </p>
+                    )}
+                  </div>
+                </ScrollArea>
                 {isSuperAdmin && (
                   <div className="border-t pt-2 space-y-2">
                     <p className="text-[11px] font-medium text-muted-foreground">Buat Label Baru</p>
