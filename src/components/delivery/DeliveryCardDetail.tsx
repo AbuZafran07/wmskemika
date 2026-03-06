@@ -779,7 +779,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                   />
                 </div>
                 {/* Scrollable label list */}
-                <ScrollArea className="mb-3" style={{ maxHeight: "12rem" }}>
+                <div className="mb-3 max-h-48 overflow-y-auto border rounded-md">
                   <div className="space-y-1 pr-2">
                     {allLabels
                       .filter(l => l.name.toLowerCase().includes(labelSearchQuery.toLowerCase()))
@@ -845,7 +845,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                       </p>
                     )}
                   </div>
-                </ScrollArea>
+                </div>
                 {isSuperAdmin && (
                   <div className="border-t pt-2 space-y-2">
                     <p className="text-[11px] font-medium text-muted-foreground">Buat Label Baru</p>
