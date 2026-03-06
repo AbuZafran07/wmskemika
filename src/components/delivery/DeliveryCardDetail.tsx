@@ -259,6 +259,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       }
 
       const details = [];
+      const doNumbers: Record<string, string> = {};
       for (const so of stockOuts) {
         const { data: outItems } = await supabase
           .from("stock_out_items")
@@ -266,6 +267,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           .eq("stock_out_id", so.id);
 
         details.push({
+          id: so.id,
           stock_out_number: so.stock_out_number,
           delivery_date: so.delivery_date,
           items: (outItems || []).map((item: any) => ({
@@ -275,8 +277,10 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
             expired_date: item.batch?.expired_date || null,
           })),
         });
+        doNumbers[so.id] = so.stock_out_number;
       }
       setStockOutDetails(details);
+      setDeliveryNumbers(doNumbers);
     } catch (err) {
       console.error("Error fetching stock out details:", err);
     }
