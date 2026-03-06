@@ -528,7 +528,7 @@ export default function StockOut() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <Label>{language === "en" ? "Delivery Number" : "Nomor Pengiriman"} *</Label>
+              <Label>{language === "en" ? "Stock Out Number" : "Nomor Stock Out"} *</Label>
               <Input
                 value={stockOutNumber}
                 onChange={(e) => setStockOutNumber(e.target.value)}
