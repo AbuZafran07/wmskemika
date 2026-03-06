@@ -757,59 +757,80 @@ export default function RequestDelivery() {
               </Popover>
             )}
 
-            {/* Label Filter */}
+            {/* Filter & Search */}
             <Popover>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" size="icon" className={cn("h-8 w-8 relative", filterLabelNames.length > 0 && "border-primary text-primary")}>
+                    <Button variant="outline" size="icon" className={cn("h-8 w-8 relative", (filterLabelNames.length > 0 || cardSearchQuery.trim()) && "border-primary text-primary")}>
                       <Filter className="h-4 w-4" />
-                      {filterLabelNames.length > 0 && (
+                      {(filterLabelNames.length > 0 || cardSearchQuery.trim()) && (
                         <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[9px] flex items-center justify-center font-bold">
-                          {filterLabelNames.length}
+                          {filterLabelNames.length + (cardSearchQuery.trim() ? 1 : 0)}
                         </span>
                       )}
                     </Button>
                   </PopoverTrigger>
                 </TooltipTrigger>
-                <TooltipContent><p>Filter Label</p></TooltipContent>
+                <TooltipContent><p>Filter & Cari</p></TooltipContent>
               </Tooltip>
-              <PopoverContent className="w-56" align="end">
-                <div className="space-y-2">
+              <PopoverContent className="w-64" align="end">
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium">Filter Label</p>
-                    {filterLabelNames.length > 0 && (
-                      <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => setFilterLabelNames([])}>
+                    <p className="text-sm font-medium">Filter & Cari Card</p>
+                    {(filterLabelNames.length > 0 || cardSearchQuery.trim()) && (
+                      <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => { setFilterLabelNames([]); setCardSearchQuery(""); }}>
                         Reset
                       </Button>
                     )}
                   </div>
-                  <div className="space-y-1 max-h-48 overflow-y-auto">
-                    {allLabels.map((label) => (
-                      <button
-                        key={label.id}
-                        onClick={() => {
-                          setFilterLabelNames(prev => 
-                            prev.includes(label.name) 
-                              ? prev.filter(n => n !== label.name) 
-                              : [...prev, label.name]
-                          );
-                        }}
-                        className={cn(
-                          "flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-xs transition-colors hover:bg-muted",
-                          filterLabelNames.includes(label.name) && "bg-muted"
-                        )}
-                      >
-                        <span className="h-3 w-3 rounded-sm flex-shrink-0" style={{ backgroundColor: label.color }} />
-                        <span className="truncate text-foreground">{label.name}</span>
-                        {filterLabelNames.includes(label.name) && (
-                          <CheckCircle2 className="h-3.5 w-3.5 text-primary ml-auto flex-shrink-0" />
-                        )}
+
+                  {/* Search input */}
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      value={cardSearchQuery}
+                      onChange={(e) => setCardSearchQuery(e.target.value)}
+                      placeholder="Cari SO, customer, PO, produk..."
+                      className="pl-7 h-8 text-xs"
+                    />
+                    {cardSearchQuery && (
+                      <button onClick={() => setCardSearchQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2">
+                        <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
                       </button>
-                    ))}
-                    {allLabels.length === 0 && (
-                      <p className="text-xs text-muted-foreground text-center py-2">Belum ada label</p>
                     )}
+                  </div>
+
+                  {/* Label filter */}
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground">Filter Label</p>
+                    <div className="space-y-1 max-h-40 overflow-y-auto">
+                      {allLabels.map((label) => (
+                        <button
+                          key={label.id}
+                          onClick={() => {
+                            setFilterLabelNames(prev => 
+                              prev.includes(label.name) 
+                                ? prev.filter(n => n !== label.name) 
+                                : [...prev, label.name]
+                            );
+                          }}
+                          className={cn(
+                            "flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-xs transition-colors hover:bg-muted",
+                            filterLabelNames.includes(label.name) && "bg-muted"
+                          )}
+                        >
+                          <span className="h-3 w-3 rounded-sm flex-shrink-0" style={{ backgroundColor: label.color }} />
+                          <span className="truncate text-foreground">{label.name}</span>
+                          {filterLabelNames.includes(label.name) && (
+                            <CheckCircle2 className="h-3.5 w-3.5 text-primary ml-auto flex-shrink-0" />
+                          )}
+                        </button>
+                      ))}
+                      {allLabels.length === 0 && (
+                        <p className="text-xs text-muted-foreground text-center py-2">Belum ada label</p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </PopoverContent>
