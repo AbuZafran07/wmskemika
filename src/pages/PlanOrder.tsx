@@ -1735,20 +1735,26 @@ export default function PlanOrder() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>{language === "en" ? "Rejection Reason (optional)" : "Alasan Penolakan (opsional)"}</Label>
+              <Label>{language === "en" ? "Rejection Reason" : "Alasan Penolakan"} *</Label>
               <Textarea
                 value={rejectRevisionReason}
                 onChange={(e) => setRejectRevisionReason(e.target.value)}
                 placeholder={language === "en" ? "Explain why the revision is rejected..." : "Jelaskan mengapa revisi ditolak..."}
                 rows={3}
               />
+              <div className="flex items-center justify-between">
+                <p className={`text-xs ${rejectRevisionReason.trim().length < 20 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                  {rejectRevisionReason.trim().length}/20 {language === "en" ? "min characters" : "karakter minimum"}
+                </p>
+                {rejectRevisionReason.trim().length >= 20 && <span className="text-xs text-green-600">✓</span>}
+              </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsRejectRevisionDialogOpen(false)} disabled={isRejectingRevision}>
               {t("common.cancel")}
             </Button>
-            <Button variant="destructive" onClick={handleRejectRevision} disabled={isRejectingRevision}>
+            <Button variant="destructive" onClick={handleRejectRevision} disabled={isRejectingRevision || rejectRevisionReason.trim().length < 20}>
               {isRejectingRevision && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {language === "en" ? "Reject Revision" : "Tolak Revisi"}
             </Button>
