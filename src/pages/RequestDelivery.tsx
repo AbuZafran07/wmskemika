@@ -383,6 +383,12 @@ export default function RequestDelivery() {
     const cardToMove = cards.find(c => c.id === cardId);
     if (!cardToMove) return;
 
+    // === BLOCK: Cards in checking cannot be moved manually ===
+    if (cardToMove.board_status === "checking") {
+      toast.error("Card di Checking tidak dapat dipindahkan secara manual. Card akan otomatis pindah ke Approval Delivery setelah proses Stock Out oleh Warehouse.");
+      return;
+    }
+
     // === BLOCK: Cards in on_hold_delivery cannot be moved manually ===
     if (cardToMove.board_status === "on_hold_delivery") {
       toast.error("Card di On Hold Delivery Order tidak dapat dipindahkan secara manual. Card akan otomatis pindah ke Approval Delivery Order setelah jam 10:00 WIB.");
