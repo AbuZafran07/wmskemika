@@ -36,6 +36,8 @@ interface StockOutRecord {
   id: string;
   stock_out_number: string;
   delivery_date: string;
+  delivery_number: string | null;
+  delivery_actual_date: string | null;
   notes?: string | null;
   sales_order: {
     sales_order_number: string;
@@ -72,7 +74,7 @@ export default function OutboundReport() {
     const { data, error } = await supabase
       .from('stock_out_headers')
       .select(`
-        id, stock_out_number, delivery_date, notes,
+        id, stock_out_number, delivery_date, delivery_number, delivery_actual_date, notes,
         sales_order:sales_order_headers(
           sales_order_number,
           customer:customers(name)
@@ -94,12 +96,15 @@ export default function OutboundReport() {
   };
 
   const filteredRecords = records.filter(record => {
+    const displayNo = record.delivery_number || record.stock_out_number;
     const matchesSearch = 
+      displayNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
       record.stock_out_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
       record.sales_order?.sales_order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
       record.sales_order?.customer?.name.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const recordDate = new Date(record.delivery_date);
+    const displayDate = record.delivery_actual_date || record.delivery_date;
+    const recordDate = new Date(displayDate);
     const matchesDateFrom = !dateFrom || recordDate >= new Date(dateFrom);
     const matchesDateTo = !dateTo || recordDate <= new Date(dateTo);
     
@@ -141,10 +146,12 @@ export default function OutboundReport() {
     const rows: string[][] = [];
 
     filteredRecords.forEach(record => {
+      const displayNo = record.delivery_number || record.stock_out_number;
+      const displayDate = record.delivery_actual_date || record.delivery_date;
       record.items.forEach(item => {
         rows.push([
-          record.stock_out_number,
-          formatDate(record.delivery_date),
+          displayNo,
+          formatDate(displayDate),
           record.sales_order?.sales_order_number || '',
           record.sales_order?.customer?.name || '',
           item.product?.name || '',
@@ -313,10 +320,10 @@ export default function OutboundReport() {
                         {idx === 0 ? (
                           <>
                             <TableCell rowSpan={record.items.length} className="font-medium align-top">
-                              {record.stock_out_number}
+                              {record.delivery_number || record.stock_out_number}
                             </TableCell>
                             <TableCell rowSpan={record.items.length} className="align-top">
-                              {formatDate(record.delivery_date)}
+                              {formatDate(record.delivery_actual_date || record.delivery_date)}
                             </TableCell>
                             <TableCell rowSpan={record.items.length} className="align-top">
                               {record.sales_order?.sales_order_number}

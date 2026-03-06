@@ -154,8 +154,9 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     }[];
   }[]>([]);
 
-  // Delivery number (DO) state
+  // Delivery number (DO) & actual date state
   const [deliveryNumbers, setDeliveryNumbers] = useState<Record<string, string>>({});
+  const [deliveryDates, setDeliveryDates] = useState<Record<string, string>>({});
   const [savingDO, setSavingDO] = useState(false);
 
   // Delete card dialog state
@@ -249,7 +250,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       // Get all stock out headers for this SO
       const { data: stockOuts } = await supabase
         .from("stock_out_headers")
-        .select("id, stock_out_number, delivery_date")
+        .select("id, stock_out_number, delivery_date, delivery_number, delivery_actual_date")
         .eq("sales_order_id", card.sales_order_id)
         .order("created_at", { ascending: false });
 
@@ -260,6 +261,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
       const details = [];
       const doNumbers: Record<string, string> = {};
+      const doDates: Record<string, string> = {};
       for (const so of stockOuts) {
         const { data: outItems } = await supabase
           .from("stock_out_items")
@@ -277,10 +279,12 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
             expired_date: item.batch?.expired_date || null,
           })),
         });
-        doNumbers[so.id] = so.stock_out_number;
+        doNumbers[so.id] = (so as any).delivery_number || '';
+        doDates[so.id] = (so as any).delivery_actual_date || '';
       }
       setStockOutDetails(details);
       setDeliveryNumbers(doNumbers);
+      setDeliveryDates(doDates);
     } catch (err) {
       console.error("Error fetching stock out details:", err);
     }
@@ -642,33 +646,39 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     }
   };
 
-  // Save delivery number (DO) to stock_out_headers
+  // Save delivery number (DO) & actual date to stock_out_headers
   const handleSaveDeliveryNumber = async (stockOutId: string) => {
     if (!user || !card) return;
     const doNumber = deliveryNumbers[stockOutId]?.trim();
+    const doDate = deliveryDates[stockOutId]?.trim();
     if (!doNumber) {
       toast.error("Nomor Delivery (DO) tidak boleh kosong");
       return;
     }
     setSavingDO(true);
     try {
+      const updateData: Record<string, any> = { delivery_number: doNumber };
+      if (doDate) {
+        updateData.delivery_actual_date = doDate;
+      }
       const { error } = await supabase
         .from("stock_out_headers")
-        .update({ stock_out_number: doNumber })
+        .update(updateData)
         .eq("id", stockOutId);
       if (error) throw error;
 
+      const dateInfo = doDate ? `, Tanggal DO: ${doDate}` : '';
       await supabase.from("delivery_comments").insert({
         delivery_request_id: card.id,
         user_id: user.id,
-        message: `📝 Nomor Delivery (DO) diperbarui menjadi: ${doNumber}`,
+        message: `📝 Nomor DO: ${doNumber}${dateInfo}`,
         type: "activity",
       });
 
-      toast.success("Nomor DO berhasil disimpan");
+      toast.success("Data DO berhasil disimpan");
       fetchStockOutDetails();
     } catch (err: any) {
-      toast.error("Gagal menyimpan nomor DO: " + err.message);
+      toast.error("Gagal menyimpan data DO: " + err.message);
     } finally {
       setSavingDO(false);
     }
@@ -1171,38 +1181,48 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                     })}
                   </div>
 
-                  {/* DO Number Input - only in pengiriman columns */}
-                  {PENGIRIMAN_COLUMNS.includes(card.board_status) && stockOutDetails.length > 0 && (
-                    <div className="mt-3 pt-3 border-t space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Truck className="h-3.5 w-3.5 text-primary" />
-                        <span className="text-xs font-semibold">Nomor Delivery (DO)</span>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground">
-                        Input nomor DO riil dari warehouse. Nomor ini akan menggantikan nomor Stock Out di Outbound Report.
-                      </p>
-                      {stockOutDetails.map((so) => (
-                        <div key={so.id} className="flex items-center gap-2">
-                          <Input
-                            value={deliveryNumbers[so.id] || ''}
-                            onChange={(e) => setDeliveryNumbers(prev => ({ ...prev, [so.id]: e.target.value }))}
-                            placeholder="Masukkan No. DO..."
-                            className="h-8 text-xs flex-1"
-                            disabled={!canManage || savingDO}
-                          />
-                          <Button
-                            size="sm"
-                            className="h-8 text-xs px-3"
-                            onClick={() => handleSaveDeliveryNumber(so.id)}
-                            disabled={!canManage || savingDO || !deliveryNumbers[so.id]?.trim()}
-                          >
-                            {savingDO ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 mr-1" />}
-                            Simpan
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                   {/* DO Number & Date Input - only in pengiriman columns */}
+                   {PENGIRIMAN_COLUMNS.includes(card.board_status) && stockOutDetails.length > 0 && (
+                     <div className="mt-3 pt-3 border-t space-y-2">
+                       <div className="flex items-center gap-2">
+                         <Truck className="h-3.5 w-3.5 text-primary" />
+                         <span className="text-xs font-semibold">Delivery Order (DO)</span>
+                       </div>
+                       <p className="text-[10px] text-muted-foreground">
+                         Input nomor & tanggal DO riil. Data ini akan tampil sebagai data utama di Outbound Report.
+                       </p>
+                       {stockOutDetails.map((so) => (
+                         <div key={so.id} className="space-y-1.5">
+                           <div className="text-[10px] text-muted-foreground font-medium">SO: {so.stock_out_number}</div>
+                           <div className="flex items-center gap-2">
+                             <Input
+                               value={deliveryNumbers[so.id] || ''}
+                               onChange={(e) => setDeliveryNumbers(prev => ({ ...prev, [so.id]: e.target.value }))}
+                               placeholder="No. DO..."
+                               className="h-8 text-xs flex-1"
+                               disabled={!canManage || savingDO}
+                             />
+                             <Input
+                               type="date"
+                               value={deliveryDates[so.id] || ''}
+                               onChange={(e) => setDeliveryDates(prev => ({ ...prev, [so.id]: e.target.value }))}
+                               className="h-8 text-xs w-[130px]"
+                               disabled={!canManage || savingDO}
+                             />
+                             <Button
+                               size="sm"
+                               className="h-8 text-xs px-3"
+                               onClick={() => handleSaveDeliveryNumber(so.id)}
+                               disabled={!canManage || savingDO || !deliveryNumbers[so.id]?.trim()}
+                             >
+                               {savingDO ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 mr-1" />}
+                               Simpan
+                             </Button>
+                           </div>
+                         </div>
+                       ))}
+                     </div>
+                   )}
                 </div>
               )}
             </div>

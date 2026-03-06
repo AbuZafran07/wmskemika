@@ -1178,8 +1178,10 @@ export type Database = {
         Row: {
           created_at: string | null
           created_by: string | null
+          delivery_actual_date: string | null
           delivery_date: string
           delivery_note_url: string | null
+          delivery_number: string | null
           id: string
           notes: string | null
           sales_order_id: string
@@ -1188,8 +1190,10 @@ export type Database = {
         Insert: {
           created_at?: string | null
           created_by?: string | null
+          delivery_actual_date?: string | null
           delivery_date?: string
           delivery_note_url?: string | null
+          delivery_number?: string | null
           id?: string
           notes?: string | null
           sales_order_id: string
@@ -1198,8 +1202,10 @@ export type Database = {
         Update: {
           created_at?: string | null
           created_by?: string | null
+          delivery_actual_date?: string | null
           delivery_date?: string
           delivery_note_url?: string | null
+          delivery_number?: string | null
           id?: string
           notes?: string | null
           sales_order_id?: string
