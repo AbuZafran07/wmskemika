@@ -36,6 +36,8 @@ interface StockOutRecord {
   id: string;
   stock_out_number: string;
   delivery_date: string;
+  delivery_number: string | null;
+  delivery_actual_date: string | null;
   notes?: string | null;
   sales_order: {
     sales_order_number: string;
