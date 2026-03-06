@@ -1353,6 +1353,6 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Dialog>
+    </>
   );
 }
