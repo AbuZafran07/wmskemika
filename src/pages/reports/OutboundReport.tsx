@@ -1,5 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Search, Download, CalendarIcon, ArrowUpFromLine, Loader2, MoreHorizontal, Eye, Printer } from 'lucide-react';
+import { Search, Download, CalendarIcon, ArrowUpFromLine, Loader2, MoreHorizontal, Eye, Printer, Info } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -320,10 +326,40 @@ export default function OutboundReport() {
                         {idx === 0 ? (
                           <>
                             <TableCell rowSpan={record.items.length} className="font-medium align-top">
-                              {record.delivery_number || record.stock_out_number}
+                              <div className="flex items-center gap-1">
+                                {record.delivery_number || record.stock_out_number}
+                                {record.delivery_number && record.delivery_number !== record.stock_out_number && (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Info className="h-3.5 w-3.5 text-primary cursor-help shrink-0" />
+                                      </TooltipTrigger>
+                                      <TooltipContent side="right" className="text-xs">
+                                        <p className="font-semibold">No. Stock Out Asli:</p>
+                                        <p>{record.stock_out_number}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell rowSpan={record.items.length} className="align-top">
-                              {formatDate(record.delivery_actual_date || record.delivery_date)}
+                              <div className="flex items-center gap-1">
+                                {formatDate(record.delivery_actual_date || record.delivery_date)}
+                                {record.delivery_actual_date && record.delivery_actual_date !== record.delivery_date && (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Info className="h-3.5 w-3.5 text-primary cursor-help shrink-0" />
+                                      </TooltipTrigger>
+                                      <TooltipContent side="right" className="text-xs">
+                                        <p className="font-semibold">Tgl. Rencana Asli:</p>
+                                        <p>{formatDate(record.delivery_date)}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell rowSpan={record.items.length} className="align-top">
                               {record.sales_order?.sales_order_number}
