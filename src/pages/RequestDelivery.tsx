@@ -603,7 +603,16 @@ export default function RequestDelivery() {
 
   const handleDragEnd = () => { setDraggedCard(null); setDragOverColumn(null); };
 
-  const getColumnCards = (columnId: string) => cards.filter(c => c.board_status === columnId);
+  const getColumnCards = (columnId: string) => {
+    let filtered = cards.filter(c => c.board_status === columnId);
+    if (filterLabelNames.length > 0) {
+      filtered = filtered.filter(c => {
+        const labels = cardLabelsMap[c.id] || [];
+        return filterLabelNames.some(fn => labels.some(l => l.name === fn));
+      });
+    }
+    return filtered;
+  };
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
