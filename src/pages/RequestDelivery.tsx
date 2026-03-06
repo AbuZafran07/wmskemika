@@ -75,6 +75,7 @@ export default function RequestDelivery() {
   const [cardLabelsMap, setCardLabelsMap] = useState<Record<string, { name: string; color: string }[]>>({});
   const [allLabels, setAllLabels] = useState<{ id: string; name: string; color: string }[]>([]);
   const [filterLabelNames, setFilterLabelNames] = useState<string[]>([]);
+  const [cardSearchQuery, setCardSearchQuery] = useState("");
   
   const [draggedCard, setDraggedCard] = useState<DeliveryCard | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
