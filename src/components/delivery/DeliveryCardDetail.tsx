@@ -876,10 +876,10 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           )}
         </div>
 
-        {/* Two-column layout: Left = Details, Right = Comments & Activity */}
-        <div className="flex flex-1 min-h-0 border-t">
+        {/* Two-column layout on desktop, stacked on mobile */}
+        <div className="flex flex-col md:flex-row flex-1 min-h-0 border-t overflow-y-auto md:overflow-hidden">
           {/* LEFT PANEL - Details, Products, Attachments */}
-          <ScrollArea className="flex-1 min-w-0 border-r">
+          <ScrollArea className="flex-1 min-w-0 md:border-r">
             <div className="space-y-4 p-4">
               {/* Detail info */}
               <div className="grid grid-cols-2 gap-3 text-sm">
