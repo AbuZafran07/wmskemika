@@ -588,6 +588,19 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
       // Auto-move from pengiriman columns to delivered/delivered_sample
       if (allChecked && PENGIRIMAN_COLUMNS.includes(card.board_status)) {
+        // Check if delivery number (DO) has been updated for all stock outs
+        if (stockOutDetails.length > 0) {
+          const allDOFilled = stockOutDetails.every(so => {
+            const doNum = deliveryNumbers[so.id];
+            return doNum && doNum.trim() !== '';
+          });
+          if (!allDOFilled) {
+            toast.error("Nomor Delivery (DO) harus diisi terlebih dahulu sebelum card dapat dipindahkan ke Delivered.");
+            fetchChecklists();
+            return;
+          }
+        }
+
         // Check if card has "sample" label
         const { data: cardLabelsData } = await supabase
           .from("delivery_card_labels")
