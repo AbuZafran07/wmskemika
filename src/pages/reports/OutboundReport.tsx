@@ -96,12 +96,15 @@ export default function OutboundReport() {
   };
 
   const filteredRecords = records.filter(record => {
+    const displayNo = record.delivery_number || record.stock_out_number;
     const matchesSearch = 
+      displayNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
       record.stock_out_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
       record.sales_order?.sales_order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
       record.sales_order?.customer?.name.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const recordDate = new Date(record.delivery_date);
+    const displayDate = record.delivery_actual_date || record.delivery_date;
+    const recordDate = new Date(displayDate);
     const matchesDateFrom = !dateFrom || recordDate >= new Date(dateFrom);
     const matchesDateTo = !dateTo || recordDate <= new Date(dateTo);
     
