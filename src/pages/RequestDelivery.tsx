@@ -389,6 +389,12 @@ export default function RequestDelivery() {
       return;
     }
 
+    // === BLOCK: Cards in pengiriman columns can only move to other pengiriman columns ===
+    if (PENGIRIMAN_COLUMNS.includes(cardToMove.board_status) && !PENGIRIMAN_COLUMNS.includes(newStatus)) {
+      toast.error("Card di Pengiriman Hari hanya dapat dipindahkan ke hari pengiriman lain. Perpindahan ke Delivered dilakukan otomatis setelah checklist upload selesai.");
+      return;
+    }
+
     // === BLOCK: Cards in new_order cannot be moved manually ===
     if (cardToMove.board_status === "new_order") {
       toast.error("Card di New Orders tidak dapat dipindahkan secara manual. Card akan otomatis pindah ke Checking setelah checklist 'Proses Sales Order' dicentang.");
