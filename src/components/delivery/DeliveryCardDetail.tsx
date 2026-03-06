@@ -845,7 +845,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                       </p>
                     )}
                   </div>
-                </ScrollArea>
+                </div>
                 {isSuperAdmin && (
                   <div className="border-t pt-2 space-y-2">
                     <p className="text-[11px] font-medium text-muted-foreground">Buat Label Baru</p>
