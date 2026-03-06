@@ -642,6 +642,38 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     }
   };
 
+  // Save delivery number (DO) to stock_out_headers
+  const handleSaveDeliveryNumber = async (stockOutId: string) => {
+    if (!user || !card) return;
+    const doNumber = deliveryNumbers[stockOutId]?.trim();
+    if (!doNumber) {
+      toast.error("Nomor Delivery (DO) tidak boleh kosong");
+      return;
+    }
+    setSavingDO(true);
+    try {
+      const { error } = await supabase
+        .from("stock_out_headers")
+        .update({ stock_out_number: doNumber })
+        .eq("id", stockOutId);
+      if (error) throw error;
+
+      await supabase.from("delivery_comments").insert({
+        delivery_request_id: card.id,
+        user_id: user.id,
+        message: `📝 Nomor Delivery (DO) diperbarui menjadi: ${doNumber}`,
+        type: "activity",
+      });
+
+      toast.success("Nomor DO berhasil disimpan");
+      fetchStockOutDetails();
+    } catch (err: any) {
+      toast.error("Gagal menyimpan nomor DO: " + err.message);
+    } finally {
+      setSavingDO(false);
+    }
+  };
+
   // Delete card handler with options
   const handleDeleteCard = async () => {
     if (!user || !card || !canDeleteCard) return;
