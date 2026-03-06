@@ -1068,9 +1068,15 @@ export default function StockAdjustment() {
             onChange={(e) => setRejectReason(e.target.value)}
             className="my-4"
           />
+          <div className="flex items-center justify-between mb-4">
+            <p className={`text-xs ${rejectReason.trim().length < 20 ? 'text-destructive' : 'text-muted-foreground'}`}>
+              {rejectReason.trim().length}/20 {language === 'en' ? 'min characters' : 'karakter minimum'}
+            </p>
+            {rejectReason.trim().length >= 20 && <span className="text-xs text-green-600">✓</span>}
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setRejectReason('')}>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleReject} disabled={isRejecting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction onClick={handleReject} disabled={isRejecting || rejectReason.trim().length < 20} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {isRejecting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {language === 'en' ? 'Reject' : 'Tolak'}
             </AlertDialogAction>
