@@ -320,10 +320,10 @@ export default function OutboundReport() {
                         {idx === 0 ? (
                           <>
                             <TableCell rowSpan={record.items.length} className="font-medium align-top">
-                              {record.stock_out_number}
+                              {record.delivery_number || record.stock_out_number}
                             </TableCell>
                             <TableCell rowSpan={record.items.length} className="align-top">
-                              {formatDate(record.delivery_date)}
+                              {formatDate(record.delivery_actual_date || record.delivery_date)}
                             </TableCell>
                             <TableCell rowSpan={record.items.length} className="align-top">
                               {record.sales_order?.sales_order_number}
