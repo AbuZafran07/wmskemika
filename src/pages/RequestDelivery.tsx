@@ -395,6 +395,12 @@ export default function RequestDelivery() {
       return;
     }
 
+    // === BLOCK: Cannot move cards INTO checking manually ===
+    if (newStatus === "checking") {
+      toast.error("Card tidak dapat dipindahkan secara manual ke Checking. Perpindahan ke Checking dilakukan otomatis melalui checklist 'Proses Sales Order'.");
+      return;
+    }
+
     // === BLOCK: Cannot move cards INTO on_hold_delivery manually ===
     if (newStatus === "on_hold_delivery") {
       toast.error("Card tidak dapat dipindahkan secara manual ke On Hold Delivery Order. Perpindahan dilakukan otomatis oleh sistem.");
