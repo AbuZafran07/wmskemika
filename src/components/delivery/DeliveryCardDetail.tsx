@@ -154,8 +154,9 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     }[];
   }[]>([]);
 
-  // Delivery number (DO) state
+  // Delivery number (DO) & actual date state
   const [deliveryNumbers, setDeliveryNumbers] = useState<Record<string, string>>({});
+  const [deliveryDates, setDeliveryDates] = useState<Record<string, string>>({});
   const [savingDO, setSavingDO] = useState(false);
 
   // Delete card dialog state
