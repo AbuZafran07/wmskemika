@@ -143,6 +143,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
   // Stock out delivery details
   const [stockOutDetails, setStockOutDetails] = useState<{
+    id: string;
     stock_out_number: string;
     delivery_date: string;
     items: {
@@ -152,6 +153,10 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       expired_date: string | null;
     }[];
   }[]>([]);
+
+  // Delivery number (DO) state
+  const [deliveryNumbers, setDeliveryNumbers] = useState<Record<string, string>>({});
+  const [savingDO, setSavingDO] = useState(false);
 
   // Delete card dialog state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
