@@ -323,11 +323,51 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const toggleLabel = async (labelId: string) => {
     if (!card || !canManage) return;
     const isAssigned = cardLabelIds.includes(labelId);
+    
+    // If assigning (not removing), check if it's Urgent or Cito
+    if (!isAssigned) {
+      const label = allLabels.find(l => l.id === labelId);
+      if (label && /urgent|cito/i.test(label.name)) {
+        setUrgentReasonDialog({ labelId, labelName: label.name });
+        setUrgentReason("");
+        return;
+      }
+    }
+    
     if (isAssigned) {
       await supabase.from("delivery_card_labels").delete().eq("delivery_request_id", card.id).eq("label_id", labelId);
     } else {
       await supabase.from("delivery_card_labels").insert({ delivery_request_id: card.id, label_id: labelId });
     }
+    fetchLabels();
+  };
+
+  // Confirm urgent/cito label with reason
+  const confirmUrgentLabel = async () => {
+    if (!urgentReasonDialog || !urgentReason.trim() || !card || !user) return;
+    // Assign the label
+    await supabase.from("delivery_card_labels").insert({ delivery_request_id: card.id, label_id: urgentReasonDialog.labelId });
+    // Post reason as activity comment
+    await supabase.from("delivery_comments").insert({
+      delivery_request_id: card.id,
+      user_id: user.id,
+      message: `🚨 Label "${urgentReasonDialog.labelName}" ditambahkan.\nAlasan: ${urgentReason.trim()}`,
+      type: "activity",
+    });
+    toast.success(`Label ${urgentReasonDialog.labelName} ditambahkan`);
+    setUrgentReasonDialog(null);
+    setUrgentReason("");
+    fetchLabels();
+    fetchComments();
+  };
+
+  // Update existing label (super_admin only)
+  const updateLabel = async (labelId: string) => {
+    if (!editLabelName.trim()) return;
+    const { error } = await supabase.from("delivery_labels").update({ name: editLabelName.trim(), color: editLabelColor }).eq("id", labelId);
+    if (error) toast.error("Gagal mengubah label");
+    else toast.success("Label diperbarui");
+    setEditingLabelId(null);
     fetchLabels();
   };
 
