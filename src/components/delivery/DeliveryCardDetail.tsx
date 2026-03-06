@@ -737,7 +737,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   return (
     <>
     <Dialog open={!!card} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col p-0">
+      <DialogContent className="max-w-5xl max-h-[95vh] md:max-h-[90vh] flex flex-col p-0 w-[95vw] md:w-auto">
         <DialogHeader className="px-6 pt-5 pb-0">
           <DialogTitle className="flex items-center gap-2">
             <Truck className="h-5 w-5 text-primary" />
@@ -876,10 +876,10 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           )}
         </div>
 
-        {/* Two-column layout: Left = Details, Right = Comments & Activity */}
-        <div className="flex flex-1 min-h-0 border-t">
+        {/* Two-column layout on desktop, stacked on mobile */}
+        <div className="flex flex-col md:flex-row flex-1 min-h-0 border-t overflow-y-auto md:overflow-hidden">
           {/* LEFT PANEL - Details, Products, Attachments */}
-          <ScrollArea className="flex-1 min-w-0 border-r">
+          <ScrollArea className="flex-1 min-w-0 md:border-r">
             <div className="space-y-4 p-4">
               {/* Detail info */}
               <div className="grid grid-cols-2 gap-3 text-sm">
@@ -1122,7 +1122,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           </ScrollArea>
 
           {/* RIGHT PANEL - Comments & Activity */}
-          <div className="w-[340px] flex-shrink-0 flex flex-col min-h-0">
+          <div className="w-full md:w-[340px] flex-shrink-0 flex flex-col min-h-0 border-t md:border-t-0">
             <div className="flex items-center gap-2 px-4 py-3 border-b">
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
               <span className="text-xs font-semibold">Comments & Activity</span>

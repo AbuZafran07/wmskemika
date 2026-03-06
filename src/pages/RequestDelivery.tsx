@@ -344,12 +344,34 @@ export default function RequestDelivery() {
       .on("postgres_changes", { event: "*", schema: "public", table: "delivery_requests" }, () => {
         fetchCards();
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "delivery_card_labels" }, () => {
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "delivery_card_labels" }, async (payload: any) => {
+        fetchCardLabels();
+        // Check if it's an Urgent/Cito label and notify
+        try {
+          const labelId = payload.new?.label_id;
+          const requestId = payload.new?.delivery_request_id;
+          if (labelId && requestId) {
+            const { data: label } = await supabase.from("delivery_labels").select("name, color").eq("id", labelId).single();
+            if (label && /urgent|cito/i.test(label.name)) {
+              const matchedCard = cards.find(c => c.id === requestId);
+              const soNumber = matchedCard?.sales_order_number || "Unknown SO";
+              toast.warning(`🚨 ${label.name.toUpperCase()}: ${soNumber}`, {
+                description: `Card ${soNumber} telah ditandai sebagai ${label.name}!`,
+                duration: 10000,
+              });
+            }
+          }
+        } catch {}
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "delivery_card_labels" }, () => {
+        fetchCardLabels();
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "delivery_card_labels" }, () => {
         fetchCardLabels();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [fetchCards, fetchCardLabels]);
+  }, [fetchCards, fetchCardLabels, cards]);
 
   const PENGIRIMAN_COLUMNS = ["pengiriman_senin", "pengiriman_selasa", "pengiriman_rabu", "pengiriman_kamis", "pengiriman_jumat"];
 
@@ -735,7 +757,8 @@ export default function RequestDelivery() {
                         isFullView ? "p-1.5 hover:scale-[1.05] hover:z-20 hover:shadow-lg" : "p-3",
                         draggedCard?.id === card.id && "opacity-40 scale-95",
                         canManage && card.board_status !== "on_hold_delivery" && "cursor-grab active:cursor-grabbing",
-                        card.board_status === "on_hold_delivery" && "opacity-75 cursor-not-allowed border-orange-500/30"
+                        card.board_status === "on_hold_delivery" && "opacity-75 cursor-not-allowed border-orange-500/30",
+                        cardLabelsMap[card.id]?.some(l => /urgent|cito/i.test(l.name)) && "ring-2 ring-destructive/70 border-destructive/50 animate-pulse"
                       )}
                       onClick={() => setDetailCard(card)}
                     >
