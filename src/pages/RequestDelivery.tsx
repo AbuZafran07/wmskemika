@@ -401,6 +401,12 @@ export default function RequestDelivery() {
       return;
     }
 
+    // === BLOCK: Cannot move cards INTO approval_delivery manually ===
+    if (newStatus === "approval_delivery") {
+      toast.error("Card tidak dapat dipindahkan secara manual ke Approval Delivery. Perpindahan dilakukan otomatis setelah proses Stock Out oleh Warehouse.");
+      return;
+    }
+
     // === BLOCK: Cannot move cards INTO on_hold_delivery manually ===
     if (newStatus === "on_hold_delivery") {
       toast.error("Card tidak dapat dipindahkan secara manual ke On Hold Delivery Order. Perpindahan dilakukan otomatis oleh sistem.");
