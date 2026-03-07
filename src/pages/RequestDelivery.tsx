@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Plus, Package, Calendar, User, Building2, Truck, RefreshCw, Search, CheckSquare, Image, X, Maximize2, Minimize2, ZoomIn, ZoomOut, CheckCircle2, Filter } from "lucide-react";
+import { Plus, Package, Calendar, User, Building2, Truck, RefreshCw, Search, CheckSquare, Image, X, Maximize2, Minimize2, ZoomIn, ZoomOut, CheckCircle2, Filter, Archive, RotateCcw } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from "date-fns";
@@ -97,6 +97,8 @@ export default function RequestDelivery() {
   };
   const [bgInput, setBgInput] = useState("");
   const bgFileRef = useRef<HTMLInputElement>(null);
+  const [showArchivedDialog, setShowArchivedDialog] = useState(false);
+  const [restoringCardId, setRestoringCardId] = useState<string | null>(null);
 
   const extractBoardBackgroundUrl = (value: unknown): string => {
     if (!value) return "";
@@ -635,6 +637,38 @@ export default function RequestDelivery() {
     }
   };
 
+  const archivedCards = cards.filter(c => c.board_status === ("archived" as any));
+
+  const handleRestoreCard = async (cardId: string) => {
+    if (!user) return;
+    setRestoringCardId(cardId);
+    try {
+      await supabase
+        .from("delivery_requests")
+        .update({
+          board_status: "new_order",
+          moved_by: user.id,
+          moved_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", cardId);
+
+      await supabase.from("delivery_comments").insert({
+        delivery_request_id: cardId,
+        user_id: user.id,
+        message: `♻️ Card di-restore dari Archived ke New Orders.`,
+        type: "activity",
+      });
+
+      toast.success("Card berhasil di-restore ke New Orders");
+      fetchCards();
+    } catch (err: any) {
+      toast.error("Gagal restore card: " + err.message);
+    } finally {
+      setRestoringCardId(null);
+    }
+  };
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
   if (loading) {
@@ -864,7 +898,21 @@ export default function RequestDelivery() {
               </div>
             )}
 
-            {/* Refresh */}
+            {/* Archived */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" className="h-8 w-8 relative" onClick={() => setShowArchivedDialog(true)}>
+                  <Archive className="h-4 w-4" />
+                  {archivedCards.length > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                      {archivedCards.length}
+                    </span>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p>Archived ({archivedCards.length})</p></TooltipContent>
+            </Tooltip>
+
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="outline" size="icon" className="h-8 w-8" onClick={fetchCards}>
@@ -1165,6 +1213,62 @@ export default function RequestDelivery() {
             >
               Pindahkan
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Archived Dialog */}
+      <Dialog open={showArchivedDialog} onOpenChange={setShowArchivedDialog}>
+        <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Archive className="h-5 w-5" />
+              Archived Cards ({archivedCards.length})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-2 py-2">
+            {archivedCards.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Archive className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">Belum ada card yang diarsipkan</p>
+              </div>
+            ) : (
+              archivedCards.map(card => (
+                <div key={card.id} className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold truncate">{card.sales_order_number}</p>
+                    <p className="text-xs text-muted-foreground truncate">{card.customer_name} • {card.customer_po_number}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Deadline: {card.delivery_deadline ? format(new Date(card.delivery_deadline), "dd MMM yyyy") : "-"}
+                    </p>
+                  </div>
+                  {canManage && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="ml-2 shrink-0"
+                          onClick={() => handleRestoreCard(card.id)}
+                          disabled={restoringCardId === card.id}
+                        >
+                          {restoringCardId === card.id ? (
+                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <RotateCcw className="h-3.5 w-3.5" />
+                          )}
+                          <span className="ml-1">Restore</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent><p>Kembalikan ke New Orders</p></TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" size="sm" onClick={() => setShowArchivedDialog(false)}>Tutup</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
