@@ -1620,14 +1620,16 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
             ) : previewAttachment?.mime_type === 'application/pdf' ? (
               <div className="flex flex-col items-center gap-3">
                 <iframe
-                  src={previewAttachment.url}
+                  src={`https://docs.google.com/gview?url=${encodeURIComponent(previewAttachment.url)}&embedded=true`}
                   className="w-full h-[70vh] rounded border"
                   title={previewAttachment.file_key.split("/").pop() || "PDF"}
                 />
-                <Button variant="outline" size="sm" onClick={() => window.open(previewAttachment.url, '_blank', 'noopener,noreferrer')}>
-                  <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-                  Buka di Tab Baru
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => window.open(previewAttachment.url, '_blank', 'noopener,noreferrer')}>
+                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                    Buka di Tab Baru
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="flex flex-col items-center gap-3 py-8">
