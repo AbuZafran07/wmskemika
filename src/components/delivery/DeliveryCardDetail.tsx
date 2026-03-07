@@ -161,7 +161,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
   // Delete card dialog state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [deleteAction, setDeleteAction] = useState<"remove_from_board" | "delivered">("remove_from_board");
+  const [deleteAction, setDeleteAction] = useState<"remove_from_board" | "delivered" | "archived">("remove_from_board");
   const [deliveredDate, setDeliveredDate] = useState(new Date().toISOString().split("T")[0]);
   const [deletingCard, setDeletingCard] = useState(false);
 
