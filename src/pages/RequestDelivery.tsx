@@ -33,7 +33,7 @@ const BOARD_COLUMNS = [
   { id: "delivered_sample", label: "Delivered Sample", color: "bg-rose-700" },
 ] as const;
 
-type BoardStatus = typeof BOARD_COLUMNS[number]["id"];
+type BoardStatus = typeof BOARD_COLUMNS[number]["id"] | "archived";
 
 interface DeliveryCard {
   id: string;
@@ -637,7 +637,7 @@ export default function RequestDelivery() {
     }
   };
 
-  const archivedCards = cards.filter(c => c.board_status === ("archived" as any));
+  const archivedCards = cards.filter(c => c.board_status === "archived");
 
   const handleRestoreCard = async (cardId: string) => {
     if (!user) return;
