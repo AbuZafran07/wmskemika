@@ -1046,11 +1046,48 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     }
   };
 
+  // Open attachment (preview for image/pdf, new tab for others)
+  const handleOpenAttachment = (att: Attachment) => {
+    if (att.mime_type?.startsWith("image/") || att.mime_type === "application/pdf") {
+      setPreviewAttachment(att);
+      return;
+    }
+    window.open(att.url, "_blank", "noopener,noreferrer");
+  };
+
+  // Download attachment as file (avoid blank tab behavior)
+  const handleDownloadAttachment = async (att: Attachment) => {
+    setDownloadingAttachmentId(att.id);
+    try {
+      const { data, error } = await supabase.storage.from("documents").download(att.file_key);
+      if (error || !data) throw error || new Error("Gagal download file");
+
+      const objectUrl = URL.createObjectURL(data);
+      const fileName = att.file_key.split("/").pop() || "attachment";
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      // Fallback: open direct URL
+      window.open(att.url, "_blank", "noopener,noreferrer");
+    } finally {
+      setDownloadingAttachmentId(null);
+    }
+  };
+
   // Delete attachment
   const deleteAttachment = async (att: Attachment) => {
     try {
-      await supabase.storage.from("documents").remove([att.file_key]);
-      await supabase.from("attachments").delete().eq("id", att.id);
+      const { error: removeError } = await supabase.storage.from("documents").remove([att.file_key]);
+      if (removeError) throw removeError;
+
+      const { error: deleteError } = await supabase.from("attachments").delete().eq("id", att.id);
+      if (deleteError) throw deleteError;
+
       toast.success("File dihapus");
       fetchAttachments();
     } catch {
