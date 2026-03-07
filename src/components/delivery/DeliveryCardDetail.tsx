@@ -1590,6 +1590,58 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Attachment Preview Dialog */}
+      <Dialog open={!!previewAttachment} onOpenChange={(open) => !open && setPreviewAttachment(null)}>
+        <DialogContent className="max-w-4xl max-h-[95vh] p-0 overflow-hidden">
+          <DialogHeader className="p-4 pb-0">
+            <DialogTitle className="flex items-center gap-2 pr-8">
+              <Eye className="h-4 w-4 text-primary" />
+              <span className="truncate">{previewAttachment?.file_key.split("/").pop()}</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="p-4">
+            {previewAttachment && isImageFile(previewAttachment.mime_type) ? (
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-full flex items-center justify-center bg-muted/30 rounded-lg p-2 max-h-[70vh] overflow-auto">
+                  <img
+                    src={previewAttachment.url}
+                    alt={previewAttachment.file_key.split("/").pop() || "Preview"}
+                    className="max-w-full max-h-[65vh] object-contain rounded"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => window.open(previewAttachment.url, '_blank', 'noopener,noreferrer')}>
+                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                    Buka di Tab Baru
+                  </Button>
+                </div>
+              </div>
+            ) : previewAttachment?.mime_type === 'application/pdf' ? (
+              <div className="flex flex-col items-center gap-3">
+                <iframe
+                  src={previewAttachment.url}
+                  className="w-full h-[70vh] rounded border"
+                  title={previewAttachment.file_key.split("/").pop() || "PDF"}
+                />
+                <Button variant="outline" size="sm" onClick={() => window.open(previewAttachment.url, '_blank', 'noopener,noreferrer')}>
+                  <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                  Buka di Tab Baru
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-3 py-8">
+                <FileText className="h-16 w-16 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">Preview tidak tersedia untuk tipe file ini</p>
+                <Button variant="outline" size="sm" onClick={() => window.open(previewAttachment?.url, '_blank', 'noopener,noreferrer')}>
+                  <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                  Buka di Tab Baru
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
