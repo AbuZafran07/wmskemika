@@ -330,54 +330,112 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
   useEffect(() => {
     let objectUrl: string | null = null;
+    let cancelled = false;
+    const abortController = new AbortController();
 
     const loadPreview = async () => {
       if (!previewAttachment) {
         setPreviewFileUrl(null);
         setPreviewLoading(false);
+        setPreviewProgress(0);
         return;
       }
 
-      // For images, use the URL directly (img tags handle CORS fine)
+      // Image preview with loading state
       if (isImageFile(previewAttachment.mime_type)) {
-        setPreviewFileUrl(previewAttachment.url);
-        setPreviewLoading(false);
+        setPreviewLoading(true);
+        setPreviewProgress(10);
+        const img = new window.Image();
+        img.onload = () => {
+          if (cancelled) return;
+          setPreviewFileUrl(previewAttachment.url);
+          setPreviewProgress(100);
+          setPreviewLoading(false);
+        };
+        img.onerror = () => {
+          if (cancelled) return;
+          setPreviewFileUrl(null);
+          setPreviewProgress(0);
+          setPreviewLoading(false);
+        };
+        img.src = previewAttachment.url;
         return;
       }
 
       if (previewAttachment.mime_type !== "application/pdf") {
         setPreviewFileUrl(null);
         setPreviewLoading(false);
+        setPreviewProgress(0);
         return;
       }
 
       setPreviewLoading(true);
+      setPreviewProgress(5);
       try {
-        // Use supabase storage download to bypass CORS
-        const { data, error } = await supabase.storage
-          .from("documents")
-          .download(previewAttachment.file_key);
-        
-        if (error || !data) {
-          // Fallback: try direct fetch
-          const response = await fetch(previewAttachment.url);
-          if (!response.ok) throw new Error("Gagal memuat PDF");
+        // Try fetch first to show progress for large PDFs
+        const response = await fetch(previewAttachment.url, { signal: abortController.signal });
+        if (!response.ok) throw new Error("Gagal memuat PDF");
+
+        const totalBytes = Number(response.headers.get("content-length")) || previewAttachment.file_size || 0;
+        const reader = response.body?.getReader();
+
+        if (reader) {
+          const chunks: Uint8Array[] = [];
+          let receivedBytes = 0;
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value) {
+              chunks.push(value);
+              receivedBytes += value.length;
+              if (!cancelled && totalBytes > 0) {
+                const progress = Math.min(95, Math.round((receivedBytes / totalBytes) * 100));
+                setPreviewProgress(progress);
+              }
+            }
+          }
+
+          const pdfBlob = new Blob(chunks, { type: "application/pdf" });
+          objectUrl = URL.createObjectURL(pdfBlob);
+        } else {
           const blob = await response.blob();
           objectUrl = URL.createObjectURL(blob);
-        } else {
-          objectUrl = URL.createObjectURL(data);
         }
-        setPreviewFileUrl(objectUrl);
+
+        if (!cancelled) {
+          setPreviewFileUrl(objectUrl);
+          setPreviewProgress(100);
+        }
       } catch {
-        setPreviewFileUrl(null);
+        // Fallback to storage download if direct fetch fails
+        try {
+          const { data, error } = await supabase.storage
+            .from("documents")
+            .download(previewAttachment.file_key);
+          if (error || !data) throw error;
+
+          objectUrl = URL.createObjectURL(data);
+          if (!cancelled) {
+            setPreviewFileUrl(objectUrl);
+            setPreviewProgress(100);
+          }
+        } catch {
+          if (!cancelled) {
+            setPreviewFileUrl(null);
+            setPreviewProgress(0);
+          }
+        }
       } finally {
-        setPreviewLoading(false);
+        if (!cancelled) setPreviewLoading(false);
       }
     };
 
     loadPreview();
 
     return () => {
+      cancelled = true;
+      abortController.abort();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [previewAttachment]);
