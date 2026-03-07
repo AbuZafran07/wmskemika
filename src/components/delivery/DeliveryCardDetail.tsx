@@ -161,7 +161,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
   // Delete card dialog state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [deleteAction, setDeleteAction] = useState<"remove_from_board" | "delivered">("remove_from_board");
+  const [deleteAction, setDeleteAction] = useState<"remove_from_board" | "delivered" | "archived">("remove_from_board");
   const [deliveredDate, setDeliveredDate] = useState(new Date().toISOString().split("T")[0]);
   const [deletingCard, setDeletingCard] = useState(false);
 
@@ -763,6 +763,26 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         });
 
         toast.success("Card dipindahkan ke Delivered");
+      } else if (deleteAction === "archived") {
+        // Move to archived status
+        await supabase
+          .from("delivery_requests")
+          .update({
+            board_status: "archived",
+            moved_by: user.id,
+            moved_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", card.id);
+
+        await supabase.from("delivery_comments").insert({
+          delivery_request_id: card.id,
+          user_id: user.id,
+          message: `📦 Card dipindahkan ke Archived.`,
+          type: "activity",
+        });
+
+        toast.success("Card dipindahkan ke Archived");
       } else {
         // Remove card from board entirely (delete related data first)
         await supabase.from("delivery_checklists").delete().eq("delivery_request_id", card.id);
@@ -1467,18 +1487,32 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                   )}
                 </div>
               </label>
+              <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors">
+                <input
+                  type="radio"
+                  name="deleteAction"
+                  value="archived"
+                  checked={deleteAction === "archived"}
+                  onChange={() => setDeleteAction("archived")}
+                  className="mt-0.5"
+                />
+                <div>
+                  <p className="text-sm font-medium">Pindahkan ke Archived</p>
+                  <p className="text-xs text-muted-foreground">Card akan diarsipkan dan tidak tampil di board aktif.</p>
+                </div>
+              </label>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setShowDeleteDialog(false)}>Batal</Button>
             <Button
-              variant={deleteAction === "delivered" ? "default" : "destructive"}
+              variant={deleteAction === "remove_from_board" ? "destructive" : "default"}
               size="sm"
               onClick={handleDeleteCard}
               disabled={deletingCard}
             >
               {deletingCard && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-              {deleteAction === "delivered" ? "Pindah ke Delivered" : "Hapus dari Board"}
+              {deleteAction === "delivered" ? "Pindah ke Delivered" : deleteAction === "archived" ? "Pindah ke Archived" : "Hapus dari Board"}
             </Button>
           </DialogFooter>
         </DialogContent>
