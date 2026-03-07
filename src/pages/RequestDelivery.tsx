@@ -898,7 +898,21 @@ export default function RequestDelivery() {
               </div>
             )}
 
-            {/* Refresh */}
+            {/* Archived */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" className="h-8 w-8 relative" onClick={() => setShowArchivedDialog(true)}>
+                  <Archive className="h-4 w-4" />
+                  {archivedCards.length > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                      {archivedCards.length}
+                    </span>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p>Archived ({archivedCards.length})</p></TooltipContent>
+            </Tooltip>
+
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="outline" size="icon" className="h-8 w-8" onClick={fetchCards}>
