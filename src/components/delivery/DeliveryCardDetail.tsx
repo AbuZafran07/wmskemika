@@ -1765,11 +1765,10 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
             ) : previewAttachment?.mime_type === 'application/pdf' ? (
               <div className="flex flex-col items-center gap-3">
                 {previewLoading ? (
-                  <div className="w-full h-[70vh] rounded border bg-muted/20 flex items-center justify-center">
-                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Memuat PDF...
-                    </div>
+                  <div className="w-full h-[70vh] rounded border bg-muted/20 flex flex-col items-center justify-center gap-3">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="text-sm text-muted-foreground">Memuat PDF...</p>
+                    <p className="text-xs text-muted-foreground">Harap tunggu, file sedang diunduh</p>
                   </div>
                 ) : previewFileUrl ? (
                   <iframe
