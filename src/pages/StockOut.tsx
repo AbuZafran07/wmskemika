@@ -372,7 +372,7 @@ export default function StockOut() {
             await supabase.from("delivery_comments").insert({
               delivery_request_id: deliveryCard.id,
               user_id: userId,
-              message: `📦 Stock Out "${stockOutNumber}" telah dibuat. Card otomatis dipindahkan ke Approval Delivery Order.`,
+              message: `📦 Stock Out "${stockOutNumber}" telah dibuat. Card otomatis dipindahkan ke ${isOnHoldHours ? "On Hold Delivery Order (di luar jam operasional)" : "Approval Delivery Order"}.`,
               type: "activity",
             });
           }
