@@ -1633,6 +1633,9 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
               <Eye className="h-4 w-4 text-primary" />
               <span className="truncate">{previewAttachment?.file_key.split("/").pop()}</span>
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Preview lampiran delivery card
+            </DialogDescription>
           </DialogHeader>
           <div className="p-4">
             {previewAttachment && isImageFile(previewAttachment.mime_type) ? (
