@@ -1305,9 +1305,25 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                   )}
                 </div>
 
-                {attachments.length === 0 ? (
+                {/* Upload Progress Bar */}
+                {uploadingFile && (
+                  <div className="mb-3 space-y-1">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <span>Mengupload file... {uploadProgress}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-primary rounded-full transition-all duration-300"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {attachments.length === 0 && !uploadingFile ? (
                   <p className="text-xs text-muted-foreground text-center py-2">Belum ada lampiran</p>
-                ) : (
+                ) : attachments.length === 0 ? null : (
                   <div className="space-y-2">
                     {attachments.map(att => (
                       <div key={att.id} className="flex items-start gap-2 p-2 rounded-lg border bg-muted/30 group">
