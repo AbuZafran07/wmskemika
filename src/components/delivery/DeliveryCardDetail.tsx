@@ -380,7 +380,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         const reader = response.body?.getReader();
 
         if (reader) {
-          const chunks: Uint8Array[] = [];
+          const chunks: BlobPart[] = [];
           let receivedBytes = 0;
 
           while (true) {
