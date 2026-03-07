@@ -137,6 +137,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploadingFile, setUploadingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
 
   // Checklist state
   const [checklists, setChecklists] = useState<ChecklistItem[]>([]);
