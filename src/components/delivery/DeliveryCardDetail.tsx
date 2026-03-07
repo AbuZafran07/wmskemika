@@ -11,7 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { Truck, ChevronRight, Tag, MessageSquare, Send, X, Plus, Trash2, Paperclip, FileText, Image, Download, Loader2, CheckSquare, AlertTriangle, Calendar, AtSign, Pencil, Check, Search } from "lucide-react";
+import { Truck, ChevronRight, Tag, MessageSquare, Send, X, Plus, Trash2, Paperclip, FileText, Image, Download, Loader2, CheckSquare, AlertTriangle, Calendar, AtSign, Pencil, Check, Search, Eye, ExternalLink } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { format, formatDistanceToNow } from "date-fns";
@@ -137,6 +137,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploadingFile, setUploadingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
 
   // Checklist state
   const [checklists, setChecklists] = useState<ChecklistItem[]>([]);
@@ -1183,14 +1184,25 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                 ) : (
                   <div className="space-y-2">
                     {attachments.map(att => (
-                      <div key={att.id} className="flex items-center gap-2 p-2 rounded-lg border bg-muted/30 group">
-                        <div className="w-8 h-8 rounded bg-muted flex items-center justify-center flex-shrink-0">
-                          {isImageFile(att.mime_type) ? (
-                            <Image className="h-4 w-4 text-muted-foreground" />
-                          ) : (
+                      <div key={att.id} className="flex items-start gap-2 p-2 rounded-lg border bg-muted/30 group">
+                        {/* Thumbnail for images */}
+                        {isImageFile(att.mime_type) ? (
+                          <button
+                            onClick={() => setPreviewAttachment(att)}
+                            className="w-10 h-10 rounded border border-border overflow-hidden flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                          >
+                            <img
+                              src={att.url}
+                              alt={att.file_key.split("/").pop() || ""}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          </button>
+                        ) : (
+                          <div className="w-10 h-10 rounded bg-muted flex items-center justify-center flex-shrink-0">
                             <FileText className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </div>
+                          </div>
+                        )}
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium truncate">{att.file_key.split("/").pop()}</p>
                           <p className="text-[10px] text-muted-foreground">
@@ -1198,7 +1210,21 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                             {att.uploaded_at && ` • ${formatDistanceToNow(new Date(att.uploaded_at), { addSuffix: true, locale: idLocale })}`}
                           </p>
                         </div>
-                        <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 p-1">
+                        {/* View button */}
+                        <button
+                          onClick={() => {
+                            if (isImageFile(att.mime_type)) {
+                              setPreviewAttachment(att);
+                            } else {
+                              window.open(att.url, '_blank', 'noopener,noreferrer');
+                            }
+                          }}
+                          className="text-primary hover:text-primary/80 p-1"
+                          title="Lihat"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </button>
+                        <a href={att.url} download target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground p-1" title="Download">
                           <Download className="h-3.5 w-3.5" />
                         </a>
                         {isSuperAdmin && (
@@ -1562,6 +1588,58 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
               Konfirmasi & Kirim
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Attachment Preview Dialog */}
+      <Dialog open={!!previewAttachment} onOpenChange={(open) => !open && setPreviewAttachment(null)}>
+        <DialogContent className="max-w-4xl max-h-[95vh] p-0 overflow-hidden">
+          <DialogHeader className="p-4 pb-0">
+            <DialogTitle className="flex items-center gap-2 pr-8">
+              <Eye className="h-4 w-4 text-primary" />
+              <span className="truncate">{previewAttachment?.file_key.split("/").pop()}</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="p-4">
+            {previewAttachment && isImageFile(previewAttachment.mime_type) ? (
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-full flex items-center justify-center bg-muted/30 rounded-lg p-2 max-h-[70vh] overflow-auto">
+                  <img
+                    src={previewAttachment.url}
+                    alt={previewAttachment.file_key.split("/").pop() || "Preview"}
+                    className="max-w-full max-h-[65vh] object-contain rounded"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => window.open(previewAttachment.url, '_blank', 'noopener,noreferrer')}>
+                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                    Buka di Tab Baru
+                  </Button>
+                </div>
+              </div>
+            ) : previewAttachment?.mime_type === 'application/pdf' ? (
+              <div className="flex flex-col items-center gap-3">
+                <iframe
+                  src={previewAttachment.url}
+                  className="w-full h-[70vh] rounded border"
+                  title={previewAttachment.file_key.split("/").pop() || "PDF"}
+                />
+                <Button variant="outline" size="sm" onClick={() => window.open(previewAttachment.url, '_blank', 'noopener,noreferrer')}>
+                  <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                  Buka di Tab Baru
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-3 py-8">
+                <FileText className="h-16 w-16 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">Preview tidak tersedia untuk tipe file ini</p>
+                <Button variant="outline" size="sm" onClick={() => window.open(previewAttachment?.url, '_blank', 'noopener,noreferrer')}>
+                  <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                  Buka di Tab Baru
+                </Button>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </>
