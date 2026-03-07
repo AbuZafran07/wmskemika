@@ -1456,21 +1456,24 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                         </div>
                         {/* View button */}
                         <button
-                          onClick={() => {
-                            if (isImageFile(att.mime_type)) {
-                              setPreviewAttachment(att);
-                            } else {
-                              window.open(att.url, '_blank', 'noopener,noreferrer');
-                            }
-                          }}
+                          onClick={() => handleOpenAttachment(att)}
                           className="text-primary hover:text-primary/80 p-1"
                           title="Lihat"
                         >
                           <Eye className="h-3.5 w-3.5" />
                         </button>
-                        <a href={att.url} download target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground p-1" title="Download">
-                          <Download className="h-3.5 w-3.5" />
-                        </a>
+                        <button
+                          onClick={() => handleDownloadAttachment(att)}
+                          disabled={downloadingAttachmentId === att.id}
+                          className="text-muted-foreground hover:text-foreground p-1 disabled:opacity-50"
+                          title="Download"
+                        >
+                          {downloadingAttachmentId === att.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Download className="h-3.5 w-3.5" />
+                          )}
+                        </button>
                         {isSuperAdmin && (
                           <button
                             onClick={() => deleteAttachment(att)}
