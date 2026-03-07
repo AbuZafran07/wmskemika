@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
     ).getHours();
 
     const body = await req.json().catch(() => ({}));
-    const action = body.action || (wibHour >= 15 ? "to_on_hold" : wibHour >= 10 ? "to_approval" : "none");
+    const action = body.action || (wibHour >= 15 || wibHour < 10 ? "to_on_hold" : wibHour >= 10 ? "to_approval" : "none");
 
     let moved = 0;
 
