@@ -333,12 +333,17 @@ export default function StockOut() {
       // === AUTOMATION: Move delivery card from Checking → Approval Delivery ===
       try {
         // Find delivery card for this SO in "checking" status
-        const { data: deliveryCard } = await supabase
+        const { data: deliveryCard, error: findError } = await supabase
           .from("delivery_requests")
           .select("id")
           .eq("sales_order_id", selectedSalesOrderId)
           .eq("board_status", "checking")
           .maybeSingle();
+
+        if (findError) {
+          console.error("Failed to find delivery card:", findError);
+          toast.warning("Gagal menemukan card delivery untuk otomasi. Silakan pindahkan manual.");
+        }
 
         if (deliveryCard) {
           const { data: currentUser } = await supabase.auth.getUser();
@@ -351,7 +356,7 @@ export default function StockOut() {
           const targetStatus = isOnHoldHours ? "on_hold_delivery" : "approval_delivery";
 
           // Move card to appropriate column based on time
-          await supabase
+          const { error: moveError } = await supabase
             .from("delivery_requests")
             .update({
               board_status: targetStatus,
@@ -361,68 +366,82 @@ export default function StockOut() {
             })
             .eq("id", deliveryCard.id);
 
-          // Auto-create checklist "Verifikasi Administrasi Finance"
-          await supabase.from("delivery_checklists").insert({
-            delivery_request_id: deliveryCard.id,
-            label: "Verifikasi Administrasi Finance",
-          });
-
-          // Log activity
-          if (userId) {
-            await supabase.from("delivery_comments").insert({
+          if (moveError) {
+            console.error("Failed to move delivery card:", moveError);
+            toast.warning("Gagal memindahkan card delivery secara otomatis. Silakan pindahkan manual.");
+          } else {
+            // Auto-create checklist "Verifikasi Administrasi Finance"
+            const { error: checklistError } = await supabase.from("delivery_checklists").insert({
               delivery_request_id: deliveryCard.id,
-              user_id: userId,
-              message: `📦 Stock Out "${stockOutNumber}" telah dibuat. Card otomatis dipindahkan ke ${isOnHoldHours ? "On Hold Delivery Order (di luar jam operasional)" : "Approval Delivery Order"}.`,
-              type: "activity",
+              label: "Verifikasi Administrasi Finance",
             });
-          }
 
-          // Check if SO still has remaining items (partial delivery)
-          const { data: remainingItems } = await supabase
-            .from("sales_order_items")
-            .select("id, ordered_qty, qty_delivered")
-            .eq("sales_order_id", selectedSalesOrderId);
-
-          const hasRemaining = remainingItems?.some(
-            (item) => (item.ordered_qty - (item.qty_delivered || 0)) > 0
-          );
-
-          if (hasRemaining) {
-            // Create new card in new_order for remaining items
-            const { data: newCard } = await supabase
-              .from("delivery_requests")
-              .insert({
-                sales_order_id: selectedSalesOrderId,
-                board_status: "new_order",
-                notes: `Sisa pengiriman dari Stock Out ${stockOutNumber}`,
-                created_by: userId,
-              })
-              .select("id")
-              .single();
-
-            if (newCard?.id) {
-              // Auto-create checklist
-              await supabase.from("delivery_checklists").insert({
-                delivery_request_id: newCard.id,
-                label: "Proses Sales Order",
-              });
-
-              if (userId) {
-                await supabase.from("delivery_comments").insert({
-                  delivery_request_id: newCard.id,
-                  user_id: userId,
-                  message: `🔄 Card baru dibuat otomatis untuk sisa barang dari pengiriman partial (Stock Out: ${stockOutNumber}).`,
-                  type: "activity",
-                });
-              }
+            if (checklistError) {
+              console.error("Failed to create finance checklist:", checklistError);
             }
 
-            toast.info("Pengiriman partial: Card baru dibuat di New Orders untuk sisa barang");
+            // Log activity
+            if (userId) {
+              await supabase.from("delivery_comments").insert({
+                delivery_request_id: deliveryCard.id,
+                user_id: userId,
+                message: `📦 Stock Out "${stockOutNumber}" telah dibuat. Card otomatis dipindahkan ke ${isOnHoldHours ? "On Hold Delivery Order (di luar jam operasional)" : "Approval Delivery Order"}.`,
+                type: "activity",
+              });
+            }
+
+            // Check if SO still has remaining items (partial delivery)
+            const { data: remainingItems } = await supabase
+              .from("sales_order_items")
+              .select("id, ordered_qty, qty_delivered")
+              .eq("sales_order_id", selectedSalesOrderId);
+
+            const hasRemaining = remainingItems?.some(
+              (item) => (item.ordered_qty - (item.qty_delivered || 0)) > 0
+            );
+
+            if (hasRemaining) {
+              // Create new card in new_order for remaining items
+              const { data: newCard, error: newCardError } = await supabase
+                .from("delivery_requests")
+                .insert({
+                  sales_order_id: selectedSalesOrderId,
+                  board_status: "new_order",
+                  notes: `Sisa pengiriman dari Stock Out ${stockOutNumber}`,
+                  created_by: userId,
+                })
+                .select("id")
+                .single();
+
+              if (newCardError) {
+                console.error("Failed to create partial delivery card:", newCardError);
+                toast.warning("Gagal membuat card partial otomatis.");
+              } else if (newCard?.id) {
+                // Auto-create checklist
+                await supabase.from("delivery_checklists").insert({
+                  delivery_request_id: newCard.id,
+                  label: "Proses Sales Order",
+                });
+
+                if (userId) {
+                  await supabase.from("delivery_comments").insert({
+                    delivery_request_id: newCard.id,
+                    user_id: userId,
+                    message: `🔄 Card baru dibuat otomatis untuk sisa barang dari pengiriman partial (Stock Out: ${stockOutNumber}).`,
+                    type: "activity",
+                  });
+                }
+              }
+
+              toast.info("Pengiriman partial: Card baru dibuat di New Orders untuk sisa barang");
+            }
           }
+        } else if (!findError) {
+          console.warn("No delivery card found in checking status for SO:", selectedSalesOrderId);
         }
       } catch (automationErr) {
         console.error("Delivery board automation error:", automationErr);
-        // Don't fail the stock out if automation fails
+        toast.warning("Otomasi delivery board gagal. Silakan periksa dan pindahkan card secara manual.");
       }
 
       // Reset form + refresh list so the status/availability updates immediately
