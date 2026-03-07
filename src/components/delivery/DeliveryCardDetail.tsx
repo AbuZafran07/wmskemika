@@ -936,15 +936,25 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     }
 
     setUploadingFile(true);
+    setUploadProgress(0);
     try {
       const fileExt = file.name.split(".").pop();
       const fileKey = `delivery/${card.id}/${Date.now()}.${fileExt}`;
+
+      // Simulate progress for UX (storage SDK doesn't expose progress)
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 10, 90));
+      }, 200);
 
       const { error: uploadError } = await supabase.storage
         .from("documents")
         .upload(fileKey, file);
 
+      clearInterval(progressInterval);
+
       if (uploadError) throw uploadError;
+
+      setUploadProgress(95);
 
       const { data: urlData } = supabase.storage.from("documents").getPublicUrl(fileKey);
 
@@ -959,12 +969,14 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         uploaded_by: user.id,
       });
 
+      setUploadProgress(100);
       toast.success("File berhasil diupload");
       fetchAttachments();
     } catch (err: any) {
       toast.error("Gagal upload: " + err.message);
     } finally {
       setUploadingFile(false);
+      setUploadProgress(0);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
