@@ -137,10 +137,12 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [downloadingAttachmentId, setDownloadingAttachmentId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewProgress, setPreviewProgress] = useState(0);
 
   // Checklist state
   const [checklists, setChecklists] = useState<ChecklistItem[]>([]);
@@ -231,10 +233,15 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       ? await supabase.from("profiles").select("id, full_name").in("id", userIds)
       : { data: [] };
 
-    setAttachments(data.map(a => ({
-      ...a,
-      uploader_name: profiles?.find(p => p.id === a.uploaded_by)?.full_name || "Unknown",
-    })));
+    setAttachments(data.map(a => {
+      const { data: publicUrlData } = supabase.storage.from("documents").getPublicUrl(a.file_key);
+      return {
+        ...a,
+        // Always rebuild URL from file_key to avoid stale/expired URLs saved in DB
+        url: publicUrlData?.publicUrl || a.url,
+        uploader_name: profiles?.find(p => p.id === a.uploaded_by)?.full_name || "Unknown",
+      };
+    }));
   }, [card]);
 
   // Fetch checklists
@@ -323,54 +330,112 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
   useEffect(() => {
     let objectUrl: string | null = null;
+    let cancelled = false;
+    const abortController = new AbortController();
 
     const loadPreview = async () => {
       if (!previewAttachment) {
         setPreviewFileUrl(null);
         setPreviewLoading(false);
+        setPreviewProgress(0);
         return;
       }
 
-      // For images, use the URL directly (img tags handle CORS fine)
+      // Image preview with loading state
       if (isImageFile(previewAttachment.mime_type)) {
-        setPreviewFileUrl(previewAttachment.url);
-        setPreviewLoading(false);
+        setPreviewLoading(true);
+        setPreviewProgress(10);
+        const img = new window.Image();
+        img.onload = () => {
+          if (cancelled) return;
+          setPreviewFileUrl(previewAttachment.url);
+          setPreviewProgress(100);
+          setPreviewLoading(false);
+        };
+        img.onerror = () => {
+          if (cancelled) return;
+          setPreviewFileUrl(null);
+          setPreviewProgress(0);
+          setPreviewLoading(false);
+        };
+        img.src = previewAttachment.url;
         return;
       }
 
       if (previewAttachment.mime_type !== "application/pdf") {
         setPreviewFileUrl(null);
         setPreviewLoading(false);
+        setPreviewProgress(0);
         return;
       }
 
       setPreviewLoading(true);
+      setPreviewProgress(5);
       try {
-        // Use supabase storage download to bypass CORS
-        const { data, error } = await supabase.storage
-          .from("documents")
-          .download(previewAttachment.file_key);
-        
-        if (error || !data) {
-          // Fallback: try direct fetch
-          const response = await fetch(previewAttachment.url);
-          if (!response.ok) throw new Error("Gagal memuat PDF");
+        // Try fetch first to show progress for large PDFs
+        const response = await fetch(previewAttachment.url, { signal: abortController.signal });
+        if (!response.ok) throw new Error("Gagal memuat PDF");
+
+        const totalBytes = Number(response.headers.get("content-length")) || previewAttachment.file_size || 0;
+        const reader = response.body?.getReader();
+
+        if (reader) {
+          const chunks: BlobPart[] = [];
+          let receivedBytes = 0;
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value) {
+              chunks.push(value);
+              receivedBytes += value.length;
+              if (!cancelled && totalBytes > 0) {
+                const progress = Math.min(95, Math.round((receivedBytes / totalBytes) * 100));
+                setPreviewProgress(progress);
+              }
+            }
+          }
+
+          const pdfBlob = new Blob(chunks, { type: "application/pdf" });
+          objectUrl = URL.createObjectURL(pdfBlob);
+        } else {
           const blob = await response.blob();
           objectUrl = URL.createObjectURL(blob);
-        } else {
-          objectUrl = URL.createObjectURL(data);
         }
-        setPreviewFileUrl(objectUrl);
+
+        if (!cancelled) {
+          setPreviewFileUrl(objectUrl);
+          setPreviewProgress(100);
+        }
       } catch {
-        setPreviewFileUrl(null);
+        // Fallback to storage download if direct fetch fails
+        try {
+          const { data, error } = await supabase.storage
+            .from("documents")
+            .download(previewAttachment.file_key);
+          if (error || !data) throw error;
+
+          objectUrl = URL.createObjectURL(data);
+          if (!cancelled) {
+            setPreviewFileUrl(objectUrl);
+            setPreviewProgress(100);
+          }
+        } catch {
+          if (!cancelled) {
+            setPreviewFileUrl(null);
+            setPreviewProgress(0);
+          }
+        }
       } finally {
-        setPreviewLoading(false);
+        if (!cancelled) setPreviewLoading(false);
       }
     };
 
     loadPreview();
 
     return () => {
+      cancelled = true;
+      abortController.abort();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [previewAttachment]);
@@ -981,11 +1046,48 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     }
   };
 
+  // Open attachment (preview for image/pdf, new tab for others)
+  const handleOpenAttachment = (att: Attachment) => {
+    if (att.mime_type?.startsWith("image/") || att.mime_type === "application/pdf") {
+      setPreviewAttachment(att);
+      return;
+    }
+    window.open(att.url, "_blank", "noopener,noreferrer");
+  };
+
+  // Download attachment as file (avoid blank tab behavior)
+  const handleDownloadAttachment = async (att: Attachment) => {
+    setDownloadingAttachmentId(att.id);
+    try {
+      const { data, error } = await supabase.storage.from("documents").download(att.file_key);
+      if (error || !data) throw error || new Error("Gagal download file");
+
+      const objectUrl = URL.createObjectURL(data);
+      const fileName = att.file_key.split("/").pop() || "attachment";
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      // Fallback: open direct URL
+      window.open(att.url, "_blank", "noopener,noreferrer");
+    } finally {
+      setDownloadingAttachmentId(null);
+    }
+  };
+
   // Delete attachment
   const deleteAttachment = async (att: Attachment) => {
     try {
-      await supabase.storage.from("documents").remove([att.file_key]);
-      await supabase.from("attachments").delete().eq("id", att.id);
+      const { error: removeError } = await supabase.storage.from("documents").remove([att.file_key]);
+      if (removeError) throw removeError;
+
+      const { error: deleteError } = await supabase.from("attachments").delete().eq("id", att.id);
+      if (deleteError) throw deleteError;
+
       toast.success("File dihapus");
       fetchAttachments();
     } catch {
@@ -1354,21 +1456,24 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                         </div>
                         {/* View button */}
                         <button
-                          onClick={() => {
-                            if (isImageFile(att.mime_type)) {
-                              setPreviewAttachment(att);
-                            } else {
-                              window.open(att.url, '_blank', 'noopener,noreferrer');
-                            }
-                          }}
+                          onClick={() => handleOpenAttachment(att)}
                           className="text-primary hover:text-primary/80 p-1"
                           title="Lihat"
                         >
                           <Eye className="h-3.5 w-3.5" />
                         </button>
-                        <a href={att.url} download target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground p-1" title="Download">
-                          <Download className="h-3.5 w-3.5" />
-                        </a>
+                        <button
+                          onClick={() => handleDownloadAttachment(att)}
+                          disabled={downloadingAttachmentId === att.id}
+                          className="text-muted-foreground hover:text-foreground p-1 disabled:opacity-50"
+                          title="Download"
+                        >
+                          {downloadingAttachmentId === att.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Download className="h-3.5 w-3.5" />
+                          )}
+                        </button>
                         {isSuperAdmin && (
                           <button
                             onClick={() => deleteAttachment(att)}
@@ -1749,41 +1854,60 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
             {previewAttachment && isImageFile(previewAttachment.mime_type) ? (
               <div className="flex flex-col items-center gap-3">
                 <div className="w-full flex items-center justify-center bg-muted/30 rounded-lg p-2 max-h-[70vh] overflow-auto">
-                  <img
-                    src={previewAttachment.url}
-                    alt={previewAttachment.file_key.split("/").pop() || "Preview"}
-                    className="max-w-full max-h-[65vh] object-contain rounded"
-                  />
+                  {previewLoading ? (
+                    <div className="w-full h-[70vh] rounded border bg-muted/20 flex flex-col items-center justify-center gap-3">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      <p className="text-sm text-muted-foreground">Memuat gambar...</p>
+                      {previewProgress > 0 && previewProgress < 100 && (
+                        <p className="text-xs text-muted-foreground">{previewProgress}%</p>
+                      )}
+                    </div>
+                  ) : previewFileUrl ? (
+                    <img
+                      src={previewFileUrl}
+                      alt={previewAttachment.file_key.split("/").pop() || "Preview"}
+                      className="max-w-full max-h-[65vh] object-contain rounded"
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Preview gambar tidak tersedia.</p>
+                  )}
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => window.open(previewAttachment.url, '_blank', 'noopener,noreferrer')}>
+                  <Button variant="outline" size="sm" onClick={() => window.open(previewAttachment.url, "_blank", "noopener,noreferrer")}>
                     <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
                     Buka di Tab Baru
                   </Button>
                 </div>
               </div>
-            ) : previewAttachment?.mime_type === 'application/pdf' ? (
+            ) : previewAttachment?.mime_type === "application/pdf" ? (
               <div className="flex flex-col items-center gap-3">
                 {previewLoading ? (
                   <div className="w-full h-[70vh] rounded border bg-muted/20 flex flex-col items-center justify-center gap-3">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                     <p className="text-sm text-muted-foreground">Memuat PDF...</p>
-                    <p className="text-xs text-muted-foreground">Harap tunggu, file sedang diunduh</p>
+                    {previewProgress > 0 && previewProgress < 100 && (
+                      <p className="text-xs text-muted-foreground">{previewProgress}%</p>
+                    )}
                   </div>
                 ) : previewFileUrl ? (
-                  <iframe
-                    src={previewFileUrl}
+                  <object
+                    data={previewFileUrl}
+                    type="application/pdf"
                     className="w-full h-[70vh] rounded border"
-                    title={previewAttachment.file_key.split("/").pop() || "PDF"}
-                  />
+                  >
+                    <div className="w-full h-[70vh] rounded border bg-muted/20 flex flex-col items-center justify-center gap-2 px-4 text-center">
+                      <p className="text-sm text-muted-foreground">Browser tidak mendukung preview PDF inline.</p>
+                      <p className="text-xs text-muted-foreground">Silakan buka file di tab baru.</p>
+                    </div>
+                  </object>
                 ) : (
                   <div className="w-full h-[70vh] rounded border bg-muted/20 flex flex-col items-center justify-center gap-2 px-4 text-center">
-                    <p className="text-sm text-muted-foreground">Preview PDF tidak bisa ditampilkan di browser ini.</p>
+                    <p className="text-sm text-muted-foreground">Preview PDF tidak bisa ditampilkan.</p>
                     <p className="text-xs text-muted-foreground">Silakan buka file di tab baru.</p>
                   </div>
                 )}
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => window.open(previewAttachment.url, '_blank', 'noopener,noreferrer')}>
+                  <Button variant="outline" size="sm" onClick={() => window.open(previewAttachment.url, "_blank", "noopener,noreferrer")}>
                     <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
                     Buka di Tab Baru
                   </Button>
@@ -1793,7 +1917,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
               <div className="flex flex-col items-center gap-3 py-8">
                 <FileText className="h-16 w-16 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">Preview tidak tersedia untuk tipe file ini</p>
-                <Button variant="outline" size="sm" onClick={() => window.open(previewAttachment?.url, '_blank', 'noopener,noreferrer')}>
+                <Button variant="outline" size="sm" onClick={() => window.open(previewAttachment?.url, "_blank", "noopener,noreferrer")}>
                   <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
                   Buka di Tab Baru
                 </Button>
