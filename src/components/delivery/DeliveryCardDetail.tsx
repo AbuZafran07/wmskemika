@@ -1386,7 +1386,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                               </button>
                             )}
                           </div>
-                          <p className={cn("text-xs mt-0.5 whitespace-pre-wrap break-words", "text-foreground", comment.type === "activity" && "italic font-bold")}>
+                          <p className={cn("text-xs mt-0.5 whitespace-pre-wrap break-words", comment.type === "activity" && (/(cito|urgent)/i.test(comment.message) ? "text-foreground italic font-bold" : "text-muted-foreground italic"))}>
                             {comment.type === "activity" ? comment.message : renderCommentMessage(comment.message)}
                           </p>
                         </div>
