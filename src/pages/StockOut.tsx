@@ -92,7 +92,7 @@ export default function StockOut() {
         customer:customers(id, name, code)
       `,
       )
-      .in("status", ["approved", "partially_delivered", "partial"])
+      .in("status", ["approved", "partially_delivered"])
       .order("created_at", { ascending: false });
 
     if (error) {

@@ -1864,7 +1864,6 @@ export default function SalesOrder() {
               </div>
 
               {(selectedOrder.status === "approved" ||
-                selectedOrder.status === "partial" ||
                 selectedOrder.status === "partially_delivered" ||
                 selectedOrder.status === "delivered") && (
                 <div className="mt-6 pt-6 border-t">

@@ -51,7 +51,7 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: "Dibatalkan",
   revision_requested: "Minta Revisi",
   completed: "Selesai",
-  partial: "Partial",
+  partially_delivered: "Terkirim Sebagian",
 };
 
 export default function DeliveryMarqueeTicker() {
