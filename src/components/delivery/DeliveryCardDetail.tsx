@@ -324,8 +324,21 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   useEffect(() => {
     let objectUrl: string | null = null;
 
-    const loadPdfPreview = async () => {
-      if (!previewAttachment || previewAttachment.mime_type !== "application/pdf") {
+    const loadPreview = async () => {
+      if (!previewAttachment) {
+        setPreviewFileUrl(null);
+        setPreviewLoading(false);
+        return;
+      }
+
+      // For images, use the URL directly (img tags handle CORS fine)
+      if (isImageFile(previewAttachment.mime_type)) {
+        setPreviewFileUrl(previewAttachment.url);
+        setPreviewLoading(false);
+        return;
+      }
+
+      if (previewAttachment.mime_type !== "application/pdf") {
         setPreviewFileUrl(null);
         setPreviewLoading(false);
         return;
@@ -333,11 +346,20 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
       setPreviewLoading(true);
       try {
-        const response = await fetch(previewAttachment.url);
-        if (!response.ok) throw new Error("Gagal memuat PDF");
-
-        const blob = await response.blob();
-        objectUrl = URL.createObjectURL(blob);
+        // Use supabase storage download to bypass CORS
+        const { data, error } = await supabase.storage
+          .from("documents")
+          .download(previewAttachment.file_key);
+        
+        if (error || !data) {
+          // Fallback: try direct fetch
+          const response = await fetch(previewAttachment.url);
+          if (!response.ok) throw new Error("Gagal memuat PDF");
+          const blob = await response.blob();
+          objectUrl = URL.createObjectURL(blob);
+        } else {
+          objectUrl = URL.createObjectURL(data);
+        }
         setPreviewFileUrl(objectUrl);
       } catch {
         setPreviewFileUrl(null);
@@ -346,7 +368,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       }
     };
 
-    loadPdfPreview();
+    loadPreview();
 
     return () => {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
