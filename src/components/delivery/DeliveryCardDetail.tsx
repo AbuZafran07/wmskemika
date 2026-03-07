@@ -744,7 +744,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     try {
       if (deleteAction === "delivered") {
         // Move to delivered with date note
-        await supabase
+        const { error: updateError } = await supabase
           .from("delivery_requests")
           .update({
             board_status: "delivered",
@@ -755,17 +755,21 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           })
           .eq("id", card.id);
 
-        await supabase.from("delivery_comments").insert({
+        if (updateError) throw updateError;
+
+        const { error: commentError } = await supabase.from("delivery_comments").insert({
           delivery_request_id: card.id,
           user_id: user.id,
           message: `✅ Card dipindahkan ke Delivered. Tanggal pengiriman: ${deliveredDate}`,
           type: "activity",
         });
 
+        if (commentError) throw commentError;
+
         toast.success("Card dipindahkan ke Delivered");
       } else if (deleteAction === "archived") {
         // Move to archived status
-        await supabase
+        const { error: updateError } = await supabase
           .from("delivery_requests")
           .update({
             board_status: "archived",
@@ -775,12 +779,16 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           })
           .eq("id", card.id);
 
-        await supabase.from("delivery_comments").insert({
+        if (updateError) throw updateError;
+
+        const { error: commentError } = await supabase.from("delivery_comments").insert({
           delivery_request_id: card.id,
           user_id: user.id,
           message: `📦 Card dipindahkan ke Archived.`,
           type: "activity",
         });
+
+        if (commentError) throw commentError;
 
         toast.success("Card dipindahkan ke Archived");
       } else {

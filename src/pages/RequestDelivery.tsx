@@ -637,7 +637,7 @@ export default function RequestDelivery() {
     }
   };
 
-  const archivedCards = cards.filter(c => c.board_status === ("archived" as any));
+  const archivedCards = cards.filter(c => c.board_status === "archived");
 
   const handleRestoreCard = async (cardId: string) => {
     if (!user) return;
