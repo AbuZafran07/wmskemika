@@ -89,6 +89,20 @@ export function OutboundDetailModal({ open, onOpenChange, record }: OutboundDeta
           </div>
         </div>
 
+        {/* Delivery Number & Actual Date */}
+        {(record.delivery_number || record.delivery_actual_date) && (
+          <div className="grid grid-cols-2 gap-4 p-4 bg-primary/5 border border-primary/20 rounded-lg">
+            <div>
+              <p className="text-sm text-muted-foreground">{language === 'en' ? 'DO Number (Actual)' : 'No. DO (Riil)'}</p>
+              <p className="font-semibold text-primary">{record.delivery_number || '-'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">{language === 'en' ? 'Actual Delivery Date' : 'Tanggal Pengiriman Riil'}</p>
+              <p className="font-semibold text-primary">{record.delivery_actual_date ? formatDate(record.delivery_actual_date) : '-'}</p>
+            </div>
+          </div>
+        )}
+
         {/* Items Table */}
         <div className="mt-4">
           <div className="flex items-center gap-2 mb-3">
