@@ -320,6 +320,38 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     }
   }, [card, fetchLabels, fetchComments, fetchAttachments, fetchChecklists, fetchStockOutDetails]);
 
+  useEffect(() => {
+    let objectUrl: string | null = null;
+
+    const loadPdfPreview = async () => {
+      if (!previewAttachment || previewAttachment.mime_type !== "application/pdf") {
+        setPreviewFileUrl(null);
+        setPreviewLoading(false);
+        return;
+      }
+
+      setPreviewLoading(true);
+      try {
+        const response = await fetch(previewAttachment.url);
+        if (!response.ok) throw new Error("Gagal memuat PDF");
+
+        const blob = await response.blob();
+        objectUrl = URL.createObjectURL(blob);
+        setPreviewFileUrl(objectUrl);
+      } catch {
+        setPreviewFileUrl(null);
+      } finally {
+        setPreviewLoading(false);
+      }
+    };
+
+    loadPdfPreview();
+
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [previewAttachment]);
+
   // Realtime comments & checklists
   useEffect(() => {
     if (!card) return;
