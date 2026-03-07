@@ -136,6 +136,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   // Attachments state
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
