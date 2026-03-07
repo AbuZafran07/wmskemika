@@ -763,6 +763,26 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         });
 
         toast.success("Card dipindahkan ke Delivered");
+      } else if (deleteAction === "archived") {
+        // Move to archived status
+        await supabase
+          .from("delivery_requests")
+          .update({
+            board_status: "archived",
+            moved_by: user.id,
+            moved_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", card.id);
+
+        await supabase.from("delivery_comments").insert({
+          delivery_request_id: card.id,
+          user_id: user.id,
+          message: `📦 Card dipindahkan ke Archived.`,
+          type: "activity",
+        });
+
+        toast.success("Card dipindahkan ke Archived");
       } else {
         // Remove card from board entirely (delete related data first)
         await supabase.from("delivery_checklists").delete().eq("delivery_request_id", card.id);
