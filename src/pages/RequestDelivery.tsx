@@ -97,6 +97,8 @@ export default function RequestDelivery() {
   };
   const [bgInput, setBgInput] = useState("");
   const bgFileRef = useRef<HTMLInputElement>(null);
+  const [showArchivedDialog, setShowArchivedDialog] = useState(false);
+  const [restoringCardId, setRestoringCardId] = useState<string | null>(null);
 
   const extractBoardBackgroundUrl = (value: unknown): string => {
     if (!value) return "";
