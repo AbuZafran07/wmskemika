@@ -136,6 +136,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   // Attachments state
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
@@ -323,8 +324,21 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   useEffect(() => {
     let objectUrl: string | null = null;
 
-    const loadPdfPreview = async () => {
-      if (!previewAttachment || previewAttachment.mime_type !== "application/pdf") {
+    const loadPreview = async () => {
+      if (!previewAttachment) {
+        setPreviewFileUrl(null);
+        setPreviewLoading(false);
+        return;
+      }
+
+      // For images, use the URL directly (img tags handle CORS fine)
+      if (isImageFile(previewAttachment.mime_type)) {
+        setPreviewFileUrl(previewAttachment.url);
+        setPreviewLoading(false);
+        return;
+      }
+
+      if (previewAttachment.mime_type !== "application/pdf") {
         setPreviewFileUrl(null);
         setPreviewLoading(false);
         return;
@@ -332,11 +346,20 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
       setPreviewLoading(true);
       try {
-        const response = await fetch(previewAttachment.url);
-        if (!response.ok) throw new Error("Gagal memuat PDF");
-
-        const blob = await response.blob();
-        objectUrl = URL.createObjectURL(blob);
+        // Use supabase storage download to bypass CORS
+        const { data, error } = await supabase.storage
+          .from("documents")
+          .download(previewAttachment.file_key);
+        
+        if (error || !data) {
+          // Fallback: try direct fetch
+          const response = await fetch(previewAttachment.url);
+          if (!response.ok) throw new Error("Gagal memuat PDF");
+          const blob = await response.blob();
+          objectUrl = URL.createObjectURL(blob);
+        } else {
+          objectUrl = URL.createObjectURL(data);
+        }
         setPreviewFileUrl(objectUrl);
       } catch {
         setPreviewFileUrl(null);
@@ -345,7 +368,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       }
     };
 
-    loadPdfPreview();
+    loadPreview();
 
     return () => {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
@@ -913,15 +936,25 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     }
 
     setUploadingFile(true);
+    setUploadProgress(0);
     try {
       const fileExt = file.name.split(".").pop();
       const fileKey = `delivery/${card.id}/${Date.now()}.${fileExt}`;
+
+      // Simulate progress for UX (storage SDK doesn't expose progress)
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 10, 90));
+      }, 200);
 
       const { error: uploadError } = await supabase.storage
         .from("documents")
         .upload(fileKey, file);
 
+      clearInterval(progressInterval);
+
       if (uploadError) throw uploadError;
+
+      setUploadProgress(95);
 
       const { data: urlData } = supabase.storage.from("documents").getPublicUrl(fileKey);
 
@@ -936,12 +969,14 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         uploaded_by: user.id,
       });
 
+      setUploadProgress(100);
       toast.success("File berhasil diupload");
       fetchAttachments();
     } catch (err: any) {
       toast.error("Gagal upload: " + err.message);
     } finally {
       setUploadingFile(false);
+      setUploadProgress(0);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
@@ -1270,9 +1305,25 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                   )}
                 </div>
 
-                {attachments.length === 0 ? (
+                {/* Upload Progress Bar */}
+                {uploadingFile && (
+                  <div className="mb-3 space-y-1">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <span>Mengupload file... {uploadProgress}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-primary rounded-full transition-all duration-300"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {attachments.length === 0 && !uploadingFile ? (
                   <p className="text-xs text-muted-foreground text-center py-2">Belum ada lampiran</p>
-                ) : (
+                ) : attachments.length === 0 ? null : (
                   <div className="space-y-2">
                     {attachments.map(att => (
                       <div key={att.id} className="flex items-start gap-2 p-2 rounded-lg border bg-muted/30 group">
@@ -1714,11 +1765,10 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
             ) : previewAttachment?.mime_type === 'application/pdf' ? (
               <div className="flex flex-col items-center gap-3">
                 {previewLoading ? (
-                  <div className="w-full h-[70vh] rounded border bg-muted/20 flex items-center justify-center">
-                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Memuat PDF...
-                    </div>
+                  <div className="w-full h-[70vh] rounded border bg-muted/20 flex flex-col items-center justify-center gap-3">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="text-sm text-muted-foreground">Memuat PDF...</p>
+                    <p className="text-xs text-muted-foreground">Harap tunggu, file sedang diunduh</p>
                   </div>
                 ) : previewFileUrl ? (
                   <iframe
