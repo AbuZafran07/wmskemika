@@ -637,6 +637,38 @@ export default function RequestDelivery() {
     }
   };
 
+  const archivedCards = cards.filter(c => c.board_status === ("archived" as any));
+
+  const handleRestoreCard = async (cardId: string) => {
+    if (!user) return;
+    setRestoringCardId(cardId);
+    try {
+      await supabase
+        .from("delivery_requests")
+        .update({
+          board_status: "new_order",
+          moved_by: user.id,
+          moved_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", cardId);
+
+      await supabase.from("delivery_comments").insert({
+        delivery_request_id: cardId,
+        user_id: user.id,
+        message: `♻️ Card di-restore dari Archived ke New Orders.`,
+        type: "activity",
+      });
+
+      toast.success("Card berhasil di-restore ke New Orders");
+      fetchCards();
+    } catch (err: any) {
+      toast.error("Gagal restore card: " + err.message);
+    } finally {
+      setRestoringCardId(null);
+    }
+  };
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
   if (loading) {
