@@ -1184,14 +1184,25 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                 ) : (
                   <div className="space-y-2">
                     {attachments.map(att => (
-                      <div key={att.id} className="flex items-center gap-2 p-2 rounded-lg border bg-muted/30 group">
-                        <div className="w-8 h-8 rounded bg-muted flex items-center justify-center flex-shrink-0">
-                          {isImageFile(att.mime_type) ? (
-                            <Image className="h-4 w-4 text-muted-foreground" />
-                          ) : (
+                      <div key={att.id} className="flex items-start gap-2 p-2 rounded-lg border bg-muted/30 group">
+                        {/* Thumbnail for images */}
+                        {isImageFile(att.mime_type) ? (
+                          <button
+                            onClick={() => setPreviewAttachment(att)}
+                            className="w-10 h-10 rounded border border-border overflow-hidden flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                          >
+                            <img
+                              src={att.url}
+                              alt={att.file_key.split("/").pop() || ""}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          </button>
+                        ) : (
+                          <div className="w-10 h-10 rounded bg-muted flex items-center justify-center flex-shrink-0">
                             <FileText className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </div>
+                          </div>
+                        )}
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium truncate">{att.file_key.split("/").pop()}</p>
                           <p className="text-[10px] text-muted-foreground">
@@ -1199,7 +1210,21 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                             {att.uploaded_at && ` • ${formatDistanceToNow(new Date(att.uploaded_at), { addSuffix: true, locale: idLocale })}`}
                           </p>
                         </div>
-                        <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 p-1">
+                        {/* View button */}
+                        <button
+                          onClick={() => {
+                            if (isImageFile(att.mime_type)) {
+                              setPreviewAttachment(att);
+                            } else {
+                              window.open(att.url, '_blank', 'noopener,noreferrer');
+                            }
+                          }}
+                          className="text-primary hover:text-primary/80 p-1"
+                          title="Lihat"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </button>
+                        <a href={att.url} download target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground p-1" title="Download">
                           <Download className="h-3.5 w-3.5" />
                         </a>
                         {isSuperAdmin && (
