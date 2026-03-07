@@ -744,28 +744,84 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       toast.error("Nomor Delivery (DO) tidak boleh kosong");
       return;
     }
+    if (!doDate) {
+      toast.error("Tanggal Pengiriman Riil tidak boleh kosong");
+      return;
+    }
     setSavingDO(true);
     try {
-      const updateData: Record<string, any> = { delivery_number: doNumber };
-      if (doDate) {
-        updateData.delivery_actual_date = doDate;
-      }
+      const updateData: Record<string, any> = { delivery_number: doNumber, delivery_actual_date: doDate };
       const { error } = await supabase
         .from("stock_out_headers")
         .update(updateData)
         .eq("id", stockOutId);
       if (error) throw error;
 
-      const dateInfo = doDate ? `, Tanggal DO: ${doDate}` : '';
       await supabase.from("delivery_comments").insert({
         delivery_request_id: card.id,
         user_id: user.id,
-        message: `📝 Nomor DO: ${doNumber}${dateInfo}`,
+        message: `📝 Nomor DO: ${doNumber}, Tanggal DO: ${doDate}`,
         type: "activity",
       });
 
       toast.success("Data DO berhasil disimpan");
-      fetchStockOutDetails();
+      await fetchStockOutDetails();
+
+      // After saving DO, check if all conditions met for auto-move to delivered
+      if (PENGIRIMAN_COLUMNS.includes(card.board_status)) {
+        const { data: latestChecklists } = await supabase
+          .from("delivery_checklists")
+          .select("*")
+          .eq("delivery_request_id", card.id);
+
+        const allChecklistsDone = latestChecklists && latestChecklists.length > 0 && latestChecklists.every((cl: any) => cl.is_checked);
+
+        // Re-fetch latest stock out data to check all DOs
+        const { data: latestStockOuts } = await supabase
+          .from("stock_out_headers")
+          .select("id, delivery_number, delivery_actual_date")
+          .eq("sales_order_id", card.sales_order_id);
+
+        const allDOComplete = latestStockOuts && latestStockOuts.length > 0 && latestStockOuts.every((so: any) => 
+          so.delivery_number && so.delivery_number.trim() !== '' && so.delivery_actual_date && so.delivery_actual_date.trim() !== ''
+        );
+
+        if (allChecklistsDone && allDOComplete) {
+          // Check if card has "sample" label
+          const { data: cardLabelsData } = await supabase
+            .from("delivery_card_labels")
+            .select("label_id, delivery_labels!inner(name)")
+            .eq("delivery_request_id", card.id);
+
+          const hasSampleLabel = cardLabelsData?.some((cl: any) => 
+            cl.delivery_labels?.name?.toLowerCase().includes("sample")
+          );
+
+          const targetStatus = hasSampleLabel ? "delivered_sample" : "delivered";
+          const targetLabel = hasSampleLabel ? "Delivered Sample" : "Delivered";
+
+          await supabase
+            .from("delivery_requests")
+            .update({
+              board_status: targetStatus,
+              moved_by: user.id,
+              moved_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", card.id);
+
+          await supabase.from("delivery_comments").insert({
+            delivery_request_id: card.id,
+            user_id: user.id,
+            message: `✅ Semua checklist dan data DO lengkap. Card otomatis dipindahkan ke ${targetLabel}.`,
+            type: "activity",
+          });
+
+          toast.success(`Card otomatis dipindahkan ke ${targetLabel}`);
+          onClose();
+          return;
+        }
+      }
     } catch (err: any) {
       toast.error("Gagal menyimpan data DO: " + err.message);
     } finally {
