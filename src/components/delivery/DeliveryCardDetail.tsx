@@ -1854,41 +1854,60 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
             {previewAttachment && isImageFile(previewAttachment.mime_type) ? (
               <div className="flex flex-col items-center gap-3">
                 <div className="w-full flex items-center justify-center bg-muted/30 rounded-lg p-2 max-h-[70vh] overflow-auto">
-                  <img
-                    src={previewAttachment.url}
-                    alt={previewAttachment.file_key.split("/").pop() || "Preview"}
-                    className="max-w-full max-h-[65vh] object-contain rounded"
-                  />
+                  {previewLoading ? (
+                    <div className="w-full h-[70vh] rounded border bg-muted/20 flex flex-col items-center justify-center gap-3">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      <p className="text-sm text-muted-foreground">Memuat gambar...</p>
+                      {previewProgress > 0 && previewProgress < 100 && (
+                        <p className="text-xs text-muted-foreground">{previewProgress}%</p>
+                      )}
+                    </div>
+                  ) : previewFileUrl ? (
+                    <img
+                      src={previewFileUrl}
+                      alt={previewAttachment.file_key.split("/").pop() || "Preview"}
+                      className="max-w-full max-h-[65vh] object-contain rounded"
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Preview gambar tidak tersedia.</p>
+                  )}
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => window.open(previewAttachment.url, '_blank', 'noopener,noreferrer')}>
+                  <Button variant="outline" size="sm" onClick={() => window.open(previewAttachment.url, "_blank", "noopener,noreferrer")}>
                     <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
                     Buka di Tab Baru
                   </Button>
                 </div>
               </div>
-            ) : previewAttachment?.mime_type === 'application/pdf' ? (
+            ) : previewAttachment?.mime_type === "application/pdf" ? (
               <div className="flex flex-col items-center gap-3">
                 {previewLoading ? (
                   <div className="w-full h-[70vh] rounded border bg-muted/20 flex flex-col items-center justify-center gap-3">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                     <p className="text-sm text-muted-foreground">Memuat PDF...</p>
-                    <p className="text-xs text-muted-foreground">Harap tunggu, file sedang diunduh</p>
+                    {previewProgress > 0 && previewProgress < 100 && (
+                      <p className="text-xs text-muted-foreground">{previewProgress}%</p>
+                    )}
                   </div>
                 ) : previewFileUrl ? (
-                  <iframe
-                    src={previewFileUrl}
+                  <object
+                    data={previewFileUrl}
+                    type="application/pdf"
                     className="w-full h-[70vh] rounded border"
-                    title={previewAttachment.file_key.split("/").pop() || "PDF"}
-                  />
+                  >
+                    <div className="w-full h-[70vh] rounded border bg-muted/20 flex flex-col items-center justify-center gap-2 px-4 text-center">
+                      <p className="text-sm text-muted-foreground">Browser tidak mendukung preview PDF inline.</p>
+                      <p className="text-xs text-muted-foreground">Silakan buka file di tab baru.</p>
+                    </div>
+                  </object>
                 ) : (
                   <div className="w-full h-[70vh] rounded border bg-muted/20 flex flex-col items-center justify-center gap-2 px-4 text-center">
-                    <p className="text-sm text-muted-foreground">Preview PDF tidak bisa ditampilkan di browser ini.</p>
+                    <p className="text-sm text-muted-foreground">Preview PDF tidak bisa ditampilkan.</p>
                     <p className="text-xs text-muted-foreground">Silakan buka file di tab baru.</p>
                   </div>
                 )}
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => window.open(previewAttachment.url, '_blank', 'noopener,noreferrer')}>
+                  <Button variant="outline" size="sm" onClick={() => window.open(previewAttachment.url, "_blank", "noopener,noreferrer")}>
                     <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
                     Buka di Tab Baru
                   </Button>
@@ -1898,7 +1917,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
               <div className="flex flex-col items-center gap-3 py-8">
                 <FileText className="h-16 w-16 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">Preview tidak tersedia untuk tipe file ini</p>
-                <Button variant="outline" size="sm" onClick={() => window.open(previewAttachment?.url, '_blank', 'noopener,noreferrer')}>
+                <Button variant="outline" size="sm" onClick={() => window.open(previewAttachment?.url, "_blank", "noopener,noreferrer")}>
                   <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
                   Buka di Tab Baru
                 </Button>
