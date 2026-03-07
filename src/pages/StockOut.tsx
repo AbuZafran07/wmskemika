@@ -344,11 +344,17 @@ export default function StockOut() {
           const { data: currentUser } = await supabase.auth.getUser();
           const userId = currentUser?.user?.id;
 
-          // Move card to approval_delivery
+          // Check WIB time to determine target column
+          const nowWib = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+          const wibHour = nowWib.getHours();
+          const isOnHoldHours = wibHour >= 15 || wibHour < 10;
+          const targetStatus = isOnHoldHours ? "on_hold_delivery" : "approval_delivery";
+
+          // Move card to appropriate column based on time
           await supabase
             .from("delivery_requests")
             .update({
-              board_status: "approval_delivery",
+              board_status: targetStatus,
               moved_by: userId,
               moved_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
@@ -366,7 +372,7 @@ export default function StockOut() {
             await supabase.from("delivery_comments").insert({
               delivery_request_id: deliveryCard.id,
               user_id: userId,
-              message: `📦 Stock Out "${stockOutNumber}" telah dibuat. Card otomatis dipindahkan ke Approval Delivery Order.`,
+              message: `📦 Stock Out "${stockOutNumber}" telah dibuat. Card otomatis dipindahkan ke ${isOnHoldHours ? "On Hold Delivery Order (di luar jam operasional)" : "Approval Delivery Order"}.`,
               type: "activity",
             });
           }
