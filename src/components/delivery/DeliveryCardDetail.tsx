@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -138,6 +138,8 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const [uploadingFile, setUploadingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
+  const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   // Checklist state
   const [checklists, setChecklists] = useState<ChecklistItem[]>([]);
@@ -317,6 +319,38 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       fetchStockOutDetails();
     }
   }, [card, fetchLabels, fetchComments, fetchAttachments, fetchChecklists, fetchStockOutDetails]);
+
+  useEffect(() => {
+    let objectUrl: string | null = null;
+
+    const loadPdfPreview = async () => {
+      if (!previewAttachment || previewAttachment.mime_type !== "application/pdf") {
+        setPreviewFileUrl(null);
+        setPreviewLoading(false);
+        return;
+      }
+
+      setPreviewLoading(true);
+      try {
+        const response = await fetch(previewAttachment.url);
+        if (!response.ok) throw new Error("Gagal memuat PDF");
+
+        const blob = await response.blob();
+        objectUrl = URL.createObjectURL(blob);
+        setPreviewFileUrl(objectUrl);
+      } catch {
+        setPreviewFileUrl(null);
+      } finally {
+        setPreviewLoading(false);
+      }
+    };
+
+    loadPdfPreview();
+
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [previewAttachment]);
 
   // Realtime comments & checklists
   useEffect(() => {
@@ -1599,6 +1633,9 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
               <Eye className="h-4 w-4 text-primary" />
               <span className="truncate">{previewAttachment?.file_key.split("/").pop()}</span>
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Preview lampiran delivery card
+            </DialogDescription>
           </DialogHeader>
           <div className="p-4">
             {previewAttachment && isImageFile(previewAttachment.mime_type) ? (
@@ -1619,11 +1656,25 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
               </div>
             ) : previewAttachment?.mime_type === 'application/pdf' ? (
               <div className="flex flex-col items-center gap-3">
-                <iframe
-                  src={`https://docs.google.com/gview?url=${encodeURIComponent(previewAttachment.url)}&embedded=true`}
-                  className="w-full h-[70vh] rounded border"
-                  title={previewAttachment.file_key.split("/").pop() || "PDF"}
-                />
+                {previewLoading ? (
+                  <div className="w-full h-[70vh] rounded border bg-muted/20 flex items-center justify-center">
+                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Memuat PDF...
+                    </div>
+                  </div>
+                ) : previewFileUrl ? (
+                  <iframe
+                    src={previewFileUrl}
+                    className="w-full h-[70vh] rounded border"
+                    title={previewAttachment.file_key.split("/").pop() || "PDF"}
+                  />
+                ) : (
+                  <div className="w-full h-[70vh] rounded border bg-muted/20 flex flex-col items-center justify-center gap-2 px-4 text-center">
+                    <p className="text-sm text-muted-foreground">Preview PDF tidak bisa ditampilkan di browser ini.</p>
+                    <p className="text-xs text-muted-foreground">Silakan buka file di tab baru.</p>
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => window.open(previewAttachment.url, '_blank', 'noopener,noreferrer')}>
                     <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
