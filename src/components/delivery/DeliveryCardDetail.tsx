@@ -1656,11 +1656,25 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
               </div>
             ) : previewAttachment?.mime_type === 'application/pdf' ? (
               <div className="flex flex-col items-center gap-3">
-                <iframe
-                  src={`https://docs.google.com/gview?url=${encodeURIComponent(previewAttachment.url)}&embedded=true`}
-                  className="w-full h-[70vh] rounded border"
-                  title={previewAttachment.file_key.split("/").pop() || "PDF"}
-                />
+                {previewLoading ? (
+                  <div className="w-full h-[70vh] rounded border bg-muted/20 flex items-center justify-center">
+                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Memuat PDF...
+                    </div>
+                  </div>
+                ) : previewFileUrl ? (
+                  <iframe
+                    src={previewFileUrl}
+                    className="w-full h-[70vh] rounded border"
+                    title={previewAttachment.file_key.split("/").pop() || "PDF"}
+                  />
+                ) : (
+                  <div className="w-full h-[70vh] rounded border bg-muted/20 flex flex-col items-center justify-center gap-2 px-4 text-center">
+                    <p className="text-sm text-muted-foreground">Preview PDF tidak bisa ditampilkan di browser ini.</p>
+                    <p className="text-xs text-muted-foreground">Silakan buka file di tab baru.</p>
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => window.open(previewAttachment.url, '_blank', 'noopener,noreferrer')}>
                     <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
