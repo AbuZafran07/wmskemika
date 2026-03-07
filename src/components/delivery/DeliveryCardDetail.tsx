@@ -233,10 +233,15 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       ? await supabase.from("profiles").select("id, full_name").in("id", userIds)
       : { data: [] };
 
-    setAttachments(data.map(a => ({
-      ...a,
-      uploader_name: profiles?.find(p => p.id === a.uploaded_by)?.full_name || "Unknown",
-    })));
+    setAttachments(data.map(a => {
+      const { data: publicUrlData } = supabase.storage.from("documents").getPublicUrl(a.file_key);
+      return {
+        ...a,
+        // Always rebuild URL from file_key to avoid stale/expired URLs saved in DB
+        url: publicUrlData?.publicUrl || a.url,
+        uploader_name: profiles?.find(p => p.id === a.uploaded_by)?.full_name || "Unknown",
+      };
+    }));
   }, [card]);
 
   // Fetch checklists
