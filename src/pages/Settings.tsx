@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, Loader2, Users, Bell } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Loader2, Users, Bell, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import BackupRestore from '@/components/settings/BackupRestore';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
