@@ -673,6 +673,98 @@ export default function RequestDelivery() {
     }
   };
 
+  // Permanent delete single archived card
+  const handlePermanentDelete = async (cardId: string) => {
+    if (!user) return;
+    setDeletingCardId(cardId);
+    try {
+      const card = archivedCards.find(c => c.id === cardId);
+      
+      // Delete related data (cascade)
+      await Promise.all([
+        supabase.from("delivery_card_labels").delete().eq("delivery_request_id", cardId),
+        supabase.from("delivery_checklists").delete().eq("delivery_request_id", cardId),
+        supabase.from("delivery_comments").delete().eq("delivery_request_id", cardId),
+        supabase.from("attachments").delete().eq("ref_table", "delivery_requests").eq("ref_id", cardId),
+      ]);
+
+      // Delete the card itself
+      const { error } = await supabase.from("delivery_requests").delete().eq("id", cardId);
+      if (error) throw error;
+
+      // Audit log
+      await supabase.from("audit_logs").insert({
+        user_id: user.id,
+        user_email: user.email,
+        action: "PERMANENT_DELETE",
+        module: "delivery_board",
+        ref_table: "delivery_requests",
+        ref_id: cardId,
+        ref_no: card?.sales_order_number || "-",
+        new_data: {
+          sales_order_number: card?.sales_order_number,
+          customer_name: card?.customer_name,
+          deleted_permanently: true,
+        },
+      });
+
+      toast.success(`Card ${card?.sales_order_number} berhasil dihapus permanen`);
+      setConfirmDeleteCardId(null);
+      fetchCards();
+    } catch (err: any) {
+      toast.error("Gagal menghapus card: " + err.message);
+    } finally {
+      setDeletingCardId(null);
+    }
+  };
+
+  // Bulk permanent delete all archived cards
+  const handleBulkPermanentDelete = async () => {
+    if (!user || archivedCards.length === 0) return;
+    setBulkDeleting(true);
+    try {
+      const cardIds = archivedCards.map(c => c.id);
+
+      // Delete related data for all cards
+      await Promise.all([
+        supabase.from("delivery_card_labels").delete().in("delivery_request_id", cardIds),
+        supabase.from("delivery_checklists").delete().in("delivery_request_id", cardIds),
+        supabase.from("delivery_comments").delete().in("delivery_request_id", cardIds),
+        supabase.from("attachments").delete().eq("ref_table", "delivery_requests").in("ref_id", cardIds),
+      ]);
+
+      // Delete all archived cards
+      const { error } = await supabase.from("delivery_requests").delete().in("id", cardIds);
+      if (error) throw error;
+
+      // Audit log
+      await supabase.from("audit_logs").insert({
+        user_id: user.id,
+        user_email: user.email,
+        action: "BULK_PERMANENT_DELETE",
+        module: "delivery_board",
+        ref_table: "delivery_requests",
+        ref_no: `${cardIds.length} cards`,
+        new_data: {
+          deleted_cards: archivedCards.map(c => ({
+            id: c.id,
+            sales_order_number: c.sales_order_number,
+            customer_name: c.customer_name,
+          })),
+          deleted_permanently: true,
+        },
+      });
+
+      toast.success(`${cardIds.length} card berhasil dihapus permanen`);
+      setConfirmBulkDelete(false);
+      fetchCards();
+    } catch (err: any) {
+      toast.error("Gagal menghapus semua card: " + err.message);
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
   if (loading) {
