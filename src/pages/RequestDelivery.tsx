@@ -1317,10 +1317,23 @@ export default function RequestDelivery() {
       <Dialog open={showArchivedDialog} onOpenChange={setShowArchivedDialog}>
         <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Archive className="h-5 w-5" />
-              Archived Cards ({archivedCards.length})
-            </DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <Archive className="h-5 w-5" />
+                Archived Cards ({archivedCards.length})
+              </DialogTitle>
+              {isSuperAdmin && archivedCards.length > 0 && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => setConfirmBulkDelete(true)}
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1" />
+                  Hapus Semua
+                </Button>
+              )}
+            </div>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto space-y-2 py-2">
             {archivedCards.length === 0 ? (
@@ -1338,33 +1351,139 @@ export default function RequestDelivery() {
                       Deadline: {card.delivery_deadline ? format(new Date(card.delivery_deadline), "dd MMM yyyy") : "-"}
                     </p>
                   </div>
-                  {canManage && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="ml-2 shrink-0"
-                          onClick={() => handleRestoreCard(card.id)}
-                          disabled={restoringCardId === card.id}
-                        >
-                          {restoringCardId === card.id ? (
-                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <RotateCcw className="h-3.5 w-3.5" />
-                          )}
-                          <span className="ml-1">Restore</span>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent><p>Kembalikan ke New Orders</p></TooltipContent>
-                    </Tooltip>
-                  )}
+                  <div className="flex items-center gap-1.5 ml-2 shrink-0">
+                    {canManage && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRestoreCard(card.id)}
+                            disabled={restoringCardId === card.id}
+                          >
+                            {restoringCardId === card.id ? (
+                              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <RotateCcw className="h-3.5 w-3.5" />
+                            )}
+                            <span className="ml-1">Restore</span>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Kembalikan ke New Orders</p></TooltipContent>
+                      </Tooltip>
+                    )}
+                    {isSuperAdmin && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="destructive"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => setConfirmDeleteCardId(card.id)}
+                            disabled={deletingCardId === card.id}
+                          >
+                            {deletingCardId === card.id ? (
+                              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Hapus Permanen</p></TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
                 </div>
               ))
             )}
           </div>
           <DialogFooter>
             <Button variant="secondary" size="sm" onClick={() => setShowArchivedDialog(false)}>Tutup</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm Single Delete Dialog */}
+      <Dialog open={!!confirmDeleteCardId} onOpenChange={() => setConfirmDeleteCardId(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Hapus Permanen
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Anda yakin ingin menghapus card <strong>{archivedCards.find(c => c.id === confirmDeleteCardId)?.sales_order_number}</strong> secara permanen?
+            </p>
+            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+              <p className="text-xs text-destructive font-medium">⚠️ Data berikut akan ikut terhapus:</p>
+              <ul className="text-xs text-destructive/80 mt-1 space-y-0.5 list-disc list-inside">
+                <li>Label yang terpasang</li>
+                <li>Checklist items</li>
+                <li>Komentar & activity log</li>
+                <li>File lampiran</li>
+              </ul>
+              <p className="text-xs text-destructive font-bold mt-2">Aksi ini TIDAK DAPAT dibatalkan!</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setConfirmDeleteCardId(null)}>Batal</Button>
+            <Button 
+              variant="destructive" 
+              size="sm" 
+              onClick={() => confirmDeleteCardId && handlePermanentDelete(confirmDeleteCardId)}
+              disabled={deletingCardId === confirmDeleteCardId}
+            >
+              {deletingCardId === confirmDeleteCardId ? (
+                <><RefreshCw className="h-3.5 w-3.5 animate-spin mr-1" /> Menghapus...</>
+              ) : (
+                <><Trash2 className="h-3.5 w-3.5 mr-1" /> Ya, Hapus Permanen</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm Bulk Delete Dialog */}
+      <Dialog open={confirmBulkDelete} onOpenChange={setConfirmBulkDelete}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Hapus Semua Archived
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Anda yakin ingin menghapus <strong>{archivedCards.length} card</strong> yang diarsipkan secara permanen?
+            </p>
+            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+              <p className="text-xs text-destructive font-medium">⚠️ Semua data terkait (label, checklist, komentar, lampiran) akan ikut terhapus.</p>
+              <p className="text-xs text-destructive font-bold mt-2">Aksi ini TIDAK DAPAT dibatalkan!</p>
+            </div>
+            <div className="max-h-32 overflow-y-auto border rounded-md p-2 space-y-1">
+              {archivedCards.map(card => (
+                <p key={card.id} className="text-xs text-muted-foreground">
+                  • {card.sales_order_number} — {card.customer_name}
+                </p>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setConfirmBulkDelete(false)}>Batal</Button>
+            <Button 
+              variant="destructive" 
+              size="sm" 
+              onClick={handleBulkPermanentDelete}
+              disabled={bulkDeleting}
+            >
+              {bulkDeleting ? (
+                <><RefreshCw className="h-3.5 w-3.5 animate-spin mr-1" /> Menghapus...</>
+              ) : (
+                <><Trash2 className="h-3.5 w-3.5 mr-1" /> Ya, Hapus Semua</>
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
