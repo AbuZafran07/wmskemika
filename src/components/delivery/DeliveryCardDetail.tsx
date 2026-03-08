@@ -1111,7 +1111,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   return (
     <>
     <Dialog open={!!card} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-5xl max-h-[95vh] md:max-h-[90vh] flex flex-col p-0 w-[95vw] md:w-auto">
+      <DialogContent className="max-w-5xl max-h-[100dvh] md:max-h-[90vh] flex flex-col p-0 w-[100vw] md:w-auto fixed top-0 left-0 md:top-[50%] md:left-[50%] translate-x-0 translate-y-0 md:translate-x-[-50%] md:translate-y-[-50%] rounded-none md:rounded-lg h-[100dvh] md:h-auto">
         <DialogHeader className="px-6 pt-5 pb-0">
           <DialogTitle className="flex items-center gap-2">
             <Truck className="h-5 w-5 text-primary" />
