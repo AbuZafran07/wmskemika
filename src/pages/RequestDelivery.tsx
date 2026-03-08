@@ -99,6 +99,10 @@ export default function RequestDelivery() {
   const bgFileRef = useRef<HTMLInputElement>(null);
   const [showArchivedDialog, setShowArchivedDialog] = useState(false);
   const [restoringCardId, setRestoringCardId] = useState<string | null>(null);
+  const [deletingCardId, setDeletingCardId] = useState<string | null>(null);
+  const [confirmDeleteCardId, setConfirmDeleteCardId] = useState<string | null>(null);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const extractBoardBackgroundUrl = (value: unknown): string => {
     if (!value) return "";
