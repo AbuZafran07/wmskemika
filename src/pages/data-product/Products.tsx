@@ -367,7 +367,9 @@ export default function Products() {
       product.name.toLowerCase().includes(q) ||
       (product.sku && product.sku.toLowerCase().includes(q)) ||
       (product.category?.name && product.category.name.toLowerCase().includes(q)) ||
-      (product.category?.code && product.category.code.toLowerCase().includes(q))
+      (product.category?.code && product.category.code.toLowerCase().includes(q)) ||
+      (product.supplier?.name && product.supplier.name.toLowerCase().includes(q)) ||
+      (product.unit?.name && product.unit.name.toLowerCase().includes(q))
     );
   });
 
