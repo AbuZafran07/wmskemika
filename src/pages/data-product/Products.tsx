@@ -361,10 +361,15 @@ export default function Products() {
     }).format(value);
   };
 
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (product.sku && product.sku.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredProducts = products.filter(product => {
+    const q = searchQuery.toLowerCase();
+    return (
+      product.name.toLowerCase().includes(q) ||
+      (product.sku && product.sku.toLowerCase().includes(q)) ||
+      (product.category?.name && product.category.name.toLowerCase().includes(q)) ||
+      (product.category?.code && product.category.code.toLowerCase().includes(q))
+    );
+  });
 
   const {
     currentPage,
