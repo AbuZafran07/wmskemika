@@ -93,6 +93,7 @@ export default function Notifications() {
       case 'expired':
       case 'cancelled':
       case 'urgent_request':
+      case 'urgent_rejected':
         return 'bg-destructive/10 border-destructive/20';
       case 'low_stock':
       case 'expiring_soon':
