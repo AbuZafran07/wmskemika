@@ -373,28 +373,43 @@ export type Database = {
       }
       delivery_comments: {
         Row: {
+          approval_status: string | null
+          approved_at: string | null
+          approved_by: string | null
           created_at: string
           delivery_request_id: string
           id: string
+          label_request_id: string | null
           message: string
+          rejected_reason: string | null
           type: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          approval_status?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string
           delivery_request_id: string
           id?: string
+          label_request_id?: string | null
           message: string
+          rejected_reason?: string | null
           type?: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          approval_status?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string
           delivery_request_id?: string
           id?: string
+          label_request_id?: string | null
           message?: string
+          rejected_reason?: string | null
           type?: string
           updated_at?: string
           user_id?: string
