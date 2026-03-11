@@ -1776,14 +1776,26 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                     {comments.map(comment => (
                       <div key={comment.id} className={cn(
                         "flex gap-2 group",
-                        comment.type === "activity" && "opacity-70"
+                        comment.type === "activity" && !comment.approval_status && "opacity-70",
+                        comment.approval_status === "pending" && "bg-warning/5 rounded-lg p-2 border border-warning/20",
+                        comment.approval_status === "approved" && "bg-success/5 rounded-lg p-2 border border-success/20 opacity-80",
+                        comment.approval_status === "rejected" && "bg-destructive/5 rounded-lg p-2 border border-destructive/20 opacity-70",
                       )}>
                         <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 text-[10px] font-bold text-primary">
                           {comment.user_name?.charAt(0)?.toUpperCase() || "?"}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-xs font-semibold">{comment.user_name}</span>
+                            {comment.approval_status === "pending" && (
+                              <Badge variant="warning" className="text-[9px] h-4 px-1.5">⏳ Menunggu Persetujuan</Badge>
+                            )}
+                            {comment.approval_status === "approved" && (
+                              <Badge variant="approved" className="text-[9px] h-4 px-1.5">✅ Disetujui</Badge>
+                            )}
+                            {comment.approval_status === "rejected" && (
+                              <Badge variant="cancelled" className="text-[9px] h-4 px-1.5">❌ Ditolak</Badge>
+                            )}
                             <span className="text-[10px] text-muted-foreground">
                               {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true, locale: idLocale })}
                             </span>
@@ -1796,9 +1808,39 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                               </button>
                             )}
                           </div>
-                          <p className={cn("text-xs mt-0.5 whitespace-pre-wrap break-words", comment.type === "activity" && (/(cito|urgent)/i.test(comment.message) ? "text-foreground italic font-bold" : "text-muted-foreground italic"))}>
+                          <p className={cn("text-xs mt-0.5 whitespace-pre-wrap break-words", comment.type === "activity" && !comment.approval_status && (/(cito|urgent)/i.test(comment.message) ? "text-foreground italic font-bold" : "text-muted-foreground italic"))}>
                             {comment.type === "activity" ? comment.message : renderCommentMessage(comment.message)}
                           </p>
+                          
+                          {/* Approver info */}
+                          {comment.approval_status === "approved" && comment.approver_name && (
+                            <p className="text-[10px] text-success mt-1">Disetujui oleh {comment.approver_name}</p>
+                          )}
+                          {comment.approval_status === "rejected" && (
+                            <div className="mt-1">
+                              {comment.approver_name && <p className="text-[10px] text-destructive">Ditolak oleh {comment.approver_name}</p>}
+                              {comment.rejected_reason && <p className="text-[10px] text-muted-foreground italic">Alasan: {comment.rejected_reason}</p>}
+                            </div>
+                          )}
+                          
+                          {/* Approve/Reject buttons for warehouse & finance */}
+                          {comment.approval_status === "pending" && canApproveUrgent && (
+                            <div className="flex gap-2 mt-2">
+                              <Button size="sm" variant="success" className="h-6 text-[10px] px-2" onClick={() => approveUrgentRequest(comment)}>
+                                <Check className="h-3 w-3 mr-1" /> Setujui
+                              </Button>
+                              <Button size="sm" variant="destructive" className="h-6 text-[10px] px-2" onClick={() => { setRejectDialog(comment); setRejectReason(""); }}>
+                                <X className="h-3 w-3 mr-1" /> Tolak
+                              </Button>
+                            </div>
+                          )}
+                          
+                          {/* Re-request button for sales after rejection */}
+                          {comment.approval_status === "rejected" && comment.user_id === user?.id && (
+                            <Button size="sm" variant="outline" className="h-6 text-[10px] px-2 mt-2" onClick={() => reRequestUrgent(comment)}>
+                              Ajukan Ulang
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ))}
