@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 export interface Notification {
   id: string;
@@ -504,11 +505,51 @@ export function useNotifications() {
       .subscribe();
 
     // Subscribe to delivery_comments changes (for urgent/cito approval requests)
+    // Also show toast pop-up when sales' request is approved/rejected
     const deliveryCommentsChannel = supabase
       .channel('delivery-comments-urgent')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'delivery_comments' },
+        { event: 'UPDATE', schema: 'public', table: 'delivery_comments' },
+        async (payload) => {
+          const updated = payload.new as any;
+          // Show toast to the requester when their request is approved/rejected
+          if (
+            updated.approval_status && 
+            ['approved', 'rejected'].includes(updated.approval_status) &&
+            updated.user_id === user?.id
+          ) {
+            // Fetch approver name
+            let approverName = 'Unknown';
+            if (updated.approved_by) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('full_name')
+                .eq('id', updated.approved_by)
+                .single();
+              approverName = profile?.full_name || 'Unknown';
+            }
+
+            if (updated.approval_status === 'approved') {
+              toast.success('✅ Permintaan Urgent/Cito Disetujui', {
+                description: `Disetujui oleh ${approverName}`,
+                duration: 8000,
+              });
+              if (soundEnabled) playNotificationSound('info');
+            } else {
+              toast.error('❌ Permintaan Urgent/Cito Ditolak', {
+                description: `Ditolak oleh ${approverName}${updated.rejected_reason ? `: ${updated.rejected_reason}` : ''}`,
+                duration: 10000,
+              });
+              if (soundEnabled) playNotificationSound('critical');
+            }
+          }
+          fetchNotifications();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'delivery_comments' },
         () => {
           fetchNotifications();
         }
