@@ -75,6 +75,12 @@ interface Comment {
   created_at: string;
   user_name?: string;
   user_avatar?: string;
+  approval_status?: string | null;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  rejected_reason?: string | null;
+  label_request_id?: string | null;
+  approver_name?: string;
 }
 
 interface Attachment {
