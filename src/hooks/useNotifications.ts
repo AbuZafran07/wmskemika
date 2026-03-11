@@ -460,6 +460,18 @@ export function useNotifications() {
       )
       .subscribe();
 
+    // Subscribe to delivery_comments changes (for urgent/cito approval requests)
+    const deliveryCommentsChannel = supabase
+      .channel('delivery-comments-urgent')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'delivery_comments' },
+        () => {
+          fetchNotifications();
+        }
+      )
+      .subscribe();
+
     // Also keep the polling as fallback (every 5 minutes)
     const interval = setInterval(fetchNotifications, 5 * 60 * 1000);
 
@@ -471,6 +483,7 @@ export function useNotifications() {
       supabase.removeChannel(batchChannel);
       supabase.removeChannel(stockInChannel);
       supabase.removeChannel(stockOutChannel);
+      supabase.removeChannel(deliveryCommentsChannel);
     };
   }, [fetchNotifications]);
 
