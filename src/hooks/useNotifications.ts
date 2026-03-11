@@ -279,18 +279,53 @@ export function useNotifications() {
         });
       });
 
+      // Fetch pending Urgent/Cito label requests (for warehouse & finance)
+      const userRole = user?.role;
+      if (userRole && ['super_admin', 'warehouse', 'finance'].includes(userRole)) {
+        const { data: urgentRequests } = await supabase
+          .from('delivery_comments')
+          .select('id, delivery_request_id, user_id, message, created_at')
+          .eq('approval_status', 'pending')
+          .order('created_at', { ascending: false })
+          .limit(20);
+
+        if (urgentRequests && urgentRequests.length > 0) {
+          // Fetch requester names
+          const requesterIds = [...new Set(urgentRequests.map(r => r.user_id))];
+          const { data: requesterProfiles } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', requesterIds);
+
+          urgentRequests.forEach((req: any) => {
+            const requesterName = requesterProfiles?.find(p => p.id === req.user_id)?.full_name || 'Unknown';
+            notifs.push({
+              id: `urgent_req_${req.id}`,
+              type: 'urgent_request',
+              title: '🚨 Permintaan Label Urgent/Cito',
+              message: `${requesterName}: ${req.message.substring(0, 100)}${req.message.length > 100 ? '...' : ''}`,
+              module: 'delivery',
+              refId: req.delivery_request_id,
+              createdAt: new Date(req.created_at),
+              read: false,
+            });
+          });
+        }
+      }
+
       // Sort by priority and date
       notifs.sort((a, b) => {
         const priority: Record<string, number> = { 
           expired: 0, 
-          revision_requested: 1,
-          approval_pending: 2, 
-          expiring_soon: 3, 
-          low_stock: 4, 
-          new_order: 5,
-          approved: 6,
-          cancelled: 7,
-          info: 8 
+          urgent_request: 1,
+          revision_requested: 2,
+          approval_pending: 3, 
+          expiring_soon: 4, 
+          low_stock: 5, 
+          new_order: 6,
+          approved: 7,
+          cancelled: 8,
+          info: 9 
         };
         const priorityDiff = priority[a.type] - priority[b.type];
         if (priorityDiff !== 0) return priorityDiff;
