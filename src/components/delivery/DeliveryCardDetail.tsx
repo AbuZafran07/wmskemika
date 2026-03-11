@@ -1773,7 +1773,15 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {comments.map(comment => (
+                    {comments
+                      .filter(comment => {
+                        // Hide pending approval comments from users who can't approve and didn't create it
+                        if (comment.approval_status === "pending" && !canApproveUrgent && comment.user_id !== user?.id) {
+                          return false;
+                        }
+                        return true;
+                      })
+                      .map(comment => (
                       <div key={comment.id} className={cn(
                         "flex gap-2 group",
                         comment.type === "activity" && !comment.approval_status && "opacity-70",
