@@ -330,6 +330,8 @@ export default function Notifications() {
                   <SelectItem value="low_stock">{language === 'en' ? 'Low Stock' : 'Stok Rendah'}</SelectItem>
                   <SelectItem value="approval_pending">{language === 'en' ? 'Pending Approval' : 'Menunggu Persetujuan'}</SelectItem>
                   <SelectItem value="urgent_request">Urgent/Cito</SelectItem>
+                  <SelectItem value="urgent_approved">{language === 'en' ? 'Urgent Approved' : 'Urgent Disetujui'}</SelectItem>
+                  <SelectItem value="urgent_rejected">{language === 'en' ? 'Urgent Rejected' : 'Urgent Ditolak'}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
