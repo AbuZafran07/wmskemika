@@ -1117,14 +1117,21 @@ export default function RequestDelivery() {
                     >
                       {/* Pending Approval Indicator */}
                       {pendingApprovalsMap[card.id] > 0 && (
-                        <div className="absolute -top-1.5 -right-1.5 z-10">
-                          <span className="relative flex h-5 w-5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                            <span className="relative inline-flex items-center justify-center rounded-full h-5 w-5 bg-amber-500 text-white">
-                              <Bell className="h-3 w-3" />
-                            </span>
-                          </span>
-                        </div>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="absolute -top-1.5 -right-1.5 z-10" onClick={(e) => e.stopPropagation()}>
+                              <span className="relative flex h-5 w-5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                <span className="relative inline-flex items-center justify-center rounded-full h-5 w-5 bg-amber-500 text-white">
+                                  <Bell className="h-3 w-3" />
+                                </span>
+                              </span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs">
+                            ⏳ Menunggu persetujuan Urgent/Cito
+                          </TooltipContent>
+                        </Tooltip>
                       )}
 
                       {/* SO Number & Status */}
