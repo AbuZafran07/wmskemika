@@ -359,14 +359,16 @@ export function useNotifications() {
         const priority: Record<string, number> = { 
           expired: 0, 
           urgent_request: 1,
-          revision_requested: 2,
-          approval_pending: 3, 
-          expiring_soon: 4, 
-          low_stock: 5, 
-          new_order: 6,
-          approved: 7,
-          cancelled: 8,
-          info: 9 
+          urgent_rejected: 2,
+          urgent_approved: 3,
+          revision_requested: 4,
+          approval_pending: 5, 
+          expiring_soon: 6, 
+          low_stock: 7, 
+          new_order: 8,
+          approved: 9,
+          cancelled: 10,
+          info: 11 
         };
         const priorityDiff = priority[a.type] - priority[b.type];
         if (priorityDiff !== 0) return priorityDiff;
