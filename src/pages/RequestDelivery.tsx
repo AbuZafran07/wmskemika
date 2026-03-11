@@ -1105,12 +1105,13 @@ export default function RequestDelivery() {
                       onDragEnd={handleDragEnd}
                       title={isFullView ? `${card.sales_order_number}\n${card.customer_name}\nPO: ${card.customer_po_number}\n${card.project_instansi} • ${card.allocation_type}\nSales: ${card.sales_name}\nDeadline: ${card.delivery_deadline ? format(new Date(card.delivery_deadline), "dd MMM yy") : "-"}\nItems: ${card.items.map(i => `${i.product_name} ×${i.ordered_qty}`).join(", ")}${card.notes ? `\nNotes: ${card.notes}` : ""}` : undefined}
                       className={cn(
-                        "cursor-pointer hover:shadow-md transition-all border-border/60 bg-card",
+                        "relative overflow-visible cursor-pointer hover:shadow-md transition-all border-border/60 bg-card",
                         isFullView ? "p-1.5 hover:scale-[1.05] hover:z-20 hover:shadow-lg" : "p-3",
                         draggedCard?.id === card.id && "opacity-40 scale-95",
                         canManage && card.board_status !== "on_hold_delivery" && "cursor-grab active:cursor-grabbing",
                         card.board_status === "on_hold_delivery" && "opacity-75 cursor-not-allowed border-orange-500/30",
-                        cardLabelsMap[card.id]?.some(l => /urgent|cito/i.test(l.name)) && "ring-2 ring-destructive/70 border-destructive/50 animate-pulse"
+                        cardLabelsMap[card.id]?.some(l => /urgent|cito/i.test(l.name)) && "ring-2 ring-destructive/70 border-destructive/50 animate-pulse",
+                        pendingApprovalsMap[card.id] > 0 && !cardLabelsMap[card.id]?.some(l => /urgent|cito/i.test(l.name)) && "ring-1 ring-amber-400/50 border-amber-400/40"
                       )}
                       onClick={() => setDetailCard(card)}
                     >
