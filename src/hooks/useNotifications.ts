@@ -530,16 +530,26 @@ export function useNotifications() {
               approverName = profile?.full_name || 'Unknown';
             }
 
+            const deliveryRequestId = updated.delivery_request_id;
+            const toastAction = {
+              label: '📋 Lihat Kartu',
+              onClick: () => {
+                window.location.href = `/request-delivery?card=${deliveryRequestId}`;
+              },
+            };
+
             if (updated.approval_status === 'approved') {
               toast.success('✅ Permintaan Urgent/Cito Disetujui', {
                 description: `Disetujui oleh ${approverName}`,
                 duration: 8000,
+                action: toastAction,
               });
               if (soundEnabled) playNotificationSound('info');
             } else {
               toast.error('❌ Permintaan Urgent/Cito Ditolak', {
                 description: `Ditolak oleh ${approverName}${updated.rejected_reason ? `: ${updated.rejected_reason}` : ''}`,
                 duration: 10000,
+                action: toastAction,
               });
               if (soundEnabled) playNotificationSound('critical');
             }
