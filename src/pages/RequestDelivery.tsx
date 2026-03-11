@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Plus, Package, Calendar, User, Building2, Truck, RefreshCw, Search, CheckSquare, Image, X, Maximize2, Minimize2, ZoomIn, ZoomOut, CheckCircle2, Filter, Archive, RotateCcw, Trash2, AlertTriangle } from "lucide-react";
+import { Plus, Package, Calendar, User, Building2, Truck, RefreshCw, Search, CheckSquare, Image, X, Maximize2, Minimize2, ZoomIn, ZoomOut, CheckCircle2, Filter, Archive, RotateCcw, Trash2, AlertTriangle, Bell } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from "date-fns";
@@ -76,6 +76,7 @@ export default function RequestDelivery() {
   const [cardLabelsMap, setCardLabelsMap] = useState<Record<string, { name: string; color: string }[]>>({});
   const [allLabels, setAllLabels] = useState<{ id: string; name: string; color: string }[]>([]);
   const [filterLabelNames, setFilterLabelNames] = useState<string[]>([]);
+  const [pendingApprovalsMap, setPendingApprovalsMap] = useState<Record<string, number>>({});
   const [cardSearchQuery, setCardSearchQuery] = useState("");
   
   const [draggedCard, setDraggedCard] = useState<DeliveryCard | null>(null);
@@ -296,6 +297,19 @@ export default function RequestDelivery() {
     setCardLabelsMap(map);
   }, []);
 
+  // Fetch pending approval requests per card
+  const fetchPendingApprovals = useCallback(async () => {
+    const { data: pendingComments } = await supabase
+      .from("delivery_comments")
+      .select("delivery_request_id")
+      .eq("approval_status", "pending");
+    
+    const map: Record<string, number> = {};
+    pendingComments?.forEach(c => {
+      map[c.delivery_request_id] = (map[c.delivery_request_id] || 0) + 1;
+    });
+    setPendingApprovalsMap(map);
+  }, []);
   // Client-side time check: sync on_hold status on page load
   const syncOnHoldStatus = useCallback(async () => {
     try {
@@ -348,8 +362,9 @@ export default function RequestDelivery() {
   useEffect(() => {
     fetchCards();
     fetchCardLabels();
+    fetchPendingApprovals();
     syncOnHoldStatus();
-  }, [fetchCards, fetchCardLabels, syncOnHoldStatus]);
+  }, [fetchCards, fetchCardLabels, fetchPendingApprovals, syncOnHoldStatus]);
 
   // Auto-open card from URL query param ?card=<id>
   useEffect(() => {
@@ -396,9 +411,12 @@ export default function RequestDelivery() {
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "delivery_card_labels" }, () => {
         fetchCardLabels();
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "delivery_comments" }, () => {
+        fetchPendingApprovals();
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [fetchCards, fetchCardLabels, cards]);
+  }, [fetchCards, fetchCardLabels, fetchPendingApprovals, cards]);
 
   const PENGIRIMAN_COLUMNS = ["pengiriman_senin", "pengiriman_selasa", "pengiriman_rabu", "pengiriman_kamis", "pengiriman_jumat"];
 
@@ -1087,15 +1105,28 @@ export default function RequestDelivery() {
                       onDragEnd={handleDragEnd}
                       title={isFullView ? `${card.sales_order_number}\n${card.customer_name}\nPO: ${card.customer_po_number}\n${card.project_instansi} • ${card.allocation_type}\nSales: ${card.sales_name}\nDeadline: ${card.delivery_deadline ? format(new Date(card.delivery_deadline), "dd MMM yy") : "-"}\nItems: ${card.items.map(i => `${i.product_name} ×${i.ordered_qty}`).join(", ")}${card.notes ? `\nNotes: ${card.notes}` : ""}` : undefined}
                       className={cn(
-                        "cursor-pointer hover:shadow-md transition-all border-border/60 bg-card",
+                        "relative overflow-visible cursor-pointer hover:shadow-md transition-all border-border/60 bg-card",
                         isFullView ? "p-1.5 hover:scale-[1.05] hover:z-20 hover:shadow-lg" : "p-3",
                         draggedCard?.id === card.id && "opacity-40 scale-95",
                         canManage && card.board_status !== "on_hold_delivery" && "cursor-grab active:cursor-grabbing",
                         card.board_status === "on_hold_delivery" && "opacity-75 cursor-not-allowed border-orange-500/30",
-                        cardLabelsMap[card.id]?.some(l => /urgent|cito/i.test(l.name)) && "ring-2 ring-destructive/70 border-destructive/50 animate-pulse"
+                        cardLabelsMap[card.id]?.some(l => /urgent|cito/i.test(l.name)) && "ring-2 ring-destructive/70 border-destructive/50 animate-pulse",
+                        pendingApprovalsMap[card.id] > 0 && !cardLabelsMap[card.id]?.some(l => /urgent|cito/i.test(l.name)) && "ring-1 ring-amber-400/50 border-amber-400/40"
                       )}
                       onClick={() => setDetailCard(card)}
                     >
+                      {/* Pending Approval Indicator */}
+                      {pendingApprovalsMap[card.id] > 0 && (
+                        <div className="absolute -top-1.5 -right-1.5 z-10">
+                          <span className="relative flex h-5 w-5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                            <span className="relative inline-flex items-center justify-center rounded-full h-5 w-5 bg-amber-500 text-white">
+                              <Bell className="h-3 w-3" />
+                            </span>
+                          </span>
+                        </div>
+                      )}
+
                       {/* SO Number & Status */}
                       <div className="flex items-start justify-between gap-1 mb-1">
                         <div className="flex items-center gap-1 truncate min-w-0">
@@ -1104,9 +1135,11 @@ export default function RequestDelivery() {
                           )}
                           <span className={cn("font-bold text-primary truncate", isFullView ? "text-[9px]" : "text-[11px]")}>{card.sales_order_number}</span>
                         </div>
-                        <Badge className={cn("px-1.5 py-0 flex-shrink-0", isFullView ? "text-[7px] h-3.5" : "text-[9px] h-4", getStatusBadgeColor(card.so_status))}>
-                          {card.so_status}
-                        </Badge>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <Badge className={cn("px-1.5 py-0", isFullView ? "text-[7px] h-3.5" : "text-[9px] h-4", getStatusBadgeColor(card.so_status))}>
+                            {card.so_status}
+                          </Badge>
+                        </div>
                       </div>
 
                       {/* Created date - hide in full view */}
