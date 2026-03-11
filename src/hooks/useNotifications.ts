@@ -376,7 +376,7 @@ export function useNotifications() {
       console.error('Error fetching notifications:', error);
     }
     setLoading(false);
-  }, [soundEnabled, pushEnabled]);
+  }, [soundEnabled, pushEnabled, user?.role]);
 
   // Setup real-time subscriptions
   useEffect(() => {
