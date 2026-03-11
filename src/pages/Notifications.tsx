@@ -60,6 +60,10 @@ export default function Notifications() {
         return <FileText className="w-5 h-5 text-primary" />;
       case 'urgent_request':
         return <AlertTriangle className="w-5 h-5 text-destructive" />;
+      case 'urgent_approved':
+        return <CheckCircle className="w-5 h-5 text-success" />;
+      case 'urgent_rejected':
+        return <AlertTriangle className="w-5 h-5 text-destructive" />;
       default:
         return <Bell className="w-5 h-5 text-info" />;
     }
