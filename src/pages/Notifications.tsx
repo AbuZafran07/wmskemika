@@ -79,6 +79,8 @@ export default function Notifications() {
       cancelled: { variant: 'destructive', label: language === 'en' ? 'Cancelled' : 'Dibatalkan' },
       new_order: { variant: 'default', label: language === 'en' ? 'New' : 'Baru' },
       urgent_request: { variant: 'destructive', label: 'Urgent/Cito' },
+      urgent_approved: { variant: 'secondary', label: 'Urgent Disetujui' },
+      urgent_rejected: { variant: 'destructive', label: 'Urgent Ditolak' },
       info: { variant: 'secondary', label: 'Info' },
     };
     const config = variants[type] || variants.info;
