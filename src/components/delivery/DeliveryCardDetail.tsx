@@ -497,21 +497,114 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   // Confirm urgent/cito label with reason
   const confirmUrgentLabel = async () => {
     if (!urgentReasonDialog || !urgentReason.trim() || !card || !user) return;
+    
+    // Check if user is super_admin - if so, directly apply label (no approval needed)
+    if (isSuperAdmin) {
+      await supabase.from("delivery_card_labels").insert({ delivery_request_id: card.id, label_id: urgentReasonDialog.labelId });
+      await supabase.from("delivery_comments").insert({
+        delivery_request_id: card.id,
+        user_id: user.id,
+        message: `🚨 Label "${urgentReasonDialog.labelName}" ditambahkan.\nAlasan: ${urgentReason.trim()}`,
+        type: "activity",
+      });
+      toast.success(`Label ${urgentReasonDialog.labelName} ditambahkan`);
+      setUrgentReasonDialog(null);
+      setUrgentReason("");
+      fetchLabels();
+      fetchComments();
+      return;
+    }
+    
+    // For non-super_admin: post as pending approval request
+    const { error } = await supabase.from("delivery_comments").insert({
+      delivery_request_id: card.id,
+      user_id: user.id,
+      message: `🚨 Permintaan Label "${urgentReasonDialog.labelName}"\nAlasan: ${urgentReason.trim()}`,
+      type: "activity",
+      approval_status: "pending",
+      label_request_id: urgentReasonDialog.labelId,
+    } as any);
+    
+    if (error) {
+      toast.error("Gagal mengirim permintaan: " + error.message);
+    } else {
+      toast.success(`Permintaan label ${urgentReasonDialog.labelName} terkirim, menunggu persetujuan Warehouse/Finance`);
+    }
+    setUrgentReasonDialog(null);
+    setUrgentReason("");
+    fetchComments();
+  };
+
+  // Approve urgent label request
+  const approveUrgentRequest = async (comment: Comment) => {
+    if (!card || !user || !comment.label_request_id) return;
+    
+    // Update comment status
+    await supabase.from("delivery_comments").update({
+      approval_status: "approved",
+      approved_by: user.id,
+      approved_at: new Date().toISOString(),
+    } as any).eq("id", comment.id);
+    
     // Assign the label
-    await supabase.from("delivery_card_labels").insert({ delivery_request_id: card.id, label_id: urgentReasonDialog.labelId });
-    // Post reason as activity comment
+    await supabase.from("delivery_card_labels").insert({ 
+      delivery_request_id: card.id, 
+      label_id: comment.label_request_id 
+    });
+    
+    // Post approval activity
+    const labelName = allLabels.find(l => l.id === comment.label_request_id)?.name || "Urgent/Cito";
     await supabase.from("delivery_comments").insert({
       delivery_request_id: card.id,
       user_id: user.id,
-      message: `🚨 Label "${urgentReasonDialog.labelName}" ditambahkan.\nAlasan: ${urgentReason.trim()}`,
+      message: `✅ Label "${labelName}" disetujui dan diterapkan.`,
       type: "activity",
     });
-    toast.success(`Label ${urgentReasonDialog.labelName} ditambahkan`);
-    setUrgentReasonDialog(null);
-    setUrgentReason("");
+    
+    toast.success("Permintaan label disetujui");
     fetchLabels();
     fetchComments();
   };
+
+  // Reject urgent label request
+  const [rejectDialog, setRejectDialog] = useState<Comment | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  
+  const rejectUrgentRequest = async () => {
+    if (!rejectDialog || !user || !card) return;
+    
+    await supabase.from("delivery_comments").update({
+      approval_status: "rejected",
+      approved_by: user.id,
+      approved_at: new Date().toISOString(),
+      rejected_reason: rejectReason.trim() || null,
+    } as any).eq("id", rejectDialog.id);
+    
+    const labelName = allLabels.find(l => l.id === rejectDialog.label_request_id)?.name || "Urgent/Cito";
+    await supabase.from("delivery_comments").insert({
+      delivery_request_id: card.id,
+      user_id: user.id,
+      message: `❌ Permintaan label "${labelName}" ditolak.${rejectReason.trim() ? `\nAlasan: ${rejectReason.trim()}` : ""}`,
+      type: "activity",
+    });
+    
+    toast.info("Permintaan label ditolak");
+    setRejectDialog(null);
+    setRejectReason("");
+    fetchComments();
+  };
+
+  // Re-request urgent label (for sales after rejection)
+  const reRequestUrgent = (comment: Comment) => {
+    if (!comment.label_request_id) return;
+    const label = allLabels.find(l => l.id === comment.label_request_id);
+    if (label) {
+      setUrgentReasonDialog({ labelId: label.id, labelName: label.name });
+      setUrgentReason("");
+    }
+  };
+
+  const canApproveUrgent = user?.role && ['super_admin', 'warehouse', 'finance'].includes(user.role);
 
   // Update existing label (super_admin only)
   const updateLabel = async (labelId: string) => {
