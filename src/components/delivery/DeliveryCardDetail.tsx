@@ -1964,6 +1964,11 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
             <p className="text-sm text-muted-foreground">
               Jelaskan alasan mengapa card ini ditandai <span className="font-semibold text-foreground">{urgentReasonDialog?.labelName}</span>:
             </p>
+            {!isSuperAdmin && (
+              <div className="bg-warning/10 border border-warning/20 rounded-lg p-2">
+                <p className="text-xs text-warning font-medium">⚠️ Permintaan ini akan dikirim untuk persetujuan Warehouse/Finance sebelum label diterapkan.</p>
+              </div>
+            )}
             <Textarea
               value={urgentReason}
               onChange={e => setUrgentReason(e.target.value)}
@@ -1976,14 +1981,44 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                 {urgentReason.trim().length}/60 karakter minimum
               </p>
               {urgentReason.trim().length >= 60 && (
-                <span className="text-xs text-green-600">✓ Cukup</span>
+                <span className="text-xs text-success">✓ Cukup</span>
               )}
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setUrgentReasonDialog(null)}>Batal</Button>
             <Button size="sm" onClick={confirmUrgentLabel} disabled={urgentReason.trim().length < 60}>
-              Konfirmasi & Kirim
+              {isSuperAdmin ? "Konfirmasi & Terapkan" : "Kirim Permintaan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Urgent Request Dialog */}
+      <Dialog open={!!rejectDialog} onOpenChange={() => setRejectDialog(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <X className="h-5 w-5 text-destructive" />
+              Tolak Permintaan Label
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Berikan alasan penolakan (opsional):
+            </p>
+            <Textarea
+              value={rejectReason}
+              onChange={e => setRejectReason(e.target.value)}
+              placeholder="Alasan penolakan..."
+              rows={3}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setRejectDialog(null)}>Batal</Button>
+            <Button variant="destructive" size="sm" onClick={rejectUrgentRequest}>
+              Tolak Permintaan
             </Button>
           </DialogFooter>
         </DialogContent>
