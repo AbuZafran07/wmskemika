@@ -60,6 +60,10 @@ export default function Notifications() {
         return <FileText className="w-5 h-5 text-primary" />;
       case 'urgent_request':
         return <AlertTriangle className="w-5 h-5 text-destructive" />;
+      case 'urgent_approved':
+        return <CheckCircle className="w-5 h-5 text-success" />;
+      case 'urgent_rejected':
+        return <AlertTriangle className="w-5 h-5 text-destructive" />;
       default:
         return <Bell className="w-5 h-5 text-info" />;
     }
@@ -75,6 +79,8 @@ export default function Notifications() {
       cancelled: { variant: 'destructive', label: language === 'en' ? 'Cancelled' : 'Dibatalkan' },
       new_order: { variant: 'default', label: language === 'en' ? 'New' : 'Baru' },
       urgent_request: { variant: 'destructive', label: 'Urgent/Cito' },
+      urgent_approved: { variant: 'secondary', label: 'Urgent Disetujui' },
+      urgent_rejected: { variant: 'destructive', label: 'Urgent Ditolak' },
       info: { variant: 'secondary', label: 'Info' },
     };
     const config = variants[type] || variants.info;
@@ -87,11 +93,13 @@ export default function Notifications() {
       case 'expired':
       case 'cancelled':
       case 'urgent_request':
+      case 'urgent_rejected':
         return 'bg-destructive/10 border-destructive/20';
       case 'low_stock':
       case 'expiring_soon':
         return 'bg-warning/10 border-warning/20';
       case 'approved':
+      case 'urgent_approved':
         return 'bg-success/10 border-success/20';
       case 'approval_pending':
       case 'new_order':
@@ -322,6 +330,8 @@ export default function Notifications() {
                   <SelectItem value="low_stock">{language === 'en' ? 'Low Stock' : 'Stok Rendah'}</SelectItem>
                   <SelectItem value="approval_pending">{language === 'en' ? 'Pending Approval' : 'Menunggu Persetujuan'}</SelectItem>
                   <SelectItem value="urgent_request">Urgent/Cito</SelectItem>
+                  <SelectItem value="urgent_approved">{language === 'en' ? 'Urgent Approved' : 'Urgent Disetujui'}</SelectItem>
+                  <SelectItem value="urgent_rejected">{language === 'en' ? 'Urgent Rejected' : 'Urgent Ditolak'}</SelectItem>
                 </SelectContent>
               </Select>
             </div>

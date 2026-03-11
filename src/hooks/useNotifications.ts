@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export interface Notification {
   id: string;
-  type: 'low_stock' | 'expiring_soon' | 'expired' | 'info' | 'approval_pending' | 'approved' | 'cancelled' | 'new_order' | 'revision_requested' | 'urgent_request';
+  type: 'low_stock' | 'expiring_soon' | 'expired' | 'info' | 'approval_pending' | 'approved' | 'cancelled' | 'new_order' | 'revision_requested' | 'urgent_request' | 'urgent_approved' | 'urgent_rejected';
   title: string;
   message: string;
   productId?: string;
@@ -290,7 +290,6 @@ export function useNotifications() {
           .limit(20);
 
         if (urgentRequests && urgentRequests.length > 0) {
-          // Fetch requester names
           const requesterIds = [...new Set(urgentRequests.map(r => r.user_id))];
           const { data: requesterProfiles } = await supabase
             .from('profiles')
@@ -313,19 +312,63 @@ export function useNotifications() {
         }
       }
 
+      // Fetch approved/rejected Urgent/Cito requests for the requester (sales notification)
+      if (user?.id) {
+        const { data: resolvedRequests } = await supabase
+          .from('delivery_comments')
+          .select('id, delivery_request_id, user_id, message, approved_by, approved_at, approval_status, rejected_reason, label_request_id')
+          .eq('user_id', user.id)
+          .in('approval_status', ['approved', 'rejected'])
+          .not('approved_at', 'is', null)
+          .order('approved_at', { ascending: false })
+          .limit(20);
+
+        if (resolvedRequests && resolvedRequests.length > 0) {
+          const approverIds = [...new Set(resolvedRequests.map(r => r.approved_by).filter(Boolean))];
+          const { data: approverProfiles } = approverIds.length > 0
+            ? await supabase.from('profiles').select('id, full_name').in('id', approverIds)
+            : { data: [] };
+
+          resolvedRequests.forEach((req: any) => {
+            const approverName = approverProfiles?.find((p: any) => p.id === req.approved_by)?.full_name || 'Unknown';
+            const isApproved = req.approval_status === 'approved';
+            const approvedAt = req.approved_at ? new Date(req.approved_at) : new Date(req.created_at);
+            // Only show notifications from last 7 days
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            if (approvedAt < sevenDaysAgo) return;
+
+            notifs.push({
+              id: `urgent_${req.approval_status}_${req.id}`,
+              type: isApproved ? 'urgent_approved' : 'urgent_rejected',
+              title: isApproved ? '✅ Permintaan Urgent/Cito Disetujui' : '❌ Permintaan Urgent/Cito Ditolak',
+              message: isApproved
+                ? `Disetujui oleh ${approverName}`
+                : `Ditolak oleh ${approverName}${req.rejected_reason ? `: ${req.rejected_reason}` : ''}`,
+              module: 'delivery',
+              refId: req.delivery_request_id,
+              createdAt: approvedAt,
+              read: false,
+            });
+          });
+        }
+      }
+
       // Sort by priority and date
       notifs.sort((a, b) => {
         const priority: Record<string, number> = { 
           expired: 0, 
           urgent_request: 1,
-          revision_requested: 2,
-          approval_pending: 3, 
-          expiring_soon: 4, 
-          low_stock: 5, 
-          new_order: 6,
-          approved: 7,
-          cancelled: 8,
-          info: 9 
+          urgent_rejected: 2,
+          urgent_approved: 3,
+          revision_requested: 4,
+          approval_pending: 5, 
+          expiring_soon: 6, 
+          low_stock: 7, 
+          new_order: 8,
+          approved: 9,
+          cancelled: 10,
+          info: 11 
         };
         const priorityDiff = priority[a.type] - priority[b.type];
         if (priorityDiff !== 0) return priorityDiff;
@@ -338,8 +381,8 @@ export function useNotifications() {
       
       if (newNotifs.length > 0 && previousNotifIds.current.size > 0) {
         // Determine sound type based on notification priority
-        const hasCritical = newNotifs.some(n => n.type === 'expired' || n.type === 'low_stock' || n.type === 'urgent_request');
-        const hasWarning = newNotifs.some(n => n.type === 'expiring_soon' || n.type === 'approval_pending' || n.type === 'revision_requested');
+        const hasCritical = newNotifs.some(n => n.type === 'expired' || n.type === 'low_stock' || n.type === 'urgent_request' || n.type === 'urgent_rejected');
+        const hasWarning = newNotifs.some(n => n.type === 'expiring_soon' || n.type === 'approval_pending' || n.type === 'revision_requested' || n.type === 'urgent_approved');
         
         if (soundEnabled) {
           if (hasCritical) {
@@ -354,8 +397,8 @@ export function useNotifications() {
         // Send browser push notifications for critical alerts
         if (pushEnabled && 'Notification' in window && Notification.permission === 'granted') {
           newNotifs.forEach(n => {
-            if (n.type === 'expired' || n.type === 'low_stock' || n.type === 'approval_pending' || n.type === 'revision_requested' || n.type === 'urgent_request') {
-              const icon = n.type === 'urgent_request' ? '🚨' : n.type === 'expired' ? '🚨' : n.type === 'low_stock' ? '⚠️' : n.type === 'revision_requested' ? '📝' : '🔔';
+            if (n.type === 'expired' || n.type === 'low_stock' || n.type === 'approval_pending' || n.type === 'revision_requested' || n.type === 'urgent_request' || n.type === 'urgent_approved' || n.type === 'urgent_rejected') {
+              const icon = n.type === 'urgent_request' || n.type === 'urgent_rejected' ? '🚨' : n.type === 'urgent_approved' ? '✅' : n.type === 'expired' ? '🚨' : n.type === 'low_stock' ? '⚠️' : n.type === 'revision_requested' ? '📝' : '🔔';
               sendBrowserNotification(
                 `${icon} ${n.title}`,
                 n.message,
