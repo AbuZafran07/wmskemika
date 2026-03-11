@@ -320,6 +320,7 @@ export default function Notifications() {
                   <SelectItem value="expiring_soon">{language === 'en' ? 'Expiring Soon' : 'Segera Kadaluarsa'}</SelectItem>
                   <SelectItem value="low_stock">{language === 'en' ? 'Low Stock' : 'Stok Rendah'}</SelectItem>
                   <SelectItem value="approval_pending">{language === 'en' ? 'Pending Approval' : 'Menunggu Persetujuan'}</SelectItem>
+                  <SelectItem value="urgent_request">Urgent/Cito</SelectItem>
                 </SelectContent>
               </Select>
             </div>
