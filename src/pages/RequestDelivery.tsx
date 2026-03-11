@@ -411,9 +411,12 @@ export default function RequestDelivery() {
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "delivery_card_labels" }, () => {
         fetchCardLabels();
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "delivery_comments" }, () => {
+        fetchPendingApprovals();
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [fetchCards, fetchCardLabels, cards]);
+  }, [fetchCards, fetchCardLabels, fetchPendingApprovals, cards]);
 
   const PENGIRIMAN_COLUMNS = ["pengiriman_senin", "pengiriman_selasa", "pengiriman_rabu", "pengiriman_kamis", "pengiriman_jumat"];
 
