@@ -99,6 +99,7 @@ export default function Notifications() {
       case 'expiring_soon':
         return 'bg-warning/10 border-warning/20';
       case 'approved':
+      case 'urgent_approved':
         return 'bg-success/10 border-success/20';
       case 'approval_pending':
       case 'new_order':
