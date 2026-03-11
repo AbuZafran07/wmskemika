@@ -88,6 +88,7 @@ const sendBrowserNotification = async (
 };
 
 export function useNotifications() {
+  const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
