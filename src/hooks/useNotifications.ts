@@ -381,8 +381,8 @@ export function useNotifications() {
       
       if (newNotifs.length > 0 && previousNotifIds.current.size > 0) {
         // Determine sound type based on notification priority
-        const hasCritical = newNotifs.some(n => n.type === 'expired' || n.type === 'low_stock' || n.type === 'urgent_request');
-        const hasWarning = newNotifs.some(n => n.type === 'expiring_soon' || n.type === 'approval_pending' || n.type === 'revision_requested');
+        const hasCritical = newNotifs.some(n => n.type === 'expired' || n.type === 'low_stock' || n.type === 'urgent_request' || n.type === 'urgent_rejected');
+        const hasWarning = newNotifs.some(n => n.type === 'expiring_soon' || n.type === 'approval_pending' || n.type === 'revision_requested' || n.type === 'urgent_approved');
         
         if (soundEnabled) {
           if (hasCritical) {
