@@ -205,7 +205,10 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
     if (!data) { setComments([]); return; }
 
-    const userIds = [...new Set(data.map(c => c.user_id))];
+    const userIds = [...new Set([
+      ...data.map(c => c.user_id),
+      ...data.map(c => (c as any).approved_by).filter(Boolean),
+    ])];
     const { data: profiles } = await supabase
       .from("profiles")
       .select("id, full_name, avatar_url")
@@ -213,10 +216,17 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
     const mapped: Comment[] = data.map(c => {
       const profile = profiles?.find(p => p.id === c.user_id);
+      const approverProfile = (c as any).approved_by ? profiles?.find(p => p.id === (c as any).approved_by) : null;
       return {
         ...c,
+        approval_status: (c as any).approval_status,
+        approved_by: (c as any).approved_by,
+        approved_at: (c as any).approved_at,
+        rejected_reason: (c as any).rejected_reason,
+        label_request_id: (c as any).label_request_id,
         user_name: profile?.full_name || "Unknown",
         user_avatar: profile?.avatar_url || undefined,
+        approver_name: approverProfile?.full_name || undefined,
       };
     });
     setComments(mapped);
