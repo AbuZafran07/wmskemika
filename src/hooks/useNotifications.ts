@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface Notification {
   id: string;
-  type: 'low_stock' | 'expiring_soon' | 'expired' | 'info' | 'approval_pending' | 'approved' | 'cancelled' | 'new_order' | 'revision_requested';
+  type: 'low_stock' | 'expiring_soon' | 'expired' | 'info' | 'approval_pending' | 'approved' | 'cancelled' | 'new_order' | 'revision_requested' | 'urgent_request';
   title: string;
   message: string;
   productId?: string;
@@ -87,6 +88,7 @@ const sendBrowserNotification = async (
 };
 
 export function useNotifications() {
+  const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -277,18 +279,53 @@ export function useNotifications() {
         });
       });
 
+      // Fetch pending Urgent/Cito label requests (for warehouse & finance)
+      const userRole = user?.role;
+      if (userRole && ['super_admin', 'warehouse', 'finance'].includes(userRole)) {
+        const { data: urgentRequests } = await supabase
+          .from('delivery_comments')
+          .select('id, delivery_request_id, user_id, message, created_at')
+          .eq('approval_status', 'pending')
+          .order('created_at', { ascending: false })
+          .limit(20);
+
+        if (urgentRequests && urgentRequests.length > 0) {
+          // Fetch requester names
+          const requesterIds = [...new Set(urgentRequests.map(r => r.user_id))];
+          const { data: requesterProfiles } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', requesterIds);
+
+          urgentRequests.forEach((req: any) => {
+            const requesterName = requesterProfiles?.find(p => p.id === req.user_id)?.full_name || 'Unknown';
+            notifs.push({
+              id: `urgent_req_${req.id}`,
+              type: 'urgent_request',
+              title: '🚨 Permintaan Label Urgent/Cito',
+              message: `${requesterName}: ${req.message.substring(0, 100)}${req.message.length > 100 ? '...' : ''}`,
+              module: 'delivery',
+              refId: req.delivery_request_id,
+              createdAt: new Date(req.created_at),
+              read: false,
+            });
+          });
+        }
+      }
+
       // Sort by priority and date
       notifs.sort((a, b) => {
         const priority: Record<string, number> = { 
           expired: 0, 
-          revision_requested: 1,
-          approval_pending: 2, 
-          expiring_soon: 3, 
-          low_stock: 4, 
-          new_order: 5,
-          approved: 6,
-          cancelled: 7,
-          info: 8 
+          urgent_request: 1,
+          revision_requested: 2,
+          approval_pending: 3, 
+          expiring_soon: 4, 
+          low_stock: 5, 
+          new_order: 6,
+          approved: 7,
+          cancelled: 8,
+          info: 9 
         };
         const priorityDiff = priority[a.type] - priority[b.type];
         if (priorityDiff !== 0) return priorityDiff;
@@ -301,7 +338,7 @@ export function useNotifications() {
       
       if (newNotifs.length > 0 && previousNotifIds.current.size > 0) {
         // Determine sound type based on notification priority
-        const hasCritical = newNotifs.some(n => n.type === 'expired' || n.type === 'low_stock');
+        const hasCritical = newNotifs.some(n => n.type === 'expired' || n.type === 'low_stock' || n.type === 'urgent_request');
         const hasWarning = newNotifs.some(n => n.type === 'expiring_soon' || n.type === 'approval_pending' || n.type === 'revision_requested');
         
         if (soundEnabled) {
@@ -317,8 +354,8 @@ export function useNotifications() {
         // Send browser push notifications for critical alerts
         if (pushEnabled && 'Notification' in window && Notification.permission === 'granted') {
           newNotifs.forEach(n => {
-            if (n.type === 'expired' || n.type === 'low_stock' || n.type === 'approval_pending' || n.type === 'revision_requested') {
-              const icon = n.type === 'expired' ? '🚨' : n.type === 'low_stock' ? '⚠️' : n.type === 'revision_requested' ? '📝' : '🔔';
+            if (n.type === 'expired' || n.type === 'low_stock' || n.type === 'approval_pending' || n.type === 'revision_requested' || n.type === 'urgent_request') {
+              const icon = n.type === 'urgent_request' ? '🚨' : n.type === 'expired' ? '🚨' : n.type === 'low_stock' ? '⚠️' : n.type === 'revision_requested' ? '📝' : '🔔';
               sendBrowserNotification(
                 `${icon} ${n.title}`,
                 n.message,
@@ -339,7 +376,7 @@ export function useNotifications() {
       console.error('Error fetching notifications:', error);
     }
     setLoading(false);
-  }, [soundEnabled, pushEnabled]);
+  }, [soundEnabled, pushEnabled, user?.role]);
 
   // Setup real-time subscriptions
   useEffect(() => {
@@ -423,6 +460,18 @@ export function useNotifications() {
       )
       .subscribe();
 
+    // Subscribe to delivery_comments changes (for urgent/cito approval requests)
+    const deliveryCommentsChannel = supabase
+      .channel('delivery-comments-urgent')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'delivery_comments' },
+        () => {
+          fetchNotifications();
+        }
+      )
+      .subscribe();
+
     // Also keep the polling as fallback (every 5 minutes)
     const interval = setInterval(fetchNotifications, 5 * 60 * 1000);
 
@@ -434,6 +483,7 @@ export function useNotifications() {
       supabase.removeChannel(batchChannel);
       supabase.removeChannel(stockInChannel);
       supabase.removeChannel(stockOutChannel);
+      supabase.removeChannel(deliveryCommentsChannel);
     };
   }, [fetchNotifications]);
 

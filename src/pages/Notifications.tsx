@@ -58,6 +58,8 @@ export default function Notifications() {
         return <AlertTriangle className="w-5 h-5 text-destructive" />;
       case 'new_order':
         return <FileText className="w-5 h-5 text-primary" />;
+      case 'urgent_request':
+        return <AlertTriangle className="w-5 h-5 text-destructive" />;
       default:
         return <Bell className="w-5 h-5 text-info" />;
     }
@@ -72,6 +74,7 @@ export default function Notifications() {
       approved: { variant: 'secondary', label: language === 'en' ? 'Approved' : 'Disetujui' },
       cancelled: { variant: 'destructive', label: language === 'en' ? 'Cancelled' : 'Dibatalkan' },
       new_order: { variant: 'default', label: language === 'en' ? 'New' : 'Baru' },
+      urgent_request: { variant: 'destructive', label: 'Urgent/Cito' },
       info: { variant: 'secondary', label: 'Info' },
     };
     const config = variants[type] || variants.info;
@@ -83,6 +86,7 @@ export default function Notifications() {
     switch (type) {
       case 'expired':
       case 'cancelled':
+      case 'urgent_request':
         return 'bg-destructive/10 border-destructive/20';
       case 'low_stock':
       case 'expiring_soon':
@@ -113,6 +117,8 @@ export default function Notifications() {
       navigate('/stock-in');
     } else if (notif.module === 'stock_out') {
       navigate('/stock-out');
+    } else if (notif.module === 'delivery') {
+      navigate('/request-delivery');
     }
   };
 
@@ -315,6 +321,7 @@ export default function Notifications() {
                   <SelectItem value="expiring_soon">{language === 'en' ? 'Expiring Soon' : 'Segera Kadaluarsa'}</SelectItem>
                   <SelectItem value="low_stock">{language === 'en' ? 'Low Stock' : 'Stok Rendah'}</SelectItem>
                   <SelectItem value="approval_pending">{language === 'en' ? 'Pending Approval' : 'Menunggu Persetujuan'}</SelectItem>
+                  <SelectItem value="urgent_request">Urgent/Cito</SelectItem>
                 </SelectContent>
               </Select>
             </div>
