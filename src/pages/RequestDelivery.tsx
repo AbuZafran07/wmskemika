@@ -297,6 +297,19 @@ export default function RequestDelivery() {
     setCardLabelsMap(map);
   }, []);
 
+  // Fetch pending approval requests per card
+  const fetchPendingApprovals = useCallback(async () => {
+    const { data: pendingComments } = await supabase
+      .from("delivery_comments")
+      .select("delivery_request_id")
+      .eq("approval_status", "pending");
+    
+    const map: Record<string, number> = {};
+    pendingComments?.forEach(c => {
+      map[c.delivery_request_id] = (map[c.delivery_request_id] || 0) + 1;
+    });
+    setPendingApprovalsMap(map);
+  }, []);
   // Client-side time check: sync on_hold status on page load
   const syncOnHoldStatus = useCallback(async () => {
     try {
