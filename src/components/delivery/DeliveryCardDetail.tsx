@@ -75,6 +75,12 @@ interface Comment {
   created_at: string;
   user_name?: string;
   user_avatar?: string;
+  approval_status?: string | null;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  rejected_reason?: string | null;
+  label_request_id?: string | null;
+  approver_name?: string;
 }
 
 interface Attachment {
@@ -199,7 +205,10 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
     if (!data) { setComments([]); return; }
 
-    const userIds = [...new Set(data.map(c => c.user_id))];
+    const userIds = [...new Set([
+      ...data.map(c => c.user_id),
+      ...data.map(c => (c as any).approved_by).filter(Boolean),
+    ])];
     const { data: profiles } = await supabase
       .from("profiles")
       .select("id, full_name, avatar_url")
@@ -207,10 +216,17 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
     const mapped: Comment[] = data.map(c => {
       const profile = profiles?.find(p => p.id === c.user_id);
+      const approverProfile = (c as any).approved_by ? profiles?.find(p => p.id === (c as any).approved_by) : null;
       return {
         ...c,
+        approval_status: (c as any).approval_status,
+        approved_by: (c as any).approved_by,
+        approved_at: (c as any).approved_at,
+        rejected_reason: (c as any).rejected_reason,
+        label_request_id: (c as any).label_request_id,
         user_name: profile?.full_name || "Unknown",
         user_avatar: profile?.avatar_url || undefined,
+        approver_name: approverProfile?.full_name || undefined,
       };
     });
     setComments(mapped);
@@ -481,21 +497,114 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   // Confirm urgent/cito label with reason
   const confirmUrgentLabel = async () => {
     if (!urgentReasonDialog || !urgentReason.trim() || !card || !user) return;
+    
+    // Check if user is super_admin - if so, directly apply label (no approval needed)
+    if (isSuperAdmin) {
+      await supabase.from("delivery_card_labels").insert({ delivery_request_id: card.id, label_id: urgentReasonDialog.labelId });
+      await supabase.from("delivery_comments").insert({
+        delivery_request_id: card.id,
+        user_id: user.id,
+        message: `🚨 Label "${urgentReasonDialog.labelName}" ditambahkan.\nAlasan: ${urgentReason.trim()}`,
+        type: "activity",
+      });
+      toast.success(`Label ${urgentReasonDialog.labelName} ditambahkan`);
+      setUrgentReasonDialog(null);
+      setUrgentReason("");
+      fetchLabels();
+      fetchComments();
+      return;
+    }
+    
+    // For non-super_admin: post as pending approval request
+    const { error } = await supabase.from("delivery_comments").insert({
+      delivery_request_id: card.id,
+      user_id: user.id,
+      message: `🚨 Permintaan Label "${urgentReasonDialog.labelName}"\nAlasan: ${urgentReason.trim()}`,
+      type: "activity",
+      approval_status: "pending",
+      label_request_id: urgentReasonDialog.labelId,
+    } as any);
+    
+    if (error) {
+      toast.error("Gagal mengirim permintaan: " + error.message);
+    } else {
+      toast.success(`Permintaan label ${urgentReasonDialog.labelName} terkirim, menunggu persetujuan Warehouse/Finance`);
+    }
+    setUrgentReasonDialog(null);
+    setUrgentReason("");
+    fetchComments();
+  };
+
+  // Approve urgent label request
+  const approveUrgentRequest = async (comment: Comment) => {
+    if (!card || !user || !comment.label_request_id) return;
+    
+    // Update comment status
+    await supabase.from("delivery_comments").update({
+      approval_status: "approved",
+      approved_by: user.id,
+      approved_at: new Date().toISOString(),
+    } as any).eq("id", comment.id);
+    
     // Assign the label
-    await supabase.from("delivery_card_labels").insert({ delivery_request_id: card.id, label_id: urgentReasonDialog.labelId });
-    // Post reason as activity comment
+    await supabase.from("delivery_card_labels").insert({ 
+      delivery_request_id: card.id, 
+      label_id: comment.label_request_id 
+    });
+    
+    // Post approval activity
+    const labelName = allLabels.find(l => l.id === comment.label_request_id)?.name || "Urgent/Cito";
     await supabase.from("delivery_comments").insert({
       delivery_request_id: card.id,
       user_id: user.id,
-      message: `🚨 Label "${urgentReasonDialog.labelName}" ditambahkan.\nAlasan: ${urgentReason.trim()}`,
+      message: `✅ Label "${labelName}" disetujui dan diterapkan.`,
       type: "activity",
     });
-    toast.success(`Label ${urgentReasonDialog.labelName} ditambahkan`);
-    setUrgentReasonDialog(null);
-    setUrgentReason("");
+    
+    toast.success("Permintaan label disetujui");
     fetchLabels();
     fetchComments();
   };
+
+  // Reject urgent label request
+  const [rejectDialog, setRejectDialog] = useState<Comment | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  
+  const rejectUrgentRequest = async () => {
+    if (!rejectDialog || !user || !card) return;
+    
+    await supabase.from("delivery_comments").update({
+      approval_status: "rejected",
+      approved_by: user.id,
+      approved_at: new Date().toISOString(),
+      rejected_reason: rejectReason.trim() || null,
+    } as any).eq("id", rejectDialog.id);
+    
+    const labelName = allLabels.find(l => l.id === rejectDialog.label_request_id)?.name || "Urgent/Cito";
+    await supabase.from("delivery_comments").insert({
+      delivery_request_id: card.id,
+      user_id: user.id,
+      message: `❌ Permintaan label "${labelName}" ditolak.${rejectReason.trim() ? `\nAlasan: ${rejectReason.trim()}` : ""}`,
+      type: "activity",
+    });
+    
+    toast.info("Permintaan label ditolak");
+    setRejectDialog(null);
+    setRejectReason("");
+    fetchComments();
+  };
+
+  // Re-request urgent label (for sales after rejection)
+  const reRequestUrgent = (comment: Comment) => {
+    if (!comment.label_request_id) return;
+    const label = allLabels.find(l => l.id === comment.label_request_id);
+    if (label) {
+      setUrgentReasonDialog({ labelId: label.id, labelName: label.name });
+      setUrgentReason("");
+    }
+  };
+
+  const canApproveUrgent = user?.role && ['super_admin', 'warehouse', 'finance'].includes(user.role);
 
   // Update existing label (super_admin only)
   const updateLabel = async (labelId: string) => {
@@ -1667,14 +1776,26 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                     {comments.map(comment => (
                       <div key={comment.id} className={cn(
                         "flex gap-2 group",
-                        comment.type === "activity" && "opacity-70"
+                        comment.type === "activity" && !comment.approval_status && "opacity-70",
+                        comment.approval_status === "pending" && "bg-warning/5 rounded-lg p-2 border border-warning/20",
+                        comment.approval_status === "approved" && "bg-success/5 rounded-lg p-2 border border-success/20 opacity-80",
+                        comment.approval_status === "rejected" && "bg-destructive/5 rounded-lg p-2 border border-destructive/20 opacity-70",
                       )}>
                         <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 text-[10px] font-bold text-primary">
                           {comment.user_name?.charAt(0)?.toUpperCase() || "?"}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-xs font-semibold">{comment.user_name}</span>
+                            {comment.approval_status === "pending" && (
+                              <Badge variant="warning" className="text-[9px] h-4 px-1.5">⏳ Menunggu Persetujuan</Badge>
+                            )}
+                            {comment.approval_status === "approved" && (
+                              <Badge variant="approved" className="text-[9px] h-4 px-1.5">✅ Disetujui</Badge>
+                            )}
+                            {comment.approval_status === "rejected" && (
+                              <Badge variant="cancelled" className="text-[9px] h-4 px-1.5">❌ Ditolak</Badge>
+                            )}
                             <span className="text-[10px] text-muted-foreground">
                               {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true, locale: idLocale })}
                             </span>
@@ -1687,9 +1808,39 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                               </button>
                             )}
                           </div>
-                          <p className={cn("text-xs mt-0.5 whitespace-pre-wrap break-words", comment.type === "activity" && (/(cito|urgent)/i.test(comment.message) ? "text-foreground italic font-bold" : "text-muted-foreground italic"))}>
+                          <p className={cn("text-xs mt-0.5 whitespace-pre-wrap break-words", comment.type === "activity" && !comment.approval_status && (/(cito|urgent)/i.test(comment.message) ? "text-foreground italic font-bold" : "text-muted-foreground italic"))}>
                             {comment.type === "activity" ? comment.message : renderCommentMessage(comment.message)}
                           </p>
+                          
+                          {/* Approver info */}
+                          {comment.approval_status === "approved" && comment.approver_name && (
+                            <p className="text-[10px] text-success mt-1">Disetujui oleh {comment.approver_name}</p>
+                          )}
+                          {comment.approval_status === "rejected" && (
+                            <div className="mt-1">
+                              {comment.approver_name && <p className="text-[10px] text-destructive">Ditolak oleh {comment.approver_name}</p>}
+                              {comment.rejected_reason && <p className="text-[10px] text-muted-foreground italic">Alasan: {comment.rejected_reason}</p>}
+                            </div>
+                          )}
+                          
+                          {/* Approve/Reject buttons for warehouse & finance */}
+                          {comment.approval_status === "pending" && canApproveUrgent && (
+                            <div className="flex gap-2 mt-2">
+                              <Button size="sm" variant="success" className="h-6 text-[10px] px-2" onClick={() => approveUrgentRequest(comment)}>
+                                <Check className="h-3 w-3 mr-1" /> Setujui
+                              </Button>
+                              <Button size="sm" variant="destructive" className="h-6 text-[10px] px-2" onClick={() => { setRejectDialog(comment); setRejectReason(""); }}>
+                                <X className="h-3 w-3 mr-1" /> Tolak
+                              </Button>
+                            </div>
+                          )}
+                          
+                          {/* Re-request button for sales after rejection */}
+                          {comment.approval_status === "rejected" && comment.user_id === user?.id && (
+                            <Button size="sm" variant="outline" className="h-6 text-[10px] px-2 mt-2" onClick={() => reRequestUrgent(comment)}>
+                              Ajukan Ulang
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -1813,6 +1964,11 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
             <p className="text-sm text-muted-foreground">
               Jelaskan alasan mengapa card ini ditandai <span className="font-semibold text-foreground">{urgentReasonDialog?.labelName}</span>:
             </p>
+            {!isSuperAdmin && (
+              <div className="bg-warning/10 border border-warning/20 rounded-lg p-2">
+                <p className="text-xs text-warning font-medium">⚠️ Permintaan ini akan dikirim untuk persetujuan Warehouse/Finance sebelum label diterapkan.</p>
+              </div>
+            )}
             <Textarea
               value={urgentReason}
               onChange={e => setUrgentReason(e.target.value)}
@@ -1825,14 +1981,44 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                 {urgentReason.trim().length}/60 karakter minimum
               </p>
               {urgentReason.trim().length >= 60 && (
-                <span className="text-xs text-green-600">✓ Cukup</span>
+                <span className="text-xs text-success">✓ Cukup</span>
               )}
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setUrgentReasonDialog(null)}>Batal</Button>
             <Button size="sm" onClick={confirmUrgentLabel} disabled={urgentReason.trim().length < 60}>
-              Konfirmasi & Kirim
+              {isSuperAdmin ? "Konfirmasi & Terapkan" : "Kirim Permintaan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Urgent Request Dialog */}
+      <Dialog open={!!rejectDialog} onOpenChange={() => setRejectDialog(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <X className="h-5 w-5 text-destructive" />
+              Tolak Permintaan Label
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Berikan alasan penolakan (opsional):
+            </p>
+            <Textarea
+              value={rejectReason}
+              onChange={e => setRejectReason(e.target.value)}
+              placeholder="Alasan penolakan..."
+              rows={3}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setRejectDialog(null)}>Batal</Button>
+            <Button variant="destructive" size="sm" onClick={rejectUrgentRequest}>
+              Tolak Permintaan
             </Button>
           </DialogFooter>
         </DialogContent>
