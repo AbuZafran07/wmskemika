@@ -1114,6 +1114,18 @@ export default function RequestDelivery() {
                       )}
                       onClick={() => setDetailCard(card)}
                     >
+                      {/* Pending Approval Indicator */}
+                      {pendingApprovalsMap[card.id] > 0 && (
+                        <div className="absolute -top-1.5 -right-1.5 z-10">
+                          <span className="relative flex h-5 w-5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                            <span className="relative inline-flex items-center justify-center rounded-full h-5 w-5 bg-amber-500 text-white">
+                              <Bell className="h-3 w-3" />
+                            </span>
+                          </span>
+                        </div>
+                      )}
+
                       {/* SO Number & Status */}
                       <div className="flex items-start justify-between gap-1 mb-1">
                         <div className="flex items-center gap-1 truncate min-w-0">
@@ -1122,9 +1134,11 @@ export default function RequestDelivery() {
                           )}
                           <span className={cn("font-bold text-primary truncate", isFullView ? "text-[9px]" : "text-[11px]")}>{card.sales_order_number}</span>
                         </div>
-                        <Badge className={cn("px-1.5 py-0 flex-shrink-0", isFullView ? "text-[7px] h-3.5" : "text-[9px] h-4", getStatusBadgeColor(card.so_status))}>
-                          {card.so_status}
-                        </Badge>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <Badge className={cn("px-1.5 py-0", isFullView ? "text-[7px] h-3.5" : "text-[9px] h-4", getStatusBadgeColor(card.so_status))}>
+                            {card.so_status}
+                          </Badge>
+                        </div>
                       </div>
 
                       {/* Created date - hide in full view */}
