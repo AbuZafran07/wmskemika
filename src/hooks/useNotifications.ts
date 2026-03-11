@@ -354,8 +354,8 @@ export function useNotifications() {
         // Send browser push notifications for critical alerts
         if (pushEnabled && 'Notification' in window && Notification.permission === 'granted') {
           newNotifs.forEach(n => {
-            if (n.type === 'expired' || n.type === 'low_stock' || n.type === 'approval_pending' || n.type === 'revision_requested') {
-              const icon = n.type === 'expired' ? '🚨' : n.type === 'low_stock' ? '⚠️' : n.type === 'revision_requested' ? '📝' : '🔔';
+            if (n.type === 'expired' || n.type === 'low_stock' || n.type === 'approval_pending' || n.type === 'revision_requested' || n.type === 'urgent_request') {
+              const icon = n.type === 'urgent_request' ? '🚨' : n.type === 'expired' ? '🚨' : n.type === 'low_stock' ? '⚠️' : n.type === 'revision_requested' ? '📝' : '🔔';
               sendBrowserNotification(
                 `${icon} ${n.title}`,
                 n.message,
