@@ -58,6 +58,8 @@ export default function Notifications() {
         return <AlertTriangle className="w-5 h-5 text-destructive" />;
       case 'new_order':
         return <FileText className="w-5 h-5 text-primary" />;
+      case 'urgent_request':
+        return <AlertTriangle className="w-5 h-5 text-destructive" />;
       default:
         return <Bell className="w-5 h-5 text-info" />;
     }
