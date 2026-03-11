@@ -343,11 +343,26 @@ export default function RequestDelivery() {
     }
   }, [fetchCards]);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+
   useEffect(() => {
     fetchCards();
     fetchCardLabels();
     syncOnHoldStatus();
   }, [fetchCards, fetchCardLabels, syncOnHoldStatus]);
+
+  // Auto-open card from URL query param ?card=<id>
+  useEffect(() => {
+    const cardId = searchParams.get('card');
+    if (cardId && cards.length > 0 && !detailCard) {
+      const found = cards.find(c => c.id === cardId);
+      if (found) {
+        setDetailCard(found);
+        // Clean up the query param
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [searchParams, cards, detailCard, setSearchParams]);
 
   // Realtime subscription
   useEffect(() => {
