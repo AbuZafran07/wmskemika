@@ -125,6 +125,8 @@ export default function Notifications() {
       navigate('/stock-in');
     } else if (notif.module === 'stock_out') {
       navigate('/stock-out');
+    } else if (notif.module === 'delivery' && notif.refId) {
+      navigate(`/request-delivery?card=${notif.refId}`);
     } else if (notif.module === 'delivery') {
       navigate('/request-delivery');
     }
