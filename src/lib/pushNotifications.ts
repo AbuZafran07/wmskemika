@@ -4,7 +4,7 @@ interface PushNotificationPayload {
   title: string;
   body: string;
   data?: Record<string, string>;
-  targetRoles?: string[];
+  targetRoles?: Array<"super_admin" | "admin" | "finance" | "purchasing" | "warehouse" | "sales" | "viewer">;
   excludeUserId?: string;
 }
 
