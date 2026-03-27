@@ -118,6 +118,19 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const chatCardRef = useRef<HTMLDivElement>(null);
+
+  // Click outside to close
+  useEffect(() => {
+    if (isMinimized) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (chatCardRef.current && !chatCardRef.current.contains(e.target as Node)) {
+        setIsMinimized(true);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isMinimized]);
 
   // Fetch all users for mentions using secure view (excludes email for privacy)
   useEffect(() => {
@@ -797,6 +810,7 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
 
   return (
     <Card
+      ref={chatCardRef}
       className={`fixed shadow-xl z-50 transition-all duration-300 ${isExpanded ? "w-[500px] h-[600px]" : "w-[350px] h-[450px]"}`}
       style={floatingWidgetStyle}
     >
