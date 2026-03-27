@@ -774,6 +774,10 @@ export default function SalesOrder() {
       const result = await approveSalesOrderRevision(selectedOrder.id);
       if (!result.success) throw new Error(result.error || "Failed");
       toast.success(language === "en" ? "Revision approved, order returned to draft" : "Revisi disetujui, order kembali ke draft");
+      if (selectedOrder.created_by) {
+        const { notifyOrderApproved } = await import('@/lib/pushNotifications');
+        notifyOrderApproved(selectedOrder.created_by, 'Sales Order', selectedOrder.sales_order_number);
+      }
       refetch();
     } catch (err: any) {
       toast.error(err.message || "Failed to approve revision");

@@ -768,6 +768,10 @@ export default function PlanOrder() {
       const result = await approvePlanOrderRevision(selectedOrder.id);
       if (!result.success) throw new Error(result.error || "Failed to approve revision");
       toast.success(language === "en" ? "Revision approved, order returned to draft" : "Revisi disetujui, order kembali ke draft");
+      if (selectedOrder.created_by) {
+        const { notifyOrderApproved } = await import('@/lib/pushNotifications');
+        notifyOrderApproved(selectedOrder.created_by, 'Plan Order', selectedOrder.plan_number);
+      }
       refetch();
     } catch (err) {
       console.error(err);
