@@ -307,8 +307,11 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
     }
     
     // Refresh unread counts after marking as read
-    fetchGlobalUnreadCount();
-    fetchUnreadByUser();
+    // Small delay to let the DB update propagate
+    setTimeout(() => {
+      fetchGlobalUnreadCount();
+      fetchUnreadByUser();
+    }, 300);
   };
 
   // Mark messages as read when opening a chat or switching users
