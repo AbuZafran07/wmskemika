@@ -214,7 +214,7 @@ export default function MainLayout() {
 
         {/* Main Content - scrollable */}
         <main className="flex-1 overflow-y-auto bg-background">
-          <div className="p-4 lg:p-6">
+          <div className="p-4 lg:p-6" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}>
             <Outlet />
           </div>
         </main>
