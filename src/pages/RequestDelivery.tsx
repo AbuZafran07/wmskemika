@@ -535,7 +535,18 @@ export default function RequestDelivery() {
         });
       }
 
-      toast.success(`Card dipindahkan ke ${BOARD_COLUMNS.find(c => c.id === newStatus)?.label}`);
+      const fromLabel = BOARD_COLUMNS.find(c => c.id === cardToMove.board_status)?.label || cardToMove.board_status;
+      const toLabel = BOARD_COLUMNS.find(c => c.id === newStatus)?.label || newStatus;
+      toast.success(`Card dipindahkan ke ${toLabel}`);
+      
+      // Push notification for board status change
+      notifyDeliveryCardMoved(
+        cardToMove.sales_order_number,
+        fromLabel,
+        toLabel,
+        user.id,
+      );
+      
       fetchCards();
     } catch (err: any) {
       toast.error("Gagal memindahkan card: " + err.message);
