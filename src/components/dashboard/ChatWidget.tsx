@@ -403,8 +403,12 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
   }, [user, selectedUser]);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    // ScrollArea uses an internal viewport div for scrolling
+    const viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (viewport) {
+      setTimeout(() => {
+        viewport.scrollTop = viewport.scrollHeight;
+      }, 50);
     }
   }, [messages]);
 
