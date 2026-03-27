@@ -403,14 +403,25 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
   }, [user, selectedUser]);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    // ScrollArea uses an internal viewport div for scrolling
+    const viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (viewport) {
+      setTimeout(() => {
+        viewport.scrollTop = viewport.scrollHeight;
+      }, 50);
     }
   }, [messages]);
 
   useEffect(() => {
-    if (!isMinimized && inputRef.current) {
-      inputRef.current.focus();
+    if (!isMinimized) {
+      if (inputRef.current) inputRef.current.focus();
+      // Scroll to bottom when chat is opened
+      const viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+      if (viewport) {
+        setTimeout(() => {
+          viewport.scrollTop = viewport.scrollHeight;
+        }, 100);
+      }
     }
   }, [isMinimized]);
 
