@@ -1,5 +1,6 @@
 // PlanOrder.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { notifyNewPlanOrder, notifyRevisionRequest } from '@/lib/pushNotifications';
 import {
   Plus,
   Search,
@@ -557,6 +558,8 @@ export default function PlanOrder() {
       if (!result.success) throw new Error(result.error || "Failed to create plan order");
 
       toast.success(language === "en" ? "Plan Order created successfully" : "Plan Order berhasil dibuat");
+      // Send push notification to admin/super_admin
+      notifyNewPlanOrder(planNumber, user?.id);
       setIsFormOpen(false);
       resetForm();
       refetch();
@@ -741,6 +744,7 @@ export default function PlanOrder() {
       const result = await requestPlanOrderRevision(selectedOrder.id, revisionReason.trim());
       if (!result.success) throw new Error(result.error || "Failed to request revision");
       toast.success(language === "en" ? "Revision request submitted" : "Permintaan revisi terkirim");
+      notifyRevisionRequest('Plan Order', selectedOrder.plan_number, user?.id);
       refetch();
     } catch (err) {
       console.error(err);

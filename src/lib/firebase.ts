@@ -40,9 +40,11 @@ export async function requestFCMToken(): Promise<string | null> {
       return null;
     }
 
-    // Get FCM token - uses the firebase-messaging-sw.js service worker
+    // VAPID key from Firebase Console → Project Settings → Cloud Messaging → Web Push certificates
+    // Generate: Firebase Console → ⚙️ Project Settings → Cloud Messaging → Web Push certificates → Generate key pair
+    const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || "";
     const token = await getToken(messaging, {
-      vapidKey: undefined, // Will use the default from Firebase project settings
+      vapidKey: VAPID_KEY || undefined,
     });
 
     console.log("FCM Token obtained");
