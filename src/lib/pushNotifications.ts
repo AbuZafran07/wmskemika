@@ -200,3 +200,54 @@ export function notifyNewDeliveryCard(
     excludeUserId,
   });
 }
+
+/** Notify approvers about Urgent/Cito label request */
+export function notifyUrgentLabelRequest(
+  soNumber: string,
+  labelName: string,
+  requesterName: string,
+  cardId: string,
+  excludeUserId?: string,
+) {
+  return sendApprovalPushNotification({
+    title: `🚨 Permintaan Label ${labelName}`,
+    body: `${requesterName} meminta label ${labelName} untuk ${soNumber}`,
+    data: { tag: 'urgent-label-request', link: `/request-delivery?card=${cardId}` },
+    targetRoles: ['super_admin', 'warehouse', 'finance'],
+    excludeUserId,
+  });
+}
+
+/** Notify requester that Urgent/Cito label was approved */
+export function notifyUrgentLabelApproved(
+  requesterUserId: string,
+  soNumber: string,
+  labelName: string,
+  cardId: string,
+) {
+  return sendPushToUsers(
+    [requesterUserId],
+    `✅ Label ${labelName} Disetujui`,
+    `Label ${labelName} untuk ${soNumber} telah disetujui`,
+    { tag: 'urgent-label-approved', link: `/request-delivery?card=${cardId}` },
+  );
+}
+
+/** Notify requester that Urgent/Cito label was rejected */
+export function notifyUrgentLabelRejected(
+  requesterUserId: string,
+  soNumber: string,
+  labelName: string,
+  reason: string,
+  cardId: string,
+) {
+  const body = reason
+    ? `Label ${labelName} untuk ${soNumber} ditolak: ${reason.substring(0, 80)}`
+    : `Label ${labelName} untuk ${soNumber} ditolak`;
+  return sendPushToUsers(
+    [requesterUserId],
+    `❌ Label ${labelName} Ditolak`,
+    body,
+    { tag: 'urgent-label-rejected', link: `/request-delivery?card=${cardId}` },
+  );
+}
