@@ -416,7 +416,9 @@ export function useNotifications() {
       
       previousNotifIds.current = currentIds;
       setNotifications(notifs);
-      setUnreadCount(notifs.filter(n => !n.read).length);
+      const newUnreadCount = notifs.filter(n => !n.read).length;
+      setUnreadCount(newUnreadCount);
+      setBadgeCount(newUnreadCount);
     } catch (error) {
       console.error('Error fetching notifications:', error);
     }
@@ -586,12 +588,16 @@ export function useNotifications() {
     setNotifications(prev => prev.map(n => 
       n.id === id ? { ...n, read: true } : n
     ));
-    setUnreadCount(prev => Math.max(0, prev - 1));
+    const newCount = Math.max(0, prev - 1);
+    setBadgeCount(newCount);
+    return newCount;
+    });
   };
 
   const markAllAsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     setUnreadCount(0);
+    setBadgeCount(0);
   };
 
   return {
