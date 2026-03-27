@@ -18,6 +18,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import DeliveryCardDetail from "@/components/delivery/DeliveryCardDetail";
 import DeliveryMarqueeTicker from "@/components/delivery/DeliveryMarqueeTicker";
+import { notifyDeliveryCardMoved, notifyNewDeliveryCard } from "@/lib/pushNotifications";
 
 // Board columns definition
 const BOARD_COLUMNS = [
