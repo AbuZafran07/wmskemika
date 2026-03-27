@@ -135,7 +135,7 @@ export default function AppHeader({ onMenuClick, isMobileDrawerOpen }: AppHeader
   };
 
   return (
-    <header className="h-16 flex-shrink-0 border-b border-border bg-card header-shadow flex items-center justify-between px-4 lg:px-6 z-50 relative">
+    <header className="flex-shrink-0 border-b border-border bg-card header-shadow flex items-center justify-between px-4 lg:px-6 z-50 relative" style={{ height: 'calc(64px + env(safe-area-inset-top, 0px))', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
       {/* Left side - Logo and hamburger */}
       <div className="flex items-center gap-3">
         {/* Hamburger menu - visible on mobile */}

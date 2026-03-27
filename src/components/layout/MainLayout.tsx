@@ -157,7 +157,7 @@ export default function MainLayout() {
       />
 
       {/* Body area below header */}
-      <div className="flex flex-1 overflow-hidden" style={{ height: 'calc(100vh - 64px)' }}>
+      <div className="flex flex-1 overflow-hidden" style={{ height: 'calc(100vh - 64px - env(safe-area-inset-top, 0px))' }}>
         {/* Desktop Sidebar - only visible on lg+ */}
         <div
           ref={sidebarRef}
@@ -185,7 +185,7 @@ export default function MainLayout() {
         {isMobileDrawerOpen && (
           <div
             className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-            style={{ top: '64px' }}
+            style={{ top: 'calc(64px + env(safe-area-inset-top, 0px))' }}
             onClick={closeMobileDrawer}
           />
         )}
@@ -197,8 +197,8 @@ export default function MainLayout() {
             isMobileDrawerOpen ? 'translate-x-0' : '-translate-x-full'
           )}
           style={{ 
-            top: '64px', 
-            height: 'calc(100vh - 64px)',
+            top: 'calc(64px + env(safe-area-inset-top, 0px))', 
+            height: 'calc(100vh - 64px - env(safe-area-inset-top, 0px))',
             width: 'min(80vw, 320px)'
           }}
         >
