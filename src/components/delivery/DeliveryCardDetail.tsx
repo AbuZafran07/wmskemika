@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { format, formatDistanceToNow } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { notifyDeliveryCardMoved } from "@/lib/pushNotifications";
+import { notifyDeliveryCardMoved, notifyUrgentLabelRequest, notifyUrgentLabelApproved, notifyUrgentLabelRejected } from "@/lib/pushNotifications";
 
 const BOARD_COLUMNS = [
   { id: "new_order", label: "New Orders", color: "bg-blue-600" },
