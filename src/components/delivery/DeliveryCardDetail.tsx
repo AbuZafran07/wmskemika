@@ -530,6 +530,13 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       toast.error("Gagal mengirim permintaan: " + error.message);
     } else {
       toast.success(`Permintaan label ${urgentReasonDialog.labelName} terkirim, menunggu persetujuan Warehouse/Finance`);
+      notifyUrgentLabelRequest(
+        card.sales_order_number,
+        urgentReasonDialog.labelName,
+        user.name || user.email,
+        card.id,
+        user.id,
+      );
     }
     setUrgentReasonDialog(null);
     setUrgentReason("");
@@ -563,6 +570,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     });
     
     toast.success("Permintaan label disetujui");
+    notifyUrgentLabelApproved(comment.user_id, card.sales_order_number, labelName, card.id);
     fetchLabels();
     fetchComments();
   };
@@ -590,6 +598,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     });
     
     toast.info("Permintaan label ditolak");
+    notifyUrgentLabelRejected(rejectDialog.user_id, card.sales_order_number, labelName, rejectReason.trim(), card.id);
     setRejectDialog(null);
     setRejectReason("");
     fetchComments();
