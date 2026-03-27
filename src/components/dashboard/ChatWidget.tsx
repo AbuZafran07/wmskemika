@@ -810,6 +810,7 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
 
   return (
     <Card
+      ref={chatCardRef}
       className={`fixed shadow-xl z-50 transition-all duration-300 ${isExpanded ? "w-[500px] h-[600px]" : "w-[350px] h-[450px]"}`}
       style={floatingWidgetStyle}
     >
