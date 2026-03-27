@@ -307,8 +307,11 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
     }
     
     // Refresh unread counts after marking as read
-    fetchGlobalUnreadCount();
-    fetchUnreadByUser();
+    // Small delay to let the DB update propagate
+    setTimeout(() => {
+      fetchGlobalUnreadCount();
+      fetchUnreadByUser();
+    }, 300);
   };
 
   // Mark messages as read when opening a chat or switching users
@@ -357,6 +360,28 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
     };
   }, [user]);
 
+  // Auto-mark as read when chat is open and new messages arrive
+  const autoMarkReadIfOpen = useCallback(async (newMsg: any) => {
+    if (!user || isMinimized) return;
+    
+    // If viewing global chat and a new global message arrives, update lastSeenGlobal
+    if (!selectedUser && newMsg.is_global && newMsg.sender_id !== user.id) {
+      const now = new Date().toISOString();
+      localStorage.setItem('ktalk_last_seen_global', now);
+      setLastSeenGlobal(now);
+      setGlobalChatUnread(0);
+    }
+    
+    // If viewing private chat with selectedUser and a message from them arrives, mark as read
+    if (selectedUser && newMsg.sender_id === selectedUser.id && newMsg.receiver_id === user.id) {
+      await supabase
+        .from("chat_messages")
+        .update({ read_at: new Date().toISOString() })
+        .eq("id", newMsg.id)
+        .is("read_at", null);
+    }
+  }, [user, isMinimized, selectedUser]);
+
   // Subscribe to realtime changes
   useEffect(() => {
     if (!user) return;
@@ -372,7 +397,13 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
         if (payload.eventType === "INSERT" && newMsg.sender_id !== user.id) {
           const isForMe = newMsg.is_global || newMsg.receiver_id === user.id || newMsg.mentions?.includes(user.id);
           
-          if (isForMe) {
+          // Only play sound if chat is minimized or viewing different chat
+          const isCurrentlyViewing = !isMinimized && (
+            (newMsg.is_global && !selectedUser) ||
+            (selectedUser && newMsg.sender_id === selectedUser.id)
+          );
+          
+          if (isForMe && !isCurrentlyViewing) {
             try {
               const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
               const oscillator = audioContext.createOscillator();
@@ -382,7 +413,6 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
               
               // Different sound for mentions vs regular messages
               if (newMsg.mentions?.includes(user.id)) {
-                // Higher pitch + longer for mentions
                 oscillator.frequency.value = 880;
                 gainNode.gain.setValueAtTime(0.25, audioContext.currentTime);
                 gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
@@ -390,7 +420,6 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
                 oscillator.stop(audioContext.currentTime + 0.3);
                 toast.info("Anda dimention dalam chat!");
               } else {
-                // Lower pitch + shorter for regular messages
                 oscillator.frequency.value = 600;
                 gainNode.gain.setValueAtTime(0.15, audioContext.currentTime);
                 gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
@@ -398,6 +427,11 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
                 oscillator.stop(audioContext.currentTime + 0.15);
               }
             } catch (e) {}
+          }
+          
+          // Auto-mark as read if chat is open and viewing this conversation
+          if (payload.eventType === "INSERT") {
+            autoMarkReadIfOpen(newMsg);
           }
         }
         
@@ -413,7 +447,7 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, selectedUser]);
+  }, [user, selectedUser, isMinimized, autoMarkReadIfOpen]);
 
   useEffect(() => {
     // ScrollArea uses an internal viewport div for scrolling
