@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { notifyNewSalesOrder, notifyRevisionRequest } from '@/lib/pushNotifications';
 import {
   Plus,
   Search,
@@ -671,6 +672,8 @@ export default function SalesOrder() {
         );
         if (!result.success) throw new Error(result.error || "Failed to create");
         toast.success(language === "en" ? "Sales Order created successfully" : "Sales Order berhasil dibuat");
+        // Send push notification to admin/super_admin
+        notifyNewSalesOrder(soNumber, user?.id);
       }
 
       setIsDialogOpen(false);
@@ -748,6 +751,7 @@ export default function SalesOrder() {
       const result = await requestSalesOrderRevision(selectedOrder.id, revisionReason.trim());
       if (!result.success) throw new Error(result.error || "Failed");
       toast.success(language === "en" ? "Revision request submitted" : "Permintaan revisi terkirim");
+      notifyRevisionRequest('Sales Order', selectedOrder.sales_order_number, user?.id);
       refetch();
     } catch (err: any) {
       toast.error(err.message || "Failed to request revision");
