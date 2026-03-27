@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { setBadgeCount } from '@/lib/badgeUtils';
 
 export interface Notification {
   id: string;
@@ -415,7 +416,9 @@ export function useNotifications() {
       
       previousNotifIds.current = currentIds;
       setNotifications(notifs);
-      setUnreadCount(notifs.filter(n => !n.read).length);
+      const newUnreadCount = notifs.filter(n => !n.read).length;
+      setUnreadCount(newUnreadCount);
+      setBadgeCount(newUnreadCount);
     } catch (error) {
       console.error('Error fetching notifications:', error);
     }
@@ -585,12 +588,17 @@ export function useNotifications() {
     setNotifications(prev => prev.map(n => 
       n.id === id ? { ...n, read: true } : n
     ));
-    setUnreadCount(prev => Math.max(0, prev - 1));
+    setUnreadCount(prev => {
+      const newCount = Math.max(0, prev - 1);
+      setBadgeCount(newCount);
+      return newCount;
+    });
   };
 
   const markAllAsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     setUnreadCount(0);
+    setBadgeCount(0);
   };
 
   return {

@@ -3,6 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { requestFCMToken, onFCMMessage } from '@/lib/firebase';
 import { toast } from 'sonner';
+import { setBadgeCount } from '@/lib/badgeUtils';
+
+let badgeCounter = 0;
 
 export function useWebPush() {
   const { user, session } = useAuth();
@@ -74,10 +77,13 @@ export function useWebPush() {
       if (!messaging) return;
 
       const unsub = onFCMMessage((payload) => {
-        // Show toast for foreground messages
         const title = payload.notification?.title || 'Notifikasi';
         const body = payload.notification?.body || '';
         toast(title, { description: body });
+        
+        // Increment app badge count
+        badgeCounter++;
+        setBadgeCount(badgeCounter);
       });
 
       if (unsub) {
