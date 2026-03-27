@@ -588,9 +588,10 @@ export function useNotifications() {
     setNotifications(prev => prev.map(n => 
       n.id === id ? { ...n, read: true } : n
     ));
-    const newCount = Math.max(0, prev - 1);
-    setBadgeCount(newCount);
-    return newCount;
+    setUnreadCount(prev => {
+      const newCount = Math.max(0, prev - 1);
+      setBadgeCount(newCount);
+      return newCount;
     });
   };
 
