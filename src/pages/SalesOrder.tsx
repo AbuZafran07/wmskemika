@@ -790,6 +790,11 @@ export default function SalesOrder() {
       const result = await rejectSalesOrderRevision(selectedOrder.id, rejectRevisionReason.trim() || undefined);
       if (!result.success) throw new Error(result.error || "Failed");
       toast.success(language === "en" ? "Revision rejected" : "Revisi ditolak");
+      // Notify creator about rejection
+      if (selectedOrder.created_by) {
+        const { notifyOrderRejected } = await import('@/lib/pushNotifications');
+        notifyOrderRejected(selectedOrder.created_by, 'Sales Order', selectedOrder.sales_order_number, rejectRevisionReason.trim());
+      }
       refetch();
     } catch (err: any) {
       toast.error(err.message || "Failed to reject revision");

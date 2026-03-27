@@ -785,6 +785,11 @@ export default function PlanOrder() {
       const result = await rejectPlanOrderRevision(selectedOrder.id, rejectRevisionReason.trim() || undefined);
       if (!result.success) throw new Error(result.error || "Failed to reject revision");
       toast.success(language === "en" ? "Revision rejected, order stays approved" : "Revisi ditolak, order tetap approved");
+      // Notify creator about rejection
+      if (selectedOrder.created_by) {
+        const { notifyOrderRejected } = await import('@/lib/pushNotifications');
+        notifyOrderRejected(selectedOrder.created_by, 'Plan Order', selectedOrder.plan_number, rejectRevisionReason.trim());
+      }
       refetch();
     } catch (err) {
       console.error(err);
