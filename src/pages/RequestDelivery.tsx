@@ -18,6 +18,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import DeliveryCardDetail from "@/components/delivery/DeliveryCardDetail";
 import DeliveryMarqueeTicker from "@/components/delivery/DeliveryMarqueeTicker";
+import { notifyDeliveryCardMoved, notifyNewDeliveryCard } from "@/lib/pushNotifications";
 
 // Board columns definition
 const BOARD_COLUMNS = [
@@ -534,7 +535,18 @@ export default function RequestDelivery() {
         });
       }
 
-      toast.success(`Card dipindahkan ke ${BOARD_COLUMNS.find(c => c.id === newStatus)?.label}`);
+      const fromLabel = BOARD_COLUMNS.find(c => c.id === cardToMove.board_status)?.label || cardToMove.board_status;
+      const toLabel = BOARD_COLUMNS.find(c => c.id === newStatus)?.label || newStatus;
+      toast.success(`Card dipindahkan ke ${toLabel}`);
+      
+      // Push notification for board status change
+      notifyDeliveryCardMoved(
+        cardToMove.sales_order_number,
+        fromLabel,
+        toLabel,
+        user.id,
+      );
+      
       fetchCards();
     } catch (err: any) {
       toast.error("Gagal memindahkan card: " + err.message);
@@ -566,6 +578,13 @@ export default function RequestDelivery() {
       }
 
       toast.success("Sales Order berhasil ditambahkan ke board");
+      
+      // Push notification for new delivery card
+      const addedSO = availableSOs.find(s => s.id === selectedSOId);
+      if (addedSO) {
+        notifyNewDeliveryCard(addedSO.sales_order_number, user.id);
+      }
+      
       setAddDialogOpen(false);
       setSelectedSOId("");
       setAddNotes("");

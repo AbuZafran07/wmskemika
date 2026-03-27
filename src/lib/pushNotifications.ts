@@ -168,3 +168,35 @@ export function notifyOrderRejected(
     { tag: `${module.toLowerCase().replace(' ', '-')}-rejected`, link },
   );
 }
+
+// ===== Delivery Board Notifications =====
+
+/** Notify relevant roles about delivery card status change */
+export function notifyDeliveryCardMoved(
+  soNumber: string,
+  fromLabel: string,
+  toLabel: string,
+  excludeUserId?: string,
+) {
+  return sendApprovalPushNotification({
+    title: '🚚 Delivery Board Update',
+    body: `${soNumber} dipindahkan dari ${fromLabel} ke ${toLabel}`,
+    data: { tag: 'delivery-board', link: '/request-delivery' },
+    targetRoles: ['super_admin', 'admin', 'sales', 'warehouse'],
+    excludeUserId,
+  });
+}
+
+/** Notify when new card added to delivery board */
+export function notifyNewDeliveryCard(
+  soNumber: string,
+  excludeUserId?: string,
+) {
+  return sendApprovalPushNotification({
+    title: '📋 Card Delivery Baru',
+    body: `${soNumber} telah ditambahkan ke Delivery Board`,
+    data: { tag: 'delivery-new', link: '/request-delivery' },
+    targetRoles: ['super_admin', 'admin', 'sales', 'warehouse'],
+    excludeUserId,
+  });
+}
