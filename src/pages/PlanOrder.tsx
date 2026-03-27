@@ -21,6 +21,7 @@ import {
   FileText,
   FileDown,
   RotateCcw,
+  AlertTriangle,
 } from "lucide-react";
 
 import { exportSectionBasedPdf } from "@/lib/pdfSectionExport";
@@ -252,6 +253,7 @@ export default function PlanOrder() {
   const [isRequestingRevision, setIsRequestingRevision] = useState(false);
   const [isApprovingRevision, setIsApprovingRevision] = useState(false);
   const [isRejectingRevision, setIsRejectingRevision] = useState(false);
+  const [revisionReasonDisplay, setRevisionReasonDisplay] = useState<{ reason: string; requestedBy: string; requestedAt: string } | null>(null);
 
   // Stock In history
   const [stockInHistory, setStockInHistory] = useState<any[]>([]);
@@ -809,6 +811,30 @@ export default function PlanOrder() {
   const handleViewDetail = async (order: PlanOrderHeader) => {
     setSelectedOrder(order);
     setIsDetailDialogOpen(true);
+    setRevisionReasonDisplay(null);
+
+    // Fetch revision reason if status is revision_requested
+    if (order.status === 'revision_requested') {
+      try {
+        const { data: auditData } = await supabase
+          .from('audit_logs')
+          .select('new_data, user_email, created_at')
+          .eq('ref_id', order.id)
+          .eq('action', 'REVISION_REQUEST')
+          .order('created_at', { ascending: false })
+          .limit(1);
+        if (auditData && auditData.length > 0) {
+          const nd = auditData[0].new_data as any;
+          setRevisionReasonDisplay({
+            reason: nd?.reason || '-',
+            requestedBy: auditData[0].user_email || '-',
+            requestedAt: auditData[0].created_at ? formatDateTimeID(new Date(auditData[0].created_at)) : '-',
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch revision reason:', err);
+      }
+    }
 
     // Stock in history (same logic)
     setStockInHistoryLoading(true);
@@ -1884,6 +1910,21 @@ export default function PlanOrder() {
                   <p className="font-medium text-primary">{formatCurrency(selectedOrder.grand_total)}</p>
                 </div>
               </div>
+
+              {/* Revision Reason Banner */}
+              {selectedOrder.status === 'revision_requested' && revisionReasonDisplay && (
+                <div className="rounded-lg border border-warning/50 bg-warning/10 p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-warning font-semibold">
+                    <AlertTriangle className="w-4 h-4" />
+                    {language === "en" ? "Revision Requested" : "Permintaan Revisi"}
+                  </div>
+                  <div className="text-sm space-y-1">
+                    <p><span className="text-muted-foreground">{language === "en" ? "Reason:" : "Alasan:"}</span> {revisionReasonDisplay.reason}</p>
+                    <p><span className="text-muted-foreground">{language === "en" ? "Requested by:" : "Diminta oleh:"}</span> {revisionReasonDisplay.requestedBy}</p>
+                    <p><span className="text-muted-foreground">{language === "en" ? "Date:" : "Tanggal:"}</span> {revisionReasonDisplay.requestedAt}</p>
+                  </div>
+                </div>
+              )}
 
               {selectedOrder.notes && (
                 <div>
