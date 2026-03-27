@@ -590,6 +590,36 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
       return;
     }
 
+    // Send Web Push notification to recipients (background)
+    try {
+      const senderName = user.name || user.email;
+      const msgPreview = newMessage.trim().substring(0, 100) || (fileData ? `📎 ${fileData.name}` : "Pesan baru");
+      
+      const pushPayload: any = {
+        title: selectedUser ? `💬 K'talk: ${senderName}` : `💬 K'talk Global: ${senderName}`,
+        body: msgPreview,
+        data: { tag: 'ktalk', link: '/', type: 'chat' },
+        exclude_user_id: user.id, // Don't notify sender
+      };
+
+      // If private message, only notify the receiver
+      if (selectedUser) {
+        pushPayload.user_ids = [selectedUser.id];
+      }
+
+      // If mentions, also specifically notify mentioned users
+      if (mentions.length > 0) {
+        pushPayload.user_ids = mentions;
+      }
+
+      supabase.functions.invoke('send-push-notification', {
+        body: pushPayload,
+      }).catch(err => console.log('Push notification send failed (non-critical):', err));
+    } catch (e) {
+      // Non-critical - don't block chat
+      console.log('Push notification error (non-critical):', e);
+    }
+
     setNewMessage("");
     setReplyingTo(null);
     setSelectedFile(null);

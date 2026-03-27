@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, Loader2, Users, Bell, Database } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Loader2, Users, Bell, Database, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import BackupRestore from '@/components/settings/BackupRestore';
+import { PushNotificationToggle } from '@/components/settings/PushNotificationToggle';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
@@ -221,6 +222,44 @@ export default function SettingsPage() {
                         <strong>{language === 'en' ? 'Other roles:' : 'Role lainnya:'}</strong> {language === 'en' ? 'Cannot approve' : 'Tidak dapat menyetujui'}
                       </li>
                     </ul>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Push Notification Settings */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <Smartphone className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">
+                        {language === 'en' ? 'Push Notifications' : 'Push Notifikasi'}
+                      </CardTitle>
+                      <CardDescription>
+                        {language === 'en' 
+                          ? 'Receive notifications even when the browser is closed'
+                          : 'Terima notifikasi walau browser tertutup'
+                        }
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                    <div className="space-y-1">
+                      <Label className="text-base font-medium">
+                        Web Push Notification
+                      </Label>
+                      <p className="text-sm text-muted-foreground">
+                        {language === 'en'
+                          ? 'Get push notifications for K\'talk messages, approvals, and alerts'
+                          : 'Dapatkan notifikasi push untuk pesan K\'talk, approval, dan peringatan'
+                        }
+                      </p>
+                    </div>
+                    <PushNotificationToggle />
                   </div>
                 </CardContent>
               </Card>
