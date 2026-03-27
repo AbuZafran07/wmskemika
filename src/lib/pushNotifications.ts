@@ -16,7 +16,7 @@ export async function sendApprovalPushNotification({
   title,
   body,
   data,
-  targetRoles = ['super_admin', 'admin'],
+  targetRoles = ['super_admin', 'admin'] as any[],
   excludeUserId,
 }: PushNotificationPayload): Promise<void> {
   try {
