@@ -690,6 +690,11 @@ export default function PlanOrder() {
       const result = await approvePlanOrder(selectedOrder.id);
       if (!result.success) throw new Error(result.error || "Failed to approve");
       toast.success(language === "en" ? "Plan Order approved" : "Plan Order disetujui");
+      // Notify creator about approval
+      if (selectedOrder.created_by) {
+        const { notifyOrderApproved } = await import('@/lib/pushNotifications');
+        notifyOrderApproved(selectedOrder.created_by, 'Plan Order', selectedOrder.plan_number);
+      }
       refetch();
     } catch (err) {
       console.error(err);
@@ -763,6 +768,10 @@ export default function PlanOrder() {
       const result = await approvePlanOrderRevision(selectedOrder.id);
       if (!result.success) throw new Error(result.error || "Failed to approve revision");
       toast.success(language === "en" ? "Revision approved, order returned to draft" : "Revisi disetujui, order kembali ke draft");
+      if (selectedOrder.created_by) {
+        const { notifyOrderApproved } = await import('@/lib/pushNotifications');
+        notifyOrderApproved(selectedOrder.created_by, 'Plan Order', selectedOrder.plan_number);
+      }
       refetch();
     } catch (err) {
       console.error(err);
@@ -780,6 +789,11 @@ export default function PlanOrder() {
       const result = await rejectPlanOrderRevision(selectedOrder.id, rejectRevisionReason.trim() || undefined);
       if (!result.success) throw new Error(result.error || "Failed to reject revision");
       toast.success(language === "en" ? "Revision rejected, order stays approved" : "Revisi ditolak, order tetap approved");
+      // Notify creator about rejection
+      if (selectedOrder.created_by) {
+        const { notifyOrderRejected } = await import('@/lib/pushNotifications');
+        notifyOrderRejected(selectedOrder.created_by, 'Plan Order', selectedOrder.plan_number, rejectRevisionReason.trim());
+      }
       refetch();
     } catch (err) {
       console.error(err);

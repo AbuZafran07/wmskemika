@@ -704,6 +704,11 @@ export default function SalesOrder() {
     const result = await approveSalesOrder(selectedOrder.id);
     if (result.success) {
       toast.success(language === "en" ? "Sales Order approved" : "Sales Order disetujui");
+      // Notify creator about approval
+      if (selectedOrder.created_by) {
+        const { notifyOrderApproved } = await import('@/lib/pushNotifications');
+        notifyOrderApproved(selectedOrder.created_by, 'Sales Order', selectedOrder.sales_order_number);
+      }
       refetch();
     } else {
       toast.error(result.error || "Failed to approve");
@@ -769,6 +774,10 @@ export default function SalesOrder() {
       const result = await approveSalesOrderRevision(selectedOrder.id);
       if (!result.success) throw new Error(result.error || "Failed");
       toast.success(language === "en" ? "Revision approved, order returned to draft" : "Revisi disetujui, order kembali ke draft");
+      if (selectedOrder.created_by) {
+        const { notifyOrderApproved } = await import('@/lib/pushNotifications');
+        notifyOrderApproved(selectedOrder.created_by, 'Sales Order', selectedOrder.sales_order_number);
+      }
       refetch();
     } catch (err: any) {
       toast.error(err.message || "Failed to approve revision");
@@ -785,6 +794,11 @@ export default function SalesOrder() {
       const result = await rejectSalesOrderRevision(selectedOrder.id, rejectRevisionReason.trim() || undefined);
       if (!result.success) throw new Error(result.error || "Failed");
       toast.success(language === "en" ? "Revision rejected" : "Revisi ditolak");
+      // Notify creator about rejection
+      if (selectedOrder.created_by) {
+        const { notifyOrderRejected } = await import('@/lib/pushNotifications');
+        notifyOrderRejected(selectedOrder.created_by, 'Sales Order', selectedOrder.sales_order_number, rejectRevisionReason.trim());
+      }
       refetch();
     } catch (err: any) {
       toast.error(err.message || "Failed to reject revision");
