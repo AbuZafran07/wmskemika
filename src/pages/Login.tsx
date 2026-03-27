@@ -226,7 +226,7 @@ export default function Login() {
         </div>
 
         {/* Footer */}
-        <div className="text-center p-6 text-sm text-muted-foreground">
+        <div className="text-center p-6 text-sm text-muted-foreground" style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}>
           {t('login.copyright')}
         </div>
       </div>
