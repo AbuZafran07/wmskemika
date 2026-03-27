@@ -21,6 +21,19 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
     root.classList.add(theme);
+
+    // Update theme-color meta tag for mobile status bar
+    const themeColor = theme === 'dark' ? '#1a1a2e' : '#ffffff';
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (metaThemeColor) {
+      metaThemeColor.setAttribute('content', themeColor);
+    }
+
+    // Update apple status bar style
+    const metaApple = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    if (metaApple) {
+      metaApple.setAttribute('content', theme === 'dark' ? 'black-translucent' : 'default');
+    }
   }, [theme]);
 
   const toggleTheme = () => {
