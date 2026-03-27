@@ -261,6 +261,96 @@ export default function SettingsPage() {
                     </div>
                     <PushNotificationToggle />
                   </div>
+
+                  <Separator />
+
+                  <div className="rounded-lg bg-muted/50 p-4">
+                    <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                      <Bell className="w-4 h-4 text-primary" />
+                      {language === 'en' ? 'Active Notification Types' : 'Jenis Notifikasi Aktif'}
+                    </h4>
+                    <div className="space-y-3">
+                      {/* K'talk */}
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold text-primary uppercase tracking-wider">K'talk</p>
+                        <ul className="text-sm text-muted-foreground space-y-0.5 ml-4">
+                          <li className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+                            Pesan baru (private & global)
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+                            Mention (@user) di chat
+                          </li>
+                        </ul>
+                      </div>
+
+                      {/* Approval Workflow */}
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold text-warning uppercase tracking-wider">Approval Workflow</p>
+                        <ul className="text-sm text-muted-foreground space-y-0.5 ml-4">
+                          <li className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-warning flex-shrink-0" />
+                            Plan Order baru menunggu approval
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-warning flex-shrink-0" />
+                            Sales Order baru menunggu approval
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-warning flex-shrink-0" />
+                            Stock Adjustment menunggu persetujuan
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-warning flex-shrink-0" />
+                            Permintaan revisi dokumen
+                          </li>
+                        </ul>
+                      </div>
+
+                      {/* Approval Results */}
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold text-success uppercase tracking-wider">Hasil Approval</p>
+                        <ul className="text-sm text-muted-foreground space-y-0.5 ml-4">
+                          <li className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-success flex-shrink-0" />
+                            Order disetujui (notifikasi ke pembuat)
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-destructive flex-shrink-0" />
+                            Order ditolak (notifikasi ke pembuat)
+                          </li>
+                        </ul>
+                      </div>
+
+                      {/* Delivery Board */}
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Delivery Board</p>
+                        <ul className="text-sm text-muted-foreground space-y-0.5 ml-4">
+                          <li className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+                            Card baru ditambahkan ke board
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+                            Perpindahan status card (termasuk auto-delivered)
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
+                            Permintaan label Urgent/Cito
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+                            Label Urgent/Cito disetujui
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
+                            Label Urgent/Cito ditolak
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
