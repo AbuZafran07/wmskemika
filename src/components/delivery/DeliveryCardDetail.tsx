@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { format, formatDistanceToNow } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { notifyDeliveryCardMoved } from "@/lib/pushNotifications";
 
 const BOARD_COLUMNS = [
   { id: "new_order", label: "New Orders", color: "bg-blue-600" },
@@ -922,6 +923,12 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         });
 
         toast.success(`Checklist selesai! Card otomatis dipindahkan ke ${targetLabel}`);
+        notifyDeliveryCardMoved(
+          card.sales_order_number,
+          BOARD_COLUMNS.find(c => c.id === card.board_status)?.label || card.board_status,
+          targetLabel,
+          user.id,
+        );
         onClose();
         return;
       }
@@ -1015,6 +1022,12 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           });
 
           toast.success(`Card otomatis dipindahkan ke ${targetLabel}`);
+          notifyDeliveryCardMoved(
+            card.sales_order_number,
+            BOARD_COLUMNS.find(c => c.id === card.board_status)?.label || card.board_status,
+            targetLabel,
+            user.id,
+          );
           onClose();
           return;
         }
