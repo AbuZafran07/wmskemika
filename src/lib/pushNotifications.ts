@@ -200,19 +200,3 @@ export function notifyNewDeliveryCard(
     excludeUserId,
   });
 }
-  creatorUserId: string,
-  module: string,
-  docNumber: string,
-  reason?: string,
-) {
-  const link = module === 'Plan Order' ? '/plan-order' : module === 'Sales Order' ? '/sales-order' : '/stock-adjustment';
-  const body = reason
-    ? `${module} ${docNumber} ditolak: ${reason.substring(0, 80)}`
-    : `${module} ${docNumber} ditolak`;
-  return sendPushToUsers(
-    [creatorUserId],
-    `❌ ${module} Ditolak`,
-    body,
-    { tag: `${module.toLowerCase().replace(' ', '-')}-rejected`, link },
-  );
-}
