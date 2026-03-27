@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { requestFCMToken, onFCMMessage } from '@/lib/firebase';
 import { toast } from 'sonner';
+import { setBadgeCount } from '@/lib/badgeUtils';
 
 export function useWebPush() {
   const { user, session } = useAuth();
