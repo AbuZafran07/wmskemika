@@ -578,6 +578,13 @@ export default function RequestDelivery() {
       }
 
       toast.success("Sales Order berhasil ditambahkan ke board");
+      
+      // Push notification for new delivery card
+      const addedSO = availableSOs.find(s => s.id === selectedSOId);
+      if (addedSO) {
+        notifyNewDeliveryCard(addedSO.sales_order_number, user.id);
+      }
+      
       setAddDialogOpen(false);
       setSelectedSOId("");
       setAddNotes("");
