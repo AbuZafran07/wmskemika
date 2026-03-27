@@ -413,8 +413,15 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
   }, [messages]);
 
   useEffect(() => {
-    if (!isMinimized && inputRef.current) {
-      inputRef.current.focus();
+    if (!isMinimized) {
+      if (inputRef.current) inputRef.current.focus();
+      // Scroll to bottom when chat is opened
+      const viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+      if (viewport) {
+        setTimeout(() => {
+          viewport.scrollTop = viewport.scrollHeight;
+        }, 100);
+      }
     }
   }, [isMinimized]);
 
