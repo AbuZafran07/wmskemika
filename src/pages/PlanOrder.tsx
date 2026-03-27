@@ -690,6 +690,11 @@ export default function PlanOrder() {
       const result = await approvePlanOrder(selectedOrder.id);
       if (!result.success) throw new Error(result.error || "Failed to approve");
       toast.success(language === "en" ? "Plan Order approved" : "Plan Order disetujui");
+      // Notify creator about approval
+      if (selectedOrder.created_by) {
+        const { notifyOrderApproved } = await import('@/lib/pushNotifications');
+        notifyOrderApproved(selectedOrder.created_by, 'Plan Order', selectedOrder.plan_number);
+      }
       refetch();
     } catch (err) {
       console.error(err);

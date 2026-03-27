@@ -607,14 +607,21 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
         pushPayload.user_ids = [selectedUser.id];
       }
 
-      // If mentions, also specifically notify mentioned users
+      // If mentions, send dedicated mention notification
       if (mentions.length > 0) {
-        pushPayload.user_ids = mentions;
+        const { notifyKtalkMention } = await import('@/lib/pushNotifications');
+        notifyKtalkMention(mentions, senderName, msgPreview, user.id);
       }
 
-      supabase.functions.invoke('send-push-notification', {
-        body: pushPayload,
-      }).catch(err => console.log('Push notification send failed (non-critical):', err));
+      // For private/global messages (non-mention), send general chat push
+      if (mentions.length === 0) {
+        if (selectedUser) {
+          pushPayload.user_ids = [selectedUser.id];
+        }
+        supabase.functions.invoke('send-push-notification', {
+          body: pushPayload,
+        }).catch(err => console.log('Push notification send failed (non-critical):', err));
+      }
     } catch (e) {
       // Non-critical - don't block chat
       console.log('Push notification error (non-critical):', e);

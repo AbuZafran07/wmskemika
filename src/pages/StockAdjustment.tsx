@@ -405,6 +405,11 @@ export default function StockAdjustment() {
     
     if (result.success) {
       toast.success(language === 'en' ? 'Adjustment approved and posted to inventory' : 'Penyesuaian disetujui dan diposting ke inventori');
+      // Notify creator about approval
+      if (selectedAdjustment.created_by) {
+        const { notifyOrderApproved } = await import('@/lib/pushNotifications');
+        notifyOrderApproved(selectedAdjustment.created_by, 'Stock Adjustment', selectedAdjustment.adjustment_number);
+      }
       refetch();
     } else {
       toast.error(result.error || 'Failed to approve');
@@ -423,6 +428,11 @@ export default function StockAdjustment() {
     
     if (result.success) {
       toast.success(language === 'en' ? 'Adjustment rejected' : 'Penyesuaian ditolak');
+      // Notify creator about rejection
+      if (selectedAdjustment.created_by) {
+        const { notifyOrderRejected } = await import('@/lib/pushNotifications');
+        notifyOrderRejected(selectedAdjustment.created_by, 'Stock Adjustment', selectedAdjustment.adjustment_number, rejectReason);
+      }
       refetch();
     } else {
       toast.error(result.error || 'Failed to reject');

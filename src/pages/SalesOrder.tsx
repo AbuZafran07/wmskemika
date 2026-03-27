@@ -704,6 +704,11 @@ export default function SalesOrder() {
     const result = await approveSalesOrder(selectedOrder.id);
     if (result.success) {
       toast.success(language === "en" ? "Sales Order approved" : "Sales Order disetujui");
+      // Notify creator about approval
+      if (selectedOrder.created_by) {
+        const { notifyOrderApproved } = await import('@/lib/pushNotifications');
+        notifyOrderApproved(selectedOrder.created_by, 'Sales Order', selectedOrder.sales_order_number);
+      }
       refetch();
     } else {
       toast.error(result.error || "Failed to approve");
