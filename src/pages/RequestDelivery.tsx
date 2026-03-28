@@ -997,7 +997,7 @@ export default function RequestDelivery() {
               <PopoverContent className="w-auto p-0 z-50" align="end" sideOffset={8}>
                 <Calendar
                   mode="single"
-                  className="p-3 pointer-events-auto [&_table]:w-full [&_td]:w-24 [&_td]:h-20 [&_th]:w-24 [&_td]:align-top [&_td]:overflow-hidden [&_button]:w-full [&_button]:h-full [&_button]:flex [&_button]:flex-col [&_button]:items-center [&_button]:justify-start [&_button]:pt-1 [&_button]:overflow-hidden"
+                  className="p-3 pointer-events-auto [&_table]:w-full [&_td]:w-28 [&_td]:min-h-[5rem] [&_th]:w-28 [&_td]:align-top [&_button]:w-full [&_button]:h-full [&_button]:flex [&_button]:flex-col [&_button]:items-center [&_button]:justify-start [&_button]:pt-1 [&_.rdp-caption]:flex [&_.rdp-caption]:justify-between [&_.rdp-caption]:items-center [&_.rdp-nav]:static [&_.rdp-nav]:flex [&_.rdp-nav]:gap-1 [&_.rdp-caption_label]:text-base [&_.rdp-caption_label]:font-semibold"
                   modifiers={{
                     weekend: (date) => isWeekend(date),
                     holiday: (date) => !!isHoliday(date),
@@ -1012,17 +1012,10 @@ export default function RequestDelivery() {
                       const dayNum = date.getDate();
                       const weekend = isWeekend(date);
                       return (
-                        <div className="flex flex-col items-center gap-0.5 w-full overflow-hidden">
+                        <div className="flex flex-col items-center gap-0.5 w-full">
                           <span className={cn("text-sm font-semibold", (holidayName || weekend) && "text-red-500 font-bold")}>{dayNum}</span>
                           {holidayName && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="text-[8px] leading-tight text-red-500 text-center line-clamp-2 w-full overflow-hidden break-words px-0.5">{holidayName}</span>
-                              </TooltipTrigger>
-                              <TooltipContent side="bottom" className="text-xs z-[60] max-w-[200px]">
-                                <p>{holidayName}</p>
-                              </TooltipContent>
-                            </Tooltip>
+                            <span className="text-[7px] leading-[1.2] text-red-500 text-center w-full break-words px-0.5">{holidayName}</span>
                           )}
                         </div>
                       );
