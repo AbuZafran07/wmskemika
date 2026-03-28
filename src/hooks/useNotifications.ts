@@ -132,11 +132,36 @@ export function useNotifications() {
       const notifs: Notification[] = [];
       const now = new Date();
 
-      // Throttle stock/expiry alerts to once per week
+      // Throttle stock/expiry alerts based on schedule setting
       const STOCK_ALERT_KEY = 'stock_alert_last_shown';
+      const STOCK_ALERT_SCHEDULE_KEY = 'stock_alert_schedule';
       const lastShown = localStorage.getItem(STOCK_ALERT_KEY);
-      const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
-      const shouldShowStockAlerts = !lastShown || (now.getTime() - parseInt(lastShown, 10)) >= oneWeekMs;
+      
+      // Read schedule from settings (cached in localStorage, refreshed on Settings save)
+      let scheduleMs = 7 * 24 * 60 * 60 * 1000; // default weekly
+      const cachedSchedule = localStorage.getItem(STOCK_ALERT_SCHEDULE_KEY);
+      if (cachedSchedule === 'daily') {
+        scheduleMs = 24 * 60 * 60 * 1000;
+      } else if (cachedSchedule === 'monthly') {
+        scheduleMs = 30 * 24 * 60 * 60 * 1000;
+      }
+      
+      // Fetch schedule from DB if not cached
+      if (!cachedSchedule) {
+        const { data: schedData } = await supabase
+          .from('settings')
+          .select('value')
+          .eq('key', 'stock_alert_schedule')
+          .maybeSingle();
+        if (schedData?.value) {
+          const val = typeof schedData.value === 'string' ? schedData.value : 'weekly';
+          localStorage.setItem(STOCK_ALERT_SCHEDULE_KEY, val);
+          if (val === 'daily') scheduleMs = 24 * 60 * 60 * 1000;
+          else if (val === 'monthly') scheduleMs = 30 * 24 * 60 * 60 * 1000;
+        }
+      }
+      
+      const shouldShowStockAlerts = !lastShown || (now.getTime() - parseInt(lastShown, 10)) >= scheduleMs;
 
       // Fetch products with low stock
       const { data: products } = await supabase
