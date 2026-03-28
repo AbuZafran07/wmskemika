@@ -143,6 +143,11 @@ export default function SettingsPage() {
         },
       });
 
+      // Update cached schedule for client-side throttle
+      localStorage.setItem('stock_alert_schedule', settings.stock_alert_schedule);
+      // Reset last shown so next check uses new schedule
+      localStorage.removeItem('stock_alert_last_shown');
+
       toast.success(language === 'en' ? 'Settings saved successfully' : 'Pengaturan berhasil disimpan');
     } catch (error) {
       console.error('Error saving settings:', error);
