@@ -244,6 +244,7 @@ export default function HolidayManager() {
       fetchHolidays();
     }
     setSaving(false);
+  };
 
   const handleDownloadTemplate = () => {
     const csv = 'holiday_date,name\n2026-01-01,Tahun Baru Masehi\n2026-08-17,Hari Kemerdekaan RI';
