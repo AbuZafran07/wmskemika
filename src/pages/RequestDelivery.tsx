@@ -995,33 +995,56 @@ export default function RequestDelivery() {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0 z-50" align="end" sideOffset={8}>
-                <Calendar
-                  mode="single"
-                  className="p-3 pointer-events-auto [&_table]:w-full [&_td]:w-28 [&_td]:min-h-[5rem] [&_th]:w-28 [&_td]:align-top [&_button]:w-full [&_button]:h-full [&_button]:flex [&_button]:flex-col [&_button]:items-center [&_button]:justify-start [&_button]:pt-1 [&_.rdp-caption]:flex [&_.rdp-caption]:justify-between [&_.rdp-caption]:items-center [&_.rdp-nav]:static [&_.rdp-nav]:flex [&_.rdp-nav]:gap-1 [&_.rdp-caption_label]:text-base [&_.rdp-caption_label]:font-semibold"
-                  modifiers={{
-                    weekend: (date) => isWeekend(date),
-                    holiday: (date) => !!isHoliday(date),
-                  }}
-                  modifiersClassNames={{
-                    weekend: "text-red-500 font-bold",
-                    holiday: "text-red-500 font-bold bg-red-100 dark:bg-red-950/40",
-                  }}
-                  components={{
-                    DayContent: ({ date }) => {
-                      const holidayName = isHoliday(date);
-                      const dayNum = date.getDate();
-                      const weekend = isWeekend(date);
-                      return (
-                        <div className="flex flex-col items-center gap-0.5 w-full">
-                          <span className={cn("text-sm font-semibold", (holidayName || weekend) && "text-red-500 font-bold")}>{dayNum}</span>
-                          {holidayName && (
-                            <span className="text-[7px] leading-[1.2] text-red-500 text-center w-full break-words px-0.5">{holidayName}</span>
-                          )}
-                        </div>
-                      );
-                    },
-                  }}
-                />
+                <div className="p-3">
+                  <Calendar
+                    mode="single"
+                    className="pointer-events-auto !p-0"
+                    classNames={{
+                      months: "flex flex-col",
+                      month: "space-y-2",
+                      caption: "flex justify-between items-center px-1 py-1",
+                      caption_label: "text-base font-semibold",
+                      nav: "flex items-center gap-1",
+                      nav_button: cn("h-7 w-7 bg-transparent p-0 opacity-70 hover:opacity-100 inline-flex items-center justify-center rounded-md border border-input hover:bg-accent hover:text-accent-foreground"),
+                      nav_button_previous: "",
+                      nav_button_next: "",
+                      table: "w-full border-collapse",
+                      head_row: "flex",
+                      head_cell: "text-muted-foreground rounded-md w-[7rem] font-normal text-[0.8rem] text-center",
+                      row: "flex w-full",
+                      cell: "w-[7rem] min-h-[4.5rem] text-center text-sm p-0.5 relative align-top",
+                      day: "w-full h-full min-h-[4rem] p-1 font-normal flex flex-col items-center justify-start rounded-md hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground aria-selected:opacity-100",
+                      day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
+                      day_today: "bg-accent text-accent-foreground",
+                      day_outside: "text-muted-foreground opacity-50",
+                      day_disabled: "text-muted-foreground opacity-50",
+                      day_hidden: "invisible",
+                    }}
+                    modifiers={{
+                      weekend: (date) => isWeekend(date),
+                      holiday: (date) => !!isHoliday(date),
+                    }}
+                    modifiersClassNames={{
+                      weekend: "!text-red-500 font-bold",
+                      holiday: "!text-red-500 font-bold !bg-red-100 dark:!bg-red-950/40",
+                    }}
+                    components={{
+                      DayContent: ({ date }) => {
+                        const holidayName = isHoliday(date);
+                        const dayNum = date.getDate();
+                        const weekend = isWeekend(date);
+                        return (
+                          <div className="flex flex-col items-center gap-0.5 w-full">
+                            <span className={cn("text-sm font-semibold", (holidayName || weekend) && "text-red-500 font-bold")}>{dayNum}</span>
+                            {holidayName && (
+                              <span className="text-[7px] leading-[1.2] text-red-500 text-center w-full break-words px-0.5">{holidayName}</span>
+                            )}
+                          </div>
+                        );
+                      },
+                    }}
+                  />
+                </div>
               </PopoverContent>
             </Popover>
 
