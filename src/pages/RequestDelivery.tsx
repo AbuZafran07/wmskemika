@@ -997,7 +997,7 @@ export default function RequestDelivery() {
               <PopoverContent className="w-auto p-0 z-50" align="end" sideOffset={8}>
                 <Calendar
                   mode="single"
-                  className="p-3 pointer-events-auto [&_table]:w-full [&_td]:w-24 [&_td]:h-20 [&_th]:w-24 [&_td]:align-top [&_button]:w-full [&_button]:h-full [&_button]:flex [&_button]:flex-col [&_button]:items-center [&_button]:justify-start [&_button]:pt-1"
+                  className="p-3 pointer-events-auto [&_table]:w-full [&_td]:w-24 [&_td]:h-20 [&_th]:w-24 [&_td]:align-top [&_td]:overflow-hidden [&_button]:w-full [&_button]:h-full [&_button]:flex [&_button]:flex-col [&_button]:items-center [&_button]:justify-start [&_button]:pt-1 [&_button]:overflow-hidden"
                   modifiers={{
                     weekend: (date) => isWeekend(date),
                     holiday: (date) => !!isHoliday(date),
