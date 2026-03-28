@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarDays, Plus, Trash2, Loader2, Upload, Download, FileText, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { CalendarDays, Plus, Trash2, Loader2, Upload, Download, FileText, AlertTriangle, CheckCircle2, Globe, Pencil, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
