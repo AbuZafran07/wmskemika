@@ -1452,15 +1452,22 @@ export default function RequestDelivery() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {BOARD_COLUMNS.map((col) => (
+                  {BOARD_COLUMNS.map((col) => {
+                    const weekDates = getWeekDates();
+                    const colDate = weekDates[col.id as keyof typeof weekDates];
+                    const colHoliday = colDate ? isHoliday(colDate) : null;
+                    const colIsWeekend = colDate ? isWeekend(colDate) : false;
+                    const isHolidayBlocked = !!(colHoliday || colIsWeekend);
+                    return (
                     <SelectItem 
                       key={col.id} 
                       value={col.id} 
-                      disabled={col.id === moveDialogCard.board_status || col.id === "on_hold_delivery"}
+                      disabled={col.id === moveDialogCard.board_status || col.id === "on_hold_delivery" || isHolidayBlocked}
                     >
-                      {col.label} {col.id === moveDialogCard.board_status ? "(saat ini)" : ""} {col.id === "on_hold_delivery" ? "🔒" : ""}
+                      {col.label} {col.id === moveDialogCard.board_status ? "(saat ini)" : ""} {col.id === "on_hold_delivery" ? "🔒" : ""} {isHolidayBlocked && col.id !== moveDialogCard.board_status ? "🚫 Libur" : ""}
                     </SelectItem>
-                  ))}
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
