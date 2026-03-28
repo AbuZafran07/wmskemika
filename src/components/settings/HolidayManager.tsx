@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarDays, Plus, Trash2, Loader2, Upload, Download, FileText, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { CalendarDays, Plus, Trash2, Loader2, Upload, Download, FileText, AlertTriangle, CheckCircle2, Globe, Pencil, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
@@ -77,8 +77,12 @@ export default function HolidayManager() {
   const [csvRows, setCsvRows] = useState<CsvRow[]>([]);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [fetchingApi, setFetchingApi] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDate, setEditDate] = useState('');
+  const [editName, setEditName] = useState('');
+  const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const currentYear = new Date().getFullYear();
   const years = [currentYear, currentYear + 1, currentYear + 2];
 
@@ -150,6 +154,96 @@ export default function HolidayManager() {
       toast.success('Hari libur berhasil dihapus');
       fetchHolidays();
     }
+  };
+
+  const handleFetchFromApi = async () => {
+    setFetchingApi(true);
+    try {
+      const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${selectedYear}/ID`);
+      if (!res.ok) throw new Error('API request failed');
+      const data = await res.json();
+
+      // Fetch existing holidays to check duplicates
+      const { data: existingData } = await supabase
+        .from('national_holidays')
+        .select('holiday_date, name')
+        .eq('year', parseInt(selectedYear));
+      const existingSet = new Set(
+        (existingData as any[] || []).map(h => `${h.holiday_date}`)
+      );
+
+      const newHolidays = (data as any[])
+        .filter((h: any) => !existingSet.has(h.date))
+        .map((h: any) => ({
+          holiday_date: h.date,
+          name: h.localName || h.name,
+        }));
+
+      if (newHolidays.length === 0) {
+        toast.info('Semua hari libur dari API sudah ada di database');
+        setFetchingApi(false);
+        return;
+      }
+
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from('national_holidays')
+        .insert(newHolidays.map(h => ({
+          ...h,
+          created_by: userData.user?.id,
+        })) as any[]);
+
+      if (error) {
+        console.error('Error inserting from API:', error);
+        toast.error('Gagal menyimpan data dari API');
+      } else {
+        toast.success(`${newHolidays.length} hari libur berhasil diambil dari API`);
+        fetchHolidays();
+      }
+    } catch (err) {
+      console.error('Error fetching from API:', err);
+      toast.error('Gagal mengambil data dari API. Coba lagi nanti.');
+    }
+    setFetchingApi(false);
+  };
+
+  const startEdit = (h: Holiday) => {
+    setEditingId(h.id);
+    setEditDate(h.holiday_date);
+    setEditName(h.name);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditDate('');
+    setEditName('');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editDate || !editName.trim()) {
+      toast.error('Tanggal dan nama wajib diisi');
+      return;
+    }
+    setSaving(true);
+    const year = new Date(editDate + 'T00:00:00').getFullYear();
+    const { error } = await supabase
+      .from('national_holidays')
+      .update({
+        holiday_date: editDate,
+        name: editName.trim(),
+        year,
+      } as any)
+      .eq('id', editingId!);
+
+    if (error) {
+      console.error('Error updating holiday:', error);
+      toast.error('Gagal memperbarui hari libur');
+    } else {
+      toast.success('Hari libur berhasil diperbarui');
+      cancelEdit();
+      fetchHolidays();
+    }
+    setSaving(false);
   };
 
   const handleDownloadTemplate = () => {
@@ -348,6 +442,16 @@ export default function HolidayManager() {
                 <Upload className="w-3.5 h-3.5" />
                 Impor CSV
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleFetchFromApi}
+                disabled={fetchingApi}
+                className="gap-1 text-xs"
+              >
+                {fetchingApi ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Globe className="w-3.5 h-3.5" />}
+                Ambil dari API
+              </Button>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -393,22 +497,60 @@ export default function HolidayManager() {
             <div className="space-y-1 max-h-80 overflow-y-auto">
               {holidays.map((h) => {
                 const date = new Date(h.holiday_date + 'T00:00:00');
+                const isEditing = editingId === h.id;
                 return (
-                  <div key={h.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50 group">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-mono text-muted-foreground w-24 flex-shrink-0">
-                        {format(date, 'dd MMM yyyy', { locale: idLocale })}
-                      </span>
-                      <span className="text-sm font-medium text-destructive">{h.name}</span>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => handleDelete(h.id, h.name)}
-                    >
-                      <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                    </Button>
+                  <div key={h.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50 group gap-2">
+                    {isEditing ? (
+                      <>
+                        <Input
+                          type="date"
+                          value={editDate}
+                          onChange={(e) => setEditDate(e.target.value)}
+                          className="w-40 h-8 text-xs"
+                        />
+                        <Input
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className="flex-1 h-8 text-xs"
+                          onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit()}
+                        />
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleSaveEdit} disabled={saving}>
+                            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5 text-primary" />}
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={cancelEdit}>
+                            <X className="w-3.5 h-3.5 text-muted-foreground" />
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-mono text-muted-foreground w-24 flex-shrink-0">
+                            {format(date, 'dd MMM yyyy', { locale: idLocale })}
+                          </span>
+                          <span className="text-sm font-medium text-destructive">{h.name}</span>
+                        </div>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => startEdit(h)}
+                          >
+                            <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => handleDelete(h.id, h.name)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 );
               })}
