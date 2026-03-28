@@ -156,6 +156,95 @@ export default function HolidayManager() {
     }
   };
 
+  const handleFetchFromApi = async () => {
+    setFetchingApi(true);
+    try {
+      const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${selectedYear}/ID`);
+      if (!res.ok) throw new Error('API request failed');
+      const data = await res.json();
+
+      // Fetch existing holidays to check duplicates
+      const { data: existingData } = await supabase
+        .from('national_holidays')
+        .select('holiday_date, name')
+        .eq('year', parseInt(selectedYear));
+      const existingSet = new Set(
+        (existingData as any[] || []).map(h => `${h.holiday_date}`)
+      );
+
+      const newHolidays = (data as any[])
+        .filter((h: any) => !existingSet.has(h.date))
+        .map((h: any) => ({
+          holiday_date: h.date,
+          name: h.localName || h.name,
+        }));
+
+      if (newHolidays.length === 0) {
+        toast.info('Semua hari libur dari API sudah ada di database');
+        setFetchingApi(false);
+        return;
+      }
+
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from('national_holidays')
+        .insert(newHolidays.map(h => ({
+          ...h,
+          created_by: userData.user?.id,
+        })) as any[]);
+
+      if (error) {
+        console.error('Error inserting from API:', error);
+        toast.error('Gagal menyimpan data dari API');
+      } else {
+        toast.success(`${newHolidays.length} hari libur berhasil diambil dari API`);
+        fetchHolidays();
+      }
+    } catch (err) {
+      console.error('Error fetching from API:', err);
+      toast.error('Gagal mengambil data dari API. Coba lagi nanti.');
+    }
+    setFetchingApi(false);
+  };
+
+  const startEdit = (h: Holiday) => {
+    setEditingId(h.id);
+    setEditDate(h.holiday_date);
+    setEditName(h.name);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditDate('');
+    setEditName('');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editDate || !editName.trim()) {
+      toast.error('Tanggal dan nama wajib diisi');
+      return;
+    }
+    setSaving(true);
+    const year = new Date(editDate + 'T00:00:00').getFullYear();
+    const { error } = await supabase
+      .from('national_holidays')
+      .update({
+        holiday_date: editDate,
+        name: editName.trim(),
+        year,
+      } as any)
+      .eq('id', editingId!);
+
+    if (error) {
+      console.error('Error updating holiday:', error);
+      toast.error('Gagal memperbarui hari libur');
+    } else {
+      toast.success('Hari libur berhasil diperbarui');
+      cancelEdit();
+      fetchHolidays();
+    }
+    setSaving(false);
+
   const handleDownloadTemplate = () => {
     const csv = 'holiday_date,name\n2026-01-01,Tahun Baru Masehi\n2026-08-17,Hari Kemerdekaan RI';
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
