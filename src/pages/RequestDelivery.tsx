@@ -11,11 +11,58 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Plus, Package, Calendar, User, Building2, Truck, RefreshCw, Search, CheckSquare, Image, X, Maximize2, Minimize2, ZoomIn, ZoomOut, CheckCircle2, Filter, Archive, RotateCcw, Trash2, AlertTriangle, Bell } from "lucide-react";
+import { Plus, Package, Calendar as CalendarIcon, User, Building2, Truck, RefreshCw, Search, CheckSquare, Image, X, Maximize2, Minimize2, ZoomIn, ZoomOut, CheckCircle2, Filter, Archive, RotateCcw, Trash2, AlertTriangle, Bell, CalendarDays } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { format } from "date-fns";
+import { format, startOfWeek, addDays, isSameDay } from "date-fns";
+import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { Calendar } from "@/components/ui/calendar";
+
+// Indonesian national holidays 2026
+const HOLIDAYS_2026: { date: string; name: string }[] = [
+  { date: "2026-01-01", name: "Tahun Baru Masehi" },
+  { date: "2026-01-29", name: "Tahun Baru Imlek" },
+  { date: "2026-02-17", name: "Isra Mi'raj" },
+  { date: "2026-03-22", name: "Hari Raya Nyepi" },
+  { date: "2026-03-29", name: "Idul Fitri" },
+  { date: "2026-03-30", name: "Idul Fitri" },
+  { date: "2026-03-31", name: "Cuti Bersama Idul Fitri" },
+  { date: "2026-04-01", name: "Cuti Bersama Idul Fitri" },
+  { date: "2026-04-02", name: "Wafat Isa Al-Masih" },
+  { date: "2026-05-01", name: "Hari Buruh" },
+  { date: "2026-05-14", name: "Kenaikan Isa Al-Masih" },
+  { date: "2026-05-16", name: "Hari Raya Waisak" },
+  { date: "2026-06-01", name: "Hari Lahir Pancasila" },
+  { date: "2026-06-05", name: "Idul Adha" },
+  { date: "2026-06-26", name: "Tahun Baru Hijriyah" },
+  { date: "2026-08-17", name: "Hari Kemerdekaan RI" },
+  { date: "2026-09-04", name: "Maulid Nabi Muhammad" },
+  { date: "2026-12-25", name: "Hari Natal" },
+];
+
+function isHoliday(date: Date): string | null {
+  const dateStr = format(date, "yyyy-MM-dd");
+  const found = HOLIDAYS_2026.find(h => h.date === dateStr);
+  return found ? found.name : null;
+}
+
+function isWeekend(date: Date): boolean {
+  const day = date.getDay();
+  return day === 0 || day === 6;
+}
+
+function getWeekDates(): Record<string, Date> {
+  const now = new Date();
+  const monday = startOfWeek(now, { weekStartsOn: 1 });
+  return {
+    pengiriman_senin: monday,
+    pengiriman_selasa: addDays(monday, 1),
+    pengiriman_rabu: addDays(monday, 2),
+    pengiriman_kamis: addDays(monday, 3),
+    pengiriman_jumat: addDays(monday, 4),
+  };
+}
 import DeliveryCardDetail from "@/components/delivery/DeliveryCardDetail";
 import DeliveryMarqueeTicker from "@/components/delivery/DeliveryMarqueeTicker";
 import { notifyDeliveryCardMoved, notifyNewDeliveryCard } from "@/lib/pushNotifications";
@@ -1108,8 +1155,26 @@ export default function RequestDelivery() {
               >
                 {/* Column Header */}
                 <div className={cn("px-3 py-2.5 rounded-t-xl flex items-center justify-between", column.color)}>
-                  <span className="text-white text-xs font-bold truncate">{column.label}</span>
-                  <Badge variant="secondary" className="bg-white/20 text-white text-[10px] h-5 min-w-[20px] flex items-center justify-center">
+                  <span className={cn(
+                    "text-xs font-bold truncate",
+                    (() => {
+                      const weekDates = getWeekDates();
+                      const colDate = weekDates[column.id as keyof typeof weekDates];
+                      if (colDate && (isHoliday(colDate) || isWeekend(colDate))) return "text-red-300";
+                      return "text-white";
+                    })()
+                  )}>
+                    {column.label}
+                    {(() => {
+                      const weekDates = getWeekDates();
+                      const colDate = weekDates[column.id as keyof typeof weekDates];
+                      if (colDate) {
+                        return ` - ${format(colDate, "d MMM yyyy", { locale: idLocale })}`;
+                      }
+                      return "";
+                    })()}
+                  </span>
+                  <Badge variant="secondary" className="bg-white/20 text-white text-[10px] h-5 min-w-[20px] flex items-center justify-center flex-shrink-0">
                     {columnCards.length}
                   </Badge>
                 </div>
