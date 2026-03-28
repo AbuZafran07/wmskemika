@@ -987,6 +987,56 @@ export default function RequestDelivery() {
               </Popover>
             )}
 
+            {/* Week Calendar */}
+            <Popover>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="icon" className="h-8 w-8">
+                      <CalendarDays className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent><p>Kalender Minggu Ini</p></TooltipContent>
+              </Tooltip>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  mode="single"
+                  className="p-3 pointer-events-auto"
+                  modifiers={{
+                    weekend: (date) => isWeekend(date),
+                    holiday: (date) => !!isHoliday(date),
+                  }}
+                  modifiersClassNames={{
+                    weekend: "text-red-500 font-bold",
+                    holiday: "text-red-500 font-bold bg-red-50 dark:bg-red-950/30",
+                  }}
+                  components={{
+                    DayContent: ({ date }) => {
+                      const holidayName = isHoliday(date);
+                      const dayNum = date.getDate();
+                      if (holidayName) {
+                        return (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="text-red-500 font-bold">{dayNum}</span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs">
+                              <p>{holidayName}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      }
+                      if (isWeekend(date)) {
+                        return <span className="text-red-500 font-bold">{dayNum}</span>;
+                      }
+                      return <span>{dayNum}</span>;
+                    },
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
+
             {/* Filter & Search */}
             <Popover>
               <Tooltip>
