@@ -32,6 +32,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<SettingsData>({
     allow_admin_approve: false,
+    stock_alert_schedule: 'weekly',
   });
 
   // Access is already controlled by RouteGuard - this is additional safety
