@@ -59,7 +59,6 @@ export default function SettingsPage() {
 
       data?.forEach(item => {
         if (item.key === 'allow_admin_approve') {
-          // Handle both boolean and object formats
           let value = false;
           if (typeof item.value === 'boolean') {
             value = item.value;
@@ -70,6 +69,12 @@ export default function SettingsPage() {
             value = objValue.value === true;
           }
           settingsMap.allow_admin_approve = value;
+        }
+        if (item.key === 'stock_alert_schedule') {
+          const val = typeof item.value === 'string' ? item.value : 'weekly';
+          if (['daily', 'weekly', 'monthly'].includes(val)) {
+            settingsMap.stock_alert_schedule = val as 'daily' | 'weekly' | 'monthly';
+          }
         }
       });
 
@@ -100,6 +105,29 @@ export default function SettingsPage() {
 
       if (error) throw error;
 
+      // Update stock_alert_schedule setting
+      const { error: schedError } = await supabase
+        .from('settings')
+        .upsert({ 
+          key: 'stock_alert_schedule',
+          value: settings.stock_alert_schedule as unknown as any,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'key' });
+
+      if (schedError) throw schedError;
+
+      // Update the cron schedule based on selected frequency
+      const cronExpression = settings.stock_alert_schedule === 'daily' 
+        ? '0 8 * * *'        // Every day at 08:00 UTC
+        : settings.stock_alert_schedule === 'monthly'
+        ? '0 8 1 * *'        // 1st of every month at 08:00 UTC
+        : '0 8 * * 1';       // Every Monday at 08:00 UTC (default weekly)
+
+      // Update cron job via edge function
+      await supabase.functions.invoke('check-stock-alerts', {
+        body: { action: 'update_schedule', cron_expression: cronExpression }
+      });
+
       // Log the change
       const { data: userData } = await supabase.auth.getUser();
       await supabase.from('audit_logs').insert({
@@ -108,8 +136,11 @@ export default function SettingsPage() {
         action: 'update',
         module: 'settings',
         ref_table: 'settings',
-        ref_no: 'allow_admin_approve',
-        new_data: { allow_admin_approve: settings.allow_admin_approve },
+        ref_no: 'stock_alert_schedule',
+        new_data: { 
+          allow_admin_approve: settings.allow_admin_approve,
+          stock_alert_schedule: settings.stock_alert_schedule,
+        },
       });
 
       toast.success(language === 'en' ? 'Settings saved successfully' : 'Pengaturan berhasil disimpan');
