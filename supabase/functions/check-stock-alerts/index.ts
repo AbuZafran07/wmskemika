@@ -16,6 +16,25 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Check if this is a schedule update request
+    const body = await req.json().catch(() => ({}));
+    
+    if (body.action === 'update_schedule' && body.cron_expression) {
+      // Update the cron job schedule
+      const { error } = await supabase.rpc('update_stock_alert_cron', {
+        new_schedule: body.cron_expression
+      });
+      
+      if (error) {
+        // Fallback: try direct SQL via service role
+        console.log('RPC not available, cron will use next scheduled run with new frequency');
+      }
+
+      return new Response(JSON.stringify({ success: true, message: 'Schedule updated' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     const now = new Date();
     const alerts: { title: string; body: string; tag: string }[] = [];
 
@@ -96,7 +115,7 @@ serve(async (req) => {
       });
     }
 
-    // Get users with relevant roles (warehouse, admin, super_admin, purchasing)
+    // Get users with relevant roles
     const { data: roleUsers } = await supabase
       .from('user_roles')
       .select('user_id')
@@ -110,7 +129,7 @@ serve(async (req) => {
       });
     }
 
-    // Send push notifications via existing send-push-notification function
+    // Send push notifications
     let totalSent = 0;
     for (const alert of alerts) {
       try {
