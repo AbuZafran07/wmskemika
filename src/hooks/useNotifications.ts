@@ -132,6 +132,12 @@ export function useNotifications() {
       const notifs: Notification[] = [];
       const now = new Date();
 
+      // Throttle stock/expiry alerts to once per week
+      const STOCK_ALERT_KEY = 'stock_alert_last_shown';
+      const lastShown = localStorage.getItem(STOCK_ALERT_KEY);
+      const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
+      const shouldShowStockAlerts = !lastShown || (now.getTime() - parseInt(lastShown, 10)) >= oneWeekMs;
+
       // Fetch products with low stock
       const { data: products } = await supabase
         .from('products')
@@ -149,7 +155,9 @@ export function useNotifications() {
         .select('id, product_id, batch_no, qty_on_hand, expired_date')
         .gt('qty_on_hand', 0);
 
-      if (products && batches) {
+      if (products && batches && shouldShowStockAlerts) {
+        // Mark timestamp so alerts won't show again for 1 week
+        localStorage.setItem(STOCK_ALERT_KEY, now.getTime().toString());
         // Check for low stock
         products.forEach((product: any) => {
           const productBatches = batches.filter((b: any) => b.product_id === product.id);
