@@ -18,34 +18,7 @@ import { format, startOfWeek, addDays, isSameDay } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Calendar } from "@/components/ui/calendar";
-
-// Indonesian national holidays 2026
-const HOLIDAYS_2026: { date: string; name: string }[] = [
-  { date: "2026-01-01", name: "Tahun Baru Masehi" },
-  { date: "2026-01-29", name: "Tahun Baru Imlek" },
-  { date: "2026-02-17", name: "Isra Mi'raj" },
-  { date: "2026-03-22", name: "Hari Raya Nyepi" },
-  { date: "2026-03-29", name: "Idul Fitri" },
-  { date: "2026-03-30", name: "Idul Fitri" },
-  { date: "2026-03-31", name: "Cuti Bersama Idul Fitri" },
-  { date: "2026-04-01", name: "Cuti Bersama Idul Fitri" },
-  { date: "2026-04-02", name: "Wafat Isa Al-Masih" },
-  { date: "2026-05-01", name: "Hari Buruh" },
-  { date: "2026-05-14", name: "Kenaikan Isa Al-Masih" },
-  { date: "2026-05-16", name: "Hari Raya Waisak" },
-  { date: "2026-06-01", name: "Hari Lahir Pancasila" },
-  { date: "2026-06-05", name: "Idul Adha" },
-  { date: "2026-06-26", name: "Tahun Baru Hijriyah" },
-  { date: "2026-08-17", name: "Hari Kemerdekaan RI" },
-  { date: "2026-09-04", name: "Maulid Nabi Muhammad" },
-  { date: "2026-12-25", name: "Hari Natal" },
-];
-
-function isHoliday(date: Date): string | null {
-  const dateStr = format(date, "yyyy-MM-dd");
-  const found = HOLIDAYS_2026.find(h => h.date === dateStr);
-  return found ? found.name : null;
-}
+import { useHolidays } from "@/hooks/useHolidays";
 
 function isWeekend(date: Date): boolean {
   const day = date.getDay();
