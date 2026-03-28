@@ -683,6 +683,15 @@ export default function RequestDelivery() {
   };
 
   const handleDragOver = (e: React.DragEvent, columnId: string) => {
+    // Block drag-over on holiday/weekend pengiriman columns
+    if (PENGIRIMAN_COLUMNS.includes(columnId)) {
+      const weekDates = getWeekDates();
+      const targetDate = weekDates[columnId as keyof typeof weekDates];
+      if (targetDate && (isHoliday(targetDate) || isWeekend(targetDate))) {
+        e.dataTransfer.dropEffect = "none";
+        return;
+      }
+    }
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
     setDragOverColumn(columnId);
