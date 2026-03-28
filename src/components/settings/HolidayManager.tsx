@@ -442,6 +442,16 @@ export default function HolidayManager() {
                 <Upload className="w-3.5 h-3.5" />
                 Impor CSV
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleFetchFromApi}
+                disabled={fetchingApi}
+                className="gap-1 text-xs"
+              >
+                {fetchingApi ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Globe className="w-3.5 h-3.5" />}
+                Ambil dari API
+              </Button>
               <input
                 ref={fileInputRef}
                 type="file"
