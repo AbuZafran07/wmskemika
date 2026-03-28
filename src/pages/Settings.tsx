@@ -48,12 +48,13 @@ export default function SettingsPage() {
       const { data, error } = await supabase
         .from('settings')
         .select('key, value')
-        .in('key', ['allow_admin_approve']);
+        .in('key', ['allow_admin_approve', 'stock_alert_schedule']);
 
       if (error) throw error;
 
       const settingsMap: SettingsData = {
         allow_admin_approve: false,
+        stock_alert_schedule: 'weekly',
       };
 
       data?.forEach(item => {
