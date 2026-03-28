@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, Loader2, Users, Bell, Database, Smartphone } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Loader2, Users, Bell, Database, Smartphone, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -8,6 +8,13 @@ import { PushNotificationToggle } from '@/components/settings/PushNotificationTo
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,6 +22,7 @@ import { toast } from 'sonner';
 
 interface SettingsData {
   allow_admin_approve: boolean;
+  stock_alert_schedule: 'daily' | 'weekly' | 'monthly';
 }
 
 export default function SettingsPage() {
@@ -24,6 +32,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<SettingsData>({
     allow_admin_approve: false,
+    stock_alert_schedule: 'weekly',
   });
 
   // Access is already controlled by RouteGuard - this is additional safety
@@ -39,17 +48,17 @@ export default function SettingsPage() {
       const { data, error } = await supabase
         .from('settings')
         .select('key, value')
-        .in('key', ['allow_admin_approve']);
+        .in('key', ['allow_admin_approve', 'stock_alert_schedule']);
 
       if (error) throw error;
 
       const settingsMap: SettingsData = {
         allow_admin_approve: false,
+        stock_alert_schedule: 'weekly',
       };
 
       data?.forEach(item => {
         if (item.key === 'allow_admin_approve') {
-          // Handle both boolean and object formats
           let value = false;
           if (typeof item.value === 'boolean') {
             value = item.value;
@@ -60,6 +69,12 @@ export default function SettingsPage() {
             value = objValue.value === true;
           }
           settingsMap.allow_admin_approve = value;
+        }
+        if (item.key === 'stock_alert_schedule') {
+          const val = typeof item.value === 'string' ? item.value : 'weekly';
+          if (['daily', 'weekly', 'monthly'].includes(val)) {
+            settingsMap.stock_alert_schedule = val as 'daily' | 'weekly' | 'monthly';
+          }
         }
       });
 
@@ -90,6 +105,29 @@ export default function SettingsPage() {
 
       if (error) throw error;
 
+      // Update stock_alert_schedule setting
+      const { error: schedError } = await supabase
+        .from('settings')
+        .upsert({ 
+          key: 'stock_alert_schedule',
+          value: settings.stock_alert_schedule as unknown as any,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'key' });
+
+      if (schedError) throw schedError;
+
+      // Update the cron schedule based on selected frequency
+      const cronExpression = settings.stock_alert_schedule === 'daily' 
+        ? '0 8 * * *'        // Every day at 08:00 UTC
+        : settings.stock_alert_schedule === 'monthly'
+        ? '0 8 1 * *'        // 1st of every month at 08:00 UTC
+        : '0 8 * * 1';       // Every Monday at 08:00 UTC (default weekly)
+
+      // Update cron job via edge function
+      await supabase.functions.invoke('check-stock-alerts', {
+        body: { action: 'update_schedule', cron_expression: cronExpression }
+      });
+
       // Log the change
       const { data: userData } = await supabase.auth.getUser();
       await supabase.from('audit_logs').insert({
@@ -98,9 +136,17 @@ export default function SettingsPage() {
         action: 'update',
         module: 'settings',
         ref_table: 'settings',
-        ref_no: 'allow_admin_approve',
-        new_data: { allow_admin_approve: settings.allow_admin_approve },
+        ref_no: 'stock_alert_schedule',
+        new_data: { 
+          allow_admin_approve: settings.allow_admin_approve,
+          stock_alert_schedule: settings.stock_alert_schedule,
+        },
       });
+
+      // Update cached schedule for client-side throttle
+      localStorage.setItem('stock_alert_schedule', settings.stock_alert_schedule);
+      // Reset last shown so next check uses new schedule
+      localStorage.removeItem('stock_alert_last_shown');
 
       toast.success(language === 'en' ? 'Settings saved successfully' : 'Pengaturan berhasil disimpan');
     } catch (error) {
@@ -350,6 +396,82 @@ export default function SettingsPage() {
                         </ul>
                       </div>
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Stock Alert Schedule */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-warning/10">
+                      <Clock className="w-5 h-5 text-warning" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">
+                        {language === 'en' ? 'Stock Alert Schedule' : 'Jadwal Peringatan Stok'}
+                      </CardTitle>
+                      <CardDescription>
+                        {language === 'en' 
+                          ? 'Set how often expired & low stock alerts appear'
+                          : 'Atur seberapa sering peringatan expired & low stock muncul'
+                        }
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                    <div className="space-y-1 flex-1 mr-4">
+                      <Label className="text-base font-medium">
+                        {language === 'en' ? 'Alert Frequency' : 'Frekuensi Peringatan'}
+                      </Label>
+                      <p className="text-sm text-muted-foreground">
+                        {language === 'en'
+                          ? 'Controls how often expired/low stock notifications appear in-app and via push notification'
+                          : 'Mengatur seberapa sering notifikasi expired/low stock muncul di aplikasi dan push notification'
+                        }
+                      </p>
+                    </div>
+                    <Select 
+                      value={settings.stock_alert_schedule} 
+                      onValueChange={(val) => setSettings(prev => ({ ...prev, stock_alert_schedule: val as 'daily' | 'weekly' | 'monthly' }))}
+                    >
+                      <SelectTrigger className="w-40">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="daily">
+                          {language === 'en' ? 'Daily' : 'Harian'}
+                        </SelectItem>
+                        <SelectItem value="weekly">
+                          {language === 'en' ? 'Weekly' : 'Mingguan'}
+                        </SelectItem>
+                        <SelectItem value="monthly">
+                          {language === 'en' ? 'Monthly' : 'Bulanan'}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="rounded-lg bg-muted/50 p-4">
+                    <h4 className="text-sm font-medium mb-2">
+                      {language === 'en' ? 'Schedule Details:' : 'Detail Jadwal:'}
+                    </h4>
+                    <ul className="text-sm text-muted-foreground space-y-1">
+                      <li className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${settings.stock_alert_schedule === 'daily' ? 'bg-success' : 'bg-muted-foreground'}`} />
+                        <strong>{language === 'en' ? 'Daily:' : 'Harian:'}</strong> {language === 'en' ? 'Every day at 15:00 WIB' : 'Setiap hari pukul 15:00 WIB'}
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${settings.stock_alert_schedule === 'weekly' ? 'bg-success' : 'bg-muted-foreground'}`} />
+                        <strong>{language === 'en' ? 'Weekly:' : 'Mingguan:'}</strong> {language === 'en' ? 'Every Monday at 15:00 WIB' : 'Setiap Senin pukul 15:00 WIB'}
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${settings.stock_alert_schedule === 'monthly' ? 'bg-success' : 'bg-muted-foreground'}`} />
+                        <strong>{language === 'en' ? 'Monthly:' : 'Bulanan:'}</strong> {language === 'en' ? 'First day of month at 15:00 WIB' : 'Tanggal 1 setiap bulan pukul 15:00 WIB'}
+                      </li>
+                    </ul>
                   </div>
                 </CardContent>
               </Card>
