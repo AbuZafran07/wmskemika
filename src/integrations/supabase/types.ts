@@ -536,6 +536,33 @@ export type Database = {
           },
         ]
       }
+      national_holidays: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          holiday_date: string
+          id: string
+          name: string
+          year: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          holiday_date: string
+          id?: string
+          name: string
+          year?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          holiday_date?: string
+          id?: string
+          name?: string
+          year?: number | null
+        }
+        Relationships: []
+      }
       plan_order_headers: {
         Row: {
           approved_at: string | null
