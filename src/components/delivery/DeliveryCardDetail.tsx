@@ -1796,7 +1796,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
             </div>
 
             {/* Comments list */}
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 [&>div[data-radix-scroll-area-viewport]]:!overflow-visible md:[&>div[data-radix-scroll-area-viewport]]:!overflow-auto">
               <div className="px-4 py-3">
                 {comments.length === 0 ? (
                   <div className="text-center py-4 text-muted-foreground">
