@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, Loader2, Users, Bell, Database, Smartphone, Clock } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Loader2, Users, Bell, Database, Smartphone, Clock, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import BackupRestore from '@/components/settings/BackupRestore';
+import HolidayManager from '@/components/settings/HolidayManager';
 import { PushNotificationToggle } from '@/components/settings/PushNotificationToggle';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -191,6 +192,10 @@ export default function SettingsPage() {
           <TabsTrigger value="general">
             <SettingsIcon className="w-4 h-4 mr-2" />
             Umum
+          </TabsTrigger>
+          <TabsTrigger value="holidays">
+            <CalendarDays className="w-4 h-4 mr-2" />
+            Hari Libur
           </TabsTrigger>
           <TabsTrigger value="backup">
             <Database className="w-4 h-4 mr-2" />
@@ -529,6 +534,10 @@ export default function SettingsPage() {
               </Card>
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="holidays">
+          <HolidayManager />
         </TabsContent>
 
         <TabsContent value="backup">
