@@ -1391,9 +1391,9 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         </div>
 
         {/* Two-column layout on desktop, stacked on mobile */}
-        <div className="flex flex-col md:flex-row flex-1 min-h-0 border-t overflow-y-auto md:overflow-hidden">
+        <div className="flex flex-col md:flex-row flex-1 min-h-0 border-t overflow-y-auto md:overflow-hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
           {/* LEFT PANEL - Details, Products, Attachments */}
-          <ScrollArea className="flex-1 min-w-0 md:border-r">
+          <ScrollArea className="flex-1 min-w-0 md:border-r [&>div[data-radix-scroll-area-viewport]]:!overflow-visible md:[&>div[data-radix-scroll-area-viewport]]:!overflow-auto">
             <div className="space-y-4 p-4">
               {/* Detail info */}
               <div className="grid grid-cols-2 gap-3 text-sm">
@@ -1796,7 +1796,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
             </div>
 
             {/* Comments list */}
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 [&>div[data-radix-scroll-area-viewport]]:!overflow-visible md:[&>div[data-radix-scroll-area-viewport]]:!overflow-auto">
               <div className="px-4 py-3">
                 {comments.length === 0 ? (
                   <div className="text-center py-4 text-muted-foreground">
