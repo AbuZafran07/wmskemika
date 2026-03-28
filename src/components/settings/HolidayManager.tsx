@@ -497,22 +497,60 @@ export default function HolidayManager() {
             <div className="space-y-1 max-h-80 overflow-y-auto">
               {holidays.map((h) => {
                 const date = new Date(h.holiday_date + 'T00:00:00');
+                const isEditing = editingId === h.id;
                 return (
-                  <div key={h.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50 group">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-mono text-muted-foreground w-24 flex-shrink-0">
-                        {format(date, 'dd MMM yyyy', { locale: idLocale })}
-                      </span>
-                      <span className="text-sm font-medium text-destructive">{h.name}</span>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => handleDelete(h.id, h.name)}
-                    >
-                      <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                    </Button>
+                  <div key={h.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50 group gap-2">
+                    {isEditing ? (
+                      <>
+                        <Input
+                          type="date"
+                          value={editDate}
+                          onChange={(e) => setEditDate(e.target.value)}
+                          className="w-40 h-8 text-xs"
+                        />
+                        <Input
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className="flex-1 h-8 text-xs"
+                          onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit()}
+                        />
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleSaveEdit} disabled={saving}>
+                            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5 text-primary" />}
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={cancelEdit}>
+                            <X className="w-3.5 h-3.5 text-muted-foreground" />
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-mono text-muted-foreground w-24 flex-shrink-0">
+                            {format(date, 'dd MMM yyyy', { locale: idLocale })}
+                          </span>
+                          <span className="text-sm font-medium text-destructive">{h.name}</span>
+                        </div>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => startEdit(h)}
+                          >
+                            <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => handleDelete(h.id, h.name)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 );
               })}
