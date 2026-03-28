@@ -1393,7 +1393,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         {/* Two-column layout on desktop, stacked on mobile */}
         <div className="flex flex-col md:flex-row flex-1 min-h-0 border-t overflow-y-auto md:overflow-hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
           {/* LEFT PANEL - Details, Products, Attachments */}
-          <ScrollArea className="flex-1 min-w-0 md:border-r [&>div[data-radix-scroll-area-viewport]]:!overflow-visible md:[&>div[data-radix-scroll-area-viewport]]:!overflow-auto">
+          <ScrollArea className="md:flex-1 min-w-0 md:border-r !overflow-visible md:!overflow-hidden [&>div[data-radix-scroll-area-viewport]]:!overflow-visible md:[&>div[data-radix-scroll-area-viewport]]:!overflow-auto">
             <div className="space-y-4 p-4">
               {/* Detail info */}
               <div className="grid grid-cols-2 gap-3 text-sm">
@@ -1723,7 +1723,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           </ScrollArea>
 
           {/* RIGHT PANEL - Comments & Activity */}
-          <div className="w-full md:w-[340px] flex-shrink-0 flex flex-col min-h-0 border-t md:border-t-0">
+          <div className="w-full md:w-[340px] flex-shrink-0 flex flex-col md:min-h-0 border-t md:border-t-0">
             <div className="flex items-center gap-2 px-4 py-3 border-b">
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
               <span className="text-xs font-semibold">Comments & Activity</span>
@@ -1796,7 +1796,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
             </div>
 
             {/* Comments list */}
-            <ScrollArea className="flex-1 [&>div[data-radix-scroll-area-viewport]]:!overflow-visible md:[&>div[data-radix-scroll-area-viewport]]:!overflow-auto">
+            <ScrollArea className="md:flex-1 !overflow-visible md:!overflow-hidden [&>div[data-radix-scroll-area-viewport]]:!overflow-visible md:[&>div[data-radix-scroll-area-viewport]]:!overflow-auto">
               <div className="px-4 py-3">
                 {comments.length === 0 ? (
                   <div className="text-center py-4 text-muted-foreground">
