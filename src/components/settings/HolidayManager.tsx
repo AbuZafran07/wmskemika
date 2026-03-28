@@ -77,8 +77,12 @@ export default function HolidayManager() {
   const [csvRows, setCsvRows] = useState<CsvRow[]>([]);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [fetchingApi, setFetchingApi] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDate, setEditDate] = useState('');
+  const [editName, setEditName] = useState('');
+  const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const currentYear = new Date().getFullYear();
   const years = [currentYear, currentYear + 1, currentYear + 2];
 
