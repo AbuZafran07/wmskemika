@@ -504,6 +504,23 @@ export default function RequestDelivery() {
       return;
     }
 
+    // === BLOCK: Cannot move to pengiriman column if that day is a holiday or weekend ===
+    if (PENGIRIMAN_COLUMNS.includes(newStatus)) {
+      const weekDates = getWeekDates();
+      const targetDate = weekDates[newStatus as keyof typeof weekDates];
+      if (targetDate) {
+        const holidayName = isHoliday(targetDate);
+        if (holidayName) {
+          toast.error(`Tidak dapat memindahkan card ke hari ini karena libur: ${holidayName}`);
+          return;
+        }
+        if (isWeekend(targetDate)) {
+          toast.error("Tidak dapat memindahkan card ke hari Sabtu/Minggu.");
+          return;
+        }
+      }
+    }
+
     // === VALIDATION: approval_delivery → pengiriman_* ===
     if (cardToMove.board_status === "approval_delivery" && PENGIRIMAN_COLUMNS.includes(newStatus)) {
       // Only sales & super_admin can move
@@ -971,35 +988,28 @@ export default function RequestDelivery() {
               <PopoverContent className="w-auto p-0 z-50" align="end" sideOffset={8}>
                 <Calendar
                   mode="single"
-                  className="p-3 pointer-events-auto"
+                  className="p-3 pointer-events-auto [&_table]:w-full [&_td]:w-24 [&_td]:h-20 [&_th]:w-24 [&_td]:align-top [&_button]:w-full [&_button]:h-full [&_button]:flex [&_button]:flex-col [&_button]:items-center [&_button]:justify-start [&_button]:pt-1"
                   modifiers={{
                     weekend: (date) => isWeekend(date),
                     holiday: (date) => !!isHoliday(date),
                   }}
                   modifiersClassNames={{
                     weekend: "text-red-500 font-bold",
-                    holiday: "text-red-500 font-bold bg-red-50 dark:bg-red-950/30",
+                    holiday: "text-red-500 font-bold bg-red-100 dark:bg-red-950/40",
                   }}
                   components={{
                     DayContent: ({ date }) => {
                       const holidayName = isHoliday(date);
                       const dayNum = date.getDate();
-                      if (holidayName) {
-                        return (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="text-red-500 font-bold">{dayNum}</span>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="text-xs z-[60]">
-                              <p>{holidayName}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        );
-                      }
-                      if (isWeekend(date)) {
-                        return <span className="text-red-500 font-bold">{dayNum}</span>;
-                      }
-                      return <span>{dayNum}</span>;
+                      const weekend = isWeekend(date);
+                      return (
+                        <div className="flex flex-col items-center gap-0.5">
+                          <span className={cn("text-sm font-semibold", (holidayName || weekend) && "text-red-500 font-bold")}>{dayNum}</span>
+                          {holidayName && (
+                            <span className="text-[9px] leading-tight text-red-500 text-center line-clamp-2 px-0.5">{holidayName}</span>
+                          )}
+                        </div>
+                      );
                     },
                   }}
                 />
