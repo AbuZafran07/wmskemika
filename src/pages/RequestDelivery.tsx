@@ -963,17 +963,12 @@ export default function RequestDelivery() {
 
             {/* Week Calendar */}
             <Popover>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="icon" className="h-8 w-8">
-                      <CalendarDays className="h-4 w-4" />
-                    </Button>
-                  </PopoverTrigger>
-                </TooltipTrigger>
-                <TooltipContent><p>Kalender Minggu Ini</p></TooltipContent>
-              </Tooltip>
-              <PopoverContent className="w-auto p-0" align="end">
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="icon" className="h-8 w-8" title="Kalender Minggu Ini">
+                  <CalendarDays className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 z-50" align="end" sideOffset={8}>
                 <Calendar
                   mode="single"
                   className="p-3 pointer-events-auto"
@@ -995,7 +990,7 @@ export default function RequestDelivery() {
                             <TooltipTrigger asChild>
                               <span className="text-red-500 font-bold">{dayNum}</span>
                             </TooltipTrigger>
-                            <TooltipContent side="top" className="text-xs">
+                            <TooltipContent side="top" className="text-xs z-[60]">
                               <p>{holidayName}</p>
                             </TooltipContent>
                           </Tooltip>
