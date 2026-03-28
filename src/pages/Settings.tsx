@@ -395,6 +395,82 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
 
+              {/* Stock Alert Schedule */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-warning/10">
+                      <Clock className="w-5 h-5 text-warning" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">
+                        {language === 'en' ? 'Stock Alert Schedule' : 'Jadwal Peringatan Stok'}
+                      </CardTitle>
+                      <CardDescription>
+                        {language === 'en' 
+                          ? 'Set how often expired & low stock alerts appear'
+                          : 'Atur seberapa sering peringatan expired & low stock muncul'
+                        }
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                    <div className="space-y-1 flex-1 mr-4">
+                      <Label className="text-base font-medium">
+                        {language === 'en' ? 'Alert Frequency' : 'Frekuensi Peringatan'}
+                      </Label>
+                      <p className="text-sm text-muted-foreground">
+                        {language === 'en'
+                          ? 'Controls how often expired/low stock notifications appear in-app and via push notification'
+                          : 'Mengatur seberapa sering notifikasi expired/low stock muncul di aplikasi dan push notification'
+                        }
+                      </p>
+                    </div>
+                    <Select 
+                      value={settings.stock_alert_schedule} 
+                      onValueChange={(val) => setSettings(prev => ({ ...prev, stock_alert_schedule: val as 'daily' | 'weekly' | 'monthly' }))}
+                    >
+                      <SelectTrigger className="w-40">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="daily">
+                          {language === 'en' ? 'Daily' : 'Harian'}
+                        </SelectItem>
+                        <SelectItem value="weekly">
+                          {language === 'en' ? 'Weekly' : 'Mingguan'}
+                        </SelectItem>
+                        <SelectItem value="monthly">
+                          {language === 'en' ? 'Monthly' : 'Bulanan'}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="rounded-lg bg-muted/50 p-4">
+                    <h4 className="text-sm font-medium mb-2">
+                      {language === 'en' ? 'Schedule Details:' : 'Detail Jadwal:'}
+                    </h4>
+                    <ul className="text-sm text-muted-foreground space-y-1">
+                      <li className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${settings.stock_alert_schedule === 'daily' ? 'bg-success' : 'bg-muted-foreground'}`} />
+                        <strong>{language === 'en' ? 'Daily:' : 'Harian:'}</strong> {language === 'en' ? 'Every day at 15:00 WIB' : 'Setiap hari pukul 15:00 WIB'}
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${settings.stock_alert_schedule === 'weekly' ? 'bg-success' : 'bg-muted-foreground'}`} />
+                        <strong>{language === 'en' ? 'Weekly:' : 'Mingguan:'}</strong> {language === 'en' ? 'Every Monday at 15:00 WIB' : 'Setiap Senin pukul 15:00 WIB'}
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${settings.stock_alert_schedule === 'monthly' ? 'bg-success' : 'bg-muted-foreground'}`} />
+                        <strong>{language === 'en' ? 'Monthly:' : 'Bulanan:'}</strong> {language === 'en' ? 'First day of month at 15:00 WIB' : 'Tanggal 1 setiap bulan pukul 15:00 WIB'}
+                      </li>
+                    </ul>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* System Info */}
               <Card>
                 <CardHeader>
