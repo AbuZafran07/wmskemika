@@ -84,6 +84,7 @@ interface DeliveryCard {
 export default function RequestDelivery() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const { isHoliday } = useHolidays();
   const [cards, setCards] = useState<DeliveryCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
