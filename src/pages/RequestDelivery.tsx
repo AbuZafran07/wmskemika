@@ -1012,10 +1012,17 @@ export default function RequestDelivery() {
                       const dayNum = date.getDate();
                       const weekend = isWeekend(date);
                       return (
-                        <div className="flex flex-col items-center gap-0.5">
+                        <div className="flex flex-col items-center gap-0.5 w-full overflow-hidden">
                           <span className={cn("text-sm font-semibold", (holidayName || weekend) && "text-red-500 font-bold")}>{dayNum}</span>
                           {holidayName && (
-                            <span className="text-[9px] leading-tight text-red-500 text-center line-clamp-2 px-0.5">{holidayName}</span>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="text-[8px] leading-tight text-red-500 text-center line-clamp-2 w-full overflow-hidden break-words px-0.5">{holidayName}</span>
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom" className="text-xs z-[60] max-w-[200px]">
+                                <p>{holidayName}</p>
+                              </TooltipContent>
+                            </Tooltip>
                           )}
                         </div>
                       );
