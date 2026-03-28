@@ -1310,7 +1310,7 @@ export default function RequestDelivery() {
                       {/* Footer */}
                       <div className={cn("flex items-center justify-between border-t border-border/40", isFullView ? "pt-1" : "pt-1.5")}>
                         <div className="flex items-center gap-1">
-                          <Calendar className={cn("text-destructive", isFullView ? "h-2.5 w-2.5" : "h-3 w-3")} />
+                          <CalendarIcon className={cn("text-destructive", isFullView ? "h-2.5 w-2.5" : "h-3 w-3")} />
                           <div className="flex flex-col">
                             {!isFullView && <span className="text-[8px] text-destructive font-semibold leading-tight">Deadline Pengiriman</span>}
                             <span className={cn("text-destructive font-bold", isFullView ? "text-[8px]" : "text-[10px]")}>
