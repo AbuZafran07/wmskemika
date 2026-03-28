@@ -475,6 +475,14 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   // Toggle label on card
   const toggleLabel = async (labelId: string) => {
     if (!card || !canManage) return;
+    
+    // Block manual toggle of "Ready to Deliver" label
+    const targetLabel = allLabels.find(l => l.id === labelId);
+    if (targetLabel && /ready to deliver/i.test(targetLabel.name)) {
+      toast.info('Label "Ready to Deliver" dikelola secara otomatis oleh sistem.');
+      return;
+    }
+    
     const isAssigned = cardLabelIds.includes(labelId);
     
     // If assigning (not removing), check if it's Urgent or Cito
@@ -1259,7 +1267,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
               style={{ backgroundColor: label.color }}
             >
               {label.name}
-              {canManage && (
+              {canManage && !/ready to deliver/i.test(label.name) && (
                 <X className="h-3 w-3 cursor-pointer hover:opacity-70" onClick={() => toggleLabel(label.id)} />
               )}
             </Badge>
@@ -1288,6 +1296,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                   <div className="space-y-1 pr-2">
                     {allLabels
                       .filter(l => l.name.toLowerCase().includes(labelSearchQuery.toLowerCase()))
+                      .filter(l => !/ready to deliver/i.test(l.name))
                       .map(label => (
                       <div key={label.id} className="flex items-center gap-1 group">
                         {editingLabelId === label.id ? (
