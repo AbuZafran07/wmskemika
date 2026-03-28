@@ -1179,46 +1179,69 @@ export default function RequestDelivery() {
         >
           {BOARD_COLUMNS.map((column) => {
             const columnCards = getColumnCards(column.id);
+            const weekDates = getWeekDates();
+            const colDate = weekDates[column.id as keyof typeof weekDates];
+            const colHolidayName = colDate ? isHoliday(colDate) : null;
+            const colIsWeekend = colDate ? isWeekend(colDate) : false;
+            const isHolidayColumn = !!(colHolidayName || colIsWeekend);
             return (
               <div
                 key={column.id}
                 className={cn(
-                  "flex flex-col rounded-xl bg-muted/30 border border-border/50 transition-colors",
+                  "flex flex-col rounded-xl border transition-colors",
                   isFullView ? "flex-1 min-w-0" : "w-[280px] flex-shrink-0",
-                  dragOverColumn === column.id && "border-primary/50 bg-primary/5"
+                  isHolidayColumn
+                    ? "bg-red-500/10 border-red-500/30 dark:bg-red-950/20 dark:border-red-500/20"
+                    : "bg-muted/30 border-border/50",
+                  dragOverColumn === column.id && !isHolidayColumn && "border-primary/50 bg-primary/5"
                 )}
                 onDragOver={(e) => handleDragOver(e, column.id)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, column.id)}
               >
                 {/* Column Header */}
-                <div className={cn("px-3 py-2.5 rounded-t-xl flex items-center justify-between", column.color)}>
+                <div className={cn(
+                  "px-3 py-2.5 rounded-t-xl flex items-center justify-between",
+                  isHolidayColumn ? "bg-red-600 dark:bg-red-800" : column.color
+                )}>
                   <span className={cn(
                     "text-xs font-bold truncate",
-                    (() => {
-                      const weekDates = getWeekDates();
-                      const colDate = weekDates[column.id as keyof typeof weekDates];
-                      if (colDate && (isHoliday(colDate) || isWeekend(colDate))) return "text-red-300";
-                      return "text-white";
-                    })()
+                    isHolidayColumn ? "text-red-100" : "text-white"
                   )}>
                     {column.label}
-                    {(() => {
-                      const weekDates = getWeekDates();
-                      const colDate = weekDates[column.id as keyof typeof weekDates];
-                      if (colDate) {
-                        return ` - ${format(colDate, "d MMM yyyy", { locale: idLocale })}`;
-                      }
-                      return "";
-                    })()}
+                    {colDate ? ` - ${format(colDate, "d MMM yyyy", { locale: idLocale })}` : ""}
                   </span>
-                  <Badge variant="secondary" className="bg-white/20 text-white text-[10px] h-5 min-w-[20px] flex items-center justify-center flex-shrink-0">
-                    {columnCards.length}
-                  </Badge>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {isHolidayColumn && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="flex items-center gap-0.5 text-red-200 text-[10px]">
+                            <CalendarIcon className="h-3 w-3" />
+                            <span className="hidden sm:inline">Libur</span>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs">
+                          {colHolidayName || "Akhir Pekan"} — Tidak dapat menerima pengiriman
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                    <Badge variant="secondary" className="bg-white/20 text-white text-[10px] h-5 min-w-[20px] flex items-center justify-center">
+                      {columnCards.length}
+                    </Badge>
+                  </div>
                 </div>
 
-                {/* Cards Container */}
-                <div className="flex-1 overflow-y-auto p-2 space-y-2" style={{ maxHeight: "calc(100vh - 11rem)" }}>
+                {/* Holiday Overlay / Cards Container */}
+                <div className="flex-1 overflow-y-auto p-2 space-y-2 relative" style={{ maxHeight: "calc(100vh - 11rem)" }}>
+                  {isHolidayColumn && columnCards.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-8 text-red-400 dark:text-red-500/60">
+                      <CalendarIcon className="h-8 w-8 mb-2 opacity-50" />
+                      <p className="text-xs font-medium text-center opacity-70">
+                        {colHolidayName || "Akhir Pekan"}
+                      </p>
+                      <p className="text-[10px] text-center opacity-50 mt-0.5">Tidak ada pengiriman</p>
+                    </div>
+                  )}
                   {columnCards.map((card) => (
                     <Card
                       key={card.id}
