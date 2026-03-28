@@ -8,6 +8,13 @@ import { PushNotificationToggle } from '@/components/settings/PushNotificationTo
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,6 +22,7 @@ import { toast } from 'sonner';
 
 interface SettingsData {
   allow_admin_approve: boolean;
+  stock_alert_schedule: 'daily' | 'weekly' | 'monthly';
 }
 
 export default function SettingsPage() {
