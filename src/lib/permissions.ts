@@ -42,6 +42,7 @@ export type MenuKey =
   | 'salesOrder'
   | 'stockOut'
   | 'stockAdjustment'
+  | 'deliveryOrder'
   | 'products'
   | 'categories'
   | 'units'
@@ -75,6 +76,7 @@ export const MENU_ACCESS: Record<MenuKey, UserRole[]> = {
   salesOrder: ['super_admin', 'admin', 'finance', 'sales', 'warehouse'],
   stockOut: ['super_admin', 'admin', 'warehouse'],
   stockAdjustment: ['super_admin', 'admin', 'finance'], // Hide from warehouse
+  deliveryOrder: ['super_admin', 'admin', 'finance', 'sales', 'warehouse'],
   
   // Master Data - Products (Finance can now view these)
   products: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales'],
