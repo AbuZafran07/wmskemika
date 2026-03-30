@@ -1131,7 +1131,106 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   };
 
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Add timestamp watermark to image
+  const addTimestampToImage = (file: File): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("Canvas not supported"));
+
+        ctx.drawImage(img, 0, 0);
+
+        // Timestamp text
+        const now = new Date();
+        const timestamp = format(now, "dd/MM/yyyy HH:mm:ss");
+        
+        const fontSize = Math.max(16, Math.floor(img.width / 30));
+        ctx.font = `bold ${fontSize}px Arial`;
+        
+        // Background strip
+        const textMetrics = ctx.measureText(timestamp);
+        const padding = fontSize * 0.5;
+        const bgHeight = fontSize + padding * 2;
+        const bgWidth = textMetrics.width + padding * 2;
+        
+        ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+        ctx.fillRect(img.width - bgWidth - 10, img.height - bgHeight - 10, bgWidth, bgHeight);
+        
+        // Text
+        ctx.fillStyle = "#FFFFFF";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "bottom";
+        ctx.fillText(timestamp, img.width - 10 - padding, img.height - 10 - padding);
+
+        canvas.toBlob((blob) => {
+          if (!blob) return reject(new Error("Failed to create blob"));
+          const newFile = new File([blob], `camera_${Date.now()}.jpg`, { type: "image/jpeg" });
+          resolve(newFile);
+        }, "image/jpeg", 0.9);
+      };
+      img.onerror = () => reject(new Error("Failed to load image"));
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  const handleCameraCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !card || !user) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Ukuran file maksimal 10MB");
+      return;
+    }
+
+    setUploadingFile(true);
+    setUploadProgress(0);
+    try {
+      // Add timestamp watermark
+      const stampedFile = await addTimestampToImage(file);
+      
+      const fileKey = `delivery/${card.id}/${Date.now()}.jpg`;
+
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 10, 90));
+      }, 200);
+
+      const { error: uploadError } = await supabase.storage
+        .from("documents")
+        .upload(fileKey, stampedFile);
+
+      clearInterval(progressInterval);
+      if (uploadError) throw uploadError;
+
+      setUploadProgress(95);
+      const { data: urlData } = supabase.storage.from("documents").getPublicUrl(fileKey);
+
+      await supabase.from("attachments").insert({
+        ref_table: "delivery_requests",
+        ref_id: card.id,
+        module_name: "delivery",
+        file_key: fileKey,
+        url: urlData.publicUrl,
+        mime_type: "image/jpeg",
+        file_size: stampedFile.size,
+        uploaded_by: user.id,
+      });
+
+      setUploadProgress(100);
+      toast.success("Foto berhasil diupload dengan timestamp");
+      fetchAttachments();
+    } catch (err: any) {
+      toast.error("Gagal upload foto: " + err.message);
+    } finally {
+      setUploadingFile(false);
+      setUploadProgress(0);
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
+    }
+  };
+
     const file = e.target.files?.[0];
     if (!file || !card || !user) return;
 
