@@ -1745,7 +1745,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                               disabled={loadingDOPreview === so.id}
                             >
                               {loadingDOPreview === so.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Printer className="h-3 w-3" />}
-                              Cetak DO
+                              Generate DO
                             </Button>
                             <span className="text-[10px] text-muted-foreground">
                               {format(new Date(so.delivery_date), "dd MMM yyyy", { locale: idLocale })}
