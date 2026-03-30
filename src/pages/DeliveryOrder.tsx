@@ -14,7 +14,7 @@ import { id as localeId } from "date-fns/locale";
 import { toast } from "sonner";
 import { DeliveryOrderPdf, DeliveryOrderData } from "@/components/delivery/DeliveryOrderPdf";
 import { usePagination } from "@/hooks/usePagination";
-import DataTablePagination from "@/components/DataTablePagination";
+import { DataTablePagination } from "@/components/DataTablePagination";
 
 interface StockOutRow {
   id: string;
@@ -116,11 +116,7 @@ export default function DeliveryOrder() {
     });
   }, [stockOuts, search, filterCustomer]);
 
-  const pagination = usePagination({ totalItems: filtered.length, initialPageSize: 20 });
-  const paginatedData = filtered.slice(
-    (pagination.currentPage - 1) * pagination.pageSize,
-    pagination.currentPage * pagination.pageSize
-  );
+  const { currentPage, pageSize, totalPages, paginatedData, setCurrentPage, setPageSize } = usePagination(filtered, { defaultPageSize: 20 });
 
   const handleViewDO = async (row: StockOutRow) => {
     setLoadingDO(row.id);
