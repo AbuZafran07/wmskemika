@@ -89,7 +89,7 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
             body { margin: 0; padding: 15mm; font-family: Arial, sans-serif; color: #111; }
             table { border-collapse: collapse; width: 100%; }
             th, td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; font-size: 11px; }
-            th { background: #1f2937 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            th { background: #166534 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             @media print { body { padding: 10mm; } @page { size: A4; margin: 10mm; } }
           </style>
         </head>
