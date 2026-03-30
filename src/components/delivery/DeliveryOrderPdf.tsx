@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
-import { Printer, X, Loader2 } from 'lucide-react';
+import { Printer, X, Loader2, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -9,8 +9,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
+import { exportSectionBasedPdf } from '@/lib/pdfSectionExport';
+import { PdfGeneratingOverlay } from '@/components/PdfGeneratingOverlay';
 
 export interface DeliveryOrderData {
   id: string;
@@ -47,6 +47,7 @@ interface DeliveryOrderPdfProps {
 
 export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfProps) {
   const [isPrinting, setIsPrinting] = useState(false);
+  const [pdfProgress, setPdfProgress] = useState(0);
   const contentRef = useRef<HTMLDivElement>(null);
 
   if (!data) return null;
@@ -56,77 +57,23 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
 
   const formatDate = (dateStr: string) => format(new Date(dateStr), 'dd MMM yyyy', { locale: localeId });
 
-  const handlePrint = async () => {
+  const handleSavePdf = async () => {
     if (!contentRef.current) return;
     setIsPrinting(true);
+    setPdfProgress(0);
 
     try {
-      const offscreenContainer = document.createElement('div');
-      offscreenContainer.style.position = 'absolute';
-      offscreenContainer.style.left = '-9999px';
-      offscreenContainer.style.top = '0';
-      offscreenContainer.style.width = '210mm';
-      offscreenContainer.style.minHeight = '297mm';
-      offscreenContainer.style.padding = '12mm 15mm';
-      offscreenContainer.style.backgroundColor = '#ffffff';
-      offscreenContainer.style.boxSizing = 'border-box';
-      offscreenContainer.style.zIndex = '-1';
-      document.body.appendChild(offscreenContainer);
-
-      const clonedContent = contentRef.current.cloneNode(true) as HTMLElement;
-      clonedContent.style.width = '100%';
-      offscreenContainer.appendChild(clonedContent);
-
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const canvas = await html2canvas(offscreenContainer, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        width: offscreenContainer.offsetWidth,
-        height: offscreenContainer.offsetHeight,
+      await exportSectionBasedPdf({
+        element: contentRef.current,
+        filename: `DO-${doNumber}.pdf`,
+        onProgress: setPdfProgress,
       });
-
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      const pdfWidth = 210;
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      let heightLeft = pdfHeight;
-      let position = 0;
-      const pageHeight = 297;
-
-      pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
-      heightLeft -= pageHeight;
-
-      while (heightLeft > 0) {
-        position = heightLeft - pdfHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
-        heightLeft -= pageHeight;
-      }
-
-      const pdfBlob = pdf.output('blob');
-      const blobUrl = URL.createObjectURL(pdfBlob);
-      const downloadLink = document.createElement('a');
-      downloadLink.href = blobUrl;
-      downloadLink.download = `DO-${doNumber}.pdf`;
-      downloadLink.style.display = 'none';
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      
-      setTimeout(() => {
-        document.body.removeChild(downloadLink);
-        URL.revokeObjectURL(blobUrl);
-      }, 200);
-
-      document.body.removeChild(offscreenContainer);
     } catch (error) {
       console.error('PDF generation error:', error);
       alert('Gagal membuat PDF. Silakan coba lagi.');
     } finally {
       setIsPrinting(false);
+      setPdfProgress(0);
     }
   };
 
@@ -142,8 +89,8 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
             body { margin: 0; padding: 15mm; font-family: Arial, sans-serif; color: #111; }
             table { border-collapse: collapse; width: 100%; }
             th, td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; font-size: 11px; }
-            th { background: #1f2937; color: white; }
-            @media print { body { padding: 0; } }
+            th { background: #1f2937 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            @media print { body { padding: 10mm; } @page { size: A4; margin: 10mm; } }
           </style>
         </head>
         <body>${contentRef.current.innerHTML}</body>
@@ -166,161 +113,147 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
           </DialogTitle>
         </DialogHeader>
 
-        {/* PDF Preview Content */}
-        <div className="border rounded-lg p-8 bg-white text-gray-900" ref={contentRef}>
-          {/* Header Title - right aligned */}
-          <div className="text-right mb-6">
-            <h1 className="text-xl font-bold tracking-wide" style={{ color: '#111' }}>DELIVERY ORDER</h1>
-          </div>
+        {isPrinting && <PdfGeneratingOverlay progress={pdfProgress} />}
 
-          {/* Info Section - matching reference layout */}
-          <div className="grid grid-cols-2 gap-x-8 mb-6 text-sm" style={{ color: '#111' }}>
-            {/* Left column */}
-            <div className="space-y-1.5">
-              <div className="flex">
-                <span className="w-28 shrink-0" style={{ color: '#555' }}>No. DO</span>
-                <span className="font-bold">: {doNumber}</span>
+        {/* PDF Content - section-based for smart page breaks */}
+        <div ref={contentRef} style={{ backgroundColor: '#ffffff' }}>
+          <div data-pdf-root className="bg-white text-gray-900" style={{ fontFamily: 'Arial, sans-serif' }}>
+            
+            {/* Section 1: Header */}
+            <div data-pdf-section>
+              <div style={{ textAlign: 'right', marginBottom: '4px' }}>
+                <h1 style={{ fontSize: '18px', fontWeight: 'bold', letterSpacing: '1px', color: '#111', margin: 0 }}>DELIVERY ORDER</h1>
               </div>
-              <div className="flex">
-                <span className="w-28 shrink-0" style={{ color: '#555' }}>Date</span>
-                <span className="font-semibold">: {formatDate(doDate)}</span>
-              </div>
-              <div className="flex">
-                <span className="w-28 shrink-0" style={{ color: '#555' }}>No. SO</span>
-                <span>: {data.sales_order_number}</span>
-              </div>
-              <div className="flex">
-                <span className="w-28 shrink-0" style={{ color: '#555' }}>Customer</span>
-                <span className="font-semibold">: {data.customer_name}</span>
-              </div>
-              <div className="flex">
-                <span className="w-28 shrink-0" style={{ color: '#555' }}>PIC</span>
-                <span>: {data.customer_pic || '-'}</span>
-              </div>
-              <div className="flex">
-                <span className="w-28 shrink-0" style={{ color: '#555' }}>Phone</span>
-                <span>: {data.customer_phone || '-'}</span>
+              <div style={{ borderBottom: '2px solid #111', marginBottom: '16px' }}></div>
+
+              {/* Info Section */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 32px', marginBottom: '16px', fontSize: '12px', color: '#111' }}>
+                {/* Left column */}
+                <div>
+                  <div style={{ display: 'flex', marginBottom: '4px' }}>
+                    <span style={{ width: '100px', flexShrink: 0, color: '#555' }}>No. DO</span>
+                    <span style={{ fontWeight: 'bold' }}>: {doNumber}</span>
+                  </div>
+                  <div style={{ display: 'flex', marginBottom: '4px' }}>
+                    <span style={{ width: '100px', flexShrink: 0, color: '#555' }}>Date</span>
+                    <span style={{ fontWeight: 600 }}>: {formatDate(doDate)}</span>
+                  </div>
+                  <div style={{ display: 'flex', marginBottom: '4px' }}>
+                    <span style={{ width: '100px', flexShrink: 0, color: '#555' }}>No. SO</span>
+                    <span>: {data.sales_order_number}</span>
+                  </div>
+                  <div style={{ display: 'flex', marginBottom: '4px' }}>
+                    <span style={{ width: '100px', flexShrink: 0, color: '#555' }}>Customer</span>
+                    <span style={{ fontWeight: 600 }}>: {data.customer_name}</span>
+                  </div>
+                  <div style={{ display: 'flex', marginBottom: '4px' }}>
+                    <span style={{ width: '100px', flexShrink: 0, color: '#555' }}>PIC</span>
+                    <span>: {data.customer_pic || '-'}</span>
+                  </div>
+                  <div style={{ display: 'flex', marginBottom: '4px' }}>
+                    <span style={{ width: '100px', flexShrink: 0, color: '#555' }}>Phone</span>
+                    <span>: {data.customer_phone || '-'}</span>
+                  </div>
+                </div>
+                {/* Right column */}
+                <div>
+                  <div style={{ display: 'flex', marginBottom: '4px' }}>
+                    <span style={{ width: '100px', flexShrink: 0, color: '#555' }}>PO Customer</span>
+                    <span style={{ fontWeight: 600 }}>: {data.customer_po_number}</span>
+                  </div>
+                  <div style={{ display: 'flex', marginBottom: '4px' }}>
+                    <span style={{ width: '100px', flexShrink: 0, color: '#555' }}>Ship Address</span>
+                    <span>: {data.ship_to_address || data.customer_address || '-'}</span>
+                  </div>
+                  <div style={{ display: 'flex', marginBottom: '4px' }}>
+                    <span style={{ width: '100px', flexShrink: 0, color: '#555' }}>Project</span>
+                    <span>: {data.project_instansi || '-'}</span>
+                  </div>
+                </div>
               </div>
             </div>
-            {/* Right column */}
-            <div className="space-y-1.5">
-              <div className="flex">
-                <span className="w-28 shrink-0" style={{ color: '#555' }}>PO Customer</span>
-                <span className="font-semibold">: {data.customer_po_number}</span>
-              </div>
-              <div className="flex">
-                <span className="w-28 shrink-0" style={{ color: '#555' }}>Ship Address</span>
-                <span>: {data.ship_to_address || data.customer_address || '-'}</span>
-              </div>
-            </div>
-          </div>
 
-          {/* Items Table - SKU first, green bottle color */}
-          <div className="mb-6">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr style={{ backgroundColor: '#1f2937', color: 'white' }}>
-                  <th className="border border-gray-300 px-2 py-2 text-center w-8">No</th>
-                  <th className="border border-gray-300 px-2 py-2 text-left w-24">SKU</th>
-                  <th className="border border-gray-300 px-2 py-2 text-left">Nama Produk</th>
-                  <th className="border border-gray-300 px-2 py-2 text-center w-14">Qty</th>
-                  <th className="border border-gray-300 px-2 py-2 text-center w-16">Satuan</th>
-                  <th className="border border-gray-300 px-2 py-2 text-left w-28">Batch No</th>
-                  <th className="border border-gray-300 px-2 py-2 text-left w-24">Expiry</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.items.map((item, idx) => (
-                  <tr key={item.id} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f9fafb' }}>
-                    <td className="border border-gray-300 px-2 py-2 text-center">{idx + 1}</td>
-                    <td className="border border-gray-300 px-2 py-2 font-medium" style={{ color: '#166534' }}>{item.sku || '-'}</td>
-                    <td className="border border-gray-300 px-2 py-2 font-medium">{item.product_name}</td>
-                    <td className="border border-gray-300 px-2 py-2 text-center font-bold">{item.qty_out}</td>
-                    <td className="border border-gray-300 px-2 py-2 text-center">{item.unit_name || '-'}</td>
-                    <td className="border border-gray-300 px-2 py-2">{item.batch_no}</td>
-                    <td className="border border-gray-300 px-2 py-2">{item.expired_date ? formatDate(item.expired_date) : '-'}</td>
+            {/* Section 2: Items Table */}
+            <div data-pdf-section>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', marginBottom: '0' }}>
+                <thead>
+                  <tr>
+                    <th style={{ backgroundColor: '#1f2937', color: 'white', border: '1px solid #374151', padding: '6px 8px', textAlign: 'center', width: '30px', WebkitPrintColorAdjust: 'exact' as any }}>No</th>
+                    <th style={{ backgroundColor: '#1f2937', color: 'white', border: '1px solid #374151', padding: '6px 8px', textAlign: 'left', width: '80px', WebkitPrintColorAdjust: 'exact' as any }}>SKU</th>
+                    <th style={{ backgroundColor: '#1f2937', color: 'white', border: '1px solid #374151', padding: '6px 8px', textAlign: 'left', WebkitPrintColorAdjust: 'exact' as any }}>Nama Produk</th>
+                    <th style={{ backgroundColor: '#1f2937', color: 'white', border: '1px solid #374151', padding: '6px 8px', textAlign: 'center', width: '50px', WebkitPrintColorAdjust: 'exact' as any }}>Qty</th>
+                    <th style={{ backgroundColor: '#1f2937', color: 'white', border: '1px solid #374151', padding: '6px 8px', textAlign: 'center', width: '55px', WebkitPrintColorAdjust: 'exact' as any }}>Satuan</th>
+                    <th style={{ backgroundColor: '#1f2937', color: 'white', border: '1px solid #374151', padding: '6px 8px', textAlign: 'left', width: '90px', WebkitPrintColorAdjust: 'exact' as any }}>Batch No</th>
+                    <th style={{ backgroundColor: '#1f2937', color: 'white', border: '1px solid #374151', padding: '6px 8px', textAlign: 'left', width: '80px', WebkitPrintColorAdjust: 'exact' as any }}>Expiry</th>
                   </tr>
+                </thead>
+                <tbody>
+                  {data.items.map((item, idx) => (
+                    <tr key={item.id}>
+                      <td style={{ border: '1px solid #d1d5db', padding: '5px 8px', textAlign: 'center', backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f9fafb' }}>{idx + 1}</td>
+                      <td style={{ border: '1px solid #d1d5db', padding: '5px 8px', fontWeight: 500, color: '#166534', backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f9fafb' }}>{item.sku || '-'}</td>
+                      <td style={{ border: '1px solid #d1d5db', padding: '5px 8px', fontWeight: 500, backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f9fafb' }}>{item.product_name}</td>
+                      <td style={{ border: '1px solid #d1d5db', padding: '5px 8px', textAlign: 'center', fontWeight: 'bold', backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f9fafb' }}>{item.qty_out}</td>
+                      <td style={{ border: '1px solid #d1d5db', padding: '5px 8px', textAlign: 'center', backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f9fafb' }}>{item.unit_name || '-'}</td>
+                      <td style={{ border: '1px solid #d1d5db', padding: '5px 8px', backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f9fafb' }}>{item.batch_no}</td>
+                      <td style={{ border: '1px solid #d1d5db', padding: '5px 8px', backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f9fafb' }}>{item.expired_date ? formatDate(item.expired_date) : '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={3} style={{ border: '1px solid #d1d5db', padding: '5px 8px', textAlign: 'right', fontWeight: 'bold', backgroundColor: '#f3f4f6' }}>Total:</td>
+                    <td style={{ border: '1px solid #d1d5db', padding: '5px 8px', textAlign: 'center', fontWeight: 'bold', backgroundColor: '#f3f4f6' }}>
+                      {data.items.reduce((s, i) => s + i.qty_out, 0)}
+                    </td>
+                    <td colSpan={3} style={{ border: '1px solid #d1d5db', padding: '5px 8px', backgroundColor: '#f3f4f6' }}></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {/* Section 3: Notes (always shown) + Signature */}
+            <div data-pdf-section>
+              {/* Notes - always visible */}
+              <div style={{ border: '1px solid #999', padding: '10px 14px', marginTop: '16px', marginBottom: '20px', minHeight: '50px' }}>
+                <p style={{ fontWeight: 600, fontSize: '11px', color: '#111', margin: '0 0 4px 0' }}>Catatan / Notes:</p>
+                <p style={{ fontSize: '11px', color: '#555', margin: 0, whiteSpace: 'pre-wrap' }}>{data.notes || '-'}</p>
+              </div>
+
+              {/* Signature Section - 4 columns with generous height */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', borderTop: '1px solid #000', borderLeft: '1px solid #000' }}>
+                {['Received by', 'Shipped by', 'Warehouse by', 'Approved by'].map((label) => (
+                  <div key={label} style={{ borderRight: '1px solid #000', borderBottom: '1px solid #000' }}>
+                    {/* Date field */}
+                    <div style={{ borderBottom: '1px solid #000', padding: '6px 10px', fontSize: '11px', minHeight: '28px' }}>
+                      Date : _______________
+                    </div>
+                    {/* Label */}
+                    <div style={{ padding: '6px 10px', fontSize: '11px', fontWeight: 600 }}>
+                      {label},
+                    </div>
+                    {/* Signature space - generous */}
+                    <div style={{ height: '100px' }}></div>
+                    {/* Name placeholder */}
+                    <div style={{ padding: '4px 10px', textAlign: 'center', fontSize: '10px', color: '#333' }}>
+                      <div style={{ borderTop: '1px solid #666', display: 'inline-block', width: '80%', paddingTop: '4px' }}>
+                        (........................................)
+                      </div>
+                    </div>
+                    {/* Name field */}
+                    <div style={{ padding: '2px 10px 8px', textAlign: 'center', fontSize: '10px', color: '#555' }}>
+                      Nama / Name
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-              <tfoot>
-                <tr style={{ backgroundColor: '#f3f4f6' }}>
-                  <td colSpan={3} className="border border-gray-300 px-2 py-2 text-right font-bold">Total:</td>
-                  <td className="border border-gray-300 px-2 py-2 text-center font-bold">
-                    {data.items.reduce((s, i) => s + i.qty_out, 0)}
-                  </td>
-                  <td colSpan={3} className="border border-gray-300 px-2 py-2"></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+              </div>
 
-          {/* Notes - in a bordered box above signature */}
-          {data.notes && (
-            <div className="mb-6" style={{ border: '1px solid #d1d5db', padding: '10px 14px', borderRadius: '4px' }}>
-              <p className="font-semibold text-sm mb-1" style={{ color: '#111' }}>Catatan / Notes:</p>
-              <p className="text-sm" style={{ color: '#555' }}>{data.notes}</p>
+              {/* Footer */}
+              <div style={{ marginTop: '20px', textAlign: 'center', fontSize: '10px', color: '#999' }}>
+                <p style={{ margin: 0 }}>Dicetak pada: {format(new Date(), 'dd MMM yyyy HH:mm', { locale: localeId })}</p>
+              </div>
             </div>
-          )}
 
-          {/* Signature Section - 4 columns with Date + name */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '0', borderTop: '1px solid #000', borderLeft: '1px solid #000' }}>
-            {/* Received by */}
-            <div style={{ borderRight: '1px solid #000', borderBottom: '1px solid #000' }}>
-              <div style={{ borderBottom: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>
-                Date :
-              </div>
-              <div style={{ padding: '4px 8px', fontSize: '11px', fontWeight: 600 }}>
-                Received by,
-              </div>
-              <div style={{ height: '70px' }}></div>
-              <div style={{ padding: '4px 8px', borderTop: '1px dashed #999', margin: '0 8px', textAlign: 'center', fontSize: '10px', color: '#666' }}>
-                (........................................)
-              </div>
-            </div>
-            {/* Shipped by */}
-            <div style={{ borderRight: '1px solid #000', borderBottom: '1px solid #000' }}>
-              <div style={{ borderBottom: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>
-                Date :
-              </div>
-              <div style={{ padding: '4px 8px', fontSize: '11px', fontWeight: 600 }}>
-                Shipped by,
-              </div>
-              <div style={{ height: '70px' }}></div>
-              <div style={{ padding: '4px 8px', borderTop: '1px dashed #999', margin: '0 8px', textAlign: 'center', fontSize: '10px', color: '#666' }}>
-                (........................................)
-              </div>
-            </div>
-            {/* Warehouse by */}
-            <div style={{ borderRight: '1px solid #000', borderBottom: '1px solid #000' }}>
-              <div style={{ borderBottom: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>
-                Date :
-              </div>
-              <div style={{ padding: '4px 8px', fontSize: '11px', fontWeight: 600 }}>
-                Warehouse by,
-              </div>
-              <div style={{ height: '70px' }}></div>
-              <div style={{ padding: '4px 8px', borderTop: '1px dashed #999', margin: '0 8px', textAlign: 'center', fontSize: '10px', color: '#666' }}>
-                (........................................)
-              </div>
-            </div>
-            {/* Approved by */}
-            <div style={{ borderRight: '1px solid #000', borderBottom: '1px solid #000' }}>
-              <div style={{ borderBottom: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>
-                Date :
-              </div>
-              <div style={{ padding: '4px 8px', fontSize: '11px', fontWeight: 600 }}>
-                Approved by,
-              </div>
-              <div style={{ height: '70px' }}></div>
-              <div style={{ padding: '4px 8px', borderTop: '1px dashed #999', margin: '0 8px', textAlign: 'center', fontSize: '10px', color: '#666' }}>
-                (........................................)
-              </div>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="mt-8 text-center text-xs" style={{ color: '#999' }}>
-            <p>Dicetak pada: {format(new Date(), 'dd MMM yyyy HH:mm', { locale: localeId })}</p>
           </div>
         </div>
 
@@ -334,7 +267,7 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
             <Printer className="w-4 h-4 mr-2" />
             Print Langsung
           </Button>
-          <Button onClick={handlePrint} disabled={isPrinting}>
+          <Button onClick={handleSavePdf} disabled={isPrinting}>
             {isPrinting ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -342,7 +275,7 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
               </>
             ) : (
               <>
-                <Printer className="w-4 h-4 mr-2" />
+                <Download className="w-4 h-4 mr-2" />
                 Simpan PDF
               </>
             )}
