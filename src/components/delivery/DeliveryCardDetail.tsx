@@ -19,6 +19,7 @@ import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { notifyDeliveryCardMoved, notifyUrgentLabelRequest, notifyUrgentLabelApproved, notifyUrgentLabelRejected } from "@/lib/pushNotifications";
 import { DeliveryOrderPdf, DeliveryOrderData } from "@/components/delivery/DeliveryOrderPdf";
+import { generateUniqueDONumber } from "@/lib/transactionNumberUtils";
 
 const BOARD_COLUMNS = [
   { id: "new_order", label: "New Orders", color: "bg-blue-600" },
@@ -183,6 +184,32 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     if (!card) return;
     setLoadingDOPreview(so.id);
     try {
+      // Check if DO already exists for this stock_out_id
+      const { data: existingDO } = await supabase
+        .from("delivery_orders")
+        .select("id, do_number")
+        .eq("stock_out_id", so.id)
+        .limit(1);
+
+      let doNumber: string;
+
+      if (existingDO && existingDO.length > 0) {
+        doNumber = existingDO[0].do_number;
+      } else {
+        // Generate new DO number and insert record
+        doNumber = await generateUniqueDONumber();
+        const { error: insertErr } = await supabase
+          .from("delivery_orders")
+          .insert({
+            do_number: doNumber,
+            stock_out_id: so.id,
+            sales_order_id: card.sales_order_id,
+            created_by: user?.id,
+          });
+        if (insertErr) throw insertErr;
+        toast.success(`Delivery Order ${doNumber} berhasil diterbitkan`);
+      }
+
       const { data: items } = await supabase
         .from("stock_out_items")
         .select(`id, qty_out, products!inner(name, sku, unit_id, units(name)), inventory_batches!inner(batch_no, expired_date)`)
@@ -202,7 +229,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
       setDoPreviewData({
         id: so.id,
-        delivery_number: soOut?.delivery_number || null,
+        delivery_number: doNumber,
         stock_out_number: so.stock_out_number,
         delivery_date: so.delivery_date,
         delivery_actual_date: soOut?.delivery_actual_date || null,
@@ -1718,7 +1745,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                               disabled={loadingDOPreview === so.id}
                             >
                               {loadingDOPreview === so.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Printer className="h-3 w-3" />}
-                              Cetak DO
+                              Generate DO
                             </Button>
                             <span className="text-[10px] text-muted-foreground">
                               {format(new Date(so.delivery_date), "dd MMM yyyy", { locale: idLocale })}
