@@ -208,10 +208,13 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
               </table>
             </div>
 
-            {/* Section 3: Notes (always shown) + Signature */}
+            {/* Section 3: Separator line + Notes + Signature */}
             <div data-pdf-section>
+              {/* Separator line like reference image */}
+              <div style={{ borderBottom: '1.5px solid #111', marginTop: '40px', marginBottom: '40px' }}></div>
+
               {/* Notes - always visible */}
-              <div style={{ border: '1px solid #999', padding: '10px 14px', marginTop: '16px', marginBottom: '20px', minHeight: '50px' }}>
+              <div style={{ border: '1px solid #999', padding: '10px 14px', marginBottom: '24px', minHeight: '50px' }}>
                 <p style={{ fontWeight: 600, fontSize: '11px', color: '#111', margin: '0 0 4px 0' }}>Catatan / Notes:</p>
                 <p style={{ fontSize: '11px', color: '#555', margin: 0, whiteSpace: 'pre-wrap' }}>{data.notes || '-'}</p>
               </div>
