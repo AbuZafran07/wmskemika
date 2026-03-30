@@ -1737,16 +1737,20 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                         <div className="bg-primary/10 px-2 py-1.5 flex items-center justify-between">
                           <span className="text-[11px] font-bold text-primary">{so.stock_out_number}</span>
                           <div className="flex items-center gap-1.5">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-5 text-[10px] px-1.5 gap-0.5"
-                              onClick={() => handleGenerateDO(so)}
-                              disabled={loadingDOPreview === so.id}
-                            >
-                              {loadingDOPreview === so.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Printer className="h-3 w-3" />}
-                              Generate DO
-                            </Button>
+                            {card.board_status.startsWith('pengiriman_') || card.board_status === 'delivered' || card.board_status === 'delivered_sample' ? (
+                              user?.role && ['super_admin', 'admin', 'finance', 'purchasing'].includes(user.role) ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 text-[10px] px-1.5 gap-0.5"
+                                  onClick={() => handleGenerateDO(so)}
+                                  disabled={loadingDOPreview === so.id}
+                                >
+                                  {loadingDOPreview === so.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Printer className="h-3 w-3" />}
+                                  Generate DO
+                                </Button>
+                              ) : null
+                            ) : null}
                             <span className="text-[10px] text-muted-foreground">
                               {format(new Date(so.delivery_date), "dd MMM yyyy", { locale: idLocale })}
                             </span>
