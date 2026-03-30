@@ -1749,7 +1749,11 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                                   variant="ghost"
                                   size="sm"
                                   className="h-5 text-[10px] px-1.5 gap-0.5"
-                                  onClick={() => handleGenerateDO(so)}
+                                  onClick={() => {
+                                    setPendingDOGenerate(so);
+                                    setDoNoteText("");
+                                    setDoNotePromptOpen(true);
+                                  }}
                                   disabled={loadingDOPreview === so.id}
                                 >
                                   {loadingDOPreview === so.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Printer className="h-3 w-3" />}
