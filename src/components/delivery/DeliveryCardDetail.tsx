@@ -1181,7 +1181,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
         const now = new Date();
         const timestamp = format(now, "dd/MM/yyyy HH:mm:ss");
-        const userName = user?.full_name || user?.email || "Unknown";
+        const userName = user?.name || user?.email || "Unknown";
         
         const fontSize = Math.max(13, Math.floor(w / 40));
         ctx.font = `bold ${fontSize}px Arial`;
