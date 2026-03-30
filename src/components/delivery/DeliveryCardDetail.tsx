@@ -179,6 +179,9 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const [doPreviewOpen, setDoPreviewOpen] = useState(false);
   const [doPreviewData, setDoPreviewData] = useState<DeliveryOrderData | null>(null);
   const [loadingDOPreview, setLoadingDOPreview] = useState<string | null>(null);
+  const [doNotePromptOpen, setDoNotePromptOpen] = useState(false);
+  const [doNoteText, setDoNoteText] = useState("");
+  const [pendingDOGenerate, setPendingDOGenerate] = useState<{ id: string; stock_out_number: string; delivery_date: string } | null>(null);
 
   const handleGenerateDO = async (so: { id: string; stock_out_number: string; delivery_date: string }) => {
     if (!card) return;
@@ -218,7 +221,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
       const { data: soHeader } = await supabase
         .from("sales_order_headers")
-        .select(`sales_order_number, customer_po_number, project_instansi, sales_name, ship_to_address, customers!inner(name, address)`)
+        .select(`sales_order_number, customer_po_number, project_instansi, sales_name, ship_to_address, customers!inner(name, address, pic, phone)`)
         .eq("id", card.sales_order_id)
         .single();
 
@@ -234,7 +237,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         stock_out_number: so.stock_out_number,
         delivery_date: so.delivery_date,
         delivery_actual_date: soOut?.delivery_actual_date || null,
-        notes: soOut?.notes || null,
+        notes: doNoteText || soOut?.notes || null,
         sales_order_number: soHeader?.sales_order_number || '-',
         customer_name: (soHeader?.customers as any)?.name || card.customer_name,
         customer_po_number: soHeader?.customer_po_number || card.customer_po_number,
@@ -242,6 +245,8 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         project_instansi: soHeader?.project_instansi || card.project_instansi,
         ship_to_address: soHeader?.ship_to_address || card.ship_to_address,
         sales_name: soHeader?.sales_name || card.sales_name,
+        customer_pic: (soHeader?.customers as any)?.pic || null,
+        customer_phone: (soHeader?.customers as any)?.phone || null,
         items: (items || []).map((it: any) => ({
           id: it.id,
           product_name: it.products?.name || '-',
