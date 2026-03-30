@@ -26,6 +26,8 @@ export interface DeliveryOrderData {
   project_instansi: string;
   ship_to_address: string | null;
   sales_name: string;
+  customer_pic: string | null;
+  customer_phone: string | null;
   items: {
     id: string;
     product_name: string;
@@ -105,7 +107,6 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
         heightLeft -= pageHeight;
       }
 
-      // Use Blob URL for reliable download
       const pdfBlob = pdf.output('blob');
       const blobUrl = URL.createObjectURL(pdfBlob);
       const downloadLink = document.createElement('a');
@@ -142,7 +143,6 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
             table { border-collapse: collapse; width: 100%; }
             th, td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; font-size: 11px; }
             th { background: #1f2937; color: white; }
-            .sig-line { border-top: 1px solid #666; margin-top: 70px; padding-top: 6px; text-align: center; }
             @media print { body { padding: 0; } }
           </style>
         </head>
@@ -168,60 +168,61 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
 
         {/* PDF Preview Content */}
         <div className="border rounded-lg p-8 bg-white text-gray-900" ref={contentRef}>
-          {/* Header - No logo, printed on letterhead */}
-          <div className="text-center mb-6">
+          {/* Header Title - right aligned */}
+          <div className="text-right mb-6">
             <h1 className="text-xl font-bold tracking-wide" style={{ color: '#111' }}>DELIVERY ORDER</h1>
-            <p className="text-sm" style={{ color: '#666' }}>Surat Jalan</p>
           </div>
 
-          {/* Info Section */}
-          <div className="grid grid-cols-2 gap-6 mb-6 text-sm" style={{ color: '#111' }}>
+          {/* Info Section - matching reference layout */}
+          <div className="grid grid-cols-2 gap-x-8 mb-6 text-sm" style={{ color: '#111' }}>
+            {/* Left column */}
             <div className="space-y-1.5">
               <div className="flex">
-                <span className="w-32" style={{ color: '#555' }}>No. DO</span>
+                <span className="w-28 shrink-0" style={{ color: '#555' }}>No. DO</span>
                 <span className="font-bold">: {doNumber}</span>
               </div>
               <div className="flex">
-                <span className="w-32" style={{ color: '#555' }}>Tanggal</span>
+                <span className="w-28 shrink-0" style={{ color: '#555' }}>Date</span>
                 <span className="font-semibold">: {formatDate(doDate)}</span>
               </div>
               <div className="flex">
-                <span className="w-32" style={{ color: '#555' }}>No. SO</span>
+                <span className="w-28 shrink-0" style={{ color: '#555' }}>No. SO</span>
                 <span>: {data.sales_order_number}</span>
               </div>
               <div className="flex">
-                <span className="w-32" style={{ color: '#555' }}>PO Customer</span>
-                <span>: {data.customer_po_number}</span>
+                <span className="w-28 shrink-0" style={{ color: '#555' }}>Customer</span>
+                <span className="font-semibold">: {data.customer_name}</span>
               </div>
               <div className="flex">
-                <span className="w-32" style={{ color: '#555' }}>Sales</span>
-                <span>: {data.sales_name}</span>
+                <span className="w-28 shrink-0" style={{ color: '#555' }}>PIC</span>
+                <span>: {data.customer_pic || '-'}</span>
+              </div>
+              <div className="flex">
+                <span className="w-28 shrink-0" style={{ color: '#555' }}>Phone</span>
+                <span>: {data.customer_phone || '-'}</span>
               </div>
             </div>
+            {/* Right column */}
             <div className="space-y-1.5">
               <div className="flex">
-                <span className="w-32" style={{ color: '#555' }}>Customer</span>
-                <span className="font-bold">: {data.customer_name}</span>
+                <span className="w-28 shrink-0" style={{ color: '#555' }}>PO Customer</span>
+                <span className="font-semibold">: {data.customer_po_number}</span>
               </div>
               <div className="flex">
-                <span className="w-32" style={{ color: '#555' }}>Proyek/Instansi</span>
-                <span>: {data.project_instansi}</span>
-              </div>
-              <div className="flex">
-                <span className="w-32" style={{ color: '#555' }}>Alamat Kirim</span>
+                <span className="w-28 shrink-0" style={{ color: '#555' }}>Ship Address</span>
                 <span>: {data.ship_to_address || data.customer_address || '-'}</span>
               </div>
             </div>
           </div>
 
-          {/* Items Table */}
+          {/* Items Table - SKU first, green bottle color */}
           <div className="mb-6">
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr style={{ backgroundColor: '#1f2937', color: 'white' }}>
                   <th className="border border-gray-300 px-2 py-2 text-center w-8">No</th>
-                  <th className="border border-gray-300 px-2 py-2 text-left">Nama Produk</th>
                   <th className="border border-gray-300 px-2 py-2 text-left w-24">SKU</th>
+                  <th className="border border-gray-300 px-2 py-2 text-left">Nama Produk</th>
                   <th className="border border-gray-300 px-2 py-2 text-center w-14">Qty</th>
                   <th className="border border-gray-300 px-2 py-2 text-center w-16">Satuan</th>
                   <th className="border border-gray-300 px-2 py-2 text-left w-28">Batch No</th>
@@ -232,8 +233,8 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
                 {data.items.map((item, idx) => (
                   <tr key={item.id} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f9fafb' }}>
                     <td className="border border-gray-300 px-2 py-2 text-center">{idx + 1}</td>
+                    <td className="border border-gray-300 px-2 py-2 font-medium" style={{ color: '#166534' }}>{item.sku || '-'}</td>
                     <td className="border border-gray-300 px-2 py-2 font-medium">{item.product_name}</td>
-                    <td className="border border-gray-300 px-2 py-2" style={{ color: '#666' }}>{item.sku || '-'}</td>
                     <td className="border border-gray-300 px-2 py-2 text-center font-bold">{item.qty_out}</td>
                     <td className="border border-gray-300 px-2 py-2 text-center">{item.unit_name || '-'}</td>
                     <td className="border border-gray-300 px-2 py-2">{item.batch_no}</td>
@@ -253,32 +254,66 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
             </table>
           </div>
 
-          {/* Notes */}
+          {/* Notes - in a bordered box above signature */}
           {data.notes && (
-            <div className="mb-6 text-sm">
-              <p className="font-semibold mb-1" style={{ color: '#111' }}>Catatan:</p>
-              <p style={{ color: '#555' }}>{data.notes}</p>
+            <div className="mb-6" style={{ border: '1px solid #d1d5db', padding: '10px 14px', borderRadius: '4px' }}>
+              <p className="font-semibold text-sm mb-1" style={{ color: '#111' }}>Catatan / Notes:</p>
+              <p className="text-sm" style={{ color: '#555' }}>{data.notes}</p>
             </div>
           )}
 
-          {/* Signature Section - 3 columns */}
-          <div className="grid grid-cols-3 gap-6 mt-10 pt-4" style={{ borderTop: '1px solid #d1d5db' }}>
-            <div className="text-center">
-              <p className="font-semibold text-sm" style={{ color: '#111' }}>Disiapkan Oleh</p>
-              <div className="sig-line" style={{ borderTop: '1px solid #666', marginTop: '70px', paddingTop: '6px' }}>
-                <p className="text-xs" style={{ color: '#666' }}>Gudang</p>
+          {/* Signature Section - 4 columns with Date + name */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '0', borderTop: '1px solid #000', borderLeft: '1px solid #000' }}>
+            {/* Received by */}
+            <div style={{ borderRight: '1px solid #000', borderBottom: '1px solid #000' }}>
+              <div style={{ borderBottom: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>
+                Date :
+              </div>
+              <div style={{ padding: '4px 8px', fontSize: '11px', fontWeight: 600 }}>
+                Received by,
+              </div>
+              <div style={{ height: '70px' }}></div>
+              <div style={{ padding: '4px 8px', borderTop: '1px dashed #999', margin: '0 8px', textAlign: 'center', fontSize: '10px', color: '#666' }}>
+                (........................................)
               </div>
             </div>
-            <div className="text-center">
-              <p className="font-semibold text-sm" style={{ color: '#111' }}>Dikirim Oleh</p>
-              <div className="sig-line" style={{ borderTop: '1px solid #666', marginTop: '70px', paddingTop: '6px' }}>
-                <p className="text-xs" style={{ color: '#666' }}>Sopir</p>
+            {/* Shipped by */}
+            <div style={{ borderRight: '1px solid #000', borderBottom: '1px solid #000' }}>
+              <div style={{ borderBottom: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>
+                Date :
+              </div>
+              <div style={{ padding: '4px 8px', fontSize: '11px', fontWeight: 600 }}>
+                Shipped by,
+              </div>
+              <div style={{ height: '70px' }}></div>
+              <div style={{ padding: '4px 8px', borderTop: '1px dashed #999', margin: '0 8px', textAlign: 'center', fontSize: '10px', color: '#666' }}>
+                (........................................)
               </div>
             </div>
-            <div className="text-center">
-              <p className="font-semibold text-sm" style={{ color: '#111' }}>Diterima Oleh</p>
-              <div className="sig-line" style={{ borderTop: '1px solid #666', marginTop: '70px', paddingTop: '6px' }}>
-                <p className="text-xs" style={{ color: '#666' }}>Penerima</p>
+            {/* Warehouse by */}
+            <div style={{ borderRight: '1px solid #000', borderBottom: '1px solid #000' }}>
+              <div style={{ borderBottom: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>
+                Date :
+              </div>
+              <div style={{ padding: '4px 8px', fontSize: '11px', fontWeight: 600 }}>
+                Warehouse by,
+              </div>
+              <div style={{ height: '70px' }}></div>
+              <div style={{ padding: '4px 8px', borderTop: '1px dashed #999', margin: '0 8px', textAlign: 'center', fontSize: '10px', color: '#666' }}>
+                (........................................)
+              </div>
+            </div>
+            {/* Approved by */}
+            <div style={{ borderRight: '1px solid #000', borderBottom: '1px solid #000' }}>
+              <div style={{ borderBottom: '1px solid #000', padding: '4px 8px', fontSize: '11px' }}>
+                Date :
+              </div>
+              <div style={{ padding: '4px 8px', fontSize: '11px', fontWeight: 600 }}>
+                Approved by,
+              </div>
+              <div style={{ height: '70px' }}></div>
+              <div style={{ padding: '4px 8px', borderTop: '1px dashed #999', margin: '0 8px', textAlign: 'center', fontSize: '10px', color: '#666' }}>
+                (........................................)
               </div>
             </div>
           </div>
