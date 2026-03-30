@@ -149,8 +149,8 @@ export default function DeliveryOrder() {
         project_instansi: row.project_instansi,
         ship_to_address: row.ship_to_address,
         sales_name: row.sales_name,
-        customer_pic: (row as any).customer_pic || null,
-        customer_phone: (row as any).customer_phone || null,
+        customer_pic: row.customer_pic || null,
+        customer_phone: row.customer_phone || null,
         items: (items || []).map((it: any) => ({
           id: it.id,
           product_name: it.products?.name || '-',
