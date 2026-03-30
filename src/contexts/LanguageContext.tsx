@@ -167,6 +167,8 @@ const translations: Record<Language, Record<string, string>> = {
     "menu.stockOut": "Stock Out",
     "menu.stockOutSub": "Pengeluaran",
     "menu.stockAdjustment": "Penyesuaian Stok",
+    "menu.deliveryOrder": "Delivery Order",
+    "menu.deliveryOrderSub": "Surat Jalan",
     "menu.dataProduct": "Data Produk",
     "menu.products": "Produk",
     "menu.categories": "Kategori",
