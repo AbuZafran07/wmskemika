@@ -11,7 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { Truck, ChevronRight, Tag, MessageSquare, Send, X, Plus, Trash2, Paperclip, FileText, Image, Download, Loader2, CheckSquare, AlertTriangle, Calendar, AtSign, Pencil, Check, Search, Eye, ExternalLink, Camera } from "lucide-react";
+import { Truck, ChevronRight, Tag, MessageSquare, Send, X, Plus, Trash2, Paperclip, FileText, Image, Download, Loader2, CheckSquare, AlertTriangle, Calendar, AtSign, Pencil, Check, Search, Eye, ExternalLink, Camera, MapPin, RotateCcw } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { format, formatDistanceToNow } from "date-fns";
@@ -147,6 +147,8 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const [downloadingAttachmentId, setDownloadingAttachmentId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const cameraFrontInputRef = useRef<HTMLInputElement>(null);
+  const [cameraFacing, setCameraFacing] = useState<'environment' | 'user'>('environment');
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -1131,8 +1133,27 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   };
 
 
-  // Add timestamp watermark to image
-  const addTimestampToImage = (file: File): Promise<File> => {
+  // Get current GPS location
+  const getCurrentLocation = (): Promise<string> => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve("");
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude.toFixed(6);
+          const lng = position.coords.longitude.toFixed(6);
+          resolve(`${lat}, ${lng}`);
+        },
+        () => resolve(""),
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      );
+    });
+  };
+
+  // Add timestamp + GPS watermark to image
+  const addTimestampToImage = (file: File, location: string): Promise<File> => {
     return new Promise((resolve, reject) => {
       const img = new window.Image();
       img.onload = () => {
@@ -1144,27 +1165,39 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
         ctx.drawImage(img, 0, 0);
 
-        // Timestamp text
         const now = new Date();
         const timestamp = format(now, "dd/MM/yyyy HH:mm:ss");
+        const locationText = location ? `📍 ${location}` : "";
         
-        const fontSize = Math.max(16, Math.floor(img.width / 30));
+        const fontSize = Math.max(14, Math.floor(img.width / 35));
         ctx.font = `bold ${fontSize}px Arial`;
         
-        // Background strip
-        const textMetrics = ctx.measureText(timestamp);
-        const padding = fontSize * 0.5;
-        const bgHeight = fontSize + padding * 2;
-        const bgWidth = textMetrics.width + padding * 2;
+        // Calculate dimensions for both lines
+        const lines: string[] = [timestamp];
+        if (locationText) lines.push(locationText);
         
-        ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+        const padding = fontSize * 0.5;
+        const lineHeight = fontSize * 1.3;
+        const bgHeight = lineHeight * lines.length + padding * 2;
+        const maxWidth = Math.max(...lines.map(l => ctx.measureText(l).width));
+        const bgWidth = maxWidth + padding * 2;
+        
+        // Background strip
+        ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
         ctx.fillRect(img.width - bgWidth - 10, img.height - bgHeight - 10, bgWidth, bgHeight);
         
-        // Text
+        // Text lines
         ctx.fillStyle = "#FFFFFF";
         ctx.textAlign = "right";
-        ctx.textBaseline = "bottom";
-        ctx.fillText(timestamp, img.width - 10 - padding, img.height - 10 - padding);
+        ctx.textBaseline = "top";
+        
+        lines.forEach((line, i) => {
+          ctx.fillText(
+            line,
+            img.width - 10 - padding,
+            img.height - bgHeight - 10 + padding + (i * lineHeight)
+          );
+        });
 
         canvas.toBlob((blob) => {
           if (!blob) return reject(new Error("Failed to create blob"));
@@ -1189,8 +1222,9 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     setUploadingFile(true);
     setUploadProgress(0);
     try {
-      // Add timestamp watermark
-      const stampedFile = await addTimestampToImage(file);
+      // Get GPS location + add timestamp watermark
+      const location = await getCurrentLocation();
+      const stampedFile = await addTimestampToImage(file, location);
       
       const fileKey = `delivery/${card.id}/${Date.now()}.jpg`;
 
