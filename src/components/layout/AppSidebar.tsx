@@ -58,6 +58,7 @@ const menuItems: { groupKey: string; items: MenuItem[] }[] = [
       { key: "stockIn", menuKey: "stockIn", labelKey: "menu.stockIn", subLabelKey: "menu.stockInSub", icon: ArrowDownToLine, href: "/stock-in" },
       { key: "salesOrder", menuKey: "salesOrder", labelKey: "menu.salesOrder", subLabelKey: "menu.salesOrderSub", icon: ShoppingCart, href: "/sales-order" },
       { key: "stockOut", menuKey: "stockOut", labelKey: "menu.stockOut", subLabelKey: "menu.stockOutSub", icon: ArrowUpFromLine, href: "/stock-out" },
+      { key: "deliveryOrder", menuKey: "deliveryOrder", labelKey: "menu.deliveryOrder", subLabelKey: "menu.deliveryOrderSub", icon: FileText, href: "/delivery-order" },
       { key: "stockAdjustment", menuKey: "stockAdjustment", labelKey: "menu.stockAdjustment", icon: Settings2, href: "/stock-adjustment" },
     ],
   },

@@ -11,13 +11,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { Truck, ChevronRight, Tag, MessageSquare, Send, X, Plus, Trash2, Paperclip, FileText, Image, Download, Loader2, CheckSquare, AlertTriangle, Calendar, AtSign, Pencil, Check, Search, Eye, ExternalLink, Camera, MapPin, RotateCcw } from "lucide-react";
+import { Truck, ChevronRight, Tag, MessageSquare, Send, X, Plus, Trash2, Paperclip, FileText, Image, Download, Loader2, CheckSquare, AlertTriangle, Calendar, AtSign, Pencil, Check, Search, Eye, ExternalLink, Camera, MapPin, RotateCcw, Printer } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { format, formatDistanceToNow } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { notifyDeliveryCardMoved, notifyUrgentLabelRequest, notifyUrgentLabelApproved, notifyUrgentLabelRejected } from "@/lib/pushNotifications";
+import { DeliveryOrderPdf, DeliveryOrderData } from "@/components/delivery/DeliveryOrderPdf";
 
 const BOARD_COLUMNS = [
   { id: "new_order", label: "New Orders", color: "bg-blue-600" },
@@ -174,6 +175,62 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const [deliveryNumbers, setDeliveryNumbers] = useState<Record<string, string>>({});
   const [deliveryDates, setDeliveryDates] = useState<Record<string, string>>({});
   const [savingDO, setSavingDO] = useState(false);
+  const [doPreviewOpen, setDoPreviewOpen] = useState(false);
+  const [doPreviewData, setDoPreviewData] = useState<DeliveryOrderData | null>(null);
+  const [loadingDOPreview, setLoadingDOPreview] = useState<string | null>(null);
+
+  const handleGenerateDO = async (so: { id: string; stock_out_number: string; delivery_date: string }) => {
+    if (!card) return;
+    setLoadingDOPreview(so.id);
+    try {
+      const { data: items } = await supabase
+        .from("stock_out_items")
+        .select(`id, qty_out, products!inner(name, sku, unit_id, units(name)), inventory_batches!inner(batch_no, expired_date)`)
+        .eq("stock_out_id", so.id);
+
+      const { data: soHeader } = await supabase
+        .from("sales_order_headers")
+        .select(`sales_order_number, customer_po_number, project_instansi, sales_name, ship_to_address, customers!inner(name, address)`)
+        .eq("id", card.sales_order_id)
+        .single();
+
+      const { data: soOut } = await supabase
+        .from("stock_out_headers")
+        .select("delivery_number, delivery_actual_date, notes")
+        .eq("id", so.id)
+        .single();
+
+      setDoPreviewData({
+        id: so.id,
+        delivery_number: soOut?.delivery_number || null,
+        stock_out_number: so.stock_out_number,
+        delivery_date: so.delivery_date,
+        delivery_actual_date: soOut?.delivery_actual_date || null,
+        notes: soOut?.notes || null,
+        sales_order_number: soHeader?.sales_order_number || '-',
+        customer_name: (soHeader?.customers as any)?.name || card.customer_name,
+        customer_po_number: soHeader?.customer_po_number || card.customer_po_number,
+        customer_address: (soHeader?.customers as any)?.address || null,
+        project_instansi: soHeader?.project_instansi || card.project_instansi,
+        ship_to_address: soHeader?.ship_to_address || card.ship_to_address,
+        sales_name: soHeader?.sales_name || card.sales_name,
+        items: (items || []).map((it: any) => ({
+          id: it.id,
+          product_name: it.products?.name || '-',
+          sku: it.products?.sku || null,
+          qty_out: it.qty_out,
+          batch_no: it.inventory_batches?.batch_no || '-',
+          expired_date: it.inventory_batches?.expired_date || null,
+          unit_name: it.products?.units?.name || null,
+        })),
+      });
+      setDoPreviewOpen(true);
+    } catch (err: any) {
+      toast.error("Gagal memuat data DO: " + err.message);
+    } finally {
+      setLoadingDOPreview(null);
+    }
+  };
 
   // Delete card dialog state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -1652,9 +1709,21 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                       <div key={soIdx} className="border rounded-lg overflow-hidden">
                         <div className="bg-primary/10 px-2 py-1.5 flex items-center justify-between">
                           <span className="text-[11px] font-bold text-primary">{so.stock_out_number}</span>
-                          <span className="text-[10px] text-muted-foreground">
-                            {format(new Date(so.delivery_date), "dd MMM yyyy", { locale: idLocale })}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 text-[10px] px-1.5 gap-0.5"
+                              onClick={() => handleGenerateDO(so)}
+                              disabled={loadingDOPreview === so.id}
+                            >
+                              {loadingDOPreview === so.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Printer className="h-3 w-3" />}
+                              Cetak DO
+                            </Button>
+                            <span className="text-[10px] text-muted-foreground">
+                              {format(new Date(so.delivery_date), "dd MMM yyyy", { locale: idLocale })}
+                            </span>
+                          </div>
                         </div>
                         <table className="w-full text-xs">
                           <thead className="bg-muted/50">
@@ -2396,6 +2465,13 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delivery Order PDF Preview */}
+      <DeliveryOrderPdf
+        open={doPreviewOpen}
+        onOpenChange={setDoPreviewOpen}
+        data={doPreviewData}
+      />
     </>
   );
 }

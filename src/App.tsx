@@ -41,6 +41,7 @@ import Profile from "./pages/Profile";
 
 import NotFound from "./pages/NotFound";
 import Notifications from "./pages/Notifications";
+import DeliveryOrder from "./pages/DeliveryOrder";
 
 const queryClient = new QueryClient();
 
@@ -94,6 +95,11 @@ const App = () => (
                   <Route path="/stock-adjustment" element={
                     <RouteGuard menuKey="stockAdjustment">
                       <StockAdjustment />
+                    </RouteGuard>
+                  } />
+                  <Route path="/delivery-order" element={
+                    <RouteGuard menuKey="deliveryOrder">
+                      <DeliveryOrder />
                     </RouteGuard>
                   } />
                   
