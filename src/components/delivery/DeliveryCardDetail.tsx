@@ -1676,18 +1676,60 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                         accept="image/*"
                         capture="environment"
                       />
-                      <div className="flex gap-1 ml-auto">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-6 text-[11px] px-2 gap-1"
-                          onClick={() => cameraInputRef.current?.click()}
-                          disabled={uploadingFile}
-                          title="Buka kamera dengan timestamp"
-                        >
-                          {uploadingFile ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
-                          Kamera
-                        </Button>
+                      <input
+                        ref={cameraFrontInputRef}
+                        type="file"
+                        className="hidden"
+                        onChange={handleCameraCapture}
+                        accept="image/*"
+                        capture="user"
+                      />
+                      <div className="flex gap-1 ml-auto items-center">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-6 text-[11px] px-2 gap-1"
+                              disabled={uploadingFile}
+                              title="Buka kamera dengan timestamp & GPS"
+                            >
+                              {uploadingFile ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+                              Kamera
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-44 p-1.5" align="end">
+                            <div className="space-y-0.5">
+                              <p className="text-[10px] text-muted-foreground px-2 py-1 font-medium">Pilih Kamera</p>
+                              <button
+                                className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-muted transition-colors text-left"
+                                onClick={() => cameraInputRef.current?.click()}
+                              >
+                                <Camera className="h-3.5 w-3.5" />
+                                <div>
+                                  <span className="font-medium">Kamera Belakang</span>
+                                  <p className="text-[10px] text-muted-foreground">Foto objek/dokumen</p>
+                                </div>
+                              </button>
+                              <button
+                                className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-muted transition-colors text-left"
+                                onClick={() => cameraFrontInputRef.current?.click()}
+                              >
+                                <RotateCcw className="h-3.5 w-3.5" />
+                                <div>
+                                  <span className="font-medium">Kamera Depan</span>
+                                  <p className="text-[10px] text-muted-foreground">Selfie/bukti</p>
+                                </div>
+                              </button>
+                              <div className="border-t mt-1 pt-1 px-2">
+                                <p className="text-[9px] text-muted-foreground flex items-center gap-1">
+                                  <MapPin className="h-2.5 w-2.5" />
+                                  Timestamp & GPS otomatis
+                                </p>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                         <Button
                           variant="outline"
                           size="sm"
