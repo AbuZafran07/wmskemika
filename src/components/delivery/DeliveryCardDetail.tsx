@@ -1152,29 +1152,43 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     });
   };
 
-  // Add timestamp + GPS watermark to image
+  // Add timestamp + GPS + user name watermark to image, with resize/compress
   const addTimestampToImage = (file: File, location: string): Promise<File> => {
     return new Promise((resolve, reject) => {
       const img = new window.Image();
       img.onload = () => {
+        // Resize: max 1920px on longest side
+        const MAX_DIM = 1920;
+        let w = img.width;
+        let h = img.height;
+        if (w > MAX_DIM || h > MAX_DIM) {
+          if (w > h) {
+            h = Math.round(h * (MAX_DIM / w));
+            w = MAX_DIM;
+          } else {
+            w = Math.round(w * (MAX_DIM / h));
+            h = MAX_DIM;
+          }
+        }
+
         const canvas = document.createElement("canvas");
-        canvas.width = img.width;
-        canvas.height = img.height;
+        canvas.width = w;
+        canvas.height = h;
         const ctx = canvas.getContext("2d");
         if (!ctx) return reject(new Error("Canvas not supported"));
 
-        ctx.drawImage(img, 0, 0);
+        ctx.drawImage(img, 0, 0, w, h);
 
         const now = new Date();
         const timestamp = format(now, "dd/MM/yyyy HH:mm:ss");
-        const locationText = location ? `📍 ${location}` : "";
+        const userName = user?.full_name || user?.email || "Unknown";
         
-        const fontSize = Math.max(14, Math.floor(img.width / 35));
+        const fontSize = Math.max(13, Math.floor(w / 40));
         ctx.font = `bold ${fontSize}px Arial`;
         
-        // Calculate dimensions for both lines
-        const lines: string[] = [timestamp];
-        if (locationText) lines.push(locationText);
+        // Build watermark lines
+        const lines: string[] = [timestamp, `👤 ${userName}`];
+        if (location) lines.push(`📍 ${location}`);
         
         const padding = fontSize * 0.5;
         const lineHeight = fontSize * 1.3;
@@ -1184,7 +1198,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         
         // Background strip
         ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
-        ctx.fillRect(img.width - bgWidth - 10, img.height - bgHeight - 10, bgWidth, bgHeight);
+        ctx.fillRect(w - bgWidth - 10, h - bgHeight - 10, bgWidth, bgHeight);
         
         // Text lines
         ctx.fillStyle = "#FFFFFF";
@@ -1192,18 +1206,23 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         ctx.textBaseline = "top";
         
         lines.forEach((line, i) => {
-          ctx.fillText(
-            line,
-            img.width - 10 - padding,
-            img.height - bgHeight - 10 + padding + (i * lineHeight)
-          );
+          ctx.fillText(line, w - 10 - padding, h - bgHeight - 10 + padding + (i * lineHeight));
         });
 
-        canvas.toBlob((blob) => {
-          if (!blob) return reject(new Error("Failed to create blob"));
-          const newFile = new File([blob], `camera_${Date.now()}.jpg`, { type: "image/jpeg" });
-          resolve(newFile);
-        }, "image/jpeg", 0.9);
+        // Compress: target ~1MB, start at quality 0.8
+        const tryCompress = (quality: number) => {
+          canvas.toBlob((blob) => {
+            if (!blob) return reject(new Error("Failed to create blob"));
+            // If still > 2MB and quality can go lower, retry
+            if (blob.size > 2 * 1024 * 1024 && quality > 0.4) {
+              tryCompress(quality - 0.1);
+              return;
+            }
+            const newFile = new File([blob], `camera_${Date.now()}.jpg`, { type: "image/jpeg" });
+            resolve(newFile);
+          }, "image/jpeg", quality);
+        };
+        tryCompress(0.8);
       };
       img.onerror = () => reject(new Error("Failed to load image"));
       img.src = URL.createObjectURL(file);
