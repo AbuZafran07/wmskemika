@@ -448,6 +448,51 @@ export type Database = {
         }
         Relationships: []
       }
+      delivery_orders: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          do_number: string
+          id: string
+          notes: string | null
+          sales_order_id: string
+          stock_out_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          do_number: string
+          id?: string
+          notes?: string | null
+          sales_order_id: string
+          stock_out_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          do_number?: string
+          id?: string
+          notes?: string | null
+          sales_order_id?: string
+          stock_out_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_orders_sales_order_id_fkey"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_order_headers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_orders_stock_out_id_fkey"
+            columns: ["stock_out_id"]
+            isOneToOne: false
+            referencedRelation: "stock_out_headers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       delivery_requests: {
         Row: {
           assigned_to: string | null
