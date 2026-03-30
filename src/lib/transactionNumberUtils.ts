@@ -237,8 +237,22 @@ export async function generateUniqueStockAdjustmentNumber(maxRetries = 5): Promi
 /**
  * Generate unique Delivery Order number with format DO/YYYYMMDD.XX
  */
-export async function generateUniqueDONumber(maxRetries = 5): Promise<string> {
-  const dateStr = getTodayDateStr();
+/**
+ * Format a Date object as YYYYMMDD
+ */
+function formatDateStr(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}${month}${day}`;
+}
+
+/**
+ * Generate unique Delivery Order number with format DO/YYYYMMDD.XX
+ * @param deliveryDate - optional Date to use instead of today
+ */
+export async function generateUniqueDONumber(deliveryDate?: Date, maxRetries = 5): Promise<string> {
+  const dateStr = deliveryDate ? formatDateStr(deliveryDate) : getTodayDateStr();
   const prefix = `DO/${dateStr}.`;
 
   const { data } = await supabase
@@ -263,4 +277,32 @@ export async function generateUniqueDONumber(maxRetries = 5): Promise<string> {
 
   const timestamp = Date.now().toString().slice(-4);
   return `${prefix}${timestamp}`;
+}
+
+/**
+ * Get the date for a delivery column (pengiriman_senin..jumat) in the current week
+ */
+export function getColumnDeliveryDate(boardStatus: string): Date {
+  const dayMap: Record<string, number> = {
+    pengiriman_senin: 1,  // Monday
+    pengiriman_selasa: 2, // Tuesday
+    pengiriman_rabu: 3,   // Wednesday
+    pengiriman_kamis: 4,  // Thursday
+    pengiriman_jumat: 5,  // Friday
+  };
+
+  const targetDay = dayMap[boardStatus];
+  const now = new Date();
+  const currentDay = now.getDay(); // 0=Sun, 1=Mon...
+  const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + mondayOffset);
+
+  if (targetDay !== undefined) {
+    const result = new Date(monday);
+    result.setDate(monday.getDate() + (targetDay - 1));
+    return result;
+  }
+
+  return now; // fallback for delivered/delivered_sample
 }

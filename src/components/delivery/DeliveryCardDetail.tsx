@@ -19,7 +19,7 @@ import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { notifyDeliveryCardMoved, notifyUrgentLabelRequest, notifyUrgentLabelApproved, notifyUrgentLabelRejected } from "@/lib/pushNotifications";
 import { DeliveryOrderPdf, DeliveryOrderData } from "@/components/delivery/DeliveryOrderPdf";
-import { generateUniqueDONumber } from "@/lib/transactionNumberUtils";
+import { generateUniqueDONumber, getColumnDeliveryDate } from "@/lib/transactionNumberUtils";
 
 const BOARD_COLUMNS = [
   { id: "new_order", label: "New Orders", color: "bg-blue-600" },
@@ -196,8 +196,9 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       if (existingDO && existingDO.length > 0) {
         doNumber = existingDO[0].do_number;
       } else {
-        // Generate new DO number and insert record
-        doNumber = await generateUniqueDONumber();
+        // Generate DO number based on the column's delivery date
+        const columnDate = getColumnDeliveryDate(card.board_status);
+        doNumber = await generateUniqueDONumber(columnDate);
         const { error: insertErr } = await supabase
           .from("delivery_orders")
           .insert({
