@@ -2465,6 +2465,13 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delivery Order PDF Preview */}
+      <DeliveryOrderPdf
+        open={doPreviewOpen}
+        onOpenChange={setDoPreviewOpen}
+        data={doPreviewData}
+      />
     </>
   );
 }
