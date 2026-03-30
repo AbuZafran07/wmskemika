@@ -175,6 +175,62 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const [deliveryNumbers, setDeliveryNumbers] = useState<Record<string, string>>({});
   const [deliveryDates, setDeliveryDates] = useState<Record<string, string>>({});
   const [savingDO, setSavingDO] = useState(false);
+  const [doPreviewOpen, setDoPreviewOpen] = useState(false);
+  const [doPreviewData, setDoPreviewData] = useState<DeliveryOrderData | null>(null);
+  const [loadingDOPreview, setLoadingDOPreview] = useState<string | null>(null);
+
+  const handleGenerateDO = async (so: { id: string; stock_out_number: string; delivery_date: string }) => {
+    if (!card) return;
+    setLoadingDOPreview(so.id);
+    try {
+      const { data: items } = await supabase
+        .from("stock_out_items")
+        .select(`id, qty_out, products!inner(name, sku, unit_id, units(name)), inventory_batches!inner(batch_no, expired_date)`)
+        .eq("stock_out_id", so.id);
+
+      const { data: soHeader } = await supabase
+        .from("sales_order_headers")
+        .select(`sales_order_number, customer_po_number, project_instansi, sales_name, ship_to_address, customers!inner(name, address)`)
+        .eq("id", card.sales_order_id)
+        .single();
+
+      const { data: soOut } = await supabase
+        .from("stock_out_headers")
+        .select("delivery_number, delivery_actual_date, notes")
+        .eq("id", so.id)
+        .single();
+
+      setDoPreviewData({
+        id: so.id,
+        delivery_number: soOut?.delivery_number || null,
+        stock_out_number: so.stock_out_number,
+        delivery_date: so.delivery_date,
+        delivery_actual_date: soOut?.delivery_actual_date || null,
+        notes: soOut?.notes || null,
+        sales_order_number: soHeader?.sales_order_number || '-',
+        customer_name: (soHeader?.customers as any)?.name || card.customer_name,
+        customer_po_number: soHeader?.customer_po_number || card.customer_po_number,
+        customer_address: (soHeader?.customers as any)?.address || null,
+        project_instansi: soHeader?.project_instansi || card.project_instansi,
+        ship_to_address: soHeader?.ship_to_address || card.ship_to_address,
+        sales_name: soHeader?.sales_name || card.sales_name,
+        items: (items || []).map((it: any) => ({
+          id: it.id,
+          product_name: it.products?.name || '-',
+          sku: it.products?.sku || null,
+          qty_out: it.qty_out,
+          batch_no: it.inventory_batches?.batch_no || '-',
+          expired_date: it.inventory_batches?.expired_date || null,
+          unit_name: it.products?.units?.name || null,
+        })),
+      });
+      setDoPreviewOpen(true);
+    } catch (err: any) {
+      toast.error("Gagal memuat data DO: " + err.message);
+    } finally {
+      setLoadingDOPreview(null);
+    }
+  };
 
   // Delete card dialog state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
