@@ -2507,6 +2507,39 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         </DialogContent>
       </Dialog>
 
+      {/* Note Prompt before Generate DO */}
+      <Dialog open={doNotePromptOpen} onOpenChange={setDoNotePromptOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-4 h-4" />
+              Catatan Delivery Order
+            </DialogTitle>
+            <DialogDescription>
+              Tambahkan catatan yang akan ditampilkan di dokumen DO (opsional).
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            placeholder="Tulis catatan untuk DO ini... (opsional)"
+            value={doNoteText}
+            onChange={(e) => setDoNoteText(e.target.value)}
+            rows={3}
+          />
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDoNotePromptOpen(false)}>Batal</Button>
+            <Button onClick={() => {
+              setDoNotePromptOpen(false);
+              if (pendingDOGenerate) {
+                handleGenerateDO(pendingDOGenerate);
+              }
+            }}>
+              <Printer className="w-4 h-4 mr-2" />
+              Generate DO
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Delivery Order PDF Preview */}
       <DeliveryOrderPdf
         open={doPreviewOpen}
