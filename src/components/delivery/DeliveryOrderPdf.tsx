@@ -89,7 +89,7 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
             body { margin: 0; padding: 15mm; font-family: Arial, sans-serif; color: #111; }
             table { border-collapse: collapse; width: 100%; }
             th, td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; font-size: 11px; }
-            th { background: #1f2937 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            th { background: #166534 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             @media print { body { padding: 10mm; } @page { size: A4; margin: 10mm; } }
           </style>
         </head>
@@ -174,13 +174,13 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', marginBottom: '0' }}>
                 <thead>
                   <tr>
-                    <th style={{ backgroundColor: '#1f2937', color: 'white', border: '1px solid #374151', padding: '6px 8px', textAlign: 'center', width: '30px', WebkitPrintColorAdjust: 'exact' as any }}>No</th>
-                    <th style={{ backgroundColor: '#1f2937', color: 'white', border: '1px solid #374151', padding: '6px 8px', textAlign: 'left', width: '80px', WebkitPrintColorAdjust: 'exact' as any }}>SKU</th>
-                    <th style={{ backgroundColor: '#1f2937', color: 'white', border: '1px solid #374151', padding: '6px 8px', textAlign: 'left', WebkitPrintColorAdjust: 'exact' as any }}>Nama Produk</th>
-                    <th style={{ backgroundColor: '#1f2937', color: 'white', border: '1px solid #374151', padding: '6px 8px', textAlign: 'center', width: '50px', WebkitPrintColorAdjust: 'exact' as any }}>Qty</th>
-                    <th style={{ backgroundColor: '#1f2937', color: 'white', border: '1px solid #374151', padding: '6px 8px', textAlign: 'center', width: '55px', WebkitPrintColorAdjust: 'exact' as any }}>Satuan</th>
-                    <th style={{ backgroundColor: '#1f2937', color: 'white', border: '1px solid #374151', padding: '6px 8px', textAlign: 'left', width: '90px', WebkitPrintColorAdjust: 'exact' as any }}>Batch No</th>
-                    <th style={{ backgroundColor: '#1f2937', color: 'white', border: '1px solid #374151', padding: '6px 8px', textAlign: 'left', width: '80px', WebkitPrintColorAdjust: 'exact' as any }}>Expiry</th>
+                    <th style={{ backgroundColor: '#166534', color: 'white', border: '1px solid #15803d', padding: '6px 8px', textAlign: 'center', width: '30px', WebkitPrintColorAdjust: 'exact' as any }}>No</th>
+                    <th style={{ backgroundColor: '#166534', color: 'white', border: '1px solid #15803d', padding: '6px 8px', textAlign: 'left', width: '80px', WebkitPrintColorAdjust: 'exact' as any }}>SKU</th>
+                    <th style={{ backgroundColor: '#166534', color: 'white', border: '1px solid #15803d', padding: '6px 8px', textAlign: 'left', WebkitPrintColorAdjust: 'exact' as any }}>Nama Produk</th>
+                    <th style={{ backgroundColor: '#166534', color: 'white', border: '1px solid #15803d', padding: '6px 8px', textAlign: 'center', width: '50px', WebkitPrintColorAdjust: 'exact' as any }}>Qty</th>
+                    <th style={{ backgroundColor: '#166534', color: 'white', border: '1px solid #15803d', padding: '6px 8px', textAlign: 'center', width: '55px', WebkitPrintColorAdjust: 'exact' as any }}>Satuan</th>
+                    <th style={{ backgroundColor: '#166534', color: 'white', border: '1px solid #15803d', padding: '6px 8px', textAlign: 'left', width: '90px', WebkitPrintColorAdjust: 'exact' as any }}>Batch No</th>
+                    <th style={{ backgroundColor: '#166534', color: 'white', border: '1px solid #15803d', padding: '6px 8px', textAlign: 'left', width: '80px', WebkitPrintColorAdjust: 'exact' as any }}>Expiry</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -211,7 +211,7 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
             {/* Section 3: Separator line + Notes + Signature */}
             <div data-pdf-section>
               {/* Separator line like reference image */}
-              <div style={{ borderBottom: '1.5px solid #111', marginTop: '40px', marginBottom: '40px' }}></div>
+              <div style={{ borderBottom: '1.5px solid #111', marginTop: '80px', marginBottom: '50px' }}></div>
 
               {/* Notes - always visible */}
               <div style={{ border: '1px solid #999', padding: '10px 14px', marginBottom: '24px', minHeight: '50px' }}>
