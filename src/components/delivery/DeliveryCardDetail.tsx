@@ -11,7 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { Truck, ChevronRight, Tag, MessageSquare, Send, X, Plus, Trash2, Paperclip, FileText, Image, Download, Loader2, CheckSquare, AlertTriangle, Calendar, AtSign, Pencil, Check, Search, Eye, ExternalLink } from "lucide-react";
+import { Truck, ChevronRight, Tag, MessageSquare, Send, X, Plus, Trash2, Paperclip, FileText, Image, Download, Loader2, CheckSquare, AlertTriangle, Calendar, AtSign, Pencil, Check, Search, Eye, ExternalLink, Camera } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { format, formatDistanceToNow } from "date-fns";
@@ -146,6 +146,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const [uploadProgress, setUploadProgress] = useState(0);
   const [downloadingAttachmentId, setDownloadingAttachmentId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -1638,11 +1639,16 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                   <div className="space-y-2">
                     {checklists.map((cl) => {
                       const isFinanceChecklist = cl.label === "Verifikasi Administrasi Finance";
+                      const isUploadChecklist = ["Upload Foto Pengiriman", "Upload Dokumen Delivery Order"].includes(cl.label);
                       const canCheckThisItem = isFinanceChecklist
                         ? ['super_admin', 'finance'].includes(user?.role || '')
+                        : isUploadChecklist
+                        ? ['super_admin', 'warehouse'].includes(user?.role || '')
                         : canCheckChecklist;
                       const hintText = isFinanceChecklist
                         ? "Hanya Finance / Super Admin"
+                        : isUploadChecklist
+                        ? "Hanya Warehouse / Super Admin"
                         : "Hanya Purchasing / Finance / Super Admin";
 
                       return (
