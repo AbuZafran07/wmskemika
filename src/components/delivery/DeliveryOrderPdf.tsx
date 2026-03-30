@@ -165,10 +165,6 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
                     <span style={{ width: '100px', flexShrink: 0, color: '#555' }}>Ship Address</span>
                     <span>: {data.ship_to_address || data.customer_address || '-'}</span>
                   </div>
-                  <div style={{ display: 'flex', marginBottom: '4px' }}>
-                    <span style={{ width: '100px', flexShrink: 0, color: '#555' }}>Project</span>
-                    <span>: {data.project_instansi || '-'}</span>
-                  </div>
                 </div>
               </div>
             </div>
