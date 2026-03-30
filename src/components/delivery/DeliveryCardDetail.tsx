@@ -11,7 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { Truck, ChevronRight, Tag, MessageSquare, Send, X, Plus, Trash2, Paperclip, FileText, Image, Download, Loader2, CheckSquare, AlertTriangle, Calendar, AtSign, Pencil, Check, Search, Eye, ExternalLink } from "lucide-react";
+import { Truck, ChevronRight, Tag, MessageSquare, Send, X, Plus, Trash2, Paperclip, FileText, Image, Download, Loader2, CheckSquare, AlertTriangle, Calendar, AtSign, Pencil, Check, Search, Eye, ExternalLink, Camera } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { format, formatDistanceToNow } from "date-fns";
@@ -146,6 +146,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const [uploadProgress, setUploadProgress] = useState(0);
   const [downloadingAttachmentId, setDownloadingAttachmentId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -1130,6 +1131,106 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   };
 
 
+  // Add timestamp watermark to image
+  const addTimestampToImage = (file: File): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("Canvas not supported"));
+
+        ctx.drawImage(img, 0, 0);
+
+        // Timestamp text
+        const now = new Date();
+        const timestamp = format(now, "dd/MM/yyyy HH:mm:ss");
+        
+        const fontSize = Math.max(16, Math.floor(img.width / 30));
+        ctx.font = `bold ${fontSize}px Arial`;
+        
+        // Background strip
+        const textMetrics = ctx.measureText(timestamp);
+        const padding = fontSize * 0.5;
+        const bgHeight = fontSize + padding * 2;
+        const bgWidth = textMetrics.width + padding * 2;
+        
+        ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+        ctx.fillRect(img.width - bgWidth - 10, img.height - bgHeight - 10, bgWidth, bgHeight);
+        
+        // Text
+        ctx.fillStyle = "#FFFFFF";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "bottom";
+        ctx.fillText(timestamp, img.width - 10 - padding, img.height - 10 - padding);
+
+        canvas.toBlob((blob) => {
+          if (!blob) return reject(new Error("Failed to create blob"));
+          const newFile = new File([blob], `camera_${Date.now()}.jpg`, { type: "image/jpeg" });
+          resolve(newFile);
+        }, "image/jpeg", 0.9);
+      };
+      img.onerror = () => reject(new Error("Failed to load image"));
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  const handleCameraCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !card || !user) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Ukuran file maksimal 10MB");
+      return;
+    }
+
+    setUploadingFile(true);
+    setUploadProgress(0);
+    try {
+      // Add timestamp watermark
+      const stampedFile = await addTimestampToImage(file);
+      
+      const fileKey = `delivery/${card.id}/${Date.now()}.jpg`;
+
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 10, 90));
+      }, 200);
+
+      const { error: uploadError } = await supabase.storage
+        .from("documents")
+        .upload(fileKey, stampedFile);
+
+      clearInterval(progressInterval);
+      if (uploadError) throw uploadError;
+
+      setUploadProgress(95);
+      const { data: urlData } = supabase.storage.from("documents").getPublicUrl(fileKey);
+
+      await supabase.from("attachments").insert({
+        ref_table: "delivery_requests",
+        ref_id: card.id,
+        module_name: "delivery",
+        file_key: fileKey,
+        url: urlData.publicUrl,
+        mime_type: "image/jpeg",
+        file_size: stampedFile.size,
+        uploaded_by: user.id,
+      });
+
+      setUploadProgress(100);
+      toast.success("Foto berhasil diupload dengan timestamp");
+      fetchAttachments();
+    } catch (err: any) {
+      toast.error("Gagal upload foto: " + err.message);
+    } finally {
+      setUploadingFile(false);
+      setUploadProgress(0);
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
+    }
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !card || !user) return;
@@ -1533,16 +1634,37 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                         onChange={handleFileUpload}
                         accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
                       />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-6 text-[11px] px-2 gap-1 ml-auto"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploadingFile}
-                      >
-                        {uploadingFile ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
-                        Upload
-                      </Button>
+                      <input
+                        ref={cameraInputRef}
+                        type="file"
+                        className="hidden"
+                        onChange={handleCameraCapture}
+                        accept="image/*"
+                        capture="environment"
+                      />
+                      <div className="flex gap-1 ml-auto">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-6 text-[11px] px-2 gap-1"
+                          onClick={() => cameraInputRef.current?.click()}
+                          disabled={uploadingFile}
+                          title="Buka kamera dengan timestamp"
+                        >
+                          {uploadingFile ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+                          Kamera
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-6 text-[11px] px-2 gap-1"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploadingFile}
+                        >
+                          {uploadingFile ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                          Upload
+                        </Button>
+                      </div>
                     </>
                   )}
                 </div>
@@ -1638,11 +1760,16 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                   <div className="space-y-2">
                     {checklists.map((cl) => {
                       const isFinanceChecklist = cl.label === "Verifikasi Administrasi Finance";
+                      const isUploadChecklist = ["Upload Foto Pengiriman", "Upload Dokumen Delivery Order"].includes(cl.label);
                       const canCheckThisItem = isFinanceChecklist
                         ? ['super_admin', 'finance'].includes(user?.role || '')
+                        : isUploadChecklist
+                        ? ['super_admin', 'warehouse'].includes(user?.role || '')
                         : canCheckChecklist;
                       const hintText = isFinanceChecklist
                         ? "Hanya Finance / Super Admin"
+                        : isUploadChecklist
+                        ? "Hanya Warehouse / Super Admin"
                         : "Hanya Purchasing / Finance / Super Admin";
 
                       return (
