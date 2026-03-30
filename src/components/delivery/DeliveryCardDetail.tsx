@@ -1133,7 +1133,30 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   };
 
 
-  // Get current GPS location
+  // Reverse geocode coordinates to address using Nominatim (OpenStreetMap)
+  const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+        { headers: { "Accept-Language": "id" } }
+      );
+      if (!res.ok) return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      const data = await res.json();
+      // Build compact address from parts
+      const addr = data.address || {};
+      const parts = [
+        addr.road || addr.hamlet || addr.neighbourhood || "",
+        addr.suburb || addr.village || addr.town || "",
+        addr.city || addr.county || addr.municipality || "",
+        addr.state || "",
+      ].filter(Boolean);
+      return parts.length > 0 ? parts.join(", ") : (data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+    } catch {
+      return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    }
+  };
+
+  // Get current GPS location with address
   const getCurrentLocation = (): Promise<string> => {
     return new Promise((resolve) => {
       if (!navigator.geolocation) {
@@ -1141,10 +1164,10 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         return;
       }
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const lat = position.coords.latitude.toFixed(6);
-          const lng = position.coords.longitude.toFixed(6);
-          resolve(`${lat}, ${lng}`);
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          const address = await reverseGeocode(latitude, longitude);
+          resolve(address);
         },
         () => resolve(""),
         { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
