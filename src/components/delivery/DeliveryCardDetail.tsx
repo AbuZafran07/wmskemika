@@ -1634,16 +1634,37 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                         onChange={handleFileUpload}
                         accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
                       />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-6 text-[11px] px-2 gap-1 ml-auto"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploadingFile}
-                      >
-                        {uploadingFile ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
-                        Upload
-                      </Button>
+                      <input
+                        ref={cameraInputRef}
+                        type="file"
+                        className="hidden"
+                        onChange={handleCameraCapture}
+                        accept="image/*"
+                        capture="environment"
+                      />
+                      <div className="flex gap-1 ml-auto">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-6 text-[11px] px-2 gap-1"
+                          onClick={() => cameraInputRef.current?.click()}
+                          disabled={uploadingFile}
+                          title="Buka kamera dengan timestamp"
+                        >
+                          {uploadingFile ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+                          Kamera
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-6 text-[11px] px-2 gap-1"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploadingFile}
+                        >
+                          {uploadingFile ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                          Upload
+                        </Button>
+                      </div>
                     </>
                   )}
                 </div>
