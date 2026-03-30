@@ -68,18 +68,20 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
       offscreenContainer.style.padding = '12mm 15mm';
       offscreenContainer.style.backgroundColor = '#ffffff';
       offscreenContainer.style.boxSizing = 'border-box';
+      offscreenContainer.style.zIndex = '-1';
       document.body.appendChild(offscreenContainer);
 
       const clonedContent = contentRef.current.cloneNode(true) as HTMLElement;
       clonedContent.style.width = '100%';
       offscreenContainer.appendChild(clonedContent);
 
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       const canvas = await html2canvas(offscreenContainer, {
         scale: 2,
         useCORS: true,
         backgroundColor: '#ffffff',
+        logging: false,
         width: offscreenContainer.offsetWidth,
         height: offscreenContainer.offsetHeight,
       });
@@ -89,12 +91,39 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
       const pdfWidth = 210;
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, Math.min(pdfHeight, 297));
-      pdf.save(`DO-${doNumber}.pdf`);
+      let heightLeft = pdfHeight;
+      let position = 0;
+      const pageHeight = 297;
+
+      pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - pdfHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pageHeight;
+      }
+
+      // Use Blob URL for reliable download
+      const pdfBlob = pdf.output('blob');
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      const downloadLink = document.createElement('a');
+      downloadLink.href = blobUrl;
+      downloadLink.download = `DO-${doNumber}.pdf`;
+      downloadLink.style.display = 'none';
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      
+      setTimeout(() => {
+        document.body.removeChild(downloadLink);
+        URL.revokeObjectURL(blobUrl);
+      }, 200);
 
       document.body.removeChild(offscreenContainer);
     } catch (error) {
       console.error('PDF generation error:', error);
+      alert('Gagal membuat PDF. Silakan coba lagi.');
     } finally {
       setIsPrinting(false);
     }
