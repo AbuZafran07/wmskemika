@@ -236,7 +236,7 @@ export default function DeliveryOrder() {
                     {paginatedData.map((row, idx) => (
                       <TableRow key={row.id}>
                         <TableCell className="text-muted-foreground">
-                          {(pagination.currentPage - 1) * pagination.pageSize + idx + 1}
+                          {(currentPage - 1) * pageSize + idx + 1}
                         </TableCell>
                         <TableCell className="font-medium">
                           {row.delivery_number || row.stock_out_number}
@@ -282,12 +282,12 @@ export default function DeliveryOrder() {
               </div>
               <div className="mt-4">
                 <DataTablePagination
-                  currentPage={pagination.currentPage}
-                  totalPages={pagination.totalPages}
-                  pageSize={pagination.pageSize}
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  pageSize={pageSize}
                   totalItems={filtered.length}
-                  onPageChange={pagination.goToPage}
-                  onPageSizeChange={pagination.setPageSize}
+                  onPageChange={setCurrentPage}
+                  onPageSizeChange={setPageSize}
                 />
               </div>
             </>
