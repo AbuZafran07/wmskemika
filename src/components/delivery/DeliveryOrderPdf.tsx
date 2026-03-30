@@ -113,7 +113,7 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
           </DialogTitle>
         </DialogHeader>
 
-        {isPrinting && <PdfGeneratingOverlay progress={pdfProgress} />}
+        {isPrinting && <PdfGeneratingOverlay isVisible={isPrinting} progress={pdfProgress} />}
 
         {/* PDF Content - section-based for smart page breaks */}
         <div ref={contentRef} style={{ backgroundColor: '#ffffff' }}>
