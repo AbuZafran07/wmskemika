@@ -34,6 +34,8 @@ interface DORow {
   project_instansi: string;
   ship_to_address: string | null;
   sales_name: string;
+  customer_pic: string | null;
+  customer_phone: string | null;
 }
 
 export default function DeliveryOrder() {
