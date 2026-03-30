@@ -60,7 +60,7 @@ export default function DeliveryOrder() {
           ),
           sales_order_headers!inner(
             sales_order_number, customer_po_number, project_instansi, sales_name, ship_to_address,
-            customers!inner(name, address)
+            customers!inner(name, address, pic, phone)
           )
         `)
         .order("created_at", { ascending: false });
@@ -88,6 +88,8 @@ export default function DeliveryOrder() {
           project_instansi: soh?.project_instansi || '-',
           ship_to_address: soh?.ship_to_address || null,
           sales_name: soh?.sales_name || '-',
+          customer_pic: soh?.customers?.pic || null,
+          customer_phone: soh?.customers?.phone || null,
         };
       });
 
@@ -145,6 +147,8 @@ export default function DeliveryOrder() {
         project_instansi: row.project_instansi,
         ship_to_address: row.ship_to_address,
         sales_name: row.sales_name,
+        customer_pic: (row as any).customer_pic || null,
+        customer_phone: (row as any).customer_phone || null,
         items: (items || []).map((it: any) => ({
           id: it.id,
           product_name: it.products?.name || '-',
