@@ -233,3 +233,34 @@ export async function generateUniqueStockAdjustmentNumber(maxRetries = 5): Promi
   const timestamp = Date.now().toString().slice(-4);
   return `${prefix}${timestamp}`;
 }
+
+/**
+ * Generate unique Delivery Order number with format DO/YYYYMMDD.XX
+ */
+export async function generateUniqueDONumber(maxRetries = 5): Promise<string> {
+  const dateStr = getTodayDateStr();
+  const prefix = `DO/${dateStr}.`;
+
+  const { data } = await supabase
+    .from("delivery_orders")
+    .select("do_number")
+    .like("do_number", `${prefix}%`)
+    .order("do_number", { ascending: false })
+    .limit(1);
+
+  const lastNumber = data?.[0]?.do_number || null;
+  let sequence = lastNumber ? parseSequence(lastNumber, prefix) + 1 : 1;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const number = `${prefix}${String(sequence + attempt).padStart(2, "0")}`;
+    const { data: existing } = await supabase
+      .from("delivery_orders")
+      .select("id")
+      .eq("do_number", number)
+      .limit(1);
+    if (!existing?.length) return number;
+  }
+
+  const timestamp = Date.now().toString().slice(-4);
+  return `${prefix}${timestamp}`;
+}
