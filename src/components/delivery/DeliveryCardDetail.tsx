@@ -842,7 +842,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     } else {
       setNewComment("");
       // Send push notification for comment
-      const senderName = profiles[user.id]?.full_name || user.email || 'User';
+      const senderName = allMentionUsers.find(u => u.id === user.id)?.name || user.email || 'User';
       notifyKanbanComment(
         card.sales_order_number,
         senderName,
@@ -855,9 +855,9 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       const mentions = commentText.match(mentionRegex);
       if (mentions && mentions.length > 0) {
         const mentionNames = mentions.map(m => m.substring(1).trim().toLowerCase());
-        const mentionedIds = Object.entries(profiles)
-          .filter(([id, p]) => p.full_name && mentionNames.some(name => p.full_name!.toLowerCase().includes(name)))
-          .map(([id]) => id);
+        const mentionedIds = allMentionUsers
+          .filter(u => mentionNames.some(name => u.name.toLowerCase().includes(name)))
+          .map(u => u.id);
         if (mentionedIds.length > 0) {
           notifyKanbanMention(mentionedIds, card.sales_order_number, senderName, commentText, card.id, user.id);
         }
