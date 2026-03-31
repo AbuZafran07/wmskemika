@@ -73,6 +73,31 @@ const fmt = (n: number) => new Intl.NumberFormat('id-ID').format(n);
 const CORP_GREEN = '#0f6b3e';
 const CORP_GREEN_LIGHT = '#e8f5ee';
 
+// ─── Shared Styles ──────────────────────────────────────────────
+const labelCell: React.CSSProperties = {
+  fontSize: '11px',
+  color: '#444',
+  whiteSpace: 'nowrap',
+  padding: '3px 0',
+  verticalAlign: 'top',
+};
+
+const colonCell: React.CSSProperties = {
+  width: '12px',
+  padding: '3px 0',
+  textAlign: 'center',
+  verticalAlign: 'top',
+  fontSize: '11px',
+};
+
+const valueCell: React.CSSProperties = {
+  fontSize: '11px',
+  fontWeight: 700,
+  padding: '3px 0',
+  verticalAlign: 'top',
+  lineHeight: '1.5',
+};
+
 // ─── Component ──────────────────────────────────────────────────
 interface PiPdfTemplateProps {
   data: PiPdfData;
@@ -81,103 +106,113 @@ interface PiPdfTemplateProps {
 const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ data }, ref) => {
   const { company, invoice, customer, items, summary, signatory } = data;
 
-  const rootStyle: React.CSSProperties = {
-    fontFamily: 'Arial, Helvetica, sans-serif',
-    fontSize: '11px',
-    color: '#222',
-    lineHeight: '1.4',
-    width: '100%',
-    position: 'relative',
-  };
-
   return (
     <div ref={ref}>
-      <div data-pdf-root style={rootStyle}>
+      <div data-pdf-root style={{
+        fontFamily: 'Arial, Helvetica, sans-serif',
+        fontSize: '11px',
+        color: '#222',
+        lineHeight: '1.4',
+        width: '100%',
+        position: 'relative',
+      }}>
 
-        {/* ─── Section 1: HEADER ─── */}
-        <div data-pdf-section style={{ paddingTop: '65px', marginBottom: '16px' }}>
-          {/* Watermark */}
-          <div style={{
-            position: 'absolute',
-            top: '45%',
-            left: '50%',
-            transform: 'translate(-50%, -50%) rotate(-30deg)',
-            fontSize: '80px',
-            fontWeight: 700,
-            color: 'rgba(15, 107, 62, 0.06)',
-            letterSpacing: '12px',
-            whiteSpace: 'nowrap',
-            pointerEvents: 'none',
-            zIndex: 0,
-            textTransform: 'uppercase',
-          }}>
-            PROFORMA
-          </div>
+        {/* ─── Watermark ─── */}
+        <div style={{
+          position: 'absolute',
+          top: '45%',
+          left: '50%',
+          transform: 'translate(-50%, -50%) rotate(-30deg)',
+          fontSize: '80px',
+          fontWeight: 700,
+          color: 'rgba(15, 107, 62, 0.06)',
+          letterSpacing: '12px',
+          whiteSpace: 'nowrap',
+          pointerEvents: 'none',
+          zIndex: 0,
+          textTransform: 'uppercase',
+        }}>
+          PROFORMA
+        </div>
 
-          {/* Title above separator */}
+        {/* ═══ SECTION 1: HEADER ═══ */}
+        <div data-pdf-section style={{ paddingTop: '65px', marginBottom: '20px' }}>
+
+          {/* Title */}
           <h1 style={{
             fontSize: '22px',
             fontWeight: 700,
             textTransform: 'uppercase',
             textAlign: 'right',
             margin: '0 0 8px 0',
-            letterSpacing: '0.5px',
+            letterSpacing: '1px',
             color: '#000',
           }}>
             PROFORMA INVOICE
           </h1>
 
-          {/* Black separator line - not exceeding letterhead border */}
-          <div style={{
-            height: '2px',
-            backgroundColor: '#000',
-            marginBottom: '16px',
-            marginRight: '15px',
-          }} />
+          {/* Separator */}
+          <div style={{ height: '2px', backgroundColor: '#000', marginBottom: '20px', marginRight: '15px' }} />
 
-          {/* Header grid: Left 55% + Right 45% */}
-          <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
-            
-            {/* LEFT: PI info + Customer */}
+          {/* 2-column header: Left = PI info, Right = meta */}
+          <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
+
+            {/* LEFT COLUMN */}
             <div style={{ width: '55%' }}>
               <table style={{ borderCollapse: 'collapse', width: '100%' }}>
                 <tbody>
-                  {([
-                    ['Nomor PI', invoice.number],
-                    ['Kepada', customer.companyName],
-                    ['Up.', customer.picName],
-                    ['Alamat', customer.address],
-                  ] as [string, string][]).map(([label, val]) => (
-                    <tr key={label}>
-                      <td style={{ fontSize: '11px', color: '#555', whiteSpace: 'nowrap', width: '85px', padding: '4px 0', verticalAlign: 'top' }}>{label}</td>
-                      <td style={{ width: '12px', padding: '4px 0', textAlign: 'center', verticalAlign: 'top' }}>:</td>
-                      <td style={{ fontSize: '11px', fontWeight: 600, padding: '4px 0', verticalAlign: 'top', lineHeight: '1.4' }}>{val}</td>
-                    </tr>
-                  ))}
+                  <tr>
+                    <td style={{ ...labelCell, width: '80px' }}>Nomor PI</td>
+                    <td style={colonCell}>:</td>
+                    <td style={valueCell}>{invoice.number}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ ...labelCell, width: '80px' }}>Kepada</td>
+                    <td style={colonCell}>:</td>
+                    <td style={valueCell}>{customer.companyName}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ ...labelCell, width: '80px' }}>Up.</td>
+                    <td style={colonCell}>:</td>
+                    <td style={valueCell}>{customer.picName}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ ...labelCell, width: '80px' }}>Alamat</td>
+                    <td style={colonCell}>:</td>
+                    <td style={valueCell}>{customer.address}</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
 
-            {/* RIGHT: meta */}
+            {/* RIGHT COLUMN */}
             <div style={{ width: '45%' }}>
               <table style={{ borderCollapse: 'collapse', width: '100%' }}>
                 <tbody>
-                  {([
-                    ['Tanggal', invoice.date],
-                    ['Mata Uang', invoice.currency],
-                    ['Nomor SO', invoice.soNumber],
-                    ['No. PO Customer', invoice.customerPoNumber],
-                  ] as [string, string][]).map(([label, val]) => (
-                    <tr key={label}>
-                      <td style={{ fontSize: '11px', color: '#555', whiteSpace: 'nowrap', width: '110px', padding: '4px 0' }}>{label}</td>
-                      <td style={{ width: '12px', padding: '4px 0', textAlign: 'center' }}>:</td>
-                      <td style={{ fontSize: '11px', fontWeight: 600, padding: '4px 0' }}>{val}</td>
-                    </tr>
-                  ))}
                   <tr>
-                    <td style={{ fontSize: '11px', color: '#555', whiteSpace: 'nowrap', width: '110px', padding: '4px 0' }}>Term</td>
-                    <td style={{ width: '12px', padding: '4px 0', textAlign: 'center' }}>:</td>
-                    <td style={{ fontSize: '11px', fontWeight: 700, padding: '4px 0', color: '#b91c1c' }}>{invoice.term}</td>
+                    <td style={{ ...labelCell, width: '110px' }}>Tanggal</td>
+                    <td style={colonCell}>:</td>
+                    <td style={valueCell}>{invoice.date}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ ...labelCell, width: '110px' }}>Mata Uang</td>
+                    <td style={colonCell}>:</td>
+                    <td style={valueCell}>{invoice.currency}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ ...labelCell, width: '110px' }}>Nomor SO</td>
+                    <td style={colonCell}>:</td>
+                    <td style={valueCell}>{invoice.soNumber}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ ...labelCell, width: '110px' }}>No. PO Customer</td>
+                    <td style={colonCell}>:</td>
+                    <td style={valueCell}>{invoice.customerPoNumber}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ ...labelCell, width: '110px' }}>Term</td>
+                    <td style={colonCell}>:</td>
+                    <td style={{ ...valueCell, color: '#b91c1c' }}>{invoice.term}</td>
                   </tr>
                 </tbody>
               </table>
@@ -185,7 +220,7 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
           </div>
         </div>
 
-        {/* ─── Section 2: ITEMS TABLE ─── */}
+        {/* ═══ SECTION 2: ITEMS TABLE ═══ */}
         <div data-pdf-section style={{ marginBottom: '8px' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
@@ -196,16 +231,16 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
                   { label: 'Nama Barang', w: 'auto', align: 'left' as const },
                   { label: 'Jumlah', w: '55px', align: 'center' as const },
                   { label: 'Unit', w: '42px', align: 'center' as const },
-                  { label: 'Harga', w: '90px', align: 'right' as const },
-                  { label: 'Disc.', w: '42px', align: 'center' as const },
-                  { label: 'Sub Total', w: '95px', align: 'right' as const },
-                  { label: 'Pajak', w: '46px', align: 'center' as const },
+                  { label: 'Harga', w: '85px', align: 'right' as const },
+                  { label: 'Disc.', w: '55px', align: 'center' as const },
+                  { label: 'Sub Total', w: '90px', align: 'right' as const },
+                  { label: 'Pajak', w: '42px', align: 'center' as const },
                 ].map((h) => (
                   <th key={h.label} style={{
                     backgroundColor: CORP_GREEN,
                     color: '#fff',
                     border: '1px solid #0a5530',
-                    padding: '8px 6px',
+                    padding: '7px 6px',
                     fontSize: '10px',
                     fontWeight: 700,
                     whiteSpace: 'nowrap',
@@ -222,55 +257,50 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
             <tbody>
               {items.map((item, idx) => (
                 <tr key={item.no} style={{ backgroundColor: idx % 2 === 1 ? CORP_GREEN_LIGHT : 'transparent' }}>
-                  <td style={{ border: '1px solid #ccc', padding: '8px 6px', fontSize: '10px', textAlign: 'center' }}>{item.no}</td>
-                  <td style={{ border: '1px solid #ccc', padding: '8px 6px', fontSize: '10px', color: CORP_GREEN, fontWeight: 600 }}>{item.code}</td>
-                  <td style={{ border: '1px solid #ccc', padding: '8px 6px', fontSize: '10px', lineHeight: '1.4', wordBreak: 'break-word' }}>{item.name}</td>
-                  <td style={{ border: '1px solid #ccc', padding: '8px 6px', fontSize: '10px', textAlign: 'center' }}>{item.qty}</td>
-                  <td style={{ border: '1px solid #ccc', padding: '8px 6px', fontSize: '10px', textAlign: 'center' }}>{item.unit}</td>
-                  <td style={{ border: '1px solid #ccc', padding: '8px 6px', fontSize: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>{fmt(item.price)}</td>
-                  <td style={{ border: '1px solid #ccc', padding: '8px 6px', fontSize: '10px', textAlign: 'center' }}>{item.discount > 0 ? `${item.discount}%` : '-'}</td>
-                  <td style={{ border: '1px solid #ccc', padding: '8px 6px', fontSize: '10px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 600 }}>{fmt(item.subtotal)}</td>
-                  <td style={{ border: '1px solid #ccc', padding: '8px 6px', fontSize: '10px', textAlign: 'center' }}>{item.taxPercent}</td>
+                  <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', textAlign: 'center' }}>{item.no}</td>
+                  <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', color: CORP_GREEN, fontWeight: 700 }}>{item.code}</td>
+                  <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', lineHeight: '1.4', wordBreak: 'break-word' }}>{item.name}</td>
+                  <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', textAlign: 'center' }}>{item.qty}</td>
+                  <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', textAlign: 'center' }}>{item.unit}</td>
+                  <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>{fmt(item.price)}</td>
+                  <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', textAlign: 'center' }}>{item.discount > 0 ? `${item.discount}%` : '-'}</td>
+                  <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700 }}>{fmt(item.subtotal)}</td>
+                  <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', textAlign: 'center' }}>{item.taxPercent}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
-        {/* ─── Section 3: DIVIDER + BOTTOM 2-COLUMN ─── */}
+        {/* ═══ SECTION 3: BOTTOM AREA (Terbilang + Bank | Calculations) ═══ */}
         <div data-pdf-section style={{ marginTop: '60px' }}>
-          {/* Divider line */}
-          <div style={{
-            borderTop: '2px solid #000',
-            marginBottom: '36px',
-          }} />
+          {/* Divider */}
+          <div style={{ borderTop: '2px solid #000', marginBottom: '16px' }} />
 
-          {/* Bottom 2-column layout */}
-          <div style={{ display: 'flex', gap: '40px', alignItems: 'flex-start' }}>
-            
-            {/* LEFT: Terbilang + Bank info */}
+          <div style={{ display: 'flex', gap: '30px', alignItems: 'flex-start' }}>
+
+            {/* LEFT: Terbilang + Bank Info */}
             <div style={{ width: '55%', fontSize: '10px' }}>
               {/* Terbilang */}
               <div style={{
-                marginBottom: '16px',
+                marginBottom: '14px',
                 padding: '8px 10px',
-                backgroundColor: CORP_GREEN_LIGHT,
                 borderLeft: `3px solid ${CORP_GREEN}`,
-                borderRadius: '2px',
                 lineHeight: '1.5',
               }}>
-                <span style={{ fontWeight: 700, fontSize: '10px' }}>Terbilang: </span>
-                <span style={{ fontStyle: 'italic', fontSize: '10px' }}>{invoice.amountInWords}</span>
+                <span style={{ fontWeight: 700 }}>Terbilang: </span>
+                <span style={{ fontStyle: 'italic' }}>{invoice.amountInWords}</span>
               </div>
 
-              {/* Bank info box */}
+              {/* Bank Info */}
               <div style={{
                 border: '1px solid #999',
-                padding: '12px 14px',
-                borderRadius: '3px',
+                padding: '10px 12px',
                 lineHeight: '1.6',
               }}>
-                <div style={{ fontWeight: 700, marginBottom: '8px', fontSize: '10px', color: CORP_GREEN, textTransform: 'uppercase', letterSpacing: '0.3px' }}>Keterangan Pembayaran:</div>
+                <div style={{ fontWeight: 700, marginBottom: '6px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                  Keterangan Pembayaran:
+                </div>
                 <table style={{ borderCollapse: 'collapse', width: '100%' }}>
                   <tbody>
                     {([
@@ -280,9 +310,9 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
                       ['NPWP', company.npwp],
                     ] as [string, string][]).map(([label, val]) => (
                       <tr key={label}>
-                        <td style={{ fontSize: '10px', color: '#555', width: '80px', padding: '2px 0', verticalAlign: 'top' }}>{label}</td>
+                        <td style={{ fontSize: '10px', color: '#555', width: '75px', padding: '2px 0', verticalAlign: 'top' }}>{label}</td>
                         <td style={{ fontSize: '10px', padding: '2px 0', width: '10px', textAlign: 'center', verticalAlign: 'top' }}>:</td>
-                        <td style={{ fontSize: '10px', fontWeight: 600, padding: '2px 0', verticalAlign: 'top' }}>{val}</td>
+                        <td style={{ fontSize: '10px', fontWeight: 700, padding: '2px 0', verticalAlign: 'top' }}>{val}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -290,63 +320,49 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
               </div>
             </div>
 
-            {/* RIGHT: Summary calculations */}
+            {/* RIGHT: Summary Calculations */}
             <div style={{ width: '45%' }}>
               <table style={{ borderCollapse: 'collapse', width: '100%' }}>
                 <tbody>
                   {([
-                    { label: 'DPP', value: fmt(summary.dpp), bold: false },
-                    { label: 'DPP Pengganti', value: fmt(summary.dppPengganti), bold: false },
-                    { label: 'Pajak', value: fmt(summary.tax), bold: false },
-                    { label: 'Biaya Pengantaran', value: fmt(summary.deliveryFee), bold: false },
+                    { label: 'DPP', value: fmt(summary.dpp) },
+                    { label: 'DPP Pengganti', value: fmt(summary.dppPengganti) },
+                    { label: 'Pajak', value: fmt(summary.tax) },
+                    { label: 'Biaya Pengantaran', value: fmt(summary.deliveryFee) },
                   ]).map((row) => (
                     <tr key={row.label}>
-                      <td style={{ padding: '5px 0', fontSize: '10px', width: '60%', color: '#333' }}>{row.label}</td>
-                      <td style={{ padding: '5px 0', fontSize: '10px', textAlign: 'center', width: '5%', color: '#333' }}>:</td>
-                      <td style={{ padding: '5px 0', fontSize: '10px', textAlign: 'right', width: '35%', whiteSpace: 'nowrap' }}>{row.value}</td>
+                      <td style={{ padding: '4px 0', fontSize: '10px', width: '55%', color: '#333' }}>{row.label}</td>
+                      <td style={{ padding: '4px 0', fontSize: '10px', textAlign: 'center', width: '5%', color: '#333' }}>:</td>
+                      <td style={{ padding: '4px 0', fontSize: '10px', textAlign: 'right', width: '40%', whiteSpace: 'nowrap' }}>{row.value}</td>
                     </tr>
                   ))}
+
                   {/* Sub Total */}
                   <tr>
-                    <td style={{ padding: '8px 0 5px', fontSize: '10px', fontWeight: 700, borderTop: '1px solid #888' }}>Sub Total</td>
-                    <td style={{ padding: '8px 0 5px', fontSize: '10px', textAlign: 'center', borderTop: '1px solid #888' }}>:</td>
-                    <td style={{ padding: '8px 0 5px', fontSize: '10px', textAlign: 'right', fontWeight: 700, borderTop: '1px solid #888', whiteSpace: 'nowrap' }}>Rp {fmt(summary.subTotal)}</td>
+                    <td style={{ padding: '6px 0 4px', fontSize: '10px', fontWeight: 700, borderTop: '1px solid #888' }}>Sub Total</td>
+                    <td style={{ padding: '6px 0 4px', fontSize: '10px', textAlign: 'center', borderTop: '1px solid #888' }}>:</td>
+                    <td style={{ padding: '6px 0 4px', fontSize: '10px', textAlign: 'right', fontWeight: 700, borderTop: '1px solid #888', whiteSpace: 'nowrap' }}>Rp {fmt(summary.subTotal)}</td>
                   </tr>
                   <tr>
-                    <td style={{ padding: '5px 0', fontSize: '10px', color: '#333' }}>Bea Materai</td>
-                    <td style={{ padding: '5px 0', fontSize: '10px', textAlign: 'center', color: '#333' }}>:</td>
-                    <td style={{ padding: '5px 0', fontSize: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>Rp {fmt(summary.stampDuty)}</td>
+                    <td style={{ padding: '4px 0', fontSize: '10px', color: '#333' }}>Bea Materai</td>
+                    <td style={{ padding: '4px 0', fontSize: '10px', textAlign: 'center', color: '#333' }}>:</td>
+                    <td style={{ padding: '4px 0', fontSize: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>Rp {fmt(summary.stampDuty)}</td>
                   </tr>
                   <tr>
-                    <td style={{ padding: '5px 0', fontSize: '10px', color: '#333' }}>Down Payment</td>
-                    <td style={{ padding: '5px 0', fontSize: '10px', textAlign: 'center', color: '#333' }}>:</td>
-                    <td style={{ padding: '5px 0', fontSize: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>{summary.downPayment > 0 ? `Rp ${fmt(summary.downPayment)}` : '-'}</td>
+                    <td style={{ padding: '4px 0', fontSize: '10px', color: '#333', borderBottom: '1px solid #888' }}>Down Payment</td>
+                    <td style={{ padding: '4px 0', fontSize: '10px', textAlign: 'center', color: '#333', borderBottom: '1px solid #888' }}>:</td>
+                    <td style={{ padding: '4px 0', fontSize: '10px', textAlign: 'right', whiteSpace: 'nowrap', borderBottom: '1px solid #888' }}>
+                      {summary.downPayment > 0 ? `Rp ${fmt(summary.downPayment)}` : '-'}
+                    </td>
                   </tr>
-                  {/* SALDO - prominent */}
+
+                  {/* Saldo */}
                   <tr>
-                    <td style={{
-                      padding: '10px 0 5px',
-                      fontSize: '13px',
-                      fontWeight: 700,
-                      borderTop: '2px solid #000',
-                      color: CORP_GREEN,
-                    }}>Saldo</td>
-                    <td style={{
-                      padding: '10px 0 5px',
-                      fontSize: '13px',
-                      textAlign: 'center',
-                      borderTop: '2px solid #000',
-                      color: CORP_GREEN,
-                    }}>:</td>
-                    <td style={{
-                      padding: '10px 0 5px',
-                      fontSize: '13px',
-                      textAlign: 'right',
-                      fontWeight: 700,
-                      borderTop: '2px solid #000',
-                      whiteSpace: 'nowrap',
-                      color: CORP_GREEN,
-                    }}>Rp {fmt(summary.balance)}</td>
+                    <td style={{ padding: '8px 0', fontSize: '12px', fontWeight: 700 }}>Saldo</td>
+                    <td style={{ padding: '8px 0', fontSize: '12px', textAlign: 'center' }}>:</td>
+                    <td style={{ padding: '8px 0', fontSize: '12px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                      Rp {fmt(summary.balance)}
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -354,11 +370,13 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
           </div>
         </div>
 
-        {/* ─── Section 4: SIGNATURE ─── */}
-        <div data-pdf-section style={{ marginTop: '30px', marginBottom: '120px' }}>
+        {/* ═══ SECTION 4: SIGNATURE ═══ */}
+        <div data-pdf-section style={{ marginTop: '28px', marginBottom: '120px' }}>
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <div style={{ width: '240px', textAlign: 'center' }}>
-              <div style={{ fontWeight: 700, textTransform: 'uppercase', fontSize: '11px', marginBottom: '4px' }}>{company.name}</div>
+              <div style={{ fontWeight: 700, textTransform: 'uppercase', fontSize: '11px', marginBottom: '4px' }}>
+                {company.name}
+              </div>
               <div style={{ height: '52px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '4px 0' }}>
                 {signatory.isApproved && signatory.signatureUrl ? (
                   <img
@@ -375,7 +393,9 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
               <div style={{ fontWeight: 700, fontSize: '11px' }}>
                 {signatory.isApproved && signatory.name ? signatory.name : '(..................................)'}
               </div>
-              <div style={{ marginTop: '2px', fontSize: '10px', color: '#555' }}>{signatory.position}</div>
+              <div style={{ marginTop: '2px', fontSize: '10px', color: '#555', textTransform: 'uppercase' }}>
+                {signatory.position}
+              </div>
             </div>
           </div>
         </div>
