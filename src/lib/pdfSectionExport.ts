@@ -224,8 +224,8 @@ export async function exportSectionBasedPdf({
     const spaceLeft = A4_HEIGHT_MM - MARGIN_MM - currentY;
     if (heightMM > spaceLeft - 3 && currentY > MARGIN_MM + 1) {
       pdf.addPage();
+      addPageBg();
       currentY = MARGIN_MM;
-      // Re-apply bottom anchor on new page
       if (isBottom) {
         const bottomY = A4_HEIGHT_MM - MARGIN_MM - heightMM;
         if (bottomY > currentY) currentY = bottomY;
