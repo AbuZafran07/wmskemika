@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Plus, Package, Calendar as CalendarIcon, User, Building2, Truck, RefreshCw, Search, CheckSquare, Image, X, Maximize2, Minimize2, ZoomIn, ZoomOut, CheckCircle2, Filter, Archive, RotateCcw, Trash2, AlertTriangle, Bell, CalendarDays } from "lucide-react";
+import { Plus, Package, Calendar as CalendarIcon, User, Building2, Truck, RefreshCw, Search, CheckSquare, Image, X, Maximize2, Minimize2, ZoomIn, ZoomOut, CheckCircle2, Filter, Archive, RotateCcw, Trash2, AlertTriangle, Bell, CalendarDays, MessageCircle } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, startOfWeek, addDays, isSameDay } from "date-fns";
@@ -100,6 +100,7 @@ export default function RequestDelivery() {
   const [filterLabelNames, setFilterLabelNames] = useState<string[]>([]);
   const [pendingApprovalsMap, setPendingApprovalsMap] = useState<Record<string, number>>({});
   const [cardSearchQuery, setCardSearchQuery] = useState("");
+  const [unreadCommentsMap, setUnreadCommentsMap] = useState<Record<string, number>>({});
   
   const [draggedCard, setDraggedCard] = useState<DeliveryCard | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
@@ -332,6 +333,36 @@ export default function RequestDelivery() {
     });
     setPendingApprovalsMap(map);
   }, []);
+
+  // Fetch unread comments count per card
+  const fetchUnreadComments = useCallback(async () => {
+    if (!user) return;
+    // Get user's read timestamps
+    const { data: reads } = await supabase
+      .from("delivery_comment_reads" as any)
+      .select("delivery_request_id, last_read_at")
+      .eq("user_id", user.id);
+    
+    const readMap: Record<string, string> = {};
+    (reads || []).forEach((r: any) => {
+      readMap[r.delivery_request_id] = r.last_read_at;
+    });
+
+    // Get all comment counts grouped by card (only type='comment')
+    const { data: comments } = await supabase
+      .from("delivery_comments")
+      .select("id, delivery_request_id, created_at")
+      .eq("type", "comment");
+
+    const unreadMap: Record<string, number> = {};
+    (comments || []).forEach((c: any) => {
+      const lastRead = readMap[c.delivery_request_id];
+      if (!lastRead || new Date(c.created_at) > new Date(lastRead)) {
+        unreadMap[c.delivery_request_id] = (unreadMap[c.delivery_request_id] || 0) + 1;
+      }
+    });
+    setUnreadCommentsMap(unreadMap);
+  }, [user]);
   // Client-side time check: sync on_hold status on page load
   const syncOnHoldStatus = useCallback(async () => {
     try {
@@ -385,8 +416,9 @@ export default function RequestDelivery() {
     fetchCards();
     fetchCardLabels();
     fetchPendingApprovals();
+    fetchUnreadComments();
     syncOnHoldStatus();
-  }, [fetchCards, fetchCardLabels, fetchPendingApprovals, syncOnHoldStatus]);
+  }, [fetchCards, fetchCardLabels, fetchPendingApprovals, fetchUnreadComments, syncOnHoldStatus]);
 
   // Auto-open card from URL query param ?card=<id>
   useEffect(() => {
@@ -433,12 +465,27 @@ export default function RequestDelivery() {
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "delivery_card_labels" }, () => {
         fetchCardLabels();
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "delivery_comments" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "delivery_comments" }, (payload: any) => {
         fetchPendingApprovals();
+        fetchUnreadComments();
+        // Show toast for new comments when board is open
+        if (payload.eventType === 'INSERT' && payload.new?.type === 'comment' && payload.new?.user_id !== user?.id) {
+          const cardId = payload.new?.delivery_request_id;
+          const matchedCard = cards.find(c => c.id === cardId);
+          const soNumber = matchedCard?.sales_order_number || 'Card';
+          toast.info(`💬 Komentar baru di ${soNumber}`, {
+            description: payload.new?.message?.substring(0, 80) || 'Ada komentar baru',
+            duration: 5000,
+            action: matchedCard ? {
+              label: 'Lihat',
+              onClick: () => setDetailCard(matchedCard),
+            } : undefined,
+          });
+        }
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [fetchCards, fetchCardLabels, fetchPendingApprovals, cards]);
+  }, [fetchCards, fetchCardLabels, fetchPendingApprovals, fetchUnreadComments, cards, user?.id]);
 
   const PENGIRIMAN_COLUMNS = ["pengiriman_senin", "pengiriman_selasa", "pengiriman_rabu", "pengiriman_kamis", "pengiriman_jumat"];
 
@@ -1383,12 +1430,28 @@ export default function RequestDelivery() {
                             </span>
                           </div>
                         </div>
-                        {!isFullView && (
-                          <div className="flex items-center gap-1">
-                            <User className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-[10px] text-muted-foreground truncate max-w-[70px]">{card.sales_name}</span>
-                          </div>
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          {/* Unread comment badge */}
+                          {(unreadCommentsMap[card.id] || 0) > 0 && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center gap-0.5 bg-primary/15 text-primary rounded-full px-1.5 py-0.5" onClick={(e) => e.stopPropagation()}>
+                                  <MessageCircle className={cn(isFullView ? "h-2.5 w-2.5" : "h-3 w-3")} />
+                                  <span className={cn("font-bold", isFullView ? "text-[7px]" : "text-[9px]")}>{unreadCommentsMap[card.id]}</span>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs">
+                                {unreadCommentsMap[card.id]} komentar belum dibaca
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                          {!isFullView && (
+                            <div className="flex items-center gap-1">
+                              <User className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-[10px] text-muted-foreground truncate max-w-[70px]">{card.sales_name}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       {/* Notes - hide in full view */}
@@ -1483,7 +1546,7 @@ export default function RequestDelivery() {
       {/* Detail Card Dialog */}
       <DeliveryCardDetail
         card={detailCard as any}
-        onClose={() => { setDetailCard(null); fetchCards(); }}
+        onClose={() => { setDetailCard(null); fetchCards(); fetchUnreadComments(); }}
         onMoveRequest={(card) => {
           setMoveDialogCard(card as any);
           setMoveTarget(card.board_status as BoardStatus);

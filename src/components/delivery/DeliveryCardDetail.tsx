@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { format, formatDistanceToNow } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { notifyDeliveryCardMoved, notifyUrgentLabelRequest, notifyUrgentLabelApproved, notifyUrgentLabelRejected } from "@/lib/pushNotifications";
+import { notifyDeliveryCardMoved, notifyUrgentLabelRequest, notifyUrgentLabelApproved, notifyUrgentLabelRejected, notifyKanbanComment, notifyKanbanMention } from "@/lib/pushNotifications";
 import { DeliveryOrderPdf, DeliveryOrderData } from "@/components/delivery/DeliveryOrderPdf";
 import { generateUniqueDONumber, getColumnDeliveryDate } from "@/lib/transactionNumberUtils";
 import { generateUniquePINumber, calculateMaterai, useMateraiSetting } from "@/hooks/useProformaInvoices";
@@ -553,6 +553,21 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     };
   }, [previewAttachment]);
 
+  // Mark comments as read when card detail opens
+  const markCommentsAsRead = useCallback(async () => {
+    if (!card || !user) return;
+    const now = new Date().toISOString();
+    await supabase.from("delivery_comment_reads" as any).upsert({
+      user_id: user.id,
+      delivery_request_id: card.id,
+      last_read_at: now,
+    }, { onConflict: 'user_id,delivery_request_id' });
+  }, [card, user]);
+
+  useEffect(() => {
+    if (card) markCommentsAsRead();
+  }, [card, markCommentsAsRead]);
+
   // Realtime comments & checklists
   useEffect(() => {
     if (!card) return;
@@ -560,13 +575,15 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       .channel(`detail_${card.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "delivery_comments", filter: `delivery_request_id=eq.${card.id}` }, () => {
         fetchComments();
+        // Update read timestamp when viewing in real-time
+        markCommentsAsRead();
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "delivery_checklists", filter: `delivery_request_id=eq.${card.id}` }, () => {
         fetchChecklists();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [card, fetchComments, fetchChecklists]);
+  }, [card, fetchComments, fetchChecklists, markCommentsAsRead]);
 
   // Toggle label on card
   const toggleLabel = async (labelId: string) => {
@@ -813,16 +830,38 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const sendComment = async () => {
     if (!newComment.trim() || !user || !card) return;
     setSendingComment(true);
+    const commentText = newComment.trim();
     const { error } = await supabase.from("delivery_comments").insert({
       delivery_request_id: card.id,
       user_id: user.id,
-      message: newComment.trim(),
+      message: commentText,
       type: "comment",
     });
     if (error) {
       toast.error("Gagal mengirim komentar");
     } else {
       setNewComment("");
+      // Send push notification for comment
+      const senderName = allMentionUsers.find(u => u.id === user.id)?.name || user.email || 'User';
+      notifyKanbanComment(
+        card.sales_order_number,
+        senderName,
+        commentText,
+        card.id,
+        user.id,
+      );
+      // Check for @mentions and notify
+      const mentionRegex = /@(\w[\w\s]*\w|\w)/g;
+      const mentions = commentText.match(mentionRegex);
+      if (mentions && mentions.length > 0) {
+        const mentionNames = mentions.map(m => m.substring(1).trim().toLowerCase());
+        const mentionedIds = allMentionUsers
+          .filter(u => mentionNames.some(name => u.name.toLowerCase().includes(name)))
+          .map(u => u.id);
+        if (mentionedIds.length > 0) {
+          notifyKanbanMention(mentionedIds, card.sales_order_number, senderName, commentText, card.id, user.id);
+        }
+      }
     }
     setSendingComment(false);
   };
