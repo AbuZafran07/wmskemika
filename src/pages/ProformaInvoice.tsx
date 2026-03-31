@@ -560,8 +560,8 @@ export default function ProformaInvoicePage() {
                 </div>
 
                 {/* Section 2: Items Table */}
-                <div data-pdf-section style={{ marginTop: "12px" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #333" }}>
+                <div data-pdf-section style={{ marginTop: "14px", marginBottom: "14px" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
                       <tr>
                         {[
