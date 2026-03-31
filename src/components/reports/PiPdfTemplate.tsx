@@ -95,7 +95,7 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
       <div data-pdf-root style={rootStyle}>
 
         {/* ─── Section 1: HEADER ─── */}
-        <div data-pdf-section style={{ paddingTop: '80px', marginBottom: '16px' }}>
+        <div data-pdf-section style={{ paddingTop: '65px', marginBottom: '16px' }}>
           {/* Watermark */}
           <div style={{
             position: 'absolute',
