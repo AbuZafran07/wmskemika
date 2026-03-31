@@ -237,11 +237,11 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
         </div>
 
         {/* ─── Section 3: DIVIDER + BOTTOM 2-COLUMN ─── */}
-        <div data-pdf-section style={{ marginTop: '24px' }}>
+        <div data-pdf-section style={{ marginTop: '40px' }}>
           {/* Divider line */}
           <div style={{
             borderTop: '2px solid #000',
-            marginBottom: '20px',
+            marginBottom: '32px',
           }} />
 
           {/* Bottom 2-column layout */}
