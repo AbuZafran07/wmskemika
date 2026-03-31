@@ -617,95 +617,86 @@ export default function ProformaInvoicePage() {
                   </table>
                 </div>
 
-                {/* Section 3: Summary + Terbilang side-by-side */}
-                <div data-pdf-section style={{ marginTop: "14px" }}>
-                  <div style={{ display: "flex", gap: "20px", alignItems: "flex-end" }}>
-                    {/* Left: Terbilang + Bank Info */}
-                    <div style={{ flex: 1, fontSize: "10px" }}>
-                      <div style={{ marginBottom: "10px" }}>
-                        <b>Terbilang : </b><i>{numberToWords(saldo)} Rupiah</i>
+                {/* Section 3: Summary + Terbilang + Signature */}
+                <div data-pdf-section style={{ marginTop: "10px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "28px" }}>
+                    {/* Left: Terbilang + Bank Box */}
+                    <div style={{ width: "55%", fontSize: "10px" }}>
+                      <div style={{ marginBottom: "14px", lineHeight: "1.5" }}>
+                        <b>Terbilang:</b>{" "}
+                        <i>{numberToWords(saldo)} Rupiah</i>
                       </div>
-                      <div style={{ lineHeight: "1.6" }}>
-                        <div style={{ fontWeight: 600, marginBottom: "2px" }}>Keterangan :</div>
-                        <div>- Account Banking a/n PT. KEMIKA KARYA PRATAMA</div>
-                        <div>- Bank Mandiri KCP Tangerang Ciledug</div>
-                        <div>- Acc. No 155-005-755-575-0</div>
-                        <div>- NPWP : 71.608.326.6-416.000</div>
+                      <div style={{ border: "1px solid #888", padding: "10px 12px", minHeight: "110px" }}>
+                        <div style={{ fontWeight: 700, marginBottom: "8px" }}>Keterangan:</div>
+                        <div style={{ marginBottom: "4px" }}>Account Banking a/n PT. KEMIKA KARYA PRATAMA</div>
+                        <div style={{ marginBottom: "4px" }}>Bank Mandiri KCP Tangerang Ciledug</div>
+                        <div style={{ marginBottom: "4px" }}>Acc. No 155-005-755-575-0</div>
+                        <div>NPWP: 71.608.326.6-416.000</div>
                       </div>
                     </div>
-                    {/* Right: Calculation summary */}
-                    <div style={{ minWidth: "260px" }}>
-                      <table style={{ borderCollapse: "collapse", width: "100%" }}>
+
+                    {/* Right: Calculation + Signature */}
+                    <div style={{ width: "45%" }}>
+                      <table style={{ borderCollapse: "collapse", width: "100%", marginBottom: "26px" }}>
                         <tbody>
+                          {[
+                            { label: "DPP", value: fmtNum(dpp), bold: false },
+                            { label: "DPP Pengganti", value: fmtNum(dppPengganti), bold: false },
+                            { label: "Pajak", value: fmtNum(pajak), bold: false },
+                            { label: "Biaya Pengantaran", value: fmtNum(biayaPengantaran), bold: false },
+                          ].map((row) => (
+                            <tr key={row.label}>
+                              <td style={{ padding: "5px 0", fontSize: "10px", width: "65%" }}>{row.label}</td>
+                              <td style={{ padding: "5px 0", fontSize: "10px", textAlign: "center", width: "5%" }}>:</td>
+                              <td style={{ padding: "5px 0", fontSize: "10px", textAlign: "right", width: "30%", whiteSpace: "nowrap" }}>{row.value}</td>
+                            </tr>
+                          ))}
                           <tr>
-                            <td style={{ padding: "3px 12px 3px 0", fontSize: "10px" }}>DPP</td>
-                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "center", width: "10px" }}>:</td>
-                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "right" }}>{fmtNum(dpp)}</td>
+                            <td style={{ padding: "8px 0 5px", fontSize: "10px", fontWeight: 700, borderTop: "1px solid #555" }}>Sub Total</td>
+                            <td style={{ padding: "8px 0 5px", fontSize: "10px", textAlign: "center", borderTop: "1px solid #555" }}>:</td>
+                            <td style={{ padding: "8px 0 5px", fontSize: "10px", textAlign: "right", fontWeight: 700, borderTop: "1px solid #555", whiteSpace: "nowrap" }}>Rp {fmtNum(subTotalCalc)}</td>
                           </tr>
                           <tr>
-                            <td style={{ padding: "3px 12px 3px 0", fontSize: "10px" }}>DPP Pengganti</td>
-                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "center" }}>:</td>
-                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "right" }}>{fmtNum(dppPengganti)}</td>
+                            <td style={{ padding: "5px 0", fontSize: "10px" }}>Bea Materai</td>
+                            <td style={{ padding: "5px 0", fontSize: "10px", textAlign: "center" }}>:</td>
+                            <td style={{ padding: "5px 0", fontSize: "10px", textAlign: "right", whiteSpace: "nowrap" }}>Rp {fmtNum(materai)}</td>
                           </tr>
                           <tr>
-                            <td style={{ padding: "3px 12px 3px 0", fontSize: "10px" }}>Pajak</td>
-                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "center" }}>:</td>
-                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "right" }}>{fmtNum(pajak)}</td>
+                            <td style={{ padding: "5px 0", fontSize: "10px" }}>Down Payment</td>
+                            <td style={{ padding: "5px 0", fontSize: "10px", textAlign: "center" }}>:</td>
+                            <td style={{ padding: "5px 0", fontSize: "10px", textAlign: "right" }}>-</td>
                           </tr>
                           <tr>
-                            <td style={{ padding: "3px 12px 3px 0", fontSize: "10px" }}>Biaya Pengantaran</td>
-                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "center" }}>:</td>
-                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "right" }}>{fmtNum(biayaPengantaran)}</td>
-                          </tr>
-                          <tr><td colSpan={3} style={{ padding: 0 }}><div style={{ borderTop: "1px solid #333", margin: "3px 0" }} /></td></tr>
-                          <tr>
-                            <td style={{ padding: "3px 12px 3px 0", fontSize: "10px", fontWeight: 600 }}>Sub Total</td>
-                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "center" }}>:</td>
-                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "right", fontWeight: 600 }}>Rp {fmtNum(subTotalCalc)}</td>
-                          </tr>
-                          <tr>
-                            <td style={{ padding: "3px 12px 3px 0", fontSize: "10px" }}>Bea Materai</td>
-                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "center" }}>:</td>
-                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "right" }}>Rp {fmtNum(materai)}</td>
-                          </tr>
-                          <tr>
-                            <td style={{ padding: "3px 12px 3px 0", fontSize: "10px" }}>Down Payment</td>
-                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "center" }}>:</td>
-                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "right" }}>-</td>
-                          </tr>
-                          <tr><td colSpan={3} style={{ padding: 0 }}><div style={{ borderTop: "2px solid #111", margin: "3px 0" }} /></td></tr>
-                          <tr>
-                            <td style={{ padding: "4px 12px 4px 0", fontSize: "12px", fontWeight: 700 }}>Saldo</td>
-                            <td style={{ padding: "4px 0", fontSize: "12px", textAlign: "center" }}>:</td>
-                            <td style={{ padding: "4px 0", fontSize: "12px", textAlign: "right", fontWeight: 700 }}>Rp {fmtNum(saldo)}</td>
+                            <td style={{ padding: "10px 0 5px", fontSize: "14px", fontWeight: 700, borderTop: "2px solid #333" }}>Saldo</td>
+                            <td style={{ padding: "10px 0 5px", fontSize: "14px", textAlign: "center", borderTop: "2px solid #333" }}>:</td>
+                            <td style={{ padding: "10px 0 5px", fontSize: "14px", textAlign: "right", fontWeight: 700, borderTop: "2px solid #333", whiteSpace: "nowrap" }}>Rp {fmtNum(saldo)}</td>
                           </tr>
                         </tbody>
                       </table>
+
+                      {/* Signature */}
+                      <div style={{ textAlign: "center", width: "100%" }}>
+                        <div style={{ fontWeight: 700, marginBottom: "48px", textTransform: "uppercase" as const, fontSize: "11px" }}>PT. KEMIKA KARYA PRATAMA</div>
+                        {isApproved && approverSignatureUrl ? (
+                          <div style={{ height: "0px", marginTop: "-44px", marginBottom: "44px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <img src={approverSignatureUrl} alt="signature" style={{ maxHeight: "55px", maxWidth: "160px", objectFit: "contain" }} crossOrigin="anonymous" />
+                          </div>
+                        ) : null}
+                        <div style={{ width: "220px", margin: "0 auto 6px auto", borderTop: "1px solid #333" }} />
+                        <div style={{ fontWeight: 700, fontSize: "11px" }}>
+                          {isApproved && approverName ? approverName : '(..................................)'}
+                        </div>
+                        <div style={{ marginTop: "2px", fontSize: "10px" }}>FINANCE</div>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Section 4: Signature - pushed to bottom */}
-                <div data-pdf-section data-pdf-bottom style={{ marginTop: "24px" }}>
-                  <div style={{ borderBottom: "1.5px solid #111", marginBottom: "16px" }} />
-                  <div style={{ display: "flex", justifyContent: "flex-end", paddingRight: "20px" }}>
-                    <div style={{ textAlign: "center", minWidth: "180px" }}>
-                      <div style={{ fontSize: "10px", fontWeight: 600, marginBottom: "6px" }}>KEMIKA KARYA PRATAMA</div>
-                      {isApproved && approverSignatureUrl ? (
-                        <div style={{ height: "60px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <img src={approverSignatureUrl} alt="signature" style={{ maxHeight: "55px", maxWidth: "160px", objectFit: "contain" }} crossOrigin="anonymous" />
-                        </div>
-                      ) : (
-                        <div style={{ height: "60px" }} />
-                      )}
-                      <div style={{ borderBottom: "1px solid #111", width: "80%", margin: "0 auto" }} />
-                      <div style={{ fontSize: "10px", marginTop: "4px", fontWeight: 600 }}>
-                        {isApproved && approverName ? approverName : '(..................................)'}
-                      </div>
-                      <div style={{ fontSize: "9px", color: "#666" }}>FINANCE</div>
-                    </div>
-                  </div>
-                  <div style={{ height: "65px" }} />
+                {/* Section 4: Footer */}
+                <div data-pdf-section data-pdf-bottom style={{ marginTop: "34px", paddingTop: "10px", borderTop: "1px solid #bbb", fontSize: "10px", lineHeight: "1.5" }}>
+                  <div style={{ fontWeight: 700, fontSize: "12px", color: "#0f6b3e", marginBottom: "4px", textTransform: "uppercase" as const }}>PT. KEMIKA KARYA PRATAMA</div>
+                  <div>Jl. Raya Ciledug No. 10, Tangerang, Banten 15154</div>
+                  <div>(021) 7310808 | www.kemika.co.id</div>
                 </div>
               </div>
             );
