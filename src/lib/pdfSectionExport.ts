@@ -103,7 +103,6 @@ export async function exportSectionBasedPdf({
   interface CapturedSection {
     canvas: HTMLCanvasElement;
     heightMM: number;
-    pushToBottom: boolean;
   }
 
   const capturedSections: CapturedSection[] = [];
@@ -114,8 +113,6 @@ export async function exportSectionBasedPdf({
     
     // Skip invisible/empty sections
     if (section.offsetHeight === 0) continue;
-
-    const shouldPushToBottom = section.hasAttribute("data-pdf-bottom");
 
     const canvas = await html2canvas(section, {
       ...html2canvasOptions,
@@ -132,7 +129,7 @@ export async function exportSectionBasedPdf({
       const scaledHeight = canvas.height / 2;
       const heightMM = (scaledHeight / scaledWidth) * CONTENT_WIDTH_MM;
 
-      capturedSections.push({ canvas, heightMM, pushToBottom: shouldPushToBottom });
+      capturedSections.push({ canvas, heightMM });
     }
 
     progress(25 + Math.round((i / totalSections) * 40)); // 25-65%
@@ -157,22 +154,13 @@ export async function exportSectionBasedPdf({
   let currentY = MARGIN_MM;
 
   for (let i = 0; i < capturedSections.length; i++) {
-    const { canvas, heightMM, pushToBottom } = capturedSections[i];
+    const { canvas, heightMM } = capturedSections[i];
     const remainingSpace = A4_HEIGHT_MM - MARGIN_MM - currentY;
 
     // If section won't fit (with 3mm safety buffer) and we're not at the top of a new page, add new page
     if (heightMM > remainingSpace - 3 && currentY > MARGIN_MM + 1) {
       pdf.addPage();
       currentY = MARGIN_MM;
-    }
-
-    // Push to bottom of page if marked
-    if (pushToBottom) {
-      const pageBottom = A4_HEIGHT_MM - MARGIN_MM;
-      const bottomY = pageBottom - heightMM;
-      if (bottomY > currentY) {
-        currentY = bottomY;
-      }
     }
 
     // If a single section is taller than the page content area,
