@@ -256,7 +256,7 @@ export async function exportSectionBasedPdf({
         if (yOffset > 0) {
           pdf.addPage();
           addPageBg();
-          currentY = MARGIN_MM;
+          currentY = m.top;
         }
 
         const availableHeight = A4_HEIGHT_MM - MARGIN_MM - currentY;
