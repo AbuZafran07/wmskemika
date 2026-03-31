@@ -48,6 +48,14 @@ export async function exportSectionBasedPdf({
   clone.style.minHeight = "auto";
   document.body.appendChild(clone);
 
+  // Strip background image from clone so html2canvas captures clean white content
+  if (backgroundImage) {
+    const root = clone.querySelector("[data-pdf-root]") as HTMLElement;
+    if (root) {
+      root.style.backgroundImage = "none";
+    }
+  }
+
   // Wait for render
   await new Promise((r) => setTimeout(r, 300));
   progress(15);
