@@ -138,10 +138,10 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
               <div style={{ height: '95px' }}></div>
 
               {/* Title - right aligned but shifted left to avoid green kop surat */}
-              <div style={{ textAlign: 'right', marginBottom: '2px', marginRight: '30mm' }}>
+              <div style={{ textAlign: 'right', marginBottom: '2px', marginRight: '12mm' }}>
                 <h1 style={{ fontSize: '20px', fontWeight: 'bold', letterSpacing: '1px', color: '#111', margin: 0 }}>DELIVERY ORDER</h1>
               </div>
-              <div style={{ borderBottom: '2px solid #111', marginBottom: '20px', marginRight: '30mm' }}></div>
+              <div style={{ borderBottom: '2px solid #111', marginBottom: '20px', marginRight: '12mm' }}></div>
 
               {/* Info two-column layout */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 40px', marginBottom: '24px', fontSize: '12px', color: '#111', lineHeight: '1.8' }}>
