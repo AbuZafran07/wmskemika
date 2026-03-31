@@ -217,7 +217,7 @@ export async function exportSectionBasedPdf({
   // Add background to first page
   addPageBg();
 
-  let currentY = MARGIN_MM;
+  let currentY = m.top;
 
   for (let i = 0; i < capturedSections.length; i++) {
     const { canvas, heightMM } = capturedSections[i];
