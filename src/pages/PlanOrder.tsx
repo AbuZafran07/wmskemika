@@ -2659,6 +2659,7 @@ export default function PlanOrder() {
                   title: `Purchase Order - ${selectedOrder.plan_number}`,
                   styles: printStyles.planOrder,
                   content: printRef.current.innerHTML,
+                  backgroundImage: '/kop-surat-bg.jpg',
                 });
               }}
             >
