@@ -222,11 +222,11 @@ export async function exportSectionBasedPdf({
   for (let i = 0; i < capturedSections.length; i++) {
     const { canvas, heightMM } = capturedSections[i];
     const isBottom = bottomFlags[i] || false;
-    const remainingSpace = A4_HEIGHT_MM - MARGIN_MM - currentY;
+    const remainingSpace = A4_HEIGHT_MM - m.bottom - currentY;
 
     // If this is a bottom-anchored section, push it to the bottom of the current page
     if (isBottom) {
-      const bottomY = A4_HEIGHT_MM - MARGIN_MM - heightMM;
+      const bottomY = A4_HEIGHT_MM - m.bottom - heightMM;
       if (bottomY > currentY) {
         currentY = bottomY;
       }
