@@ -169,12 +169,6 @@ export const printStyles = {
   `,
   planOrder: `
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { 
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-      padding: 20px; 
-      color: #333;
-      font-size: 12px;
-    }
     .header { 
       text-align: center; 
       border-bottom: 2px solid #333; 
