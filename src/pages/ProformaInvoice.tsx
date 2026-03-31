@@ -576,8 +576,8 @@ export default function ProformaInvoicePage() {
                           { label: "Pajak", w: "45px", align: "center" as const },
                         ].map((h) => (
                           <th key={h.label} style={{
-                            backgroundColor: "#166534", color: "white",
-                            border: "1px solid #15803d", padding: "7px 6px", fontSize: "10px",
+                            backgroundColor: "#0f6b3e", color: "#fff",
+                            border: "1px solid #666", padding: "8px 6px", fontSize: "10px",
                             textAlign: h.align, whiteSpace: "nowrap", width: h.w,
                             WebkitPrintColorAdjust: "exact" as any,
                           }}>
