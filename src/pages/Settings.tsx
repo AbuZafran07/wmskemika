@@ -58,6 +58,7 @@ export default function SettingsPage() {
       const settingsMap: SettingsData = {
         allow_admin_approve: false,
         stock_alert_schedule: 'weekly',
+        materai_amount: 10000,
       };
 
       data?.forEach(item => {
