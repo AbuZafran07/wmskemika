@@ -80,6 +80,9 @@ export default function SettingsPage() {
             settingsMap.stock_alert_schedule = val as 'daily' | 'weekly' | 'monthly';
           }
         }
+        if (item.key === 'materai_amount') {
+          settingsMap.materai_amount = typeof item.value === 'number' ? item.value : Number(item.value) || 10000;
+        }
       });
 
       setSettings(settingsMap);
