@@ -553,6 +553,21 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     };
   }, [previewAttachment]);
 
+  // Mark comments as read when card detail opens
+  const markCommentsAsRead = useCallback(async () => {
+    if (!card || !user) return;
+    const now = new Date().toISOString();
+    await supabase.from("delivery_comment_reads" as any).upsert({
+      user_id: user.id,
+      delivery_request_id: card.id,
+      last_read_at: now,
+    }, { onConflict: 'user_id,delivery_request_id' });
+  }, [card, user]);
+
+  useEffect(() => {
+    if (card) markCommentsAsRead();
+  }, [card, markCommentsAsRead]);
+
   // Realtime comments & checklists
   useEffect(() => {
     if (!card) return;
@@ -560,13 +575,15 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       .channel(`detail_${card.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "delivery_comments", filter: `delivery_request_id=eq.${card.id}` }, () => {
         fetchComments();
+        // Update read timestamp when viewing in real-time
+        markCommentsAsRead();
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "delivery_checklists", filter: `delivery_request_id=eq.${card.id}` }, () => {
         fetchChecklists();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [card, fetchComments, fetchChecklists]);
+  }, [card, fetchComments, fetchChecklists, markCommentsAsRead]);
 
   // Toggle label on card
   const toggleLabel = async (labelId: string) => {
