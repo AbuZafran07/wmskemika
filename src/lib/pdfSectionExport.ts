@@ -120,7 +120,7 @@ export async function exportSectionBasedPdf({
   // Get the pixel-to-mm conversion factor from the clone
   // The clone is set to A4_WIDTH_MM wide, so we can measure its pixel width
   const clonePixelWidth = contentWrapper.offsetWidth;
-  const pxPerMm = clonePixelWidth / CONTENT_WIDTH_MM;
+  const pxPerMm = clonePixelWidth / contentW;
 
   interface CapturedSection {
     canvas: HTMLCanvasElement;
