@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, Loader2, Users, Bell, Database, Smartphone, Clock, CalendarDays } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Loader2, Users, Bell, Database, Smartphone, Clock, CalendarDays, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 interface SettingsData {
   allow_admin_approve: boolean;
   stock_alert_schedule: 'daily' | 'weekly' | 'monthly';
+  materai_amount: number;
 }
 
 export default function SettingsPage() {
@@ -34,6 +35,7 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<SettingsData>({
     allow_admin_approve: false,
     stock_alert_schedule: 'weekly',
+    materai_amount: 10000,
   });
 
   // Access is already controlled by RouteGuard - this is additional safety
@@ -49,13 +51,14 @@ export default function SettingsPage() {
       const { data, error } = await supabase
         .from('settings')
         .select('key, value')
-        .in('key', ['allow_admin_approve', 'stock_alert_schedule']);
+        .in('key', ['allow_admin_approve', 'stock_alert_schedule', 'materai_amount']);
 
       if (error) throw error;
 
       const settingsMap: SettingsData = {
         allow_admin_approve: false,
         stock_alert_schedule: 'weekly',
+        materai_amount: 10000,
       };
 
       data?.forEach(item => {
@@ -76,6 +79,9 @@ export default function SettingsPage() {
           if (['daily', 'weekly', 'monthly'].includes(val)) {
             settingsMap.stock_alert_schedule = val as 'daily' | 'weekly' | 'monthly';
           }
+        }
+        if (item.key === 'materai_amount') {
+          settingsMap.materai_amount = typeof item.value === 'number' ? item.value : Number(item.value) || 10000;
         }
       });
 
@@ -116,6 +122,17 @@ export default function SettingsPage() {
         }, { onConflict: 'key' });
 
       if (schedError) throw schedError;
+
+      // Update materai_amount setting
+      const { error: materaiError } = await supabase
+        .from('settings')
+        .upsert({ 
+          key: 'materai_amount',
+          value: settings.materai_amount as unknown as any,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'key' });
+
+      if (materaiError) throw materaiError;
 
       // Update the cron schedule based on selected frequency
       const cronExpression = settings.stock_alert_schedule === 'daily' 
@@ -277,7 +294,52 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
 
-              {/* Push Notification Settings */}
+              {/* Materai Settings */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <Receipt className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">
+                        {language === 'en' ? 'Stamp Duty (Materai)' : 'Biaya Materai'}
+                      </CardTitle>
+                      <CardDescription>
+                        {language === 'en' 
+                          ? 'Set stamp duty amount for Proforma Invoice'
+                          : 'Atur nominal materai untuk Proforma Invoice'
+                        }
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                    <div className="space-y-1">
+                      <Label className="text-base font-medium">
+                        {language === 'en' ? 'Materai Amount' : 'Nominal Materai'}
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        {language === 'en' 
+                          ? 'Applied to non-government customers when total > Rp 5.000.000'
+                          : 'Dikenakan untuk customer non-government jika total > Rp 5.000.000'
+                        }
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">Rp</span>
+                      <input
+                        type="number"
+                        className="w-32 h-9 px-3 rounded-md border bg-background text-sm"
+                        value={settings.materai_amount}
+                        onChange={(e) => setSettings(prev => ({ ...prev, materai_amount: Number(e.target.value) || 0 }))}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader>
                   <div className="flex items-center gap-3">

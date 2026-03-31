@@ -40,6 +40,7 @@ export type MenuKey =
   | 'planOrder'
   | 'stockIn'
   | 'salesOrder'
+  | 'proformaInvoice'
   | 'stockOut'
   | 'stockAdjustment'
   | 'deliveryOrder'
@@ -74,6 +75,7 @@ export const MENU_ACCESS: Record<MenuKey, UserRole[]> = {
   planOrder: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse'],
   stockIn: ['super_admin', 'admin', 'warehouse'],
   salesOrder: ['super_admin', 'admin', 'finance', 'sales', 'warehouse'],
+  proformaInvoice: ['super_admin', 'admin', 'finance', 'purchasing', 'sales'],
   stockOut: ['super_admin', 'admin', 'warehouse'],
   stockAdjustment: ['super_admin', 'admin', 'finance'], // Hide from warehouse
   deliveryOrder: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse'],
@@ -118,6 +120,7 @@ export type ModuleType =
   | 'plan_order'
   | 'stock_in'
   | 'sales_order'
+  | 'proforma_invoice'
   | 'stock_out'
   | 'stock_adjustment'
   | 'product'
@@ -127,7 +130,7 @@ export type ModuleType =
   | 'customer'
   | 'user'
   | 'settings'
-  | 'report'; // Add report module
+  | 'report';
 
 /**
  * Action permissions by module
@@ -163,6 +166,16 @@ export const ACTION_PERMISSIONS: Record<ModuleType, Record<ActionType, UserRole[
     approve: ['super_admin', 'admin'], // Admin needs allowAdminApprove setting
     upload: ['super_admin', 'admin', 'sales'],
     print: ['super_admin', 'admin', 'finance', 'sales', 'warehouse'],
+  },
+  proforma_invoice: {
+    view: ['super_admin', 'admin', 'finance', 'purchasing', 'sales'],
+    create: ['super_admin', 'sales'],
+    edit: ['super_admin', 'finance', 'purchasing'],
+    delete: ['super_admin', 'finance'],
+    cancel: ['super_admin', 'finance'],
+    approve: ['super_admin', 'finance', 'purchasing'],
+    upload: ['super_admin', 'sales'],
+    print: ['super_admin', 'admin', 'finance', 'purchasing', 'sales'],
   },
   stock_out: {
     view: ['super_admin', 'admin', 'warehouse'],
@@ -366,6 +379,7 @@ export const ROUTE_TO_MENU: Record<string, MenuKey> = {
   '/plan-order': 'planOrder',
   '/stock-in': 'stockIn',
   '/sales-order': 'salesOrder',
+  '/proforma-invoice': 'proformaInvoice',
   '/stock-out': 'stockOut',
   '/stock-adjustment': 'stockAdjustment',
   '/data-product/products': 'products',

@@ -877,6 +877,169 @@ export type Database = {
         }
         Relationships: []
       }
+      proforma_invoice_items: {
+        Row: {
+          created_at: string | null
+          discount: number | null
+          id: string
+          notes: string | null
+          product_id: string
+          product_name: string
+          proforma_invoice_id: string
+          qty: number
+          subtotal: number
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string | null
+          discount?: number | null
+          id?: string
+          notes?: string | null
+          product_id: string
+          product_name: string
+          proforma_invoice_id: string
+          qty: number
+          subtotal?: number
+          unit_price: number
+        }
+        Update: {
+          created_at?: string | null
+          discount?: number | null
+          id?: string
+          notes?: string | null
+          product_id?: string
+          product_name?: string
+          proforma_invoice_id?: string
+          qty?: number
+          subtotal?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proforma_invoice_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proforma_invoice_items_proforma_invoice_id_fkey"
+            columns: ["proforma_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "proforma_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proforma_invoices: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          cancel_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          created_at: string | null
+          created_by: string | null
+          customer_id: string
+          customer_type: string | null
+          delivery_request_id: string | null
+          discount: number | null
+          grand_total: number
+          id: string
+          materai_amount: number | null
+          notes: string | null
+          other_costs: number | null
+          payment_terms: string | null
+          pi_number: string
+          rejected_reason: string | null
+          sales_order_id: string
+          shipping_cost: number | null
+          status: string
+          subtotal: number
+          tax_amount: number | null
+          tax_rate: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_id: string
+          customer_type?: string | null
+          delivery_request_id?: string | null
+          discount?: number | null
+          grand_total?: number
+          id?: string
+          materai_amount?: number | null
+          notes?: string | null
+          other_costs?: number | null
+          payment_terms?: string | null
+          pi_number: string
+          rejected_reason?: string | null
+          sales_order_id: string
+          shipping_cost?: number | null
+          status?: string
+          subtotal?: number
+          tax_amount?: number | null
+          tax_rate?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_id?: string
+          customer_type?: string | null
+          delivery_request_id?: string | null
+          discount?: number | null
+          grand_total?: number
+          id?: string
+          materai_amount?: number | null
+          notes?: string | null
+          other_costs?: number | null
+          payment_terms?: string | null
+          pi_number?: string
+          rejected_reason?: string | null
+          sales_order_id?: string
+          shipping_cost?: number | null
+          status?: string
+          subtotal?: number
+          tax_amount?: number | null
+          tax_rate?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proforma_invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proforma_invoices_delivery_request_id_fkey"
+            columns: ["delivery_request_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proforma_invoices_sales_order_id_fkey"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_order_headers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       push_tokens: {
         Row: {
           created_at: string | null
