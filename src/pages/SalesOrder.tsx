@@ -1798,6 +1798,7 @@ export default function SalesOrder() {
                       title: `Sales Order - ${selectedOrder.sales_order_number}`,
                       styles: printStyles.salesOrder,
                       content: printRef.current.innerHTML,
+                      backgroundImage: '/kop-surat-bg.jpg',
                     });
                   }}
                   disabled={itemsLoading}
