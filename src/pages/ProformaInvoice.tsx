@@ -489,219 +489,73 @@ export default function ProformaInvoicePage() {
 
       {/* Hidden Print Template */}
       <div className="hidden">
-        <div ref={printRef}>
-          {detail && (() => {
-            const customer = detail.customer as any;
-            const so = detail.sales_order as any;
-            const dpp = Math.round(detail.subtotal);
-            const dppPengganti = 0;
-            const pajak = Math.round(detail.tax_amount || 0);
-            const biayaPengantaran = Math.round(detail.shipping_cost || 0);
-            const subTotalCalc = Math.round(dpp + pajak + biayaPengantaran);
-            const materai = Math.round(detail.materai_amount || 0);
-            const saldo = Math.round(detail.grand_total);
-            const approverName = detail.approved_by_profile?.full_name || null;
-            const isApproved = !!detail.approved_by && !!detail.approved_at;
-            const approverSignatureUrl = (detail as any).approver_signature_url || null;
+        {detail && (() => {
+          const customer = detail.customer as any;
+          const so = detail.sales_order as any;
+          const dpp = Math.round(detail.subtotal);
+          const pajak = Math.round(detail.tax_amount || 0);
+          const biayaPengantaran = Math.round(detail.shipping_cost || 0);
+          const subTotalCalc = Math.round(dpp + pajak + biayaPengantaran);
+          const materai = Math.round(detail.materai_amount || 0);
+          const saldo = Math.round(detail.grand_total);
+          const approverName = detail.approved_by_profile?.full_name || null;
+          const isApproved = !!detail.approved_by && !!detail.approved_at;
+          const approverSignatureUrl = (detail as any).approver_signature_url || null;
 
-            const labelStyle: React.CSSProperties = { fontSize: "11px", color: "#333", whiteSpace: "nowrap" };
-            const valStyle: React.CSSProperties = { fontSize: "11px", fontWeight: 600 };
+          const pdfData: PiPdfData = {
+            company: {
+              name: "PT. KEMIKA KARYA PRATAMA",
+              address: "Jl. Raya Ciledug No. 10, Tangerang, Banten 15154",
+              phone: "(021) 7310808",
+              website: "www.kemika.co.id",
+              bankName: "Mandiri KCP Tangerang Ciledug",
+              bankAccount: "155-005-755-575-0",
+              npwp: "71.608.326.6-416.000",
+            },
+            invoice: {
+              number: detail.pi_number,
+              date: detail.created_at ? formatDateID(detail.created_at) : '-',
+              currency: "IDR - (Rupiah)",
+              soNumber: so?.sales_order_number || '-',
+              term: detail.payment_terms || '-',
+              amountInWords: numberToWords(saldo) + " Rupiah",
+            },
+            customer: {
+              companyName: customer?.name || '-',
+              picName: customer?.pic || so?.sales_name || '-',
+              address: customer?.address || '-',
+            },
+            items: (detail.items || []).map((item, idx) => ({
+              no: idx + 1,
+              code: (item as any).product?.sku || '-',
+              name: item.product_name,
+              qty: item.qty,
+              unit: (item as any).product?.unit?.name || 'unit',
+              price: Math.round(item.unit_price),
+              discount: item.discount || 0,
+              subtotal: Math.round(item.subtotal),
+              taxPercent: detail.tax_rate ? `${detail.tax_rate}%` : '0%',
+            })),
+            summary: {
+              dpp,
+              dppPengganti: 0,
+              tax: pajak,
+              deliveryFee: biayaPengantaran,
+              subTotal: subTotalCalc,
+              stampDuty: materai,
+              downPayment: 0,
+              balance: saldo,
+            },
+            signatory: {
+              name: approverName,
+              position: "FINANCE",
+              signatureUrl: approverSignatureUrl,
+              isApproved,
+            },
+          };
 
-            const fmtNum = (n: number) => new Intl.NumberFormat('id-ID').format(n);
-
-            return (
-              <div data-pdf-root style={{ fontFamily: "Arial, Helvetica, sans-serif", fontSize: "11px", color: "#222", width: "100%" }}>
-                {/* Section 1: Title + Header Info */}
-                <div data-pdf-section style={{ paddingTop: "85px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "24px" }}>
-                    {/* Left header */}
-                    <div style={{ width: "48%" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                        <tbody>
-                          {[
-                            ["Nomor PI", detail.pi_number],
-                            ["Kepada", customer?.name || '-'],
-                            ["Up.", customer?.pic || so?.sales_name || '-'],
-                            ["Alamat", customer?.address || '-'],
-                          ].map(([label, val]) => (
-                            <tr key={label}>
-                              <td style={{ ...labelStyle, width: "90px", padding: "3px 0" }}>{label}</td>
-                              <td style={{ width: "10px", padding: "3px 0", textAlign: "center" }}>:</td>
-                              <td style={{ ...valStyle, padding: "3px 0" }}>{val}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    {/* Right header */}
-                    <div style={{ width: "48%" }}>
-                      <h1 style={{ fontSize: "28px", fontWeight: 700, textTransform: "uppercase" as const, textAlign: "right", marginBottom: "14px", letterSpacing: "0.5px", margin: "0 0 14px 0" }}>PROFORMA INVOICE</h1>
-                      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                        <tbody>
-                          {[
-                            ["Tanggal", detail.created_at ? formatDateID(detail.created_at) : '-'],
-                            ["Mata Uang", "IDR - (Rupiah)"],
-                            ["Nomor SO", so?.sales_order_number || '-'],
-                          ].map(([label, val]) => (
-                            <tr key={label}>
-                              <td style={{ ...labelStyle, width: "90px", padding: "3px 0" }}>{label}</td>
-                              <td style={{ width: "10px", padding: "3px 0", textAlign: "center" }}>:</td>
-                              <td style={{ ...valStyle, padding: "3px 0" }}>{val}</td>
-                            </tr>
-                          ))}
-                          <tr>
-                            <td style={{ ...labelStyle, width: "90px", padding: "3px 0" }}>Term</td>
-                            <td style={{ width: "10px", padding: "3px 0", textAlign: "center" }}>:</td>
-                            <td style={{ ...valStyle, padding: "3px 0", color: "#b91c1c" }}>{detail.payment_terms || '-'}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Section 2: Items Table */}
-                <div data-pdf-section style={{ marginTop: "14px", marginBottom: "14px" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                    <thead>
-                      <tr>
-                        {[
-                          { label: "No", w: "30px", align: "center" as const },
-                          { label: "Kode", w: "70px", align: "left" as const },
-                          { label: "Nama Barang", w: "auto", align: "left" as const },
-                          { label: "Jumlah", w: "55px", align: "center" as const },
-                          { label: "Unit", w: "40px", align: "center" as const },
-                          { label: "Harga", w: "90px", align: "right" as const },
-                          { label: "Disc.", w: "40px", align: "center" as const },
-                          { label: "Sub Total", w: "95px", align: "right" as const },
-                          { label: "Pajak", w: "45px", align: "center" as const },
-                        ].map((h) => (
-                          <th key={h.label} style={{
-                            backgroundColor: "#0f6b3e", color: "#fff",
-                            border: "1px solid #666", padding: "8px 6px", fontSize: "10px",
-                            textAlign: h.align, whiteSpace: "nowrap", width: h.w,
-                            WebkitPrintColorAdjust: "exact" as any,
-                          }}>
-                            {h.label}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {detail.items?.map((item, idx) => (
-                        <tr key={item.id}>
-                          <td style={{ border: "1px solid #666", padding: "8px 6px", textAlign: "center", fontSize: "10px" }}>{idx + 1}</td>
-                          <td style={{ border: "1px solid #666", padding: "8px 6px", fontSize: "10px", color: "#0f6b3e", fontWeight: 600 }}>
-                            {(item as any).product?.sku || '-'}
-                          </td>
-                          <td style={{ border: "1px solid #666", padding: "8px 6px", fontSize: "10px", lineHeight: "1.4", wordBreak: "break-word" as const }}>{item.product_name}</td>
-                          <td style={{ border: "1px solid #666", padding: "8px 6px", textAlign: "center", fontSize: "10px" }}>{item.qty}</td>
-                          <td style={{ border: "1px solid #666", padding: "8px 6px", textAlign: "center", fontSize: "10px" }}>
-                            {(item as any).product?.unit?.name || 'unit'}
-                          </td>
-                          <td style={{ border: "1px solid #666", padding: "8px 6px", textAlign: "right", fontSize: "10px", whiteSpace: "nowrap" as const }}>
-                            {fmtNum(Math.round(item.unit_price))}
-                          </td>
-                          <td style={{ border: "1px solid #666", padding: "8px 6px", textAlign: "center", fontSize: "10px" }}>
-                            {item.discount ? item.discount : 0}
-                          </td>
-                          <td style={{ border: "1px solid #666", padding: "8px 6px", textAlign: "right", fontSize: "10px", whiteSpace: "nowrap" as const }}>
-                            {fmtNum(Math.round(item.subtotal))}
-                          </td>
-                          <td style={{ border: "1px solid #666", padding: "8px 6px", textAlign: "center", fontSize: "10px" }}>
-                            {detail.tax_rate ? `${detail.tax_rate}%` : '0%'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Section 3: Summary + Terbilang + Signature */}
-                <div data-pdf-section style={{ marginTop: "10px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "28px" }}>
-                    {/* Left: Terbilang + Bank Box */}
-                    <div style={{ width: "55%", fontSize: "10px" }}>
-                      <div style={{ marginBottom: "14px", lineHeight: "1.5" }}>
-                        <b>Terbilang:</b>{" "}
-                        <i>{numberToWords(saldo)} Rupiah</i>
-                      </div>
-                      <div style={{ border: "1px solid #888", padding: "10px 12px", minHeight: "110px" }}>
-                        <div style={{ fontWeight: 700, marginBottom: "8px" }}>Keterangan:</div>
-                        <div style={{ marginBottom: "4px" }}>Account Banking a/n PT. KEMIKA KARYA PRATAMA</div>
-                        <div style={{ marginBottom: "4px" }}>Bank Mandiri KCP Tangerang Ciledug</div>
-                        <div style={{ marginBottom: "4px" }}>Acc. No 155-005-755-575-0</div>
-                        <div>NPWP: 71.608.326.6-416.000</div>
-                      </div>
-                    </div>
-
-                    {/* Right: Calculation + Signature */}
-                    <div style={{ width: "45%" }}>
-                      <table style={{ borderCollapse: "collapse", width: "100%", marginBottom: "26px" }}>
-                        <tbody>
-                          {[
-                            { label: "DPP", value: fmtNum(dpp), bold: false },
-                            { label: "DPP Pengganti", value: fmtNum(dppPengganti), bold: false },
-                            { label: "Pajak", value: fmtNum(pajak), bold: false },
-                            { label: "Biaya Pengantaran", value: fmtNum(biayaPengantaran), bold: false },
-                          ].map((row) => (
-                            <tr key={row.label}>
-                              <td style={{ padding: "5px 0", fontSize: "10px", width: "65%" }}>{row.label}</td>
-                              <td style={{ padding: "5px 0", fontSize: "10px", textAlign: "center", width: "5%" }}>:</td>
-                              <td style={{ padding: "5px 0", fontSize: "10px", textAlign: "right", width: "30%", whiteSpace: "nowrap" }}>{row.value}</td>
-                            </tr>
-                          ))}
-                          <tr>
-                            <td style={{ padding: "8px 0 5px", fontSize: "10px", fontWeight: 700, borderTop: "1px solid #555" }}>Sub Total</td>
-                            <td style={{ padding: "8px 0 5px", fontSize: "10px", textAlign: "center", borderTop: "1px solid #555" }}>:</td>
-                            <td style={{ padding: "8px 0 5px", fontSize: "10px", textAlign: "right", fontWeight: 700, borderTop: "1px solid #555", whiteSpace: "nowrap" }}>Rp {fmtNum(subTotalCalc)}</td>
-                          </tr>
-                          <tr>
-                            <td style={{ padding: "5px 0", fontSize: "10px" }}>Bea Materai</td>
-                            <td style={{ padding: "5px 0", fontSize: "10px", textAlign: "center" }}>:</td>
-                            <td style={{ padding: "5px 0", fontSize: "10px", textAlign: "right", whiteSpace: "nowrap" }}>Rp {fmtNum(materai)}</td>
-                          </tr>
-                          <tr>
-                            <td style={{ padding: "5px 0", fontSize: "10px" }}>Down Payment</td>
-                            <td style={{ padding: "5px 0", fontSize: "10px", textAlign: "center" }}>:</td>
-                            <td style={{ padding: "5px 0", fontSize: "10px", textAlign: "right" }}>-</td>
-                          </tr>
-                          <tr>
-                            <td style={{ padding: "10px 0 5px", fontSize: "14px", fontWeight: 700, borderTop: "2px solid #333" }}>Saldo</td>
-                            <td style={{ padding: "10px 0 5px", fontSize: "14px", textAlign: "center", borderTop: "2px solid #333" }}>:</td>
-                            <td style={{ padding: "10px 0 5px", fontSize: "14px", textAlign: "right", fontWeight: 700, borderTop: "2px solid #333", whiteSpace: "nowrap" }}>Rp {fmtNum(saldo)}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-
-                      {/* Signature */}
-                      <div style={{ textAlign: "center", width: "100%", marginTop: "24px" }}>
-                        <div style={{ fontWeight: 700, textTransform: "uppercase" as const, fontSize: "11px" }}>PT. KEMIKA KARYA PRATAMA</div>
-                        <div style={{ height: "48px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          {isApproved && approverSignatureUrl ? (
-                            <img src={approverSignatureUrl} alt="signature" style={{ maxHeight: "48px", maxWidth: "160px", objectFit: "contain" }} crossOrigin="anonymous" />
-                          ) : null}
-                        </div>
-                        <div style={{ width: "220px", margin: "0 auto 6px auto", borderTop: "1px solid #333" }} />
-                        <div style={{ fontWeight: 700, fontSize: "11px" }}>
-                          {isApproved && approverName ? approverName : '(..................................)'}
-                        </div>
-                        <div style={{ marginTop: "2px", fontSize: "10px" }}>FINANCE</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Section 4: Footer */}
-                <div data-pdf-section data-pdf-bottom style={{ marginTop: "34px", paddingTop: "10px", borderTop: "1px solid #bbb", fontSize: "10px", lineHeight: "1.5" }}>
-                  <div style={{ fontWeight: 700, fontSize: "12px", color: "#0f6b3e", marginBottom: "4px", textTransform: "uppercase" as const }}>PT. KEMIKA KARYA PRATAMA</div>
-                  <div>Jl. Raya Ciledug No. 10, Tangerang, Banten 15154</div>
-                  <div>(021) 7310808 | www.kemika.co.id</div>
-                </div>
-              </div>
-            );
-          })()}
-        </div>
+          return <PiPdfTemplate ref={printRef} data={pdfData} />;
+        })()}
       </div>
 
       {/* Reject Dialog */}
