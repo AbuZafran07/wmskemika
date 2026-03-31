@@ -149,7 +149,7 @@ export async function exportSectionBasedPdf({
       // Calculate height in mm based on actual pixel dimensions and scale factor
       const scaledWidth = canvas.width / 2; // scale: 2
       const scaledHeight = canvas.height / 2;
-      const heightMM = (scaledHeight / scaledWidth) * CONTENT_WIDTH_MM;
+      const heightMM = (scaledHeight / scaledWidth) * contentW;
 
       capturedSections.push({ canvas, heightMM });
     }
