@@ -112,7 +112,7 @@ export const securePrint = ({ title, styles = '', content, backgroundImage }: Pr
             print-color-adjust: exact !important;
             color-adjust: exact !important;
           }
-          body { font-family: Arial, sans-serif; padding: 16px; color: #111; }
+          body { font-family: Arial, sans-serif; padding: 16px; color: #111; ${backgroundImage ? `background-image: url(${backgroundImage}); background-size: 210mm 297mm; background-repeat: no-repeat; background-position: center top;` : ''} }
           /*
             Ensure row background colors (e.g., green header rows applied to <tr>)
             are actually painted on the cells in print preview.
