@@ -164,12 +164,46 @@ export async function exportSectionBasedPdf({
     flagIdx++;
   }
 
+  // Load background image if provided
+  let bgImgData: string | null = null;
+  if (backgroundImage) {
+    try {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Failed to load background image"));
+        img.src = backgroundImage;
+      });
+      const bgCanvas = document.createElement("canvas");
+      bgCanvas.width = img.naturalWidth;
+      bgCanvas.height = img.naturalHeight;
+      const ctx = bgCanvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        bgImgData = bgCanvas.toDataURL("image/jpeg", 0.92);
+      }
+    } catch (e) {
+      console.warn("Could not load PDF background image:", e);
+    }
+  }
+
   // Build PDF with smart page breaks
   const pdf = new jsPDF({
     orientation: "portrait",
     unit: "mm",
     format: "a4",
   });
+
+  // Helper to add background to current page
+  const addPageBg = () => {
+    if (bgImgData) {
+      pdf.addImage(bgImgData, "JPEG", 0, 0, A4_WIDTH_MM, A4_HEIGHT_MM);
+    }
+  };
+
+  // Add background to first page
+  addPageBg();
 
   let currentY = MARGIN_MM;
 
