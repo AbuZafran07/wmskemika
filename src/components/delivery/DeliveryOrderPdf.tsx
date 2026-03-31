@@ -135,7 +135,7 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
             {/* Section 1: Header */}
             <div data-pdf-section>
               {/* Top space for letterhead logo */}
-              <div style={{ height: '80px' }}></div>
+              <div style={{ height: '95px' }}></div>
 
               {/* Title - right aligned */}
               <div style={{ textAlign: 'right', marginBottom: '2px' }}>
