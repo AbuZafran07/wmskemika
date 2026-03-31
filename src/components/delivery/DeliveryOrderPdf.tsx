@@ -119,12 +119,22 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
 
         {/* PDF Content */}
         <div ref={contentRef} style={{ backgroundColor: '#ffffff' }}>
-          <div data-pdf-root className="bg-white text-gray-900" style={{ fontFamily: 'Arial, sans-serif', display: 'flex', flexDirection: 'column', minHeight: '267mm' }}>
+          <div data-pdf-root className="bg-white text-gray-900" style={{
+            fontFamily: 'Arial, sans-serif',
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: '267mm',
+            backgroundImage: 'url(/kop-surat-bg.jpg)',
+            backgroundSize: '210mm 297mm',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center top',
+            WebkitPrintColorAdjust: 'exact' as any,
+          }}>
 
             {/* Section 1: Header */}
             <div data-pdf-section>
-              {/* Top space for letterhead/kop surat */}
-              <div style={{ height: '60px' }}></div>
+              {/* Top space for letterhead logo */}
+              <div style={{ height: '80px' }}></div>
 
               {/* Title - right aligned */}
               <div style={{ textAlign: 'right', marginBottom: '2px' }}>
