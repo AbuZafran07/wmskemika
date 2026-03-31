@@ -284,10 +284,6 @@ export default function ProformaInvoicePage() {
 
               {/* Financial summary */}
               <div className="border-t pt-4 space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span>Subtotal</span>
-                  <span>{formatCurrency(detail.subtotal)}</span>
-                </div>
                 {detail.discount > 0 && (
                   <div className="flex justify-between text-red-600">
                     <span>Diskon</span>
@@ -306,15 +302,23 @@ export default function ProformaInvoicePage() {
                     <span>{formatCurrency(detail.other_costs)}</span>
                   </div>
                 )}
+                <div className="flex justify-between">
+                  <span>Subtotal (Nilai DPP)</span>
+                  <span>{formatCurrency(detail.subtotal)}</span>
+                </div>
                 {detail.tax_amount > 0 && (
                   <div className="flex justify-between">
                     <span>PPN ({detail.tax_rate}%)</span>
                     <span>{formatCurrency(detail.tax_amount)}</span>
                   </div>
                 )}
+                <div className="flex justify-between font-semibold border-t pt-1">
+                  <span>Total (DPP + PPN)</span>
+                  <span>{formatCurrency(detail.subtotal + (detail.tax_amount || 0))}</span>
+                </div>
                 {detail.materai_amount > 0 && (
                   <div className="flex justify-between">
-                    <span>Materai</span>
+                    <span>Bea Materai</span>
                     <span>{formatCurrency(detail.materai_amount)}</span>
                   </div>
                 )}
