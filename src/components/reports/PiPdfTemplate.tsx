@@ -16,7 +16,10 @@ export interface PiPdfInvoice {
   date: string;
   currency: string;
   soNumber: string;
+  customerPoNumber: string;
   term: string;
+  amountInWords: string;
+}
   amountInWords: string;
 }
 
