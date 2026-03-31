@@ -110,7 +110,7 @@ export function useProformaInvoiceDetail(id: string | null) {
         .from('proforma_invoices' as any)
         .select(`
           *,
-          customer:customers!customer_id(name, code, customer_type),
+          customer:customers!customer_id(name, code, customer_type, address, city, pic),
           sales_order:sales_order_headers!sales_order_id(sales_order_number, customer_po_number, sales_name)
         `)
         .eq('id', id!)
