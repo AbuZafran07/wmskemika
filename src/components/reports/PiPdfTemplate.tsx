@@ -379,20 +379,6 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
           </div>
         </div>
 
-        {/* ─── Section 5: FOOTER ─── */}
-        <div data-pdf-section data-pdf-bottom style={{ marginTop: '30px', paddingTop: '10px', borderTop: '1px solid #ccc' }}>
-          {/* Green accent bottom line */}
-          <div style={{
-            height: '2px',
-            background: `linear-gradient(90deg, ${CORP_GREEN}, ${CORP_GREEN}60, transparent)`,
-            marginBottom: '8px',
-          }} />
-          <div style={{ fontSize: '10px', lineHeight: '1.5' }}>
-            <div style={{ fontWeight: 700, fontSize: '11px', color: CORP_GREEN, marginBottom: '2px', textTransform: 'uppercase' }}>{company.name}</div>
-            <div style={{ color: '#555' }}>{company.address}</div>
-            <div style={{ color: '#555' }}>{company.phone} | {company.website}</div>
-          </div>
-        </div>
       </div>
     </div>
   );
