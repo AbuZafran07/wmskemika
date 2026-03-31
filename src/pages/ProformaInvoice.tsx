@@ -128,9 +128,14 @@ export default function ProformaInvoicePage() {
 
   const handlePrintPI = () => {
     if (!printRef.current || !detail) return;
+    const piPrintStyles = `
+      @page { size: A4; margin: 0; }
+      body { margin: 0; padding: 0; font-family: Arial, sans-serif; color: #111; background-image: url(/kop-surat-pi-bg.jpg); background-size: 210mm 297mm; background-repeat: no-repeat; background-position: center top; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      th[style*="background"] { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    `;
     securePrint({
       title: `ProformaInvoice_${detail.pi_number}`,
-      styles: printStyles.salesOrder,
+      styles: piPrintStyles,
       content: printRef.current.innerHTML,
     });
   };
