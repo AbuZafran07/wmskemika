@@ -40,6 +40,7 @@ export type MenuKey =
   | 'planOrder'
   | 'stockIn'
   | 'salesOrder'
+  | 'proformaInvoice'
   | 'stockOut'
   | 'stockAdjustment'
   | 'deliveryOrder'
