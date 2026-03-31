@@ -1335,10 +1335,10 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       const discount = soHeader.discount || 0;
       const taxRate = soHeader.tax_rate || 0;
       const shippingCost = soHeader.shipping_cost || 0;
-      const afterDiscount = subtotal - discount;
-      const taxAmount = afterDiscount * (taxRate / 100);
+      const afterDiscount = Math.round(subtotal - discount);
+      const taxAmount = Math.round(afterDiscount * (taxRate / 100));
       const materai = calculateMaterai(cust?.customer_type, afterDiscount, shippingCost, taxAmount, materaiAmount);
-      const grandTotal = afterDiscount + shippingCost + taxAmount + materai;
+      const grandTotal = Math.round(afterDiscount + shippingCost + taxAmount + materai);
 
       // Insert PI header
       const { data: piData, error: piError } = await (supabase
