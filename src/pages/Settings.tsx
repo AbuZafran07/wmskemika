@@ -294,7 +294,52 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
 
-              {/* Push Notification Settings */}
+              {/* Materai Settings */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <Receipt className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">
+                        {language === 'en' ? 'Stamp Duty (Materai)' : 'Biaya Materai'}
+                      </CardTitle>
+                      <CardDescription>
+                        {language === 'en' 
+                          ? 'Set stamp duty amount for Proforma Invoice'
+                          : 'Atur nominal materai untuk Proforma Invoice'
+                        }
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                    <div className="space-y-1">
+                      <Label className="text-base font-medium">
+                        {language === 'en' ? 'Materai Amount' : 'Nominal Materai'}
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        {language === 'en' 
+                          ? 'Applied to non-government customers when total > Rp 5.000.000'
+                          : 'Dikenakan untuk customer non-government jika total > Rp 5.000.000'
+                        }
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">Rp</span>
+                      <input
+                        type="number"
+                        className="w-32 h-9 px-3 rounded-md border bg-background text-sm"
+                        value={settings.materai_amount}
+                        onChange={(e) => setSettings(prev => ({ ...prev, materai_amount: Number(e.target.value) || 0 }))}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader>
                   <div className="flex items-center gap-3">
