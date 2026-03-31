@@ -293,7 +293,7 @@ export async function exportSectionBasedPdf({
       // Normal case: section fits on a page
       const fmt = backgroundImage ? "PNG" : "JPEG";
       const imgData = backgroundImage ? canvas.toDataURL("image/png") : canvas.toDataURL("image/jpeg", 0.92);
-      pdf.addImage(imgData, fmt, MARGIN_MM, currentY, CONTENT_WIDTH_MM, heightMM);
+      pdf.addImage(imgData, fmt, m.left, currentY, contentW, heightMM);
       currentY += heightMM + SECTION_GAP_MM;
     }
 
