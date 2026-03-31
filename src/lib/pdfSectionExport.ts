@@ -22,12 +22,14 @@ interface SectionBasedPdfOptions {
   element: HTMLElement;
   filename: string;
   onProgress?: (progress: number) => void;
+  backgroundImage?: string; // URL to a full-page A4 background image
 }
 
 export async function exportSectionBasedPdf({
   element,
   filename,
   onProgress,
+  backgroundImage,
 }: SectionBasedPdfOptions): Promise<void> {
   const progress = (v: number) => onProgress?.(v);
 
@@ -45,6 +47,14 @@ export async function exportSectionBasedPdf({
   // Remove any minHeight that forces extra whitespace
   clone.style.minHeight = "auto";
   document.body.appendChild(clone);
+
+  // Strip background image from clone so html2canvas captures clean white content
+  if (backgroundImage) {
+    const root = clone.querySelector("[data-pdf-root]") as HTMLElement;
+    if (root) {
+      root.style.backgroundImage = "none";
+    }
+  }
 
   // Wait for render
   await new Promise((r) => setTimeout(r, 300));
@@ -91,7 +101,7 @@ export async function exportSectionBasedPdf({
     useCORS: true,
     allowTaint: false,
     logging: false,
-    backgroundColor: "#ffffff",
+    backgroundColor: backgroundImage ? null : "#ffffff", // transparent when using bg image
     imageTimeout: 15000,
   };
 
@@ -154,12 +164,46 @@ export async function exportSectionBasedPdf({
     flagIdx++;
   }
 
+  // Load background image if provided
+  let bgImgData: string | null = null;
+  if (backgroundImage) {
+    try {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Failed to load background image"));
+        img.src = backgroundImage;
+      });
+      const bgCanvas = document.createElement("canvas");
+      bgCanvas.width = img.naturalWidth;
+      bgCanvas.height = img.naturalHeight;
+      const ctx = bgCanvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        bgImgData = bgCanvas.toDataURL("image/jpeg", 0.92);
+      }
+    } catch (e) {
+      console.warn("Could not load PDF background image:", e);
+    }
+  }
+
   // Build PDF with smart page breaks
   const pdf = new jsPDF({
     orientation: "portrait",
     unit: "mm",
     format: "a4",
   });
+
+  // Helper to add background to current page
+  const addPageBg = () => {
+    if (bgImgData) {
+      pdf.addImage(bgImgData, "JPEG", 0, 0, A4_WIDTH_MM, A4_HEIGHT_MM);
+    }
+  };
+
+  // Add background to first page
+  addPageBg();
 
   let currentY = MARGIN_MM;
 
@@ -180,8 +224,8 @@ export async function exportSectionBasedPdf({
     const spaceLeft = A4_HEIGHT_MM - MARGIN_MM - currentY;
     if (heightMM > spaceLeft - 3 && currentY > MARGIN_MM + 1) {
       pdf.addPage();
+      addPageBg();
       currentY = MARGIN_MM;
-      // Re-apply bottom anchor on new page
       if (isBottom) {
         const bottomY = A4_HEIGHT_MM - MARGIN_MM - heightMM;
         if (bottomY > currentY) currentY = bottomY;
@@ -199,6 +243,7 @@ export async function exportSectionBasedPdf({
       while (sectionRemainingHeight > 0) {
         if (yOffset > 0) {
           pdf.addPage();
+          addPageBg();
           currentY = MARGIN_MM;
         }
 
@@ -223,8 +268,9 @@ export async function exportSectionBasedPdf({
             canvas.width, Math.round(sourceHeight)
           );
 
-          const sliceData = sliceCanvas.toDataURL("image/jpeg", 0.92);
-          pdf.addImage(sliceData, "JPEG", MARGIN_MM, currentY, CONTENT_WIDTH_MM, drawHeight);
+          const fmt = backgroundImage ? "PNG" : "JPEG";
+          const sliceData = backgroundImage ? sliceCanvas.toDataURL("image/png") : sliceCanvas.toDataURL("image/jpeg", 0.92);
+          pdf.addImage(sliceData, fmt, MARGIN_MM, currentY, CONTENT_WIDTH_MM, drawHeight);
         }
 
         yOffset += drawHeight;
@@ -233,8 +279,9 @@ export async function exportSectionBasedPdf({
       }
     } else {
       // Normal case: section fits on a page
-      const imgData = canvas.toDataURL("image/jpeg", 0.92);
-      pdf.addImage(imgData, "JPEG", MARGIN_MM, currentY, CONTENT_WIDTH_MM, heightMM);
+      const fmt = backgroundImage ? "PNG" : "JPEG";
+      const imgData = backgroundImage ? canvas.toDataURL("image/png") : canvas.toDataURL("image/jpeg", 0.92);
+      pdf.addImage(imgData, fmt, MARGIN_MM, currentY, CONTENT_WIDTH_MM, heightMM);
       currentY += heightMM + SECTION_GAP_MM;
     }
 
