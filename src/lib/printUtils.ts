@@ -4,6 +4,7 @@ interface PrintOptions {
   title: string;
   styles?: string;
   content: string;
+  backgroundImage?: string;
 }
 
 /**
