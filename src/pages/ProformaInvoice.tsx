@@ -517,6 +517,7 @@ export default function ProformaInvoicePage() {
               date: detail.created_at ? formatDateID(detail.created_at) : '-',
               currency: "IDR - (Rupiah)",
               soNumber: so?.sales_order_number || '-',
+              customerPoNumber: so?.customer_po_number || '-',
               term: detail.payment_terms || '-',
               amountInWords: numberToWords(saldo) + " Rupiah",
             },
