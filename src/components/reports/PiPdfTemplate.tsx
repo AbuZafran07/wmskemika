@@ -240,7 +240,7 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
         <div data-pdf-section style={{ marginTop: '24px' }}>
           {/* Divider line */}
           <div style={{
-            borderTop: `2px solid ${CORP_GREEN}`,
+            borderTop: '2px solid #000',
             marginBottom: '20px',
           }} />
 
