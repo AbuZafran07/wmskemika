@@ -327,14 +327,14 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
                       padding: '10px 0 5px',
                       fontSize: '13px',
                       fontWeight: 700,
-                      borderTop: `2px solid ${CORP_GREEN}`,
+                      borderTop: '2px solid #000',
                       color: CORP_GREEN,
                     }}>Saldo</td>
                     <td style={{
                       padding: '10px 0 5px',
                       fontSize: '13px',
                       textAlign: 'center',
-                      borderTop: `2px solid ${CORP_GREEN}`,
+                      borderTop: '2px solid #000',
                       color: CORP_GREEN,
                     }}>:</td>
                     <td style={{
@@ -342,7 +342,7 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
                       fontSize: '13px',
                       textAlign: 'right',
                       fontWeight: 700,
-                      borderTop: `2px solid ${CORP_GREEN}`,
+                      borderTop: '2px solid #000',
                       whiteSpace: 'nowrap',
                       color: CORP_GREEN,
                     }}>Rp {fmt(summary.balance)}</td>
