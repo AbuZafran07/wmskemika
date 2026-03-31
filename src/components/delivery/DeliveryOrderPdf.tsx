@@ -86,11 +86,11 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
         <head>
           <title>Delivery Order - ${doNumber}</title>
           <style>
-            body { margin: 0; padding: 15mm 15mm 10mm 15mm; font-family: Arial, sans-serif; color: #111; }
+            body { margin: 0; padding: 0; font-family: Arial, sans-serif; color: #111; background-image: url(/kop-surat-bg.jpg); background-size: 210mm 297mm; background-repeat: no-repeat; background-position: center top; }
             table { border-collapse: collapse; width: 100%; }
             th, td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; font-size: 11px; }
             th { background: #166534 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            @media print { body { padding: 10mm; } @page { size: A4; margin: 10mm; } }
+            @media print { body { padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; } @page { size: A4; margin: 0; } }
           </style>
         </head>
         <body>${contentRef.current.innerHTML}</body>
@@ -119,12 +119,23 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
 
         {/* PDF Content */}
         <div ref={contentRef} style={{ backgroundColor: '#ffffff' }}>
-          <div data-pdf-root className="bg-white text-gray-900" style={{ fontFamily: 'Arial, sans-serif', display: 'flex', flexDirection: 'column', minHeight: '267mm' }}>
+          <div data-pdf-root className="bg-white text-gray-900" style={{
+            fontFamily: 'Arial, sans-serif',
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: '267mm',
+            padding: '10mm 15mm 10mm 15mm',
+            backgroundImage: 'url(/kop-surat-bg.jpg)',
+            backgroundSize: '210mm 297mm',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center top',
+            WebkitPrintColorAdjust: 'exact' as any,
+          }}>
 
             {/* Section 1: Header */}
             <div data-pdf-section>
-              {/* Top space for letterhead/kop surat */}
-              <div style={{ height: '60px' }}></div>
+              {/* Top space for letterhead logo */}
+              <div style={{ height: '80px' }}></div>
 
               {/* Title - right aligned */}
               <div style={{ textAlign: 'right', marginBottom: '2px' }}>
