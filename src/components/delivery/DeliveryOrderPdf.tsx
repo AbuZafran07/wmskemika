@@ -220,7 +220,7 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
             </div>
 
             {/* Section 3: Separator + Notes + Signature — pushed to bottom */}
-            <div data-pdf-section style={{ marginTop: 'auto' }}>
+            <div data-pdf-section data-pdf-bottom style={{ marginTop: 'auto' }}>
               {/* Separator line */}
               <div style={{ borderBottom: '1.5px solid #111', marginBottom: '16px' }}></div>
 
