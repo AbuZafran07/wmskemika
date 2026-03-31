@@ -26,6 +26,7 @@ import {
   Truck,
   PanelLeftClose,
   PanelLeftOpen,
+  Receipt,
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
