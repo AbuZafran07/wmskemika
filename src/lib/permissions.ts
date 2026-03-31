@@ -158,14 +158,14 @@ export const ACTION_PERMISSIONS: Record<ModuleType, Record<ActionType, UserRole[
     print: ['super_admin', 'admin', 'warehouse'],
   },
   sales_order: {
-    view: ['super_admin', 'admin', 'finance', 'sales', 'warehouse'],
+    view: ['super_admin', 'admin', 'finance', 'purchasing', 'sales', 'warehouse'],
     create: ['super_admin', 'admin', 'sales'],
     edit: ['super_admin', 'admin', 'sales'],
     delete: ['super_admin', 'admin'],
     cancel: ['super_admin', 'admin'],
     approve: ['super_admin', 'admin'], // Admin needs allowAdminApprove setting
     upload: ['super_admin', 'admin', 'sales'],
-    print: ['super_admin', 'admin', 'finance', 'sales', 'warehouse'],
+    print: ['super_admin', 'admin', 'finance', 'purchasing', 'sales', 'warehouse'],
   },
   proforma_invoice: {
     view: ['super_admin', 'admin', 'finance', 'purchasing', 'sales'],
