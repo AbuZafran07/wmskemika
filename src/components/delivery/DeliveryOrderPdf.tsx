@@ -119,7 +119,7 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
 
         {/* PDF Content */}
         <div ref={contentRef} style={{ backgroundColor: '#ffffff' }}>
-          <div data-pdf-root className="bg-white text-gray-900" style={{ fontFamily: 'Arial, sans-serif' }}>
+          <div data-pdf-root className="bg-white text-gray-900" style={{ fontFamily: 'Arial, sans-serif', display: 'flex', flexDirection: 'column', minHeight: '267mm' }}>
 
             {/* Section 1: Header */}
             <div data-pdf-section>
