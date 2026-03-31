@@ -16,13 +16,21 @@ const A4_HEIGHT_MM = 297;
 const MARGIN_MM = 10;
 const CONTENT_WIDTH_MM = A4_WIDTH_MM - MARGIN_MM * 2;
 const CONTENT_HEIGHT_MM = A4_HEIGHT_MM - MARGIN_MM * 2;
-const SECTION_GAP_MM = 0; // no gap, sections already have their own spacing
+const SECTION_GAP_MM = 0;
+
+interface PdfMargins {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
 
 interface SectionBasedPdfOptions {
   element: HTMLElement;
   filename: string;
   onProgress?: (progress: number) => void;
-  backgroundImage?: string; // URL to a full-page A4 background image
+  backgroundImage?: string;
+  margins?: PdfMargins;
 }
 
 export async function exportSectionBasedPdf({
@@ -30,7 +38,11 @@ export async function exportSectionBasedPdf({
   filename,
   onProgress,
   backgroundImage,
+  margins,
 }: SectionBasedPdfOptions): Promise<void> {
+  const m = margins || { top: MARGIN_MM, right: MARGIN_MM, bottom: MARGIN_MM, left: MARGIN_MM };
+  const contentW = A4_WIDTH_MM - m.left - m.right;
+  const contentH = A4_HEIGHT_MM - m.top - m.bottom;
   const progress = (v: number) => onProgress?.(v);
 
   progress(10);
@@ -42,7 +54,7 @@ export async function exportSectionBasedPdf({
   clone.style.top = "0";
   clone.style.width = `${A4_WIDTH_MM}mm`;
   clone.style.backgroundColor = "#ffffff";
-  clone.style.padding = `${MARGIN_MM}mm`;
+  clone.style.padding = `${m.top}mm ${m.right}mm ${m.bottom}mm ${m.left}mm`;
   clone.style.boxSizing = "border-box";
   // Remove any minHeight that forces extra whitespace
   clone.style.minHeight = "auto";
@@ -108,7 +120,7 @@ export async function exportSectionBasedPdf({
   // Get the pixel-to-mm conversion factor from the clone
   // The clone is set to A4_WIDTH_MM wide, so we can measure its pixel width
   const clonePixelWidth = contentWrapper.offsetWidth;
-  const pxPerMm = clonePixelWidth / CONTENT_WIDTH_MM;
+  const pxPerMm = clonePixelWidth / contentW;
 
   interface CapturedSection {
     canvas: HTMLCanvasElement;
@@ -137,7 +149,7 @@ export async function exportSectionBasedPdf({
       // Calculate height in mm based on actual pixel dimensions and scale factor
       const scaledWidth = canvas.width / 2; // scale: 2
       const scaledHeight = canvas.height / 2;
-      const heightMM = (scaledHeight / scaledWidth) * CONTENT_WIDTH_MM;
+      const heightMM = (scaledHeight / scaledWidth) * contentW;
 
       capturedSections.push({ canvas, heightMM });
     }
@@ -205,36 +217,36 @@ export async function exportSectionBasedPdf({
   // Add background to first page
   addPageBg();
 
-  let currentY = MARGIN_MM;
+  let currentY = m.top;
 
   for (let i = 0; i < capturedSections.length; i++) {
     const { canvas, heightMM } = capturedSections[i];
     const isBottom = bottomFlags[i] || false;
-    const remainingSpace = A4_HEIGHT_MM - MARGIN_MM - currentY;
+    const remainingSpace = A4_HEIGHT_MM - m.bottom - currentY;
 
     // If this is a bottom-anchored section, push it to the bottom of the current page
     if (isBottom) {
-      const bottomY = A4_HEIGHT_MM - MARGIN_MM - heightMM;
+      const bottomY = A4_HEIGHT_MM - m.bottom - heightMM;
       if (bottomY > currentY) {
         currentY = bottomY;
       }
     }
 
     // If section won't fit (with 3mm safety buffer) and we're not at the top of a new page, add new page
-    const spaceLeft = A4_HEIGHT_MM - MARGIN_MM - currentY;
-    if (heightMM > spaceLeft - 3 && currentY > MARGIN_MM + 1) {
+    const spaceLeft = A4_HEIGHT_MM - m.bottom - currentY;
+    if (heightMM > spaceLeft - 3 && currentY > m.top + 1) {
       pdf.addPage();
       addPageBg();
-      currentY = MARGIN_MM;
+      currentY = m.top;
       if (isBottom) {
-        const bottomY = A4_HEIGHT_MM - MARGIN_MM - heightMM;
+        const bottomY = A4_HEIGHT_MM - m.bottom - heightMM;
         if (bottomY > currentY) currentY = bottomY;
       }
     }
 
     // If a single section is taller than the page content area,
     // we need to split it across pages (fallback for very large tables)
-    if (heightMM > CONTENT_HEIGHT_MM) {
+    if (heightMM > contentH) {
       // For oversized sections, use the old slicing approach
       const imgData = canvas.toDataURL("image/jpeg", 0.92);
       let sectionRemainingHeight = heightMM;
@@ -244,10 +256,10 @@ export async function exportSectionBasedPdf({
         if (yOffset > 0) {
           pdf.addPage();
           addPageBg();
-          currentY = MARGIN_MM;
+          currentY = m.top;
         }
 
-        const availableHeight = A4_HEIGHT_MM - MARGIN_MM - currentY;
+        const availableHeight = A4_HEIGHT_MM - m.bottom - currentY;
         const drawHeight = Math.min(sectionRemainingHeight, availableHeight);
 
         // Calculate source rectangle for this page slice
@@ -270,7 +282,7 @@ export async function exportSectionBasedPdf({
 
           const fmt = backgroundImage ? "PNG" : "JPEG";
           const sliceData = backgroundImage ? sliceCanvas.toDataURL("image/png") : sliceCanvas.toDataURL("image/jpeg", 0.92);
-          pdf.addImage(sliceData, fmt, MARGIN_MM, currentY, CONTENT_WIDTH_MM, drawHeight);
+          pdf.addImage(sliceData, fmt, m.left, currentY, contentW, drawHeight);
         }
 
         yOffset += drawHeight;
@@ -281,7 +293,7 @@ export async function exportSectionBasedPdf({
       // Normal case: section fits on a page
       const fmt = backgroundImage ? "PNG" : "JPEG";
       const imgData = backgroundImage ? canvas.toDataURL("image/png") : canvas.toDataURL("image/jpeg", 0.92);
-      pdf.addImage(imgData, fmt, MARGIN_MM, currentY, CONTENT_WIDTH_MM, heightMM);
+      pdf.addImage(imgData, fmt, m.left, currentY, contentW, heightMM);
       currentY += heightMM + SECTION_GAP_MM;
     }
 
