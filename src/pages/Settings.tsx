@@ -51,7 +51,7 @@ export default function SettingsPage() {
       const { data, error } = await supabase
         .from('settings')
         .select('key, value')
-        .in('key', ['allow_admin_approve', 'stock_alert_schedule']);
+        .in('key', ['allow_admin_approve', 'stock_alert_schedule', 'materai_amount']);
 
       if (error) throw error;
 
