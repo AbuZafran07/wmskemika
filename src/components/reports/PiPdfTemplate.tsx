@@ -122,16 +122,17 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
             textAlign: 'right',
             margin: '0 0 8px 0',
             letterSpacing: '0.5px',
-            color: CORP_GREEN,
+            color: '#000',
           }}>
             PROFORMA INVOICE
           </h1>
 
-          {/* Black separator line */}
+          {/* Black separator line - not exceeding letterhead border */}
           <div style={{
             height: '2px',
             backgroundColor: '#000',
             marginBottom: '16px',
+            marginRight: '15px',
           }} />
 
           {/* Header grid: Left 55% + Right 45% */}
