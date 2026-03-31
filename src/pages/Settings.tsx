@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 interface SettingsData {
   allow_admin_approve: boolean;
   stock_alert_schedule: 'daily' | 'weekly' | 'monthly';
+  materai_amount: number;
 }
 
 export default function SettingsPage() {
