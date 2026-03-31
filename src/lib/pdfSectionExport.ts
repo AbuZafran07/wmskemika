@@ -115,6 +115,8 @@ export async function exportSectionBasedPdf({
     // Skip invisible/empty sections
     if (section.offsetHeight === 0) continue;
 
+    const shouldPushToBottom = section.hasAttribute("data-pdf-bottom");
+
     const canvas = await html2canvas(section, {
       ...html2canvasOptions,
       onclone: (clonedDoc) => {
