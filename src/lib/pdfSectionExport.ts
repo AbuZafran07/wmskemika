@@ -259,7 +259,7 @@ export async function exportSectionBasedPdf({
           currentY = m.top;
         }
 
-        const availableHeight = A4_HEIGHT_MM - MARGIN_MM - currentY;
+        const availableHeight = A4_HEIGHT_MM - m.bottom - currentY;
         const drawHeight = Math.min(sectionRemainingHeight, availableHeight);
 
         // Calculate source rectangle for this page slice
