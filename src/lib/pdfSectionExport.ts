@@ -246,7 +246,7 @@ export async function exportSectionBasedPdf({
 
     // If a single section is taller than the page content area,
     // we need to split it across pages (fallback for very large tables)
-    if (heightMM > CONTENT_HEIGHT_MM) {
+    if (heightMM > contentH) {
       // For oversized sections, use the old slicing approach
       const imgData = canvas.toDataURL("image/jpeg", 0.92);
       let sectionRemainingHeight = heightMM;
