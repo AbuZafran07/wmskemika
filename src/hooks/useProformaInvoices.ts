@@ -121,7 +121,7 @@ export function useProformaInvoiceDetail(id: string | null) {
       // Fetch items
       const { data: items } = await (supabase
         .from('proforma_invoice_items' as any)
-        .select('*')
+        .select('*, product:products!product_id(sku, unit:units!unit_id(name))')
         .eq('proforma_invoice_id', id!) as any);
 
       // Fetch profiles
