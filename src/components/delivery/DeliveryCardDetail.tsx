@@ -1225,6 +1225,152 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     }
   };
 
+  // PI generation state
+  const [generatingPI, setGeneratingPI] = useState(false);
+  const [customerPaymentTerms, setCustomerPaymentTerms] = useState<string | null>(null);
+  const [customerType, setCustomerType] = useState<string | null>(null);
+  const [existingPI, setExistingPI] = useState<string | null>(null);
+
+  // Fetch customer payment terms and check existing PI
+  useEffect(() => {
+    if (!card) return;
+    const fetchCustomerInfo = async () => {
+      // Get customer info from SO
+      const { data: so } = await supabase
+        .from('sales_order_headers')
+        .select('customer_id')
+        .eq('id', card.sales_order_id)
+        .single();
+      if (so) {
+        const { data: cust } = await supabase
+          .from('customers')
+          .select('terms_payment, customer_type')
+          .eq('id', so.customer_id)
+          .single();
+        setCustomerPaymentTerms(cust?.terms_payment || null);
+        setCustomerType(cust?.customer_type || null);
+      }
+      // Check if PI already exists for this delivery request
+      const { data: piData } = await (supabase
+        .from('proforma_invoices' as any)
+        .select('id, pi_number, status')
+        .eq('delivery_request_id', card.id)
+        .neq('status', 'cancelled')
+        .limit(1) as any);
+      if (piData && piData.length > 0) {
+        setExistingPI(piData[0].pi_number);
+      } else {
+        setExistingPI(null);
+      }
+    };
+    fetchCustomerInfo();
+  }, [card]);
+
+  const handleGeneratePI = async () => {
+    if (!card || !user) return;
+    setGeneratingPI(true);
+    try {
+      // Get SO details with items
+      const { data: soHeader } = await supabase
+        .from('sales_order_headers')
+        .select('*')
+        .eq('id', card.sales_order_id)
+        .single();
+      if (!soHeader) throw new Error('Sales Order tidak ditemukan');
+
+      const { data: soItems } = await supabase
+        .from('sales_order_items')
+        .select('*, product:products(name)')
+        .eq('sales_order_id', card.sales_order_id);
+      if (!soItems) throw new Error('Item Sales Order tidak ditemukan');
+
+      const { data: cust } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('id', soHeader.customer_id)
+        .single();
+
+      const piNumber = await generateUniquePINumber();
+
+      const subtotal = soHeader.total_amount || 0;
+      const discount = soHeader.discount || 0;
+      const taxRate = soHeader.tax_rate || 0;
+      const shippingCost = soHeader.shipping_cost || 0;
+      const afterDiscount = subtotal - discount;
+      const taxAmount = afterDiscount * (taxRate / 100);
+      const materai = calculateMaterai(cust?.customer_type, afterDiscount, shippingCost, taxAmount, materaiAmount);
+      const grandTotal = afterDiscount + shippingCost + taxAmount + materai;
+
+      // Insert PI header
+      const { data: piData, error: piError } = await (supabase
+        .from('proforma_invoices' as any)
+        .insert({
+          pi_number: piNumber,
+          sales_order_id: card.sales_order_id,
+          customer_id: soHeader.customer_id,
+          delivery_request_id: card.id,
+          subtotal: afterDiscount,
+          discount,
+          tax_rate: taxRate,
+          tax_amount: taxAmount,
+          shipping_cost: shippingCost,
+          other_costs: 0,
+          materai_amount: materai,
+          grand_total: grandTotal,
+          customer_type: cust?.customer_type,
+          payment_terms: cust?.terms_payment,
+          status: 'pending',
+          notes: null,
+          created_by: user.id,
+        })
+        .select('id')
+        .single() as any);
+
+      if (piError) throw piError;
+
+      // Insert PI items
+      const piItems = soItems.map((item: any) => ({
+        proforma_invoice_id: piData.id,
+        product_id: item.product_id,
+        product_name: (item.product as any)?.name || 'Unknown',
+        qty: item.ordered_qty,
+        unit_price: item.unit_price,
+        discount: item.discount || 0,
+        subtotal: item.subtotal || (item.ordered_qty * item.unit_price),
+      }));
+
+      const { error: itemsError } = await (supabase
+        .from('proforma_invoice_items' as any)
+        .insert(piItems) as any);
+      if (itemsError) throw itemsError;
+
+      // Audit log
+      await supabase.from('audit_logs').insert({
+        user_id: user.id,
+        user_email: user.email,
+        action: 'create',
+        module: 'proforma_invoice',
+        ref_id: piData.id,
+        ref_no: piNumber,
+        ref_table: 'proforma_invoices',
+      });
+
+      // Add activity comment
+      await supabase.from('delivery_comments').insert({
+        delivery_request_id: card.id,
+        user_id: user.id,
+        message: `📄 Proforma Invoice ${piNumber} telah di-generate.`,
+        type: 'activity',
+      });
+
+      setExistingPI(piNumber);
+      toast.success(`Proforma Invoice ${piNumber} berhasil dibuat!`);
+    } catch (err: any) {
+      toast.error(err.message || 'Gagal generate Proforma Invoice');
+    } finally {
+      setGeneratingPI(false);
+    }
+  };
 
   // Reverse geocode coordinates to address using Nominatim (OpenStreetMap)
   const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
