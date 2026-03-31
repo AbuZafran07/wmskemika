@@ -42,6 +42,7 @@ import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import Notifications from "./pages/Notifications";
 import DeliveryOrder from "./pages/DeliveryOrder";
+import ProformaInvoice from "./pages/ProformaInvoice";
 
 const queryClient = new QueryClient();
 
