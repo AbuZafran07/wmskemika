@@ -16,13 +16,21 @@ const A4_HEIGHT_MM = 297;
 const MARGIN_MM = 10;
 const CONTENT_WIDTH_MM = A4_WIDTH_MM - MARGIN_MM * 2;
 const CONTENT_HEIGHT_MM = A4_HEIGHT_MM - MARGIN_MM * 2;
-const SECTION_GAP_MM = 0; // no gap, sections already have their own spacing
+const SECTION_GAP_MM = 0;
+
+interface PdfMargins {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
 
 interface SectionBasedPdfOptions {
   element: HTMLElement;
   filename: string;
   onProgress?: (progress: number) => void;
-  backgroundImage?: string; // URL to a full-page A4 background image
+  backgroundImage?: string;
+  margins?: PdfMargins;
 }
 
 export async function exportSectionBasedPdf({
