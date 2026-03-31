@@ -251,3 +251,40 @@ export function notifyUrgentLabelRejected(
     { tag: 'urgent-label-rejected', link: `/request-delivery?card=${cardId}` },
   );
 }
+
+// ===== Kanban Comment Notifications =====
+
+/** Notify all Kanban-related roles about new comment on a card */
+export function notifyKanbanComment(
+  soNumber: string,
+  commenterName: string,
+  messagePreview: string,
+  cardId: string,
+  excludeUserId?: string,
+) {
+  return sendApprovalPushNotification({
+    title: `💬 Komentar Baru: ${soNumber}`,
+    body: `${commenterName}: ${messagePreview.substring(0, 100)}`,
+    data: { tag: 'kanban-comment', link: `/request-delivery?card=${cardId}` },
+    targetRoles: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales'],
+    excludeUserId,
+  });
+}
+
+/** Notify mentioned users in Kanban comments */
+export function notifyKanbanMention(
+  mentionedUserIds: string[],
+  soNumber: string,
+  commenterName: string,
+  messagePreview: string,
+  cardId: string,
+  excludeUserId?: string,
+) {
+  return sendPushToUsers(
+    mentionedUserIds,
+    `🔔 Anda di-mention di ${soNumber}`,
+    `${commenterName}: ${messagePreview.substring(0, 100)}`,
+    { tag: 'kanban-mention', link: `/request-delivery?card=${cardId}` },
+    excludeUserId,
+  );
+}
