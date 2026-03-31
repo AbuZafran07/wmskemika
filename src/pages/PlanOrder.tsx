@@ -896,6 +896,7 @@ export default function PlanOrder() {
         title: `PurchaseOrder_${selectedOrder.plan_number}`,
         styles: printStyles.planOrder,
         content: element.innerHTML,
+        backgroundImage: '/kop-surat-bg.jpg',
       });
       toast.info(
         language === "en"
