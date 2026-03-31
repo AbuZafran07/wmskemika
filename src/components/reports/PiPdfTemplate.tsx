@@ -16,6 +16,7 @@ export interface PiPdfInvoice {
   date: string;
   currency: string;
   soNumber: string;
+  customerPoNumber: string;
   term: string;
   amountInWords: string;
 }
@@ -123,6 +124,7 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
                     ["Tanggal", invoice.date],
                     ["Mata Uang", invoice.currency],
                     ["Nomor SO", invoice.soNumber],
+                    ["No. PO Customer", invoice.customerPoNumber],
                   ] as [string, string][]).map(([label, val]) => (
                     <tr key={label}>
                       <td style={S.labelTd}>{label}</td>
