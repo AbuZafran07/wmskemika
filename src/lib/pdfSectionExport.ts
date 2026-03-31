@@ -22,6 +22,7 @@ interface SectionBasedPdfOptions {
   element: HTMLElement;
   filename: string;
   onProgress?: (progress: number) => void;
+  backgroundImage?: string; // URL to a full-page A4 background image
 }
 
 export async function exportSectionBasedPdf({
