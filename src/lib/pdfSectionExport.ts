@@ -268,8 +268,9 @@ export async function exportSectionBasedPdf({
             canvas.width, Math.round(sourceHeight)
           );
 
-          const sliceData = sliceCanvas.toDataURL("image/jpeg", 0.92);
-          pdf.addImage(sliceData, "JPEG", MARGIN_MM, currentY, CONTENT_WIDTH_MM, drawHeight);
+          const fmt = backgroundImage ? "PNG" : "JPEG";
+          const sliceData = backgroundImage ? sliceCanvas.toDataURL("image/png") : sliceCanvas.toDataURL("image/jpeg", 0.92);
+          pdf.addImage(sliceData, fmt, MARGIN_MM, currentY, CONTENT_WIDTH_MM, drawHeight);
         }
 
         yOffset += drawHeight;
