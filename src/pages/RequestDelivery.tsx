@@ -1546,7 +1546,7 @@ export default function RequestDelivery() {
       {/* Detail Card Dialog */}
       <DeliveryCardDetail
         card={detailCard as any}
-        onClose={() => { setDetailCard(null); fetchCards(); }}
+        onClose={() => { setDetailCard(null); fetchCards(); fetchUnreadComments(); }}
         onMoveRequest={(card) => {
           setMoveDialogCard(card as any);
           setMoveTarget(card.board_status as BoardStatus);
