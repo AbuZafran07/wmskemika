@@ -29,6 +29,7 @@ export async function exportSectionBasedPdf({
   element,
   filename,
   onProgress,
+  backgroundImage,
 }: SectionBasedPdfOptions): Promise<void> {
   const progress = (v: number) => onProgress?.(v);
 
