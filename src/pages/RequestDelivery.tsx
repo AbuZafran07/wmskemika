@@ -100,6 +100,7 @@ export default function RequestDelivery() {
   const [filterLabelNames, setFilterLabelNames] = useState<string[]>([]);
   const [pendingApprovalsMap, setPendingApprovalsMap] = useState<Record<string, number>>({});
   const [cardSearchQuery, setCardSearchQuery] = useState("");
+  const [unreadCommentsMap, setUnreadCommentsMap] = useState<Record<string, number>>({});
   
   const [draggedCard, setDraggedCard] = useState<DeliveryCard | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
