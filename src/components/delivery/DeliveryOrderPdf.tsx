@@ -249,7 +249,7 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
               </div>
 
               {/* Bottom space for footnote/kop surat */}
-              <div style={{ height: '50px' }}></div>
+              <div style={{ height: '65px' }}></div>
             </div>
 
           </div>
