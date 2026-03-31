@@ -103,6 +103,11 @@ const App = () => (
                       <DeliveryOrder />
                     </RouteGuard>
                   } />
+                  <Route path="/proforma-invoice" element={
+                    <RouteGuard menuKey="proformaInvoice">
+                      <ProformaInvoice />
+                    </RouteGuard>
+                  } />
                   
                   {/* Master Data */}
                   <Route path="/data-product/products" element={
