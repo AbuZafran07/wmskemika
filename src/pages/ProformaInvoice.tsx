@@ -127,6 +127,7 @@ export default function ProformaInvoicePage() {
         element: printRef.current,
         filename,
         onProgress: setPdfProgress,
+        backgroundImage: `${window.location.origin}/kop-surat-pi-bg.jpg`,
       });
       toast.success('PDF berhasil disimpan');
     } catch (err: any) {
