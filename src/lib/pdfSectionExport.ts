@@ -144,6 +144,16 @@ export async function exportSectionBasedPdf({
 
   progress(65);
 
+  // Check which sections are marked as bottom-anchored
+  const sectionElements = sections.filter(s => s.offsetHeight > 0);
+  const bottomFlags: boolean[] = [];
+  let flagIdx = 0;
+  for (let i = 0; i < sections.length; i++) {
+    if (sections[i].offsetHeight === 0) continue;
+    bottomFlags.push(sections[i].hasAttribute("data-pdf-bottom"));
+    flagIdx++;
+  }
+
   // Build PDF with smart page breaks
   const pdf = new jsPDF({
     orientation: "portrait",
@@ -155,12 +165,27 @@ export async function exportSectionBasedPdf({
 
   for (let i = 0; i < capturedSections.length; i++) {
     const { canvas, heightMM } = capturedSections[i];
+    const isBottom = bottomFlags[i] || false;
     const remainingSpace = A4_HEIGHT_MM - MARGIN_MM - currentY;
 
+    // If this is a bottom-anchored section, push it to the bottom of the current page
+    if (isBottom) {
+      const bottomY = A4_HEIGHT_MM - MARGIN_MM - heightMM;
+      if (bottomY > currentY) {
+        currentY = bottomY;
+      }
+    }
+
     // If section won't fit (with 3mm safety buffer) and we're not at the top of a new page, add new page
-    if (heightMM > remainingSpace - 3 && currentY > MARGIN_MM + 1) {
+    const spaceLeft = A4_HEIGHT_MM - MARGIN_MM - currentY;
+    if (heightMM > spaceLeft - 3 && currentY > MARGIN_MM + 1) {
       pdf.addPage();
       currentY = MARGIN_MM;
+      // Re-apply bottom anchor on new page
+      if (isBottom) {
+        const bottomY = A4_HEIGHT_MM - MARGIN_MM - heightMM;
+        if (bottomY > currentY) currentY = bottomY;
+      }
     }
 
     // If a single section is taller than the page content area,
