@@ -233,13 +233,13 @@ export async function exportSectionBasedPdf({
     }
 
     // If section won't fit (with 3mm safety buffer) and we're not at the top of a new page, add new page
-    const spaceLeft = A4_HEIGHT_MM - MARGIN_MM - currentY;
-    if (heightMM > spaceLeft - 3 && currentY > MARGIN_MM + 1) {
+    const spaceLeft = A4_HEIGHT_MM - m.bottom - currentY;
+    if (heightMM > spaceLeft - 3 && currentY > m.top + 1) {
       pdf.addPage();
       addPageBg();
-      currentY = MARGIN_MM;
+      currentY = m.top;
       if (isBottom) {
-        const bottomY = A4_HEIGHT_MM - MARGIN_MM - heightMM;
+        const bottomY = A4_HEIGHT_MM - m.bottom - heightMM;
         if (bottomY > currentY) currentY = bottomY;
       }
     }
