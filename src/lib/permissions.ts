@@ -120,6 +120,7 @@ export type ModuleType =
   | 'plan_order'
   | 'stock_in'
   | 'sales_order'
+  | 'proforma_invoice'
   | 'stock_out'
   | 'stock_adjustment'
   | 'product'
@@ -129,7 +130,7 @@ export type ModuleType =
   | 'customer'
   | 'user'
   | 'settings'
-  | 'report'; // Add report module
+  | 'report';
 
 /**
  * Action permissions by module
