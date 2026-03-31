@@ -126,11 +126,13 @@ export default function ProformaInvoicePage() {
     setSelectedId(null);
   };
 
+  const piMargins = { top: 20, right: 15, bottom: 20, left: 15 };
+
   const handlePrintPI = () => {
     if (!printRef.current || !detail) return;
     const piPrintStyles = `
-      @page { size: A4; margin: 0; }
-      body { margin: 0; padding: 0; font-family: Arial, sans-serif; color: #111; background-image: url(/kop-surat-pi-bg.jpg); background-size: 210mm 297mm; background-repeat: no-repeat; background-position: center top; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      @page { size: A4 portrait; margin: 20mm 15mm 20mm 15mm; }
+      body { margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #222; background: #fff; background-image: url(/kop-surat-pi-bg.jpg); background-size: 210mm 297mm; background-repeat: no-repeat; background-position: center top; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
       th[style*="background"] { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     `;
     securePrint({
@@ -151,6 +153,7 @@ export default function ProformaInvoicePage() {
         filename,
         onProgress: setPdfProgress,
         backgroundImage: `${window.location.origin}/kop-surat-pi-bg.jpg`,
+        margins: piMargins,
       });
       toast.success('PDF berhasil disimpan');
     } catch (err: any) {
