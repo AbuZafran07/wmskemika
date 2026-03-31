@@ -1430,12 +1430,28 @@ export default function RequestDelivery() {
                             </span>
                           </div>
                         </div>
-                        {!isFullView && (
-                          <div className="flex items-center gap-1">
-                            <User className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-[10px] text-muted-foreground truncate max-w-[70px]">{card.sales_name}</span>
-                          </div>
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          {/* Unread comment badge */}
+                          {(unreadCommentsMap[card.id] || 0) > 0 && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center gap-0.5 bg-primary/15 text-primary rounded-full px-1.5 py-0.5" onClick={(e) => e.stopPropagation()}>
+                                  <MessageCircle className={cn(isFullView ? "h-2.5 w-2.5" : "h-3 w-3")} />
+                                  <span className={cn("font-bold", isFullView ? "text-[7px]" : "text-[9px]")}>{unreadCommentsMap[card.id]}</span>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs">
+                                {unreadCommentsMap[card.id]} komentar belum dibaca
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                          {!isFullView && (
+                            <div className="flex items-center gap-1">
+                              <User className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-[10px] text-muted-foreground truncate max-w-[70px]">{card.sales_name}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       {/* Notes - hide in full view */}
