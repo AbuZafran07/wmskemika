@@ -132,7 +132,7 @@ export async function exportSectionBasedPdf({
       const scaledHeight = canvas.height / 2;
       const heightMM = (scaledHeight / scaledWidth) * CONTENT_WIDTH_MM;
 
-      capturedSections.push({ canvas, heightMM });
+      capturedSections.push({ canvas, heightMM, pushToBottom: shouldPushToBottom });
     }
 
     progress(25 + Math.round((i / totalSections) * 40)); // 25-65%
