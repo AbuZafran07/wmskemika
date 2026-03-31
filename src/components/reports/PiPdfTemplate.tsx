@@ -95,7 +95,7 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
       <div data-pdf-root style={rootStyle}>
 
         {/* ─── Section 1: HEADER ─── */}
-        <div data-pdf-section style={{ paddingTop: '80px', marginBottom: '16px' }}>
+        <div data-pdf-section style={{ paddingTop: '65px', marginBottom: '16px' }}>
           {/* Watermark */}
           <div style={{
             position: 'absolute',
@@ -122,16 +122,17 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
             textAlign: 'right',
             margin: '0 0 8px 0',
             letterSpacing: '0.5px',
-            color: CORP_GREEN,
+            color: '#000',
           }}>
             PROFORMA INVOICE
           </h1>
 
-          {/* Black separator line */}
+          {/* Black separator line - not exceeding letterhead border */}
           <div style={{
             height: '2px',
             backgroundColor: '#000',
             marginBottom: '16px',
+            marginRight: '15px',
           }} />
 
           {/* Header grid: Left 55% + Right 45% */}
@@ -237,11 +238,11 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
         </div>
 
         {/* ─── Section 3: DIVIDER + BOTTOM 2-COLUMN ─── */}
-        <div data-pdf-section style={{ marginTop: '40px' }}>
+        <div data-pdf-section style={{ marginTop: '60px' }}>
           {/* Divider line */}
           <div style={{
             borderTop: '2px solid #000',
-            marginBottom: '32px',
+            marginBottom: '36px',
           }} />
 
           {/* Bottom 2-column layout */}
@@ -354,7 +355,7 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
         </div>
 
         {/* ─── Section 4: SIGNATURE ─── */}
-        <div data-pdf-section style={{ marginTop: '30px', marginBottom: '80px' }}>
+        <div data-pdf-section style={{ marginTop: '30px', marginBottom: '120px' }}>
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <div style={{ width: '240px', textAlign: 'center' }}>
               <div style={{ fontWeight: 700, textTransform: 'uppercase', fontSize: '11px', marginBottom: '4px' }}>{company.name}</div>
