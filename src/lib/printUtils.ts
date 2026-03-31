@@ -162,13 +162,20 @@ export const securePrint = ({ title, styles = '', content, backgroundImage }: Pr
 };
 
 // Preset styles for different document types
-// NOTE: Do NOT override body background or @page margin here — securePrint handles those when backgroundImage is provided.
 export const printStyles = {
   salesOrder: `
     * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; padding: 16px; color: #111; }
+    @page { margin: 12mm; }
   `,
   planOrder: `
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      padding: 20px; 
+      color: #333;
+      font-size: 12px;
+    }
     .header { 
       text-align: center; 
       border-bottom: 2px solid #333; 
