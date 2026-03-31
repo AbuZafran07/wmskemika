@@ -126,7 +126,7 @@ export const securePrint = ({ title, styles = '', content, backgroundImage }: Pr
             print-color-adjust: exact !important;
             color-adjust: exact !important;
           }
-          @page { margin: 12mm; }
+          @page { margin: ${backgroundImage ? '0' : '12mm'}; }
           @media print {
             * {
               -webkit-print-color-adjust: exact !important;
