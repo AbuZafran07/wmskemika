@@ -208,15 +208,17 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
               </table>
             </div>
 
-            {/* Section 3: Separator + Notes + Signature — pushed to bottom */}
-            <div data-pdf-section style={{ marginTop: 'auto' }}>
+            {/* Section 3: Separator + Notes + Signature — pushed to bottom via data-pdf-bottom */}
+            <div data-pdf-section data-pdf-bottom>
               {/* Separator line */}
               <div style={{ borderBottom: '1.5px solid #111', marginBottom: '16px' }}></div>
 
-              {/* Notes box */}
-              <div style={{ border: '1px solid #999', padding: '10px 14px', marginBottom: '20px', minHeight: '55px' }}>
+              {/* Notes box - auto-sized */}
+              <div style={{ border: '1px solid #999', padding: '10px 14px', marginBottom: '20px' }}>
                 <p style={{ fontWeight: 600, fontSize: '12px', color: '#111', margin: '0 0 4px 0' }}>Note :</p>
-                <p style={{ fontSize: '11px', color: '#333', margin: 0, whiteSpace: 'pre-wrap' }}>{data.notes || ''}</p>
+                {data.notes && (
+                  <p style={{ fontSize: '11px', color: '#333', margin: 0, whiteSpace: 'pre-wrap' }}>{data.notes}</p>
+                )}
               </div>
 
               {/* Signature Section - 4 columns */}
@@ -236,9 +238,6 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
                   </div>
                 ))}
               </div>
-
-              {/* Bottom space for footnote/kop surat */}
-              <div style={{ height: '50px' }}></div>
             </div>
 
           </div>
