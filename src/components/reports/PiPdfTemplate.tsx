@@ -157,19 +157,8 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
               </table>
             </div>
 
-            {/* RIGHT: Title + meta */}
+            {/* RIGHT: meta */}
             <div style={{ width: '45%' }}>
-              <h1 style={{
-                fontSize: '22px',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                textAlign: 'right',
-                margin: '0 0 12px 0',
-                letterSpacing: '0.5px',
-                color: CORP_GREEN,
-              }}>
-                PROFORMA INVOICE
-              </h1>
               <table style={{ borderCollapse: 'collapse', width: '100%' }}>
                 <tbody>
                   {([
