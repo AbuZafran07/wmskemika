@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import usePermissions from '@/hooks/usePermissions';
@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import { exportSectionBasedPdf } from '@/lib/pdfSectionExport';
 import { securePrint, printStyles, sanitizeHtml } from '@/lib/printUtils';
 import { PdfGeneratingOverlay } from '@/components/PdfGeneratingOverlay';
+import PiPdfTemplate, { PiPdfData } from '@/components/reports/PiPdfTemplate';
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   pending: { label: 'Menunggu Approval', variant: 'secondary' },
