@@ -132,7 +132,6 @@ export default function ProformaInvoicePage() {
       title: `ProformaInvoice_${detail.pi_number}`,
       styles: printStyles.salesOrder,
       content: printRef.current.innerHTML,
-      backgroundImage: `${window.location.origin}/kop-surat-pi-bg.jpg`,
     });
   };
 
