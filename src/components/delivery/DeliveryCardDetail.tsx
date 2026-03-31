@@ -117,7 +117,8 @@ interface Props {
 
 export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canManage }: Props) {
   const { user } = useAuth();
-
+  const navigate = useNavigate();
+  const { data: materaiAmount = 10000 } = useMateraiSetting();
   // Labels state
   const [allLabels, setAllLabels] = useState<Label[]>([]);
   const [cardLabelIds, setCardLabelIds] = useState<string[]>([]);
