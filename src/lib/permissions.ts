@@ -167,6 +167,16 @@ export const ACTION_PERMISSIONS: Record<ModuleType, Record<ActionType, UserRole[
     upload: ['super_admin', 'admin', 'sales'],
     print: ['super_admin', 'admin', 'finance', 'sales', 'warehouse'],
   },
+  proforma_invoice: {
+    view: ['super_admin', 'admin', 'finance', 'purchasing', 'sales'],
+    create: ['super_admin', 'sales'],
+    edit: ['super_admin', 'finance', 'purchasing'],
+    delete: ['super_admin', 'finance'],
+    cancel: ['super_admin', 'finance'],
+    approve: ['super_admin', 'finance', 'purchasing'],
+    upload: ['super_admin', 'sales'],
+    print: ['super_admin', 'admin', 'finance', 'purchasing', 'sales'],
+  },
   stock_out: {
     view: ['super_admin', 'admin', 'warehouse'],
     create: ['super_admin', 'admin', 'warehouse'],
