@@ -333,6 +333,36 @@ export default function RequestDelivery() {
     });
     setPendingApprovalsMap(map);
   }, []);
+
+  // Fetch unread comments count per card
+  const fetchUnreadComments = useCallback(async () => {
+    if (!user) return;
+    // Get user's read timestamps
+    const { data: reads } = await supabase
+      .from("delivery_comment_reads" as any)
+      .select("delivery_request_id, last_read_at")
+      .eq("user_id", user.id);
+    
+    const readMap: Record<string, string> = {};
+    (reads || []).forEach((r: any) => {
+      readMap[r.delivery_request_id] = r.last_read_at;
+    });
+
+    // Get all comment counts grouped by card (only type='comment')
+    const { data: comments } = await supabase
+      .from("delivery_comments")
+      .select("id, delivery_request_id, created_at")
+      .eq("type", "comment");
+
+    const unreadMap: Record<string, number> = {};
+    (comments || []).forEach((c: any) => {
+      const lastRead = readMap[c.delivery_request_id];
+      if (!lastRead || new Date(c.created_at) > new Date(lastRead)) {
+        unreadMap[c.delivery_request_id] = (unreadMap[c.delivery_request_id] || 0) + 1;
+      }
+    });
+    setUnreadCommentsMap(unreadMap);
+  }, [user]);
   // Client-side time check: sync on_hold status on page load
   const syncOnHoldStatus = useCallback(async () => {
     try {
