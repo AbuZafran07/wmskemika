@@ -243,6 +243,7 @@ export async function exportSectionBasedPdf({
       while (sectionRemainingHeight > 0) {
         if (yOffset > 0) {
           pdf.addPage();
+          addPageBg();
           currentY = MARGIN_MM;
         }
 
