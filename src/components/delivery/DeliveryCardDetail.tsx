@@ -2400,19 +2400,25 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
               <Trash2 className="h-4 w-4 mr-1" /> Hapus Card
             </Button>
           )}
-          {/* Generate PI button - only for CBD payment terms, sales role */}
-          {customerPaymentTerms?.toUpperCase() === 'CBD' && user?.role === 'sales' && !existingPI && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-emerald-600 border-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-              onClick={handleGeneratePI}
-              disabled={generatingPI}
-            >
-              {generatingPI ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Receipt className="h-4 w-4 mr-1" />}
-              Generate PI
-            </Button>
-          )}
+          {/* Generate PI button - CBD payment terms OR CBD label, sales & super_admin */}
+          {(() => {
+            const isCBDTerms = customerPaymentTerms?.toUpperCase() === 'CBD';
+            const hasCBDLabel = allLabels.some(l => l.name.toUpperCase() === 'CBD' && cardLabelIds.includes(l.id));
+            const isCBD = isCBDTerms || hasCBDLabel;
+            const canGenerate = user?.role === 'sales' || user?.role === 'super_admin';
+            return isCBD && canGenerate && !existingPI ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-emerald-600 border-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                onClick={handleGeneratePI}
+                disabled={generatingPI}
+              >
+                {generatingPI ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Receipt className="h-4 w-4 mr-1" />}
+                Generate PI
+              </Button>
+            ) : null;
+          })()}
           {existingPI && (
             <Button
               size="sm"
