@@ -123,6 +123,17 @@ export default function SettingsPage() {
 
       if (schedError) throw schedError;
 
+      // Update materai_amount setting
+      const { error: materaiError } = await supabase
+        .from('settings')
+        .upsert({ 
+          key: 'materai_amount',
+          value: settings.materai_amount as unknown as any,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'key' });
+
+      if (materaiError) throw materaiError;
+
       // Update the cron schedule based on selected frequency
       const cronExpression = settings.stock_alert_schedule === 'daily' 
         ? '0 8 * * *'        // Every day at 08:00 UTC
