@@ -589,25 +589,25 @@ export default function ProformaInvoicePage() {
                     <tbody>
                       {detail.items?.map((item, idx) => (
                         <tr key={item.id}>
-                          <td style={{ border: "1px solid #d1d5db", padding: "6px", textAlign: "center", fontSize: "10px" }}>{idx + 1}</td>
-                          <td style={{ border: "1px solid #d1d5db", padding: "6px", fontSize: "10px", color: "#166534", fontWeight: 600 }}>
+                          <td style={{ border: "1px solid #666", padding: "8px 6px", textAlign: "center", fontSize: "10px" }}>{idx + 1}</td>
+                          <td style={{ border: "1px solid #666", padding: "8px 6px", fontSize: "10px", color: "#0f6b3e", fontWeight: 600 }}>
                             {(item as any).product?.sku || '-'}
                           </td>
-                          <td style={{ border: "1px solid #d1d5db", padding: "6px", fontSize: "10px" }}>{item.product_name}</td>
-                          <td style={{ border: "1px solid #d1d5db", padding: "6px", textAlign: "center", fontSize: "10px" }}>{item.qty}</td>
-                          <td style={{ border: "1px solid #d1d5db", padding: "6px", textAlign: "center", fontSize: "10px" }}>
+                          <td style={{ border: "1px solid #666", padding: "8px 6px", fontSize: "10px", lineHeight: "1.4", wordBreak: "break-word" as const }}>{item.product_name}</td>
+                          <td style={{ border: "1px solid #666", padding: "8px 6px", textAlign: "center", fontSize: "10px" }}>{item.qty}</td>
+                          <td style={{ border: "1px solid #666", padding: "8px 6px", textAlign: "center", fontSize: "10px" }}>
                             {(item as any).product?.unit?.name || 'unit'}
                           </td>
-                          <td style={{ border: "1px solid #d1d5db", padding: "6px", textAlign: "right", fontSize: "10px" }}>
+                          <td style={{ border: "1px solid #666", padding: "8px 6px", textAlign: "right", fontSize: "10px", whiteSpace: "nowrap" as const }}>
                             {fmtNum(Math.round(item.unit_price))}
                           </td>
-                          <td style={{ border: "1px solid #d1d5db", padding: "6px", textAlign: "center", fontSize: "10px" }}>
+                          <td style={{ border: "1px solid #666", padding: "8px 6px", textAlign: "center", fontSize: "10px" }}>
                             {item.discount ? item.discount : 0}
                           </td>
-                          <td style={{ border: "1px solid #d1d5db", padding: "6px", textAlign: "right", fontSize: "10px" }}>
+                          <td style={{ border: "1px solid #666", padding: "8px 6px", textAlign: "right", fontSize: "10px", whiteSpace: "nowrap" as const }}>
                             {fmtNum(Math.round(item.subtotal))}
                           </td>
-                          <td style={{ border: "1px solid #d1d5db", padding: "6px", textAlign: "center", fontSize: "10px" }}>
+                          <td style={{ border: "1px solid #666", padding: "8px 6px", textAlign: "center", fontSize: "10px" }}>
                             {detail.tax_rate ? `${detail.tax_rate}%` : '0%'}
                           </td>
                         </tr>
