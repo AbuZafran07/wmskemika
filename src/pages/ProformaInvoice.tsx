@@ -509,57 +509,53 @@ export default function ProformaInvoicePage() {
             const fmtNum = (n: number) => new Intl.NumberFormat('id-ID').format(n);
 
             return (
-              <div data-pdf-root style={{ fontFamily: "Arial, sans-serif", fontSize: "11px", color: "#111", paddingTop: "100px" }}>
+              <div data-pdf-root style={{ fontFamily: "Arial, Helvetica, sans-serif", fontSize: "11px", color: "#222", width: "100%" }}>
                 {/* Section 1: Title + Header Info */}
-                <div data-pdf-section>
-                  <div style={{ textAlign: "right", marginBottom: "2px", marginRight: "12mm" }}>
-                    <h1 style={{ fontSize: "20px", fontWeight: "bold", letterSpacing: "1px", color: "#111", margin: 0 }}>PROFORMA INVOICE</h1>
-                  </div>
-                  <div style={{ borderBottom: "2.5px solid #111", marginBottom: "14px", marginRight: "12mm" }} />
-
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
-                    {/* Left */}
-                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                      <tbody>
-                        {[
-                          ["Nomor PI", detail.pi_number],
-                          ["Kepada", customer?.name || '-'],
-                          ["Up.", customer?.pic || so?.sales_name || '-'],
-                          ["Alamat", customer?.address || '-'],
-                        ].map(([label, val]) => (
-                          <tr key={label}>
-                            <td style={{ ...labelStyle, width: "90px", padding: "3px 0" }}>{label}</td>
-                            <td style={{ width: "10px", padding: "3px 0" }}>:</td>
-                            <td style={{ ...valStyle, padding: "3px 0" }}>{val}</td>
+                <div data-pdf-section style={{ paddingTop: "85px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "24px" }}>
+                    {/* Left header */}
+                    <div style={{ width: "48%" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                        <tbody>
+                          {[
+                            ["Nomor PI", detail.pi_number],
+                            ["Kepada", customer?.name || '-'],
+                            ["Up.", customer?.pic || so?.sales_name || '-'],
+                            ["Alamat", customer?.address || '-'],
+                          ].map(([label, val]) => (
+                            <tr key={label}>
+                              <td style={{ ...labelStyle, width: "90px", padding: "3px 0" }}>{label}</td>
+                              <td style={{ width: "10px", padding: "3px 0", textAlign: "center" }}>:</td>
+                              <td style={{ ...valStyle, padding: "3px 0" }}>{val}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {/* Right header */}
+                    <div style={{ width: "48%" }}>
+                      <h1 style={{ fontSize: "28px", fontWeight: 700, textTransform: "uppercase" as const, textAlign: "right", marginBottom: "14px", letterSpacing: "0.5px", margin: "0 0 14px 0" }}>PROFORMA INVOICE</h1>
+                      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                        <tbody>
+                          {[
+                            ["Tanggal", detail.created_at ? formatDateID(detail.created_at) : '-'],
+                            ["Mata Uang", "IDR - (Rupiah)"],
+                            ["Nomor SO", so?.sales_order_number || '-'],
+                          ].map(([label, val]) => (
+                            <tr key={label}>
+                              <td style={{ ...labelStyle, width: "90px", padding: "3px 0" }}>{label}</td>
+                              <td style={{ width: "10px", padding: "3px 0", textAlign: "center" }}>:</td>
+                              <td style={{ ...valStyle, padding: "3px 0" }}>{val}</td>
+                            </tr>
+                          ))}
+                          <tr>
+                            <td style={{ ...labelStyle, width: "90px", padding: "3px 0" }}>Term</td>
+                            <td style={{ width: "10px", padding: "3px 0", textAlign: "center" }}>:</td>
+                            <td style={{ ...valStyle, padding: "3px 0", color: "#b91c1c" }}>{detail.payment_terms || '-'}</td>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {/* Right */}
-                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                      <tbody>
-                        <tr>
-                          <td style={{ ...labelStyle, width: "90px", padding: "3px 0" }}>Tanggal</td>
-                          <td style={{ width: "10px", padding: "3px 0" }}>:</td>
-                          <td style={{ ...valStyle, padding: "3px 0" }}>{detail.created_at ? formatDateID(detail.created_at) : '-'}</td>
-                        </tr>
-                        <tr>
-                          <td style={{ ...labelStyle, padding: "3px 0" }}>Mata Uang</td>
-                          <td style={{ padding: "3px 0" }}>:</td>
-                          <td style={{ ...valStyle, padding: "3px 0" }}>IDR - (Rupiah)</td>
-                        </tr>
-                        <tr>
-                          <td style={{ ...labelStyle, padding: "3px 0" }}>Nomor SO</td>
-                          <td style={{ padding: "3px 0" }}>:</td>
-                          <td style={{ ...valStyle, padding: "3px 0" }}>{so?.sales_order_number || '-'}</td>
-                        </tr>
-                        <tr>
-                          <td style={{ ...labelStyle, padding: "3px 0" }}>Term</td>
-                          <td style={{ padding: "3px 0" }}>:</td>
-                          <td style={{ ...valStyle, padding: "3px 0", color: "#b91c1c" }}>{detail.payment_terms || '-'}</td>
-                        </tr>
-                      </tbody>
-                    </table>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
 
