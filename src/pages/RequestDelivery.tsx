@@ -416,8 +416,9 @@ export default function RequestDelivery() {
     fetchCards();
     fetchCardLabels();
     fetchPendingApprovals();
+    fetchUnreadComments();
     syncOnHoldStatus();
-  }, [fetchCards, fetchCardLabels, fetchPendingApprovals, syncOnHoldStatus]);
+  }, [fetchCards, fetchCardLabels, fetchPendingApprovals, fetchUnreadComments, syncOnHoldStatus]);
 
   // Auto-open card from URL query param ?card=<id>
   useEffect(() => {
