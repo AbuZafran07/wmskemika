@@ -20,6 +20,8 @@ import { cn } from "@/lib/utils";
 import { notifyDeliveryCardMoved, notifyUrgentLabelRequest, notifyUrgentLabelApproved, notifyUrgentLabelRejected } from "@/lib/pushNotifications";
 import { DeliveryOrderPdf, DeliveryOrderData } from "@/components/delivery/DeliveryOrderPdf";
 import { generateUniqueDONumber, getColumnDeliveryDate } from "@/lib/transactionNumberUtils";
+import { generateUniquePINumber, calculateMaterai, useMateraiSetting } from "@/hooks/useProformaInvoices";
+import { useNavigate } from "react-router-dom";
 
 const BOARD_COLUMNS = [
   { id: "new_order", label: "New Orders", color: "bg-blue-600" },
