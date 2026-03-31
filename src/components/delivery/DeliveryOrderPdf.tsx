@@ -204,26 +204,14 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
                       <td style={{ border: '1px solid #d1d5db', padding: '6px 8px' }}>{item.expired_date ? formatDate(item.expired_date) : '-'}</td>
                     </tr>
                   ))}
-                  {/* Empty rows for space if few items */}
-                  {data.items.length < 5 && Array.from({ length: 5 - data.items.length }).map((_, i) => (
-                    <tr key={`empty-${i}`}>
-                      <td style={{ border: '1px solid #d1d5db', padding: '6px 8px', height: '24px' }}>&nbsp;</td>
-                      <td style={{ border: '1px solid #d1d5db', padding: '6px 8px' }}>&nbsp;</td>
-                      <td style={{ border: '1px solid #d1d5db', padding: '6px 8px' }}>&nbsp;</td>
-                      <td style={{ border: '1px solid #d1d5db', padding: '6px 8px' }}>&nbsp;</td>
-                      <td style={{ border: '1px solid #d1d5db', padding: '6px 8px' }}>&nbsp;</td>
-                      <td style={{ border: '1px solid #d1d5db', padding: '6px 8px' }}>&nbsp;</td>
-                      <td style={{ border: '1px solid #d1d5db', padding: '6px 8px' }}>&nbsp;</td>
-                    </tr>
-                  ))}
                 </tbody>
               </table>
             </div>
 
-            {/* Section 3: Separator + Notes + Signature */}
-            <div data-pdf-section>
+            {/* Section 3: Separator + Notes + Signature — pushed to bottom */}
+            <div data-pdf-section style={{ marginTop: 'auto' }}>
               {/* Separator line */}
-              <div style={{ borderBottom: '1.5px solid #111', marginTop: '100px', marginBottom: '16px' }}></div>
+              <div style={{ borderBottom: '1.5px solid #111', marginBottom: '16px' }}></div>
 
               {/* Notes box */}
               <div style={{ border: '1px solid #999', padding: '10px 14px', marginBottom: '20px', minHeight: '55px' }}>
@@ -235,17 +223,13 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', border: '1px solid #000' }}>
                 {['Received by', 'Shipped by', 'Warehouse by', 'Approved by'].map((label, i) => (
                   <div key={label} style={{ borderRight: i < 3 ? '1px solid #000' : 'none' }}>
-                    {/* Date field */}
                     <div style={{ borderBottom: '1px solid #000', padding: '8px 10px', fontSize: '11px' }}>
                       Date :
                     </div>
-                    {/* Label */}
                     <div style={{ padding: '8px 10px', fontSize: '11px', fontStyle: 'italic' }}>
                       {label},
                     </div>
-                    {/* Signature space */}
                     <div style={{ height: '90px' }}></div>
-                    {/* Name placeholder */}
                     <div style={{ padding: '4px 10px 12px', textAlign: 'center', fontSize: '10px', color: '#333' }}>
                       (........................................)
                     </div>
@@ -253,8 +237,8 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
                 ))}
               </div>
 
-              {/* Bottom space for footnote on letterhead */}
-              <div style={{ height: '60px' }}></div>
+              {/* Bottom space for footnote/kop surat */}
+              <div style={{ height: '50px' }}></div>
             </div>
 
           </div>
