@@ -674,13 +674,13 @@ export default function ProformaInvoicePage() {
                       </table>
 
                       {/* Signature */}
-                      <div style={{ textAlign: "center", width: "100%" }}>
-                        <div style={{ fontWeight: 700, marginBottom: "48px", textTransform: "uppercase" as const, fontSize: "11px" }}>PT. KEMIKA KARYA PRATAMA</div>
-                        {isApproved && approverSignatureUrl ? (
-                          <div style={{ height: "0px", marginTop: "-44px", marginBottom: "44px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            <img src={approverSignatureUrl} alt="signature" style={{ maxHeight: "55px", maxWidth: "160px", objectFit: "contain" }} crossOrigin="anonymous" />
-                          </div>
-                        ) : null}
+                      <div style={{ textAlign: "center", width: "100%", marginTop: "24px" }}>
+                        <div style={{ fontWeight: 700, textTransform: "uppercase" as const, fontSize: "11px" }}>PT. KEMIKA KARYA PRATAMA</div>
+                        <div style={{ height: "48px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          {isApproved && approverSignatureUrl ? (
+                            <img src={approverSignatureUrl} alt="signature" style={{ maxHeight: "48px", maxWidth: "160px", objectFit: "contain" }} crossOrigin="anonymous" />
+                          ) : null}
+                        </div>
                         <div style={{ width: "220px", margin: "0 auto 6px auto", borderTop: "1px solid #333" }} />
                         <div style={{ fontWeight: 700, fontSize: "11px" }}>
                           {isApproved && approverName ? approverName : '(..................................)'}
