@@ -124,20 +124,27 @@ export function useProformaInvoiceDetail(id: string | null) {
         .select('*, product:products!product_id(sku, unit:units!unit_id(name))')
         .eq('proforma_invoice_id', id!) as any);
 
-      // Fetch profiles
+      // Fetch profiles & signature
       let approvedByProfile = null;
       let createdByProfile = null;
+      let approverSignatureUrl: string | null = null;
       
       if (data.approved_by) {
         const { data: p } = await supabase.from('profiles').select('full_name, email').eq('id', data.approved_by).single();
         approvedByProfile = p;
+        // Fetch approver signature
+        const { data: sig } = await supabase.from('user_signatures').select('signature_path').eq('user_id', data.approved_by).maybeSingle();
+        if (sig?.signature_path) {
+          const { data: urlData } = supabase.storage.from('signatures').getPublicUrl(sig.signature_path);
+          approverSignatureUrl = urlData?.publicUrl || null;
+        }
       }
       if (data.created_by) {
         const { data: p } = await supabase.from('profiles').select('full_name, email').eq('id', data.created_by).single();
         createdByProfile = p;
       }
 
-      return { ...data, items: items || [], approved_by_profile: approvedByProfile, created_by_profile: createdByProfile } as ProformaInvoice;
+      return { ...data, items: items || [], approved_by_profile: approvedByProfile, created_by_profile: createdByProfile, approver_signature_url: approverSignatureUrl } as ProformaInvoice & { approver_signature_url: string | null };
     },
   });
 }
