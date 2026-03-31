@@ -20,8 +20,6 @@ export interface PiPdfInvoice {
   term: string;
   amountInWords: string;
 }
-  amountInWords: string;
-}
 
 export interface PiPdfCustomer {
   companyName: string;
