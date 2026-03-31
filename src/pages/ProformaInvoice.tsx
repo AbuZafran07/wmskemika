@@ -496,86 +496,75 @@ export default function ProformaInvoicePage() {
             const subTotalCalc = Math.round(dpp + pajak + biayaPengantaran);
             const materai = Math.round(detail.materai_amount || 0);
             const saldo = Math.round(detail.grand_total);
-            const creatorName = detail.created_by_profile?.full_name || '-';
-            const approverName = detail.approved_by_profile?.full_name || '-';
+            const approverName = detail.approved_by_profile?.full_name || null;
             const isApproved = !!detail.approved_by && !!detail.approved_at;
+            const approverSignatureUrl = (detail as any).approver_signature_url || null;
 
-            const labelStyle: React.CSSProperties = { fontSize: "10px", color: "#333", whiteSpace: "nowrap" };
-            const valStyle: React.CSSProperties = { fontSize: "10px", fontWeight: 600 };
+            const labelStyle: React.CSSProperties = { fontSize: "11px", color: "#333", whiteSpace: "nowrap" };
+            const valStyle: React.CSSProperties = { fontSize: "11px", fontWeight: 600 };
+
+            const fmtNum = (n: number) => new Intl.NumberFormat('id-ID').format(n);
 
             return (
-              <div data-pdf-root style={{ fontFamily: "Arial, sans-serif", fontSize: "10px", color: "#111", paddingTop: "100px" }}>
-                {/* Title - right aligned like Delivery Order */}
+              <div data-pdf-root style={{ fontFamily: "Arial, sans-serif", fontSize: "11px", color: "#111", paddingTop: "100px" }}>
+                {/* Section 1: Title + Header Info */}
                 <div data-pdf-section>
                   <div style={{ textAlign: "right", marginBottom: "2px", marginRight: "12mm" }}>
                     <h1 style={{ fontSize: "20px", fontWeight: "bold", letterSpacing: "1px", color: "#111", margin: 0 }}>PROFORMA INVOICE</h1>
                   </div>
-                  <div style={{ borderBottom: "2px solid #111", marginBottom: "16px", marginRight: "12mm" }} />
+                  <div style={{ borderBottom: "2.5px solid #111", marginBottom: "14px", marginRight: "12mm" }} />
 
-                  {/* Info fields - 2 columns */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0px 24px" }}>
-                    {/* Left column - Nomor PI first */}
-                    <div>
-                      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                        <tbody>
-                          <tr>
-                            <td style={{ ...labelStyle, width: "90px", padding: "3px 0" }}>Nomor PI</td>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
+                    {/* Left */}
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                      <tbody>
+                        {[
+                          ["Nomor PI", detail.pi_number],
+                          ["Kepada", customer?.name || '-'],
+                          ["Up.", customer?.pic || so?.sales_name || '-'],
+                          ["Alamat", customer?.address || '-'],
+                        ].map(([label, val]) => (
+                          <tr key={label}>
+                            <td style={{ ...labelStyle, width: "90px", padding: "3px 0" }}>{label}</td>
                             <td style={{ width: "10px", padding: "3px 0" }}>:</td>
-                            <td style={{ ...valStyle, padding: "3px 0" }}>{detail.pi_number}</td>
+                            <td style={{ ...valStyle, padding: "3px 0" }}>{val}</td>
                           </tr>
-                          <tr>
-                            <td style={{ ...labelStyle, padding: "3px 0" }}>Kepada</td>
-                            <td style={{ padding: "3px 0" }}>:</td>
-                            <td style={{ ...valStyle, padding: "3px 0" }}>{customer?.name || '-'}</td>
-                          </tr>
-                          <tr>
-                            <td style={{ ...labelStyle, padding: "3px 0" }}>Up.</td>
-                            <td style={{ padding: "3px 0" }}>:</td>
-                            <td style={{ ...valStyle, padding: "3px 0" }}>{customer?.pic || so?.sales_name || '-'}</td>
-                          </tr>
-                          <tr>
-                            <td style={{ ...labelStyle, padding: "3px 0" }}>Alamat</td>
-                            <td style={{ padding: "3px 0" }}>:</td>
-                            <td style={{ ...valStyle, padding: "3px 0" }}>{customer?.address || '-'}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                    {/* Right column - Nomor SO */}
-                    <div>
-                      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                        <tbody>
-                          <tr>
-                            <td style={{ ...labelStyle, width: "90px", padding: "3px 0" }}>Tanggal</td>
-                            <td style={{ width: "10px", padding: "3px 0" }}>:</td>
-                            <td style={{ ...valStyle, padding: "3px 0" }}>{detail.created_at ? formatDateID(detail.created_at) : '-'}</td>
-                          </tr>
-                          <tr>
-                            <td style={{ ...labelStyle, padding: "3px 0" }}>Mata Uang</td>
-                            <td style={{ padding: "3px 0" }}>:</td>
-                            <td style={{ ...valStyle, padding: "3px 0" }}>IDR - (Rupiah)</td>
-                          </tr>
-                          <tr>
-                            <td style={{ ...labelStyle, padding: "3px 0" }}>Nomor SO</td>
-                            <td style={{ padding: "3px 0" }}>:</td>
-                            <td style={{ ...valStyle, padding: "3px 0" }}>{so?.sales_order_number || '-'}</td>
-                          </tr>
-                          <tr>
-                            <td style={{ ...labelStyle, padding: "3px 0" }}>Term</td>
-                            <td style={{ padding: "3px 0" }}>:</td>
-                            <td style={{ ...valStyle, padding: "3px 0", color: "#b91c1c" }}>{detail.payment_terms || '-'}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
+                        ))}
+                      </tbody>
+                    </table>
+                    {/* Right */}
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                      <tbody>
+                        <tr>
+                          <td style={{ ...labelStyle, width: "90px", padding: "3px 0" }}>Tanggal</td>
+                          <td style={{ width: "10px", padding: "3px 0" }}>:</td>
+                          <td style={{ ...valStyle, padding: "3px 0" }}>{detail.created_at ? formatDateID(detail.created_at) : '-'}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ ...labelStyle, padding: "3px 0" }}>Mata Uang</td>
+                          <td style={{ padding: "3px 0" }}>:</td>
+                          <td style={{ ...valStyle, padding: "3px 0" }}>IDR - (Rupiah)</td>
+                        </tr>
+                        <tr>
+                          <td style={{ ...labelStyle, padding: "3px 0" }}>Nomor SO</td>
+                          <td style={{ padding: "3px 0" }}>:</td>
+                          <td style={{ ...valStyle, padding: "3px 0" }}>{so?.sales_order_number || '-'}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ ...labelStyle, padding: "3px 0" }}>Term</td>
+                          <td style={{ padding: "3px 0" }}>:</td>
+                          <td style={{ ...valStyle, padding: "3px 0", color: "#b91c1c" }}>{detail.payment_terms || '-'}</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 
-                {/* Items Table */}
+                {/* Section 2: Items Table */}
                 <div data-pdf-section style={{ marginTop: "12px" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #333" }}>
                     <thead>
-                      <tr style={{ background: "#0b6b3a", color: "white" }}>
+                      <tr>
                         {[
                           { label: "No", w: "30px", align: "center" as const },
                           { label: "Kode", w: "70px", align: "left" as const },
@@ -588,9 +577,10 @@ export default function ProformaInvoicePage() {
                           { label: "Pajak", w: "45px", align: "center" as const },
                         ].map((h) => (
                           <th key={h.label} style={{
-                            background: "#0b6b3a", color: "white",
-                            border: "1px solid #333", padding: "6px 4px", fontSize: "9px",
+                            backgroundColor: "#166534", color: "white",
+                            border: "1px solid #15803d", padding: "7px 6px", fontSize: "10px",
                             textAlign: h.align, whiteSpace: "nowrap", width: h.w,
+                            WebkitPrintColorAdjust: "exact" as any,
                           }}>
                             {h.label}
                           </th>
@@ -600,25 +590,25 @@ export default function ProformaInvoicePage() {
                     <tbody>
                       {detail.items?.map((item, idx) => (
                         <tr key={item.id}>
-                          <td style={{ border: "1px solid #333", padding: "5px 4px", textAlign: "center", fontSize: "10px" }}>{idx + 1}</td>
-                          <td style={{ border: "1px solid #333", padding: "5px 4px", fontSize: "10px", color: "#006E3C", fontWeight: 600 }}>
+                          <td style={{ border: "1px solid #d1d5db", padding: "6px", textAlign: "center", fontSize: "10px" }}>{idx + 1}</td>
+                          <td style={{ border: "1px solid #d1d5db", padding: "6px", fontSize: "10px", color: "#166534", fontWeight: 600 }}>
                             {(item as any).product?.sku || '-'}
                           </td>
-                          <td style={{ border: "1px solid #333", padding: "5px 4px", fontSize: "10px" }}>{item.product_name}</td>
-                          <td style={{ border: "1px solid #333", padding: "5px 4px", textAlign: "center", fontSize: "10px" }}>{item.qty}</td>
-                          <td style={{ border: "1px solid #333", padding: "5px 4px", textAlign: "center", fontSize: "10px" }}>
+                          <td style={{ border: "1px solid #d1d5db", padding: "6px", fontSize: "10px" }}>{item.product_name}</td>
+                          <td style={{ border: "1px solid #d1d5db", padding: "6px", textAlign: "center", fontSize: "10px" }}>{item.qty}</td>
+                          <td style={{ border: "1px solid #d1d5db", padding: "6px", textAlign: "center", fontSize: "10px" }}>
                             {(item as any).product?.unit?.name || 'unit'}
                           </td>
-                          <td style={{ border: "1px solid #333", padding: "5px 4px", textAlign: "right", fontSize: "10px" }}>
-                            {new Intl.NumberFormat('id-ID').format(Math.round(item.unit_price))}
+                          <td style={{ border: "1px solid #d1d5db", padding: "6px", textAlign: "right", fontSize: "10px" }}>
+                            {fmtNum(Math.round(item.unit_price))}
                           </td>
-                          <td style={{ border: "1px solid #333", padding: "5px 4px", textAlign: "center", fontSize: "10px" }}>
+                          <td style={{ border: "1px solid #d1d5db", padding: "6px", textAlign: "center", fontSize: "10px" }}>
                             {item.discount ? item.discount : 0}
                           </td>
-                          <td style={{ border: "1px solid #333", padding: "5px 4px", textAlign: "right", fontSize: "10px" }}>
-                            {new Intl.NumberFormat('id-ID').format(Math.round(item.subtotal))}
+                          <td style={{ border: "1px solid #d1d5db", padding: "6px", textAlign: "right", fontSize: "10px" }}>
+                            {fmtNum(Math.round(item.subtotal))}
                           </td>
-                          <td style={{ border: "1px solid #333", padding: "5px 4px", textAlign: "center", fontSize: "10px" }}>
+                          <td style={{ border: "1px solid #d1d5db", padding: "6px", textAlign: "center", fontSize: "10px" }}>
                             {detail.tax_rate ? `${detail.tax_rate}%` : '0%'}
                           </td>
                         </tr>
@@ -627,103 +617,95 @@ export default function ProformaInvoicePage() {
                   </table>
                 </div>
 
-                {/* Summary - right aligned with spacing and dividers */}
-                <div data-pdf-section style={{ marginTop: "14px", display: "flex", justifyContent: "flex-end" }}>
-                  <table style={{ borderCollapse: "collapse", minWidth: "280px" }}>
-                    <tbody>
-                      <tr>
-                        <td style={{ padding: "4px 16px 4px 0", fontSize: "10px" }}>DPP</td>
-                        <td style={{ padding: "4px 0", fontSize: "10px", textAlign: "center", width: "10px" }}>:</td>
-                        <td style={{ padding: "4px 0", fontSize: "10px", textAlign: "right" }}>
-                          {new Intl.NumberFormat('id-ID').format(dpp)}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: "4px 16px 4px 0", fontSize: "10px" }}>DPP Pengganti</td>
-                        <td style={{ padding: "4px 0", fontSize: "10px", textAlign: "center" }}>:</td>
-                        <td style={{ padding: "4px 0", fontSize: "10px", textAlign: "right" }}>
-                          {new Intl.NumberFormat('id-ID').format(dppPengganti)}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: "4px 16px 4px 0", fontSize: "10px" }}>Pajak</td>
-                        <td style={{ padding: "4px 0", fontSize: "10px", textAlign: "center" }}>:</td>
-                        <td style={{ padding: "4px 0", fontSize: "10px", textAlign: "right" }}>
-                          {new Intl.NumberFormat('id-ID').format(pajak)}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: "4px 16px 4px 0", fontSize: "10px" }}>Biaya Pengantaran</td>
-                        <td style={{ padding: "4px 0", fontSize: "10px", textAlign: "center" }}>:</td>
-                        <td style={{ padding: "4px 0", fontSize: "10px", textAlign: "right" }}>
-                          {new Intl.NumberFormat('id-ID').format(biayaPengantaran)}
-                        </td>
-                      </tr>
-                      {/* Divider line before Sub Total */}
-                      <tr>
-                        <td colSpan={3} style={{ padding: 0 }}><div style={{ borderTop: "1px solid #333", margin: "4px 0" }} /></td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: "4px 16px 4px 0", fontSize: "10px", fontWeight: 600 }}>Sub Total</td>
-                        <td style={{ padding: "4px 0", fontSize: "10px", textAlign: "center" }}>:</td>
-                        <td style={{ padding: "4px 0", fontSize: "10px", textAlign: "right", fontWeight: 600 }}>
-                          Rp{" "}{new Intl.NumberFormat('id-ID').format(subTotalCalc)}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: "4px 16px 4px 0", fontSize: "10px" }}>Bea Materai</td>
-                        <td style={{ padding: "4px 0", fontSize: "10px", textAlign: "center" }}>:</td>
-                        <td style={{ padding: "4px 0", fontSize: "10px", textAlign: "right" }}>
-                          Rp{" "}{new Intl.NumberFormat('id-ID').format(materai)}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: "4px 16px 4px 0", fontSize: "10px" }}>Down Payment</td>
-                        <td style={{ padding: "4px 0", fontSize: "10px", textAlign: "center" }}>:</td>
-                        <td style={{ padding: "4px 0", fontSize: "10px", textAlign: "right" }}>-</td>
-                      </tr>
-                      {/* Bold divider before Saldo */}
-                      <tr>
-                        <td colSpan={3} style={{ padding: 0 }}><div style={{ borderTop: "2px solid #111", margin: "4px 0" }} /></td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: "5px 16px 5px 0", fontSize: "12px", fontWeight: 700 }}>Saldo</td>
-                        <td style={{ padding: "5px 0", fontSize: "12px", textAlign: "center" }}>:</td>
-                        <td style={{ padding: "5px 0", fontSize: "12px", textAlign: "right", fontWeight: 700 }}>
-                          Rp{" "}{new Intl.NumberFormat('id-ID').format(saldo)}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Terbilang */}
-                <div data-pdf-section style={{ marginTop: "12px" }}>
-                  <div style={{ fontSize: "10px" }}>
-                    <b>Terbilang : </b><i>{numberToWords(saldo)} Rupiah</i>
+                {/* Section 3: Summary + Terbilang side-by-side */}
+                <div data-pdf-section style={{ marginTop: "14px" }}>
+                  <div style={{ display: "flex", gap: "20px", alignItems: "flex-end" }}>
+                    {/* Left: Terbilang + Bank Info */}
+                    <div style={{ flex: 1, fontSize: "10px" }}>
+                      <div style={{ marginBottom: "10px" }}>
+                        <b>Terbilang : </b><i>{numberToWords(saldo)} Rupiah</i>
+                      </div>
+                      <div style={{ lineHeight: "1.6" }}>
+                        <div style={{ fontWeight: 600, marginBottom: "2px" }}>Keterangan :</div>
+                        <div>- Account Banking a/n PT. KEMIKA KARYA PRATAMA</div>
+                        <div>- Bank Mandiri KCP Tangerang Ciledug</div>
+                        <div>- Acc. No 155-005-755-575-0</div>
+                        <div>- NPWP : 71.608.326.6-416.000</div>
+                      </div>
+                    </div>
+                    {/* Right: Calculation summary */}
+                    <div style={{ minWidth: "260px" }}>
+                      <table style={{ borderCollapse: "collapse", width: "100%" }}>
+                        <tbody>
+                          <tr>
+                            <td style={{ padding: "3px 12px 3px 0", fontSize: "10px" }}>DPP</td>
+                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "center", width: "10px" }}>:</td>
+                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "right" }}>{fmtNum(dpp)}</td>
+                          </tr>
+                          <tr>
+                            <td style={{ padding: "3px 12px 3px 0", fontSize: "10px" }}>DPP Pengganti</td>
+                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "center" }}>:</td>
+                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "right" }}>{fmtNum(dppPengganti)}</td>
+                          </tr>
+                          <tr>
+                            <td style={{ padding: "3px 12px 3px 0", fontSize: "10px" }}>Pajak</td>
+                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "center" }}>:</td>
+                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "right" }}>{fmtNum(pajak)}</td>
+                          </tr>
+                          <tr>
+                            <td style={{ padding: "3px 12px 3px 0", fontSize: "10px" }}>Biaya Pengantaran</td>
+                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "center" }}>:</td>
+                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "right" }}>{fmtNum(biayaPengantaran)}</td>
+                          </tr>
+                          <tr><td colSpan={3} style={{ padding: 0 }}><div style={{ borderTop: "1px solid #333", margin: "3px 0" }} /></td></tr>
+                          <tr>
+                            <td style={{ padding: "3px 12px 3px 0", fontSize: "10px", fontWeight: 600 }}>Sub Total</td>
+                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "center" }}>:</td>
+                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "right", fontWeight: 600 }}>Rp {fmtNum(subTotalCalc)}</td>
+                          </tr>
+                          <tr>
+                            <td style={{ padding: "3px 12px 3px 0", fontSize: "10px" }}>Bea Materai</td>
+                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "center" }}>:</td>
+                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "right" }}>Rp {fmtNum(materai)}</td>
+                          </tr>
+                          <tr>
+                            <td style={{ padding: "3px 12px 3px 0", fontSize: "10px" }}>Down Payment</td>
+                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "center" }}>:</td>
+                            <td style={{ padding: "3px 0", fontSize: "10px", textAlign: "right" }}>-</td>
+                          </tr>
+                          <tr><td colSpan={3} style={{ padding: 0 }}><div style={{ borderTop: "2px solid #111", margin: "3px 0" }} /></td></tr>
+                          <tr>
+                            <td style={{ padding: "4px 12px 4px 0", fontSize: "12px", fontWeight: 700 }}>Saldo</td>
+                            <td style={{ padding: "4px 0", fontSize: "12px", textAlign: "center" }}>:</td>
+                            <td style={{ padding: "4px 0", fontSize: "12px", textAlign: "right", fontWeight: 700 }}>Rp {fmtNum(saldo)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
 
-                {/* Keterangan - Bank details */}
-                <div data-pdf-section style={{ marginTop: "10px" }}>
-                  <div style={{ fontSize: "9px", lineHeight: "1.5" }}>
-                    <div style={{ fontWeight: 600, marginBottom: "2px" }}>Keterangan :</div>
-                    <div>- Account Banking a/n PT. KEMIKA KARYA PRATAMA</div>
-                    <div>- Bank Mandiri KCP Tangerang Ciledug</div>
-                    <div>- Acc. No 155-005-755-575-0</div>
-                    <div>- NPWP : 71.608.326.6-416.000</div>
+                {/* Section 4: Signature - pushed to bottom */}
+                <div data-pdf-section data-pdf-bottom style={{ marginTop: "24px" }}>
+                  <div style={{ borderBottom: "1.5px solid #111", marginBottom: "16px" }} />
+                  <div style={{ display: "flex", justifyContent: "flex-end", paddingRight: "20px" }}>
+                    <div style={{ textAlign: "center", minWidth: "180px" }}>
+                      <div style={{ fontSize: "10px", fontWeight: 600, marginBottom: "6px" }}>KEMIKA KARYA PRATAMA</div>
+                      {isApproved && approverSignatureUrl ? (
+                        <div style={{ height: "60px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <img src={approverSignatureUrl} alt="signature" style={{ maxHeight: "55px", maxWidth: "160px", objectFit: "contain" }} crossOrigin="anonymous" />
+                        </div>
+                      ) : (
+                        <div style={{ height: "60px" }} />
+                      )}
+                      <div style={{ borderBottom: "1px solid #111", width: "80%", margin: "0 auto" }} />
+                      <div style={{ fontSize: "10px", marginTop: "4px", fontWeight: 600 }}>
+                        {isApproved && approverName ? approverName : '(..................................)'}
+                      </div>
+                      <div style={{ fontSize: "9px", color: "#666" }}>FINANCE</div>
+                    </div>
                   </div>
-                </div>
-
-                {/* Signature - only FINANCE */}
-                <div data-pdf-section data-pdf-bottom style={{ marginTop: "24px", display: "flex", justifyContent: "flex-end", paddingRight: "20px" }}>
-                  <div style={{ textAlign: "center", minWidth: "180px" }}>
-                    <div style={{ fontSize: "10px", fontWeight: 600, marginBottom: "10px" }}>KEMIKA KARYA PRATAMA</div>
-                    <div style={{ height: "60px" }} />
-                    <div style={{ borderBottom: "1px solid #111", width: "80%", margin: "0 auto" }} />
-                    <div style={{ fontSize: "9px", marginTop: "4px", fontWeight: 600 }}>{isApproved ? approverName : '(.................................)'}</div>
-                    <div style={{ fontSize: "8px", color: "#666" }}>FINANCE</div>
-                  </div>
+                  <div style={{ height: "65px" }} />
                 </div>
               </div>
             );
