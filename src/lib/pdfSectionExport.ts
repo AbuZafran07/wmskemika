@@ -103,6 +103,7 @@ export async function exportSectionBasedPdf({
   interface CapturedSection {
     canvas: HTMLCanvasElement;
     heightMM: number;
+    pushToBottom: boolean;
   }
 
   const capturedSections: CapturedSection[] = [];
