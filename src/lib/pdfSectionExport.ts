@@ -54,7 +54,7 @@ export async function exportSectionBasedPdf({
   clone.style.top = "0";
   clone.style.width = `${A4_WIDTH_MM}mm`;
   clone.style.backgroundColor = "#ffffff";
-  clone.style.padding = `${MARGIN_MM}mm`;
+  clone.style.padding = `${m.top}mm ${m.right}mm ${m.bottom}mm ${m.left}mm`;
   clone.style.boxSizing = "border-box";
   // Remove any minHeight that forces extra whitespace
   clone.style.minHeight = "auto";
