@@ -379,6 +379,7 @@ export const ROUTE_TO_MENU: Record<string, MenuKey> = {
   '/plan-order': 'planOrder',
   '/stock-in': 'stockIn',
   '/sales-order': 'salesOrder',
+  '/proforma-invoice': 'proformaInvoice',
   '/stock-out': 'stockOut',
   '/stock-adjustment': 'stockAdjustment',
   '/data-product/products': 'products',
