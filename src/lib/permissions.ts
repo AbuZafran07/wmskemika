@@ -75,6 +75,7 @@ export const MENU_ACCESS: Record<MenuKey, UserRole[]> = {
   planOrder: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse'],
   stockIn: ['super_admin', 'admin', 'warehouse'],
   salesOrder: ['super_admin', 'admin', 'finance', 'sales', 'warehouse'],
+  proformaInvoice: ['super_admin', 'admin', 'finance', 'purchasing', 'sales'],
   stockOut: ['super_admin', 'admin', 'warehouse'],
   stockAdjustment: ['super_admin', 'admin', 'finance'], // Hide from warehouse
   deliveryOrder: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse'],
