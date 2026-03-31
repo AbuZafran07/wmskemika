@@ -830,16 +830,38 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const sendComment = async () => {
     if (!newComment.trim() || !user || !card) return;
     setSendingComment(true);
+    const commentText = newComment.trim();
     const { error } = await supabase.from("delivery_comments").insert({
       delivery_request_id: card.id,
       user_id: user.id,
-      message: newComment.trim(),
+      message: commentText,
       type: "comment",
     });
     if (error) {
       toast.error("Gagal mengirim komentar");
     } else {
       setNewComment("");
+      // Send push notification for comment
+      const senderName = profiles[user.id]?.full_name || user.email || 'User';
+      notifyKanbanComment(
+        card.sales_order_number,
+        senderName,
+        commentText,
+        card.id,
+        user.id,
+      );
+      // Check for @mentions and notify
+      const mentionRegex = /@(\w[\w\s]*\w|\w)/g;
+      const mentions = commentText.match(mentionRegex);
+      if (mentions && mentions.length > 0) {
+        const mentionNames = mentions.map(m => m.substring(1).trim().toLowerCase());
+        const mentionedIds = Object.entries(profiles)
+          .filter(([id, p]) => p.full_name && mentionNames.some(name => p.full_name!.toLowerCase().includes(name)))
+          .map(([id]) => id);
+        if (mentionedIds.length > 0) {
+          notifyKanbanMention(mentionedIds, card.sales_order_number, senderName, commentText, card.id, user.id);
+        }
+      }
     }
     setSendingComment(false);
   };
