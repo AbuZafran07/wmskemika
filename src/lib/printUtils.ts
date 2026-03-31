@@ -83,7 +83,7 @@ export const sanitizeText = (text: string | null | undefined, maxLength: number 
  * 3. External event handlers instead of inline onclick
  * 4. Sanitized title to prevent header injection
  */
-export const securePrint = ({ title, styles = '', content }: PrintOptions): void => {
+export const securePrint = ({ title, styles = '', content, backgroundImage }: PrintOptions): void => {
   const printWindow = window.open('', '_blank');
   if (!printWindow) {
     console.warn('Print window blocked by browser');
