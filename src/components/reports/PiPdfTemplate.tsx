@@ -114,12 +114,24 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
             PROFORMA
           </div>
 
-          {/* Green accent line */}
+          {/* Title above separator */}
+          <h1 style={{
+            fontSize: '22px',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            textAlign: 'right',
+            margin: '0 0 8px 0',
+            letterSpacing: '0.5px',
+            color: CORP_GREEN,
+          }}>
+            PROFORMA INVOICE
+          </h1>
+
+          {/* Black separator line */}
           <div style={{
-            height: '3px',
-            background: `linear-gradient(90deg, ${CORP_GREEN}, ${CORP_GREEN}80, transparent)`,
+            height: '2px',
+            backgroundColor: '#000',
             marginBottom: '16px',
-            borderRadius: '2px',
           }} />
 
           {/* Header grid: Left 55% + Right 45% */}
@@ -145,19 +157,8 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
               </table>
             </div>
 
-            {/* RIGHT: Title + meta */}
+            {/* RIGHT: meta */}
             <div style={{ width: '45%' }}>
-              <h1 style={{
-                fontSize: '22px',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                textAlign: 'right',
-                margin: '0 0 12px 0',
-                letterSpacing: '0.5px',
-                color: CORP_GREEN,
-              }}>
-                PROFORMA INVOICE
-              </h1>
               <table style={{ borderCollapse: 'collapse', width: '100%' }}>
                 <tbody>
                   {([
@@ -239,7 +240,7 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
         <div data-pdf-section style={{ marginTop: '24px' }}>
           {/* Divider line */}
           <div style={{
-            borderTop: `2px solid ${CORP_GREEN}`,
+            borderTop: '2px solid #000',
             marginBottom: '20px',
           }} />
 
@@ -326,14 +327,14 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
                       padding: '10px 0 5px',
                       fontSize: '13px',
                       fontWeight: 700,
-                      borderTop: `2px solid ${CORP_GREEN}`,
+                      borderTop: '2px solid #000',
                       color: CORP_GREEN,
                     }}>Saldo</td>
                     <td style={{
                       padding: '10px 0 5px',
                       fontSize: '13px',
                       textAlign: 'center',
-                      borderTop: `2px solid ${CORP_GREEN}`,
+                      borderTop: '2px solid #000',
                       color: CORP_GREEN,
                     }}>:</td>
                     <td style={{
@@ -341,7 +342,7 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
                       fontSize: '13px',
                       textAlign: 'right',
                       fontWeight: 700,
-                      borderTop: `2px solid ${CORP_GREEN}`,
+                      borderTop: '2px solid #000',
                       whiteSpace: 'nowrap',
                       color: CORP_GREEN,
                     }}>Rp {fmt(summary.balance)}</td>
@@ -378,20 +379,6 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
           </div>
         </div>
 
-        {/* ─── Section 5: FOOTER ─── */}
-        <div data-pdf-section data-pdf-bottom style={{ marginTop: '30px', paddingTop: '10px', borderTop: '1px solid #ccc' }}>
-          {/* Green accent bottom line */}
-          <div style={{
-            height: '2px',
-            background: `linear-gradient(90deg, ${CORP_GREEN}, ${CORP_GREEN}60, transparent)`,
-            marginBottom: '8px',
-          }} />
-          <div style={{ fontSize: '10px', lineHeight: '1.5' }}>
-            <div style={{ fontWeight: 700, fontSize: '11px', color: CORP_GREEN, marginBottom: '2px', textTransform: 'uppercase' }}>{company.name}</div>
-            <div style={{ color: '#555' }}>{company.address}</div>
-            <div style={{ color: '#555' }}>{company.phone} | {company.website}</div>
-          </div>
-        </div>
       </div>
     </div>
   );
