@@ -465,12 +465,27 @@ export default function RequestDelivery() {
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "delivery_card_labels" }, () => {
         fetchCardLabels();
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "delivery_comments" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "delivery_comments" }, (payload: any) => {
         fetchPendingApprovals();
+        fetchUnreadComments();
+        // Show toast for new comments when board is open
+        if (payload.eventType === 'INSERT' && payload.new?.type === 'comment' && payload.new?.user_id !== user?.id) {
+          const cardId = payload.new?.delivery_request_id;
+          const matchedCard = cards.find(c => c.id === cardId);
+          const soNumber = matchedCard?.sales_order_number || 'Card';
+          toast.info(`💬 Komentar baru di ${soNumber}`, {
+            description: payload.new?.message?.substring(0, 80) || 'Ada komentar baru',
+            duration: 5000,
+            action: matchedCard ? {
+              label: 'Lihat',
+              onClick: () => setDetailCard(matchedCard),
+            } : undefined,
+          });
+        }
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [fetchCards, fetchCardLabels, fetchPendingApprovals, cards]);
+  }, [fetchCards, fetchCardLabels, fetchPendingApprovals, fetchUnreadComments, cards, user?.id]);
 
   const PENGIRIMAN_COLUMNS = ["pengiriman_senin", "pengiriman_selasa", "pengiriman_rabu", "pengiriman_kamis", "pengiriman_jumat"];
 
