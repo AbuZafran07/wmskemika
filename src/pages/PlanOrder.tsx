@@ -933,6 +933,7 @@ export default function PlanOrder() {
         element: printRef.current,
         filename,
         onProgress: setPdfProgress,
+        backgroundImage: '/kop-surat-bg.jpg',
       });
 
       toast.success(language === "en" ? "PDF saved successfully" : "PDF berhasil disimpan");
