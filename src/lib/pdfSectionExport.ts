@@ -101,7 +101,7 @@ export async function exportSectionBasedPdf({
     useCORS: true,
     allowTaint: false,
     logging: false,
-    backgroundColor: "#ffffff",
+    backgroundColor: backgroundImage ? null : "#ffffff", // transparent when using bg image
     imageTimeout: 15000,
   };
 
