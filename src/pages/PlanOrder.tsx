@@ -896,6 +896,7 @@ export default function PlanOrder() {
         title: `PurchaseOrder_${selectedOrder.plan_number}`,
         styles: printStyles.planOrder,
         content: element.innerHTML,
+        backgroundImage: '/kop-surat-bg.jpg',
       });
       toast.info(
         language === "en"
@@ -933,6 +934,7 @@ export default function PlanOrder() {
         element: printRef.current,
         filename,
         onProgress: setPdfProgress,
+        backgroundImage: '/kop-surat-bg.jpg',
       });
 
       toast.success(language === "en" ? "PDF saved successfully" : "PDF berhasil disimpan");
@@ -1853,6 +1855,7 @@ export default function PlanOrder() {
                       title: `Purchase Order - ${selectedOrder.plan_number}`,
                       styles: printStyles.planOrder,
                       content: printRef.current.innerHTML,
+                      backgroundImage: '/kop-surat-bg.jpg',
                     });
                   }}
                   disabled={itemsLoading}
@@ -2656,6 +2659,7 @@ export default function PlanOrder() {
                   title: `Purchase Order - ${selectedOrder.plan_number}`,
                   styles: printStyles.planOrder,
                   content: printRef.current.innerHTML,
+                  backgroundImage: '/kop-surat-bg.jpg',
                 });
               }}
             >

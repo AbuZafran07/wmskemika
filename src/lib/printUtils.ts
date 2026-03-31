@@ -4,6 +4,7 @@ interface PrintOptions {
   title: string;
   styles?: string;
   content: string;
+  backgroundImage?: string;
 }
 
 /**
@@ -82,7 +83,7 @@ export const sanitizeText = (text: string | null | undefined, maxLength: number 
  * 3. External event handlers instead of inline onclick
  * 4. Sanitized title to prevent header injection
  */
-export const securePrint = ({ title, styles = '', content }: PrintOptions): void => {
+export const securePrint = ({ title, styles = '', content, backgroundImage }: PrintOptions): void => {
   const printWindow = window.open('', '_blank');
   if (!printWindow) {
     console.warn('Print window blocked by browser');
@@ -111,7 +112,7 @@ export const securePrint = ({ title, styles = '', content }: PrintOptions): void
             print-color-adjust: exact !important;
             color-adjust: exact !important;
           }
-          body { font-family: Arial, sans-serif; padding: 16px; color: #111; }
+          body { font-family: Arial, sans-serif; padding: 16px; color: #111; ${backgroundImage ? `background-image: url(${backgroundImage}); background-size: 210mm 297mm; background-repeat: no-repeat; background-position: center top;` : ''} }
           /*
             Ensure row background colors (e.g., green header rows applied to <tr>)
             are actually painted on the cells in print preview.
@@ -125,7 +126,7 @@ export const securePrint = ({ title, styles = '', content }: PrintOptions): void
             print-color-adjust: exact !important;
             color-adjust: exact !important;
           }
-          @page { margin: 12mm; }
+          @page { margin: ${backgroundImage ? '0' : '12mm'}; }
           @media print {
             * {
               -webkit-print-color-adjust: exact !important;
