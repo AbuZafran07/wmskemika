@@ -31,6 +31,7 @@ interface SectionBasedPdfOptions {
   onProgress?: (progress: number) => void;
   backgroundImage?: string;
   margins?: PdfMargins;
+  mode?: "save" | "print";
 }
 
 export async function exportSectionBasedPdf({
