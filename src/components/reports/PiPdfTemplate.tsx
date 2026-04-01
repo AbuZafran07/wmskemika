@@ -201,11 +201,11 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
 
   const itemCount = items.length;
   const dynamicSpacerMinHeight =
-    itemCount <= 2 ? '8mm' :
-    itemCount <= 4 ? '5mm' :
-    itemCount <= 6 ? '3mm' :
-    itemCount <= 8 ? '2mm' :
-    '1mm';
+    itemCount <= 1 ? '4mm' :
+    itemCount <= 2 ? '3mm' :
+    itemCount <= 4 ? '2mm' :
+    itemCount <= 6 ? '1.5mm' :
+    '0.5mm';
 
   return (
     <div ref={ref}>
