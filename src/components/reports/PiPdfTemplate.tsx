@@ -538,7 +538,7 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
                 <div
                   style={{
                     textAlign: 'center',
-                    marginTop: '4mm',
+                    marginTop: '2mm',
                     breakInside: 'avoid' as any,
                     pageBreakInside: 'avoid',
                   }}
