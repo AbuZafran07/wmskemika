@@ -2178,7 +2178,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                       const isFinanceChecklist = cl.label === "Verifikasi Administrasi Finance";
                       const isUploadChecklist = ["Upload Foto Pengiriman", "Upload Dokumen Delivery Order"].includes(cl.label);
                       const canCheckThisItem = isFinanceChecklist
-                        ? ['super_admin', 'finance'].includes(user?.role || '')
+                        ? ['super_admin', 'admin', 'finance'].includes(user?.role || '')
                         : isUploadChecklist
                         ? ['super_admin', 'warehouse'].includes(user?.role || '')
                         : canCheckChecklist;
