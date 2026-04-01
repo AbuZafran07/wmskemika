@@ -135,8 +135,8 @@ export function useProformaInvoiceDetail(id: string | null) {
         // Fetch approver signature
         const { data: sig } = await supabase.from('user_signatures').select('signature_path').eq('user_id', data.approved_by).maybeSingle();
         if (sig?.signature_path) {
-          const { data: urlData } = supabase.storage.from('signatures').getPublicUrl(sig.signature_path);
-          approverSignatureUrl = urlData?.publicUrl || null;
+          const { data: urlData } = await supabase.storage.from('signatures').createSignedUrl(sig.signature_path, 3600);
+          approverSignatureUrl = urlData?.signedUrl || null;
         }
       }
       if (data.created_by) {
