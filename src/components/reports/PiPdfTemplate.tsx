@@ -200,10 +200,17 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
   ];
 
   const itemCount = items.length;
-  const dynamicSpacerMinHeight =
+  // Spacer kondisional: item sedikit → jarak sedang, item banyak → jarak minimal
+  // maxHeight mencegah spacer mendorong footer ke page 2
+  const spacerMaxHeight =
+    itemCount <= 1 ? '80mm' :
+    itemCount <= 2 ? '55mm' :
+    itemCount <= 3 ? '35mm' :
+    itemCount <= 5 ? '15mm' :
+    '3mm';
+  const spacerMinHeight =
     itemCount <= 1 ? '2mm' :
-    itemCount <= 2 ? '1.5mm' :
-    itemCount <= 4 ? '1mm' :
+    itemCount <= 3 ? '1.5mm' :
     '0.5mm';
 
   return (
@@ -340,7 +347,8 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
           <div
             style={{
               flex: '1 1 auto',
-              minHeight: dynamicSpacerMinHeight,
+              minHeight: spacerMinHeight,
+              maxHeight: spacerMaxHeight,
             }}
           />
 
