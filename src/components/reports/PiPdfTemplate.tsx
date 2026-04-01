@@ -256,7 +256,7 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
         </div>
 
         {/* ═══ SECTION 3: BOTTOM AREA (Terbilang + Bank | Calculations) ═══ */}
-        <div data-pdf-section style={{ marginTop: '60px' }}>
+        <div data-pdf-section style={{ marginTop: '24px' }}>
           {/* Divider */}
           <div style={{ borderTop: '2px solid #000', marginBottom: '16px' }} />
 
