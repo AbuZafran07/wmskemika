@@ -2183,7 +2183,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                         ? ['super_admin', 'warehouse'].includes(user?.role || '')
                         : canCheckChecklist;
                       const hintText = isFinanceChecklist
-                        ? "Hanya Finance / Super Admin"
+                        ? "Hanya Admin / Finance / Super Admin"
                         : isUploadChecklist
                         ? "Hanya Warehouse / Super Admin"
                         : "Hanya Purchasing / Finance / Super Admin";
