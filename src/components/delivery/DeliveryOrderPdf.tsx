@@ -86,7 +86,7 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
         <head>
           <title>Delivery Order - ${doNumber}</title>
           <style>
-            body { margin: 0; padding: 0; font-family: Arial, sans-serif; color: #111; background-image: url(/kop-surat-bg.jpg); background-size: 210mm 297mm; background-repeat: no-repeat; background-position: center top; }
+            body { margin: 0; padding: 0; font-family: Arial, sans-serif; color: #111; }
             table { border-collapse: collapse; width: 100%; }
             th, td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; font-size: 11px; }
             th { background: #166534 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
