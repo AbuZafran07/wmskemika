@@ -562,7 +562,7 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
                         alt="signature"
                         crossOrigin="anonymous"
                         style={{
-                          maxHeight: '48px',
+                          maxHeight: '40px',
                           maxWidth: '120px',
                           objectFit: 'contain',
                         }}
