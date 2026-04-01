@@ -543,7 +543,7 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
                     pageBreakInside: 'avoid',
                   }}
                 >
-                  <div style={{ fontSize: '3.35mm', fontWeight: 800, marginBottom: '4.5mm' }}>
+                  <div style={{ fontSize: '3.35mm', fontWeight: 800, marginBottom: '2mm' }}>
                     {company.name}
                   </div>
 
