@@ -78,45 +78,45 @@ const TEXT = '#222';
 const PAGE_WIDTH = '210mm';
 const PAGE_HEIGHT = '297mm';
 
-const PAGE_PADDING_TOP = '16mm';
-const PAGE_PADDING_LEFT = '14mm';
-const PAGE_PADDING_RIGHT = '18mm'; // aman dari kop hijau kanan
-const PAGE_PADDING_BOTTOM = '16mm';
+const PAGE_PADDING_TOP = '14mm';
+const PAGE_PADDING_LEFT = '13mm';
+const PAGE_PADDING_RIGHT = '18mm';
+const PAGE_PADDING_BOTTOM = '14mm';
 
-const HEADER_TOP_OFFSET = '32px';
-const TITLE_WIDTH_MM = 62;
+const HEADER_TOP_OFFSET = '26px';
+const TITLE_WIDTH_MM = 50;
 
 interface PiPdfTemplateProps {
   data: PiPdfData;
 }
 
-const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ data }, ref) => {
+const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ data }, ref) => {
   const { company, invoice, customer, items, summary, signatory } = data;
 
   const infoLabel: React.CSSProperties = {
-    width: '22mm',
-    padding: '0.6mm 0',
+    width: '20mm',
+    padding: '0.45mm 0',
     verticalAlign: 'top',
-    fontSize: '3.35mm',
-    lineHeight: '1.5',
+    fontSize: '3.1mm',
+    lineHeight: '1.42',
     fontWeight: 400,
     color: '#333',
   };
 
   const infoColon: React.CSSProperties = {
-    width: '4mm',
-    padding: '0.6mm 0',
+    width: '3.6mm',
+    padding: '0.45mm 0',
     textAlign: 'center',
     verticalAlign: 'top',
-    fontSize: '3.35mm',
-    lineHeight: '1.5',
+    fontSize: '3.1mm',
+    lineHeight: '1.42',
   };
 
   const infoValue: React.CSSProperties = {
-    padding: '0.6mm 0',
+    padding: '0.45mm 0',
     verticalAlign: 'top',
-    fontSize: '3.35mm',
-    lineHeight: '1.5',
+    fontSize: '3.1mm',
+    lineHeight: '1.42',
     fontWeight: 700,
     color: TEXT,
   };
@@ -136,9 +136,9 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
   const thStyle: React.CSSProperties = {
     backgroundColor: CORP_GREEN,
     color: '#fff',
-    border: `0.3mm solid ${BORDER}`,
-    padding: '1.9mm 1.5mm',
-    fontSize: '3.1mm',
+    border: `0.28mm solid ${BORDER}`,
+    padding: '1.55mm 1.2mm',
+    fontSize: '2.95mm',
     fontWeight: 700,
     whiteSpace: 'nowrap',
     textAlign: 'center',
@@ -148,9 +148,9 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
   };
 
   const tdBase: React.CSSProperties = {
-    border: `0.3mm solid ${BORDER}`,
-    padding: '1.9mm 1.5mm',
-    fontSize: '3.2mm',
+    border: `0.28mm solid ${BORDER}`,
+    padding: '1.55mm 1.2mm',
+    fontSize: '3.0mm',
     verticalAlign: 'middle',
     color: TEXT,
   };
@@ -178,7 +178,7 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
     >
       <td style={{ ...tdBase, textAlign: 'center' }}>{item.no}</td>
       <td style={{ ...tdBase, color: CORP_GREEN, fontWeight: 700 }}>{item.code}</td>
-      <td style={{ ...tdBase, wordBreak: 'break-word', lineHeight: '1.32' }}>{item.name}</td>
+      <td style={{ ...tdBase, wordBreak: 'break-word', lineHeight: '1.28' }}>{item.name}</td>
       <td style={{ ...tdBase, textAlign: 'center' }}>{item.qty}</td>
       <td style={{ ...tdBase, textAlign: 'center' }}>{item.unit}</td>
       <td style={{ ...tdBase, textAlign: 'right', whiteSpace: 'nowrap' }}>{fmt(item.price)}</td>
@@ -201,11 +201,11 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
 
   const itemCount = items.length;
   const dynamicSpacerMinHeight =
-    itemCount <= 2 ? '56mm' :
-    itemCount <= 4 ? '42mm' :
-    itemCount <= 6 ? '28mm' :
-    itemCount <= 8 ? '18mm' :
-    '10mm';
+    itemCount <= 2 ? '18mm' :
+    itemCount <= 4 ? '14mm' :
+    itemCount <= 6 ? '10mm' :
+    itemCount <= 8 ? '6mm' :
+    '2mm';
 
   return (
     <div ref={ref}>
@@ -223,7 +223,7 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
           fontFamily: 'Arial, Helvetica, sans-serif',
           fontSize: '12px',
           color: TEXT,
-          lineHeight: 1.4,
+          lineHeight: 1.35,
           background: 'transparent',
           overflow: 'hidden',
         }}
@@ -241,15 +241,15 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
               style={{
                 display: 'flex',
                 alignItems: 'flex-end',
-                marginBottom: '6.5mm',
+                marginBottom: '5.5mm',
               }}
             >
               <div
                 style={{
                   flex: 1,
-                  borderTop: '0.7mm solid #222',
-                  marginRight: '4mm',
-                  transform: 'translateY(-1mm)',
+                  borderTop: '0.65mm solid #222',
+                  marginRight: '3.5mm',
+                  transform: 'translateY(-0.8mm)',
                 }}
               />
               <div
@@ -262,10 +262,10 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
                 <h1
                   style={{
                     margin: 0,
-                    fontSize: '8.4mm',
-                    lineHeight: 1.02,
+                    fontSize: '6.2mm',
+                    lineHeight: 1.0,
                     fontWeight: 800,
-                    letterSpacing: '0.1px',
+                    letterSpacing: '0.05px',
                     textTransform: 'uppercase',
                     color: '#111',
                   }}
@@ -279,8 +279,8 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
               style={{
                 display: 'grid',
                 gridTemplateColumns: '1fr 1fr',
-                columnGap: '14mm',
-                marginBottom: '6.5mm',
+                columnGap: '12mm',
+                marginBottom: '5.5mm',
               }}
             >
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -340,7 +340,7 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
             </div>
 
             {/* ITEM TABLE */}
-            <div style={{ marginTop: '1.5mm' }}>
+            <div style={{ marginTop: '1mm' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 {renderTableHeader()}
                 <tbody>{items.map((item, idx) => renderTableRow(item, idx))}</tbody>
@@ -348,7 +348,7 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
             </div>
           </div>
 
-          {/* AREA KOSONG FLEKSIBEL */}
+          {/* SPACER FLEKSIBEL */}
           <div
             style={{
               flex: '1 1 auto',
@@ -363,13 +363,13 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
               pageBreakInside: 'avoid',
             }}
           >
-            <div style={{ borderTop: '0.7mm solid #222', width: '100%', marginBottom: '7mm' }} />
+            <div style={{ borderTop: '0.65mm solid #222', width: '100%', marginBottom: '5.5mm' }} />
 
             <div
               style={{
                 display: 'grid',
                 gridTemplateColumns: '1.03fr 0.97fr',
-                columnGap: '12mm',
+                columnGap: '10mm',
                 alignItems: 'start',
               }}
             >
@@ -383,11 +383,11 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
                 <div
                   style={{
                     background: CORP_GREEN_LIGHT,
-                    borderLeft: `1mm solid ${CORP_GREEN}`,
-                    padding: '2.7mm 3.2mm',
-                    marginBottom: '5mm',
-                    fontSize: '3.25mm',
-                    lineHeight: '1.5',
+                    borderLeft: `0.9mm solid ${CORP_GREEN}`,
+                    padding: '2.2mm 2.8mm',
+                    marginBottom: '4mm',
+                    fontSize: '3.0mm',
+                    lineHeight: '1.42',
                     WebkitPrintColorAdjust: 'exact',
                     printColorAdjust: 'exact',
                   }}
@@ -398,17 +398,17 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
 
                 <div
                   style={{
-                    border: '0.3mm solid #9a9a9a',
-                    padding: '3.1mm 3.6mm',
+                    border: '0.28mm solid #9a9a9a',
+                    padding: '2.7mm 3.2mm',
                     breakInside: 'avoid' as any,
                     pageBreakInside: 'avoid',
                   }}
                 >
                   <div
                     style={{
-                      fontSize: '3.7mm',
+                      fontSize: '3.35mm',
                       fontWeight: 800,
-                      marginBottom: '2.1mm',
+                      marginBottom: '1.8mm',
                       textTransform: 'uppercase',
                       color: CORP_GREEN,
                     }}
@@ -420,8 +420,8 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
                     style={{
                       width: '100%',
                       borderCollapse: 'collapse',
-                      fontSize: '3.25mm',
-                      lineHeight: '1.52',
+                      fontSize: '3.0mm',
+                      lineHeight: '1.45',
                     }}
                   >
                     <tbody>
@@ -432,11 +432,11 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
                         ['NPWP', company.npwp],
                       ] as [string, string][]).map(([label, val]) => (
                         <tr key={label}>
-                          <td style={{ width: '22mm', padding: '0.4mm 0', verticalAlign: 'top' }}>{label}</td>
-                          <td style={{ width: '4mm', padding: '0.4mm 0', textAlign: 'center', verticalAlign: 'top' }}>
+                          <td style={{ width: '21mm', padding: '0.32mm 0', verticalAlign: 'top' }}>{label}</td>
+                          <td style={{ width: '3.6mm', padding: '0.32mm 0', textAlign: 'center', verticalAlign: 'top' }}>
                             :
                           </td>
-                          <td style={{ fontWeight: 700, padding: '0.4mm 0', verticalAlign: 'top' }}>{val}</td>
+                          <td style={{ fontWeight: 700, padding: '0.32mm 0', verticalAlign: 'top' }}>{val}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -448,9 +448,12 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
               <div
                 style={{
                   width: '100%',
-                  fontSize: '3.35mm',
+                  fontSize: '3.05mm',
                   breakInside: 'avoid' as any,
                   pageBreakInside: 'avoid',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'flex-start',
                 }}
               >
                 {summaryRowsTop.map((row) => (
@@ -458,61 +461,61 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
                     key={row.label}
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: '1fr 4mm auto',
-                      columnGap: '2mm',
-                      padding: '1.15mm 0',
+                      gridTemplateColumns: '1fr 3.6mm auto',
+                      columnGap: '1.8mm',
+                      padding: '0.95mm 0',
                       alignItems: 'baseline',
                     }}
                   >
                     <div>{row.label}</div>
                     <div style={{ textAlign: 'center' }}>:</div>
-                    <div style={{ minWidth: '32mm', textAlign: 'right' }}>{row.value}</div>
+                    <div style={{ minWidth: '29mm', textAlign: 'right' }}>{row.value}</div>
                   </div>
                 ))}
 
-                <div style={{ borderTop: '0.3mm solid #888', margin: '1.2mm 0' }} />
+                <div style={{ borderTop: '0.28mm solid #888', margin: '1mm 0' }} />
 
                 <div
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: '1fr 4mm auto',
-                    columnGap: '2mm',
-                    padding: '1.15mm 0',
+                    gridTemplateColumns: '1fr 3.6mm auto',
+                    columnGap: '1.8mm',
+                    padding: '0.95mm 0',
                     alignItems: 'baseline',
                     fontWeight: 800,
                   }}
                 >
                   <div>Sub Total</div>
                   <div style={{ textAlign: 'center' }}>:</div>
-                  <div style={{ minWidth: '32mm', textAlign: 'right' }}>Rp {fmt(summary.subTotal)}</div>
+                  <div style={{ minWidth: '29mm', textAlign: 'right' }}>Rp {fmt(summary.subTotal)}</div>
                 </div>
 
                 <div
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: '1fr 4mm auto',
-                    columnGap: '2mm',
-                    padding: '1.15mm 0',
+                    gridTemplateColumns: '1fr 3.6mm auto',
+                    columnGap: '1.8mm',
+                    padding: '0.95mm 0',
                     alignItems: 'baseline',
                   }}
                 >
                   <div>Bea Materai</div>
                   <div style={{ textAlign: 'center' }}>:</div>
-                  <div style={{ minWidth: '32mm', textAlign: 'right' }}>Rp {fmt(summary.stampDuty)}</div>
+                  <div style={{ minWidth: '29mm', textAlign: 'right' }}>Rp {fmt(summary.stampDuty)}</div>
                 </div>
 
                 <div
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: '1fr 4mm auto',
-                    columnGap: '2mm',
-                    padding: '1.15mm 0',
+                    gridTemplateColumns: '1fr 3.6mm auto',
+                    columnGap: '1.8mm',
+                    padding: '0.95mm 0',
                     alignItems: 'baseline',
                   }}
                 >
                   <div>Down Payment</div>
                   <div style={{ textAlign: 'center' }}>:</div>
-                  <div style={{ minWidth: '32mm', textAlign: 'right' }}>
+                  <div style={{ minWidth: '29mm', textAlign: 'right' }}>
                     {summary.downPayment > 0 ? `Rp ${fmt(summary.downPayment)}` : '-'}
                   </div>
                 </div>
@@ -520,23 +523,23 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
                 <div
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: '1fr 4mm auto',
-                    columnGap: '2mm',
+                    gridTemplateColumns: '1fr 3.6mm auto',
+                    columnGap: '1.8mm',
                     alignItems: 'baseline',
-                    paddingTop: '2.6mm',
-                    marginTop: '1.7mm',
-                    borderTop: '0.7mm solid #222',
+                    paddingTop: '2.1mm',
+                    marginTop: '1.4mm',
+                    borderTop: '0.65mm solid #222',
                   }}
                 >
-                  <div style={{ fontSize: '4.6mm', fontWeight: 800, color: CORP_GREEN }}>Saldo</div>
-                  <div style={{ fontSize: '4.6mm', fontWeight: 800, color: CORP_GREEN, textAlign: 'center' }}>:</div>
+                  <div style={{ fontSize: '4.2mm', fontWeight: 800, color: CORP_GREEN }}>Saldo</div>
+                  <div style={{ fontSize: '4.2mm', fontWeight: 800, color: CORP_GREEN, textAlign: 'center' }}>:</div>
                   <div
                     style={{
-                      fontSize: '4.6mm',
+                      fontSize: '4.2mm',
                       fontWeight: 800,
                       color: CORP_GREEN,
                       textAlign: 'right',
-                      minWidth: '32mm',
+                      minWidth: '29mm',
                     }}
                   >
                     Rp {fmt(summary.balance)}
@@ -547,22 +550,22 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
                 <div
                   style={{
                     textAlign: 'center',
-                    marginTop: '8mm',
+                    marginTop: '4mm',
                     breakInside: 'avoid' as any,
                     pageBreakInside: 'avoid',
                   }}
                 >
-                  <div style={{ fontSize: '3.7mm', fontWeight: 800, marginBottom: '9mm' }}>
+                  <div style={{ fontSize: '3.35mm', fontWeight: 800, marginBottom: '4.5mm' }}>
                     {company.name}
                   </div>
 
                   <div
                     style={{
-                      height: '38px',
+                      height: '20px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      margin: '0 0 1.2mm 0',
+                      margin: '0 0 0.8mm 0',
                     }}
                   >
                     {signatory.isApproved && signatory.signatureUrl ? (
@@ -571,33 +574,33 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
                         alt="signature"
                         crossOrigin="anonymous"
                         style={{
-                          maxHeight: '36px',
-                          maxWidth: '130px',
+                          maxHeight: '18px',
+                          maxWidth: '95px',
                           objectFit: 'contain',
                         }}
                       />
                     ) : (
-                      <div style={{ height: '36px' }} />
+                      <div style={{ height: '18px' }} />
                     )}
                   </div>
 
                   <div
                     style={{
-                      width: '82%',
-                      borderTop: '0.35mm solid #666',
-                      margin: '0 auto 1.7mm auto',
+                      width: '80%',
+                      borderTop: '0.32mm solid #666',
+                      margin: '0 auto 1.1mm auto',
                     }}
                   />
 
-                  <div style={{ fontSize: '3.2mm', marginBottom: '0.7mm' }}>
+                  <div style={{ fontSize: '2.95mm', marginBottom: '0.35mm' }}>
                     {signatory.isApproved && signatory.name ? signatory.name : '(....................................)'}
                   </div>
 
                   <div
                     style={{
-                      fontSize: '2.95mm',
+                      fontSize: '2.7mm',
                       fontWeight: 700,
-                      letterSpacing: '0.35px',
+                      letterSpacing: '0.25px',
                     }}
                   >
                     {signatory.position}
@@ -641,5 +644,5 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
   );
 });
 
-PiPdfTemplate.displayName = 'PiPdfTemplate';
-export default PiPdfTemplate;
+PiPdfTemplateCompact.displayName = 'PiPdfTemplateCompact';
+export default PiPdfTemplateCompact;
