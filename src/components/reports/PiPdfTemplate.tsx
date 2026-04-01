@@ -270,6 +270,7 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
                     textTransform: 'uppercase',
                     color: '#111',
                     fontFamily: 'Georgia, "Times New Roman", Times, serif',
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   PROFORMA INVOICE
