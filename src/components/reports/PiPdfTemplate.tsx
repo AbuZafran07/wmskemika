@@ -523,17 +523,19 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
                     columnGap: '1.8mm',
                     alignItems: 'baseline',
                     paddingTop: '2.1mm',
+                    paddingBottom: '2.1mm',
                     marginTop: '1.4mm',
                     borderTop: '0.65mm solid #222',
+                    borderBottom: '0.65mm solid #222',
                   }}
                 >
-                  <div style={{ fontSize: '4.2mm', fontWeight: 800, color: CORP_GREEN }}>Saldo</div>
-                  <div style={{ fontSize: '4.2mm', fontWeight: 800, color: CORP_GREEN, textAlign: 'center' }}>:</div>
+                  <div style={{ fontSize: '4.2mm', fontWeight: 800, color: TEXT }}>Saldo</div>
+                  <div style={{ fontSize: '4.2mm', fontWeight: 800, color: TEXT, textAlign: 'center' }}>:</div>
                   <div
                     style={{
                       fontSize: '4.2mm',
                       fontWeight: 800,
-                      color: CORP_GREEN,
+                      color: TEXT,
                       textAlign: 'right',
                       minWidth: '29mm',
                     }}
@@ -546,7 +548,7 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
                 <div
                   style={{
                     textAlign: 'center',
-                    marginTop: '2mm',
+                    marginTop: '5mm',
                     breakInside: 'avoid' as any,
                     pageBreakInside: 'avoid',
                   }}
