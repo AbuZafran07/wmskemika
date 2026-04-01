@@ -484,10 +484,7 @@ export default function ProformaInvoicePage() {
               {isSavingPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
               Simpan PDF
             </Button>
-            <Button variant="outline" onClick={handlePrintPI}>
-              <Download className="w-4 h-4 mr-2" /> Cetak ke PDF
-            </Button>
-            <Button onClick={handlePrintPI}>
+            <Button onClick={handlePrintPI} disabled={isSavingPdf}>
               <Printer className="w-4 h-4 mr-2" /> Cetak
             </Button>
           </DialogFooter>
