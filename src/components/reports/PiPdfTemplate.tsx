@@ -354,7 +354,7 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
         </div>
 
         {/* ═══ SECTION 4: SIGNATURE ═══ */}
-        <div data-pdf-section style={{ marginTop: '28px', marginBottom: '120px' }}>
+        <div data-pdf-section style={{ marginTop: '20px', marginBottom: '40px' }}>
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <div style={{ width: '240px', textAlign: 'center' }}>
               <div style={{ fontWeight: 700, textTransform: 'uppercase', fontSize: '11px', marginBottom: '4px' }}>
