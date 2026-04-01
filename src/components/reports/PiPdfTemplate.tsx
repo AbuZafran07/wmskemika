@@ -236,9 +236,10 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
       >
         <div
           style={{
-            minHeight: `calc(${PAGE_HEIGHT} - ${PAGE_PADDING_TOP} - ${PAGE_PADDING_BOTTOM})`,
+            height: `calc(${PAGE_HEIGHT} - ${PAGE_PADDING_TOP} - ${PAGE_PADDING_BOTTOM})`,
             display: 'flex',
             flexDirection: 'column',
+            overflow: 'hidden',
           }}
         >
           {/* HEADER */}
