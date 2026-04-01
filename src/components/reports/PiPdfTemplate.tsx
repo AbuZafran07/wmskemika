@@ -246,7 +246,7 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
               <h1
                 style={{
                   margin: 0,
-                  marginBottom: '1.5mm',
+                  marginBottom: '3mm',
                   fontSize: '6.2mm',
                   lineHeight: 1.0,
                   fontWeight: 700,
