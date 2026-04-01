@@ -22,7 +22,7 @@ import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { exportSectionBasedPdf } from '@/lib/pdfSectionExport';
-import { securePrint, printStyles, sanitizeHtml } from '@/lib/printUtils';
+import { sanitizeHtml } from '@/lib/printUtils';
 import { PdfGeneratingOverlay } from '@/components/PdfGeneratingOverlay';
 import PiPdfTemplate, { PiPdfData } from '@/components/reports/PiPdfTemplate';
 
