@@ -40,6 +40,7 @@ export async function exportSectionBasedPdf({
   onProgress,
   backgroundImage,
   margins,
+  mode = "save",
 }: SectionBasedPdfOptions): Promise<void> {
   const m = margins || { top: MARGIN_MM, right: MARGIN_MM, bottom: MARGIN_MM, left: MARGIN_MM };
   const contentW = A4_WIDTH_MM - m.left - m.right;
