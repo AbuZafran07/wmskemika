@@ -177,7 +177,7 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
       }}
     >
       <td style={{ ...tdBase, textAlign: 'center' }}>{item.no}</td>
-      <td style={{ ...tdBase, color: CORP_GREEN, fontWeight: 700 }}>{item.code}</td>
+      <td style={{ ...tdBase, color: TEXT, fontWeight: 700 }}>{item.code}</td>
       <td style={{ ...tdBase, wordBreak: 'break-word', lineHeight: '1.28' }}>{item.name}</td>
       <td style={{ ...tdBase, textAlign: 'center' }}>{item.qty}</td>
       <td style={{ ...tdBase, textAlign: 'center' }}>{item.unit}</td>
