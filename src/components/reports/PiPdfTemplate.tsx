@@ -347,7 +347,8 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
           <div
             style={{
               flex: '1 1 auto',
-              minHeight: dynamicSpacerMinHeight,
+              minHeight: spacerMinHeight,
+              maxHeight: spacerMaxHeight,
             }}
           />
 
