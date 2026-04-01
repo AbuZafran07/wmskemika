@@ -117,23 +117,6 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
         position: 'relative',
       }}>
 
-        {/* ─── Watermark ─── */}
-        <div style={{
-          position: 'absolute',
-          top: '45%',
-          left: '50%',
-          transform: 'translate(-50%, -50%) rotate(-30deg)',
-          fontSize: '80px',
-          fontWeight: 700,
-          color: 'rgba(15, 107, 62, 0.06)',
-          letterSpacing: '12px',
-          whiteSpace: 'nowrap',
-          pointerEvents: 'none',
-          zIndex: 0,
-          textTransform: 'uppercase',
-        }}>
-          PROFORMA
-        </div>
 
         {/* ═══ SECTION 1: HEADER ═══ */}
         <div data-pdf-section style={{ paddingTop: '65px', marginBottom: '20px' }}>
