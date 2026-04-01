@@ -81,7 +81,6 @@ interface PiPdfTemplateProps {
 const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ data }, ref) => {
   const { company, invoice, customer, items, summary, signatory } = data;
 
-  // ── Shared inline styles (matching HTML template) ──
   const infoLabel: React.CSSProperties = {
     width: '26mm',
     padding: '0.7mm 0',
@@ -105,17 +104,17 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
     fontWeight: 700,
   };
 
-  // ── Table header columns ──
+  // FIX #1: 'Disc' → 'Disc.'
   const headerColumns = [
-    { label: 'No', w: '28px', align: 'center' as const },
-    { label: 'Kode', w: '70px', align: 'center' as const },
-    { label: 'Nama Barang', w: 'auto', align: 'center' as const },
-    { label: 'Jumlah', w: '48px', align: 'center' as const },
-    { label: 'Unit', w: '38px', align: 'center' as const },
-    { label: 'Harga', w: '78px', align: 'center' as const },
-    { label: 'Disc', w: '42px', align: 'center' as const },
-    { label: 'Sub Total', w: '85px', align: 'center' as const },
-    { label: 'Pajak', w: '38px', align: 'center' as const },
+    { label: 'No', w: '28px' },
+    { label: 'Kode', w: '70px' },
+    { label: 'Nama Barang', w: 'auto' },
+    { label: 'Jumlah', w: '48px' },
+    { label: 'Unit', w: '38px' },
+    { label: 'Harga', w: '78px' },
+    { label: 'Disc.', w: '42px' },
+    { label: 'Sub Total', w: '85px' },
+    { label: 'Pajak', w: '38px' },
   ];
 
   const thStyle: React.CSSProperties = {
@@ -162,32 +161,11 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
     </tr>
   );
 
-  // ── Chunk items for multi-page support ──
   const ROWS_PER_CHUNK = 8;
   const chunks: PiPdfItem[][] = [];
   for (let i = 0; i < items.length; i += ROWS_PER_CHUNK) {
     chunks.push(items.slice(i, i + ROWS_PER_CHUNK));
   }
-
-  // ── Summary row helper ──
-  const summaryLabel: React.CSSProperties = {
-    padding: '1.4mm 0',
-    fontSize: '3.7mm',
-    color: '#222',
-  };
-  const summaryColon: React.CSSProperties = {
-    padding: '1.4mm 0',
-    fontSize: '3.7mm',
-    textAlign: 'center',
-    width: '4mm',
-  };
-  const summaryValue: React.CSSProperties = {
-    padding: '1.4mm 0',
-    fontSize: '3.7mm',
-    textAlign: 'right',
-    whiteSpace: 'nowrap',
-    minWidth: '34mm',
-  };
 
   return (
     <div ref={ref}>
@@ -203,7 +181,6 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
         {/* ═══ SECTION 1: HEADER ═══ */}
         <div data-pdf-section style={{ paddingTop: '55px', marginBottom: '8mm' }}>
 
-          {/* Title - right aligned, limited width box */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2mm', marginBottom: '2mm' }}>
             <div style={{ width: '78mm', textAlign: 'right' }}>
               <h1 style={{
@@ -220,15 +197,11 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
             </div>
           </div>
 
-          {/* Divider: from LEFT, stops before title-box area (not full width) */}
           <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '8mm' }}>
             <div style={{ width: 'calc(100% - 78mm)', borderTop: '0.7mm solid #222', height: 0 }} />
           </div>
 
-          {/* 2-column header info */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: '14mm', marginBottom: '7mm' }}>
-
-            {/* LEFT: PI info */}
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <tbody>
                 <tr>
@@ -254,7 +227,6 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
               </tbody>
             </table>
 
-            {/* RIGHT: meta */}
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <tbody>
                 <tr>
@@ -299,7 +271,7 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
           </div>
         ) : (
           chunks.map((chunk, chunkIdx) => (
-            <div key={chunkIdx} data-pdf-section style={{ marginBottom: chunkIdx < chunks.length - 1 ? '0px' : '0' }}>
+            <div key={chunkIdx} data-pdf-section style={{ marginBottom: '0' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 {renderTableHeader()}
                 <tbody>
@@ -310,18 +282,27 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
           ))
         )}
 
-        {/* ═══ BIG SPACE + LOWER DIVIDER ═══ */}
-        <div data-pdf-section style={{ marginTop: '85mm', marginBottom: '8mm' }}>
-          <div style={{ borderTop: '0.7mm solid #222', width: '100%' }} />
-        </div>
+        {/*
+          FIX #2: Section spacer 85mm DIHAPUS — margin tidak ikut ter-capture html2canvas
+                  sehingga tidak pernah muncul di PDF. Ganti dengan data-pdf-bottom.
 
-        {/* ═══ SECTION 3: BOTTOM (Terbilang + Bank | Summary) ═══ */}
-        <div data-pdf-section>
+          FIX #3: Section signature terpisah DIHAPUS — digabung ke dalam kolom kanan footer.
+
+          FIX #4: Seluruh footer (divider + terbilang + bank + summary + signature)
+                  dijadikan SATU data-pdf-bottom section agar otomatis turun ke bawah halaman.
+        */}
+
+        {/* ═══ SECTION 3: FOOTER — bottom-anchored ═══ */}
+        <div data-pdf-bottom style={{ paddingBottom: '40px' }}>
+
+          {/* Garis pembatas atas footer */}
+          <div style={{ borderTop: '0.7mm solid #222', width: '100%', marginBottom: '8mm' }} />
+
+          {/* 2-kolom: Terbilang+Bank (kiri) | Summary+Signature (kanan) */}
           <div style={{ display: 'grid', gridTemplateColumns: '1.05fr 0.95fr', columnGap: '12mm', alignItems: 'start' }}>
 
-            {/* LEFT: Terbilang + Bank */}
+            {/* ── KIRI: Terbilang + Keterangan Pembayaran ── */}
             <div>
-              {/* Terbilang */}
               <div style={{
                 background: CORP_GREEN_LIGHT,
                 borderLeft: `1mm solid ${CORP_GREEN}`,
@@ -330,15 +311,11 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
                 fontSize: '3.5mm',
                 lineHeight: '1.55',
               }}>
-                <span style={{ fontWeight: 700, fontStyle: 'normal' }}>Terbilang: </span>
+                <span style={{ fontWeight: 700 }}>Terbilang: </span>
                 <span style={{ fontStyle: 'italic' }}>{invoice.amountInWords}</span>
               </div>
 
-              {/* Bank Info */}
-              <div style={{
-                border: '0.3mm solid #9a9a9a',
-                padding: '3.5mm 4mm',
-              }}>
+              <div style={{ border: '0.3mm solid #9a9a9a', padding: '3.5mm 4mm' }}>
                 <div style={{
                   fontSize: '3.9mm',
                   fontWeight: 800,
@@ -346,7 +323,7 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
                   textTransform: 'uppercase',
                   color: '#111',
                 }}>
-                  Keterangan Pembayaran
+                  Keterangan Pembayaran:
                 </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '3.5mm', lineHeight: '1.6' }}>
                   <tbody>
@@ -367,9 +344,10 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
               </div>
             </div>
 
-            {/* RIGHT: Summary Calculations */}
+            {/* ── KANAN: Summary + Signature (dalam 1 kolom) ── */}
             <div style={{ width: '100%', fontSize: '3.7mm' }}>
-              {/* DPP, DPP Pengganti, Pajak, Biaya Pengantaran */}
+
+              {/* Baris DPP s.d. Biaya Pengantaran */}
               {([
                 { label: 'DPP', value: fmt(summary.dpp) },
                 { label: 'DPP Pengganti', value: fmt(summary.dppPengganti) },
@@ -383,7 +361,6 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
                 </div>
               ))}
 
-              {/* Separator */}
               <div style={{ borderTop: '0.3mm solid #888', margin: '1.5mm 0' }} />
 
               {/* Sub Total */}
@@ -409,7 +386,7 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
                 </div>
               </div>
 
-              {/* Saldo - prominent with green color */}
+              {/* Saldo */}
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: '1fr 4mm auto',
@@ -425,42 +402,38 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
                   Rp {fmt(summary.balance)}
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
 
-        {/* ═══ SECTION 4: SIGNATURE ═══ */}
-        <div data-pdf-section style={{ marginTop: '10mm', marginBottom: '40px' }}>
-          <div style={{ width: '42%', marginLeft: 'auto', textAlign: 'center' }}>
-            <div style={{ fontSize: '4mm', fontWeight: 800, marginBottom: '13mm' }}>
-              {company.name}
-            </div>
+              {/* ── Signature (di bawah Saldo, kolom kanan) ── */}
+              <div style={{ textAlign: 'center', marginTop: '10mm' }}>
 
-            {/* Signature image area */}
-            <div style={{ height: '52px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 0 2mm 0' }}>
-              {signatory.isApproved && signatory.signatureUrl ? (
-                <img
-                  src={signatory.signatureUrl}
-                  alt="signature"
-                  style={{ maxHeight: '50px', maxWidth: '160px', objectFit: 'contain' }}
-                  crossOrigin="anonymous"
-                />
-              ) : (
-                <div style={{ height: '50px' }} />
-              )}
-            </div>
+                <div style={{ fontSize: '4mm', fontWeight: 800, marginBottom: '13mm' }}>
+                  {company.name}
+                </div>
 
-            {/* Line */}
-            <div style={{ width: '85%', borderTop: '0.35mm solid #666', margin: '0 auto 2mm auto' }} />
+                <div style={{ height: '52px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 0 2mm 0' }}>
+                  {signatory.isApproved && signatory.signatureUrl ? (
+                    <img
+                      src={signatory.signatureUrl}
+                      alt="signature"
+                      style={{ maxHeight: '50px', maxWidth: '160px', objectFit: 'contain' }}
+                      crossOrigin="anonymous"
+                    />
+                  ) : (
+                    <div style={{ height: '50px' }} />
+                  )}
+                </div>
 
-            {/* Name */}
-            <div style={{ fontSize: '3.5mm', marginBottom: '1mm' }}>
-              {signatory.isApproved && signatory.name ? signatory.name : '(....................................)'}
-            </div>
+                <div style={{ width: '85%', borderTop: '0.35mm solid #666', margin: '0 auto 2mm auto' }} />
 
-            {/* Role */}
-            <div style={{ fontSize: '3.4mm', fontWeight: 700, letterSpacing: '0.5px' }}>
-              {signatory.position}
+                <div style={{ fontSize: '3.5mm', marginBottom: '1mm' }}>
+                  {signatory.isApproved && signatory.name ? signatory.name : '(....................................)'}
+                </div>
+
+                <div style={{ fontSize: '3.4mm', fontWeight: 700, letterSpacing: '0.5px' }}>
+                  {signatory.position}
+                </div>
+              </div>
+
             </div>
           </div>
         </div>
