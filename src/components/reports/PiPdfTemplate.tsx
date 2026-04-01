@@ -373,7 +373,7 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
                     background: CORP_GREEN_LIGHT,
                     borderLeft: `0.9mm solid ${CORP_GREEN}`,
                     padding: '2.2mm 2.8mm',
-                    marginBottom: '4mm',
+                    marginBottom: '2.5mm',
                     fontSize: '3.0mm',
                     lineHeight: '1.42',
                     WebkitPrintColorAdjust: 'exact',
