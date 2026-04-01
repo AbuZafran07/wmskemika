@@ -201,11 +201,11 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
 
   const itemCount = items.length;
   const dynamicSpacerMinHeight =
-    itemCount <= 2 ? '18mm' :
-    itemCount <= 4 ? '14mm' :
-    itemCount <= 6 ? '10mm' :
-    itemCount <= 8 ? '6mm' :
-    '2mm';
+    itemCount <= 2 ? '8mm' :
+    itemCount <= 4 ? '5mm' :
+    itemCount <= 6 ? '3mm' :
+    itemCount <= 8 ? '2mm' :
+    '1mm';
 
   return (
     <div ref={ref}>
@@ -264,10 +264,12 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
                     margin: 0,
                     fontSize: '6.2mm',
                     lineHeight: 1.0,
-                    fontWeight: 800,
+                    fontWeight: 400,
+                    fontStyle: 'italic',
                     letterSpacing: '0.05px',
                     textTransform: 'uppercase',
                     color: '#111',
+                    fontFamily: 'Georgia, "Times New Roman", Times, serif',
                   }}
                 >
                   PROFORMA INVOICE
