@@ -117,26 +117,9 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
         position: 'relative',
       }}>
 
-        {/* ─── Watermark ─── */}
-        <div style={{
-          position: 'absolute',
-          top: '45%',
-          left: '50%',
-          transform: 'translate(-50%, -50%) rotate(-30deg)',
-          fontSize: '80px',
-          fontWeight: 700,
-          color: 'rgba(15, 107, 62, 0.06)',
-          letterSpacing: '12px',
-          whiteSpace: 'nowrap',
-          pointerEvents: 'none',
-          zIndex: 0,
-          textTransform: 'uppercase',
-        }}>
-          PROFORMA
-        </div>
 
         {/* ═══ SECTION 1: HEADER ═══ */}
-        <div data-pdf-section style={{ paddingTop: '65px', marginBottom: '20px' }}>
+        <div data-pdf-section style={{ paddingTop: '55px', marginBottom: '16px' }}>
 
           {/* Title */}
           <h1 style={{
@@ -273,7 +256,7 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
         </div>
 
         {/* ═══ SECTION 3: BOTTOM AREA (Terbilang + Bank | Calculations) ═══ */}
-        <div data-pdf-section style={{ marginTop: '60px' }}>
+        <div data-pdf-section style={{ marginTop: '24px' }}>
           {/* Divider */}
           <div style={{ borderTop: '2px solid #000', marginBottom: '16px' }} />
 
@@ -371,7 +354,7 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
         </div>
 
         {/* ═══ SECTION 4: SIGNATURE ═══ */}
-        <div data-pdf-section style={{ marginTop: '28px', marginBottom: '120px' }}>
+        <div data-pdf-section style={{ marginTop: '20px', marginBottom: '40px' }}>
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <div style={{ width: '240px', textAlign: 'center' }}>
               <div style={{ fontWeight: 700, textTransform: 'uppercase', fontSize: '11px', marginBottom: '4px' }}>
