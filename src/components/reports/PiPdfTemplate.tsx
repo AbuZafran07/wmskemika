@@ -217,6 +217,7 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
     <div ref={ref}>
       <div
         data-pdf-root
+        data-pdf-section
         style={{
           width: PAGE_WIDTH,
           minHeight: PAGE_HEIGHT,

@@ -127,7 +127,7 @@ export default function ProformaInvoicePage() {
     setSelectedId(null);
   };
 
-  const piMargins = { top: 20, right: 15, bottom: 20, left: 15 };
+  const piMargins = { top: 0, right: 0, bottom: 0, left: 0 };
 
   const handlePrintPI = async () => {
     if (!printRef.current || !detail) return;

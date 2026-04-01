@@ -17,6 +17,7 @@ const MARGIN_MM = 10;
 const CONTENT_WIDTH_MM = A4_WIDTH_MM - MARGIN_MM * 2;
 const CONTENT_HEIGHT_MM = A4_HEIGHT_MM - MARGIN_MM * 2;
 const SECTION_GAP_MM = 0;
+const HEIGHT_EPSILON_MM = 1;
 
 interface PdfMargins {
   top: number;
@@ -99,8 +100,16 @@ export async function exportSectionBasedPdf({
     throw new Error("No content found for PDF export");
   }
 
-  // Get all direct children of the content wrapper as sections
-  const sections = Array.from(contentWrapper.children) as HTMLElement[];
+  // Prefer explicitly marked direct sections.
+  // If none exist and the root itself is marked, capture the whole page as one section.
+  // Fallback to all direct children for older templates.
+  const directChildren = Array.from(contentWrapper.children) as HTMLElement[];
+  const directMarkedSections = directChildren.filter((child) => child.hasAttribute("data-pdf-section"));
+  const sections = directMarkedSections.length > 0
+    ? directMarkedSections
+    : contentWrapper.hasAttribute("data-pdf-section")
+      ? [contentWrapper]
+      : directChildren;
 
   if (sections.length === 0) {
     document.body.removeChild(clone);
@@ -151,7 +160,8 @@ export async function exportSectionBasedPdf({
       // Calculate height in mm based on actual pixel dimensions and scale factor
       const scaledWidth = canvas.width / 2; // scale: 2
       const scaledHeight = canvas.height / 2;
-      const heightMM = (scaledHeight / scaledWidth) * contentW;
+      const rawHeightMM = (scaledHeight / scaledWidth) * contentW;
+      const heightMM = Math.abs(rawHeightMM - contentH) <= HEIGHT_EPSILON_MM ? contentH : rawHeightMM;
 
       capturedSections.push({ canvas, heightMM });
     }
@@ -248,13 +258,13 @@ export async function exportSectionBasedPdf({
 
     // If a single section is taller than the page content area,
     // we need to split it across pages (fallback for very large tables)
-    if (heightMM > contentH) {
+    if (heightMM > contentH + HEIGHT_EPSILON_MM) {
       // For oversized sections, use the old slicing approach
       const imgData = canvas.toDataURL("image/jpeg", 0.92);
       let sectionRemainingHeight = heightMM;
       let yOffset = 0;
 
-      while (sectionRemainingHeight > 0) {
+      while (sectionRemainingHeight > HEIGHT_EPSILON_MM) {
         if (yOffset > 0) {
           pdf.addPage();
           addPageBg();
