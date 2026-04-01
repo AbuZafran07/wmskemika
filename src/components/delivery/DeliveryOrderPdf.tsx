@@ -67,7 +67,6 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
         element: contentRef.current,
         filename: `DO-${doNumber}.pdf`,
         onProgress: setPdfProgress,
-        backgroundImage: '/kop-surat-bg.jpg',
       });
     } catch (error) {
       console.error('PDF generation error:', error);
