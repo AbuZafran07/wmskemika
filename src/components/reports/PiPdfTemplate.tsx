@@ -201,10 +201,9 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
 
   const itemCount = items.length;
   const dynamicSpacerMinHeight =
-    itemCount <= 1 ? '4mm' :
-    itemCount <= 2 ? '3mm' :
-    itemCount <= 4 ? '2mm' :
-    itemCount <= 6 ? '1.5mm' :
+    itemCount <= 1 ? '2mm' :
+    itemCount <= 2 ? '1.5mm' :
+    itemCount <= 4 ? '1mm' :
     '0.5mm';
 
   return (
@@ -352,7 +351,7 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
               pageBreakInside: 'avoid',
             }}
           >
-            <div style={{ borderTop: '0.65mm solid #222', width: '100%', marginBottom: '5.5mm' }} />
+            <div style={{ borderTop: '0.65mm solid #222', width: '100%', marginBottom: '3.5mm' }} />
 
             <div
               style={{
@@ -374,7 +373,7 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
                     background: CORP_GREEN_LIGHT,
                     borderLeft: `0.9mm solid ${CORP_GREEN}`,
                     padding: '2.2mm 2.8mm',
-                    marginBottom: '4mm',
+                    marginBottom: '2.5mm',
                     fontSize: '3.0mm',
                     lineHeight: '1.42',
                     WebkitPrintColorAdjust: 'exact',
@@ -539,18 +538,18 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
                 <div
                   style={{
                     textAlign: 'center',
-                    marginTop: '4mm',
+                    marginTop: '2mm',
                     breakInside: 'avoid' as any,
                     pageBreakInside: 'avoid',
                   }}
                 >
-                  <div style={{ fontSize: '3.35mm', fontWeight: 800, marginBottom: '4.5mm' }}>
+                  <div style={{ fontSize: '3.35mm', fontWeight: 800, marginBottom: '2mm' }}>
                     {company.name}
                   </div>
 
                   <div
                     style={{
-                      height: '52px',
+                      height: '42px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -563,13 +562,13 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
                         alt="signature"
                         crossOrigin="anonymous"
                         style={{
-                          maxHeight: '48px',
+                          maxHeight: '40px',
                           maxWidth: '120px',
                           objectFit: 'contain',
                         }}
                       />
                     ) : (
-                      <div style={{ height: '48px' }} />
+                      <div style={{ height: '40px' }} />
                     )}
                   </div>
 
