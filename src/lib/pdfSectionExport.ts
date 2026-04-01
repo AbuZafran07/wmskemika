@@ -99,8 +99,16 @@ export async function exportSectionBasedPdf({
     throw new Error("No content found for PDF export");
   }
 
-  // Get all direct children of the content wrapper as sections
-  const sections = Array.from(contentWrapper.children) as HTMLElement[];
+  // Prefer explicitly marked direct sections.
+  // If none exist and the root itself is marked, capture the whole page as one section.
+  // Fallback to all direct children for older templates.
+  const directChildren = Array.from(contentWrapper.children) as HTMLElement[];
+  const directMarkedSections = directChildren.filter((child) => child.hasAttribute("data-pdf-section"));
+  const sections = directMarkedSections.length > 0
+    ? directMarkedSections
+    : contentWrapper.hasAttribute("data-pdf-section")
+      ? [contentWrapper]
+      : directChildren;
 
   if (sections.length === 0) {
     document.body.removeChild(clone);
