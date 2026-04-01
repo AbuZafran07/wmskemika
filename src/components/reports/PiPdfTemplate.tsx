@@ -84,7 +84,7 @@ const PAGE_PADDING_RIGHT = '18mm';
 const PAGE_PADDING_BOTTOM = '14mm';
 
 const HEADER_TOP_OFFSET = '26px';
-const TITLE_WIDTH_MM = 50;
+const TITLE_WIDTH_MM = 65;
 
 interface PiPdfTemplateProps {
   data: PiPdfData;
@@ -270,6 +270,7 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
                     textTransform: 'uppercase',
                     color: '#111',
                     fontFamily: 'Georgia, "Times New Roman", Times, serif',
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   PROFORMA INVOICE
