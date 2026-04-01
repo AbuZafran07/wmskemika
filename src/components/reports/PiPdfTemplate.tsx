@@ -204,21 +204,25 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
         </div>
 
         {/* ═══ SECTION 2: ITEMS TABLE ═══ */}
-        <div data-pdf-section style={{ marginBottom: '8px' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        {/* Split table into chunks so page breaks happen between rows, not through them */}
+        {(() => {
+          const ROWS_PER_CHUNK = 8;
+          const headerColumns = [
+            { label: 'No', w: '32px', align: 'center' as const },
+            { label: 'Kode', w: '75px', align: 'left' as const },
+            { label: 'Nama Barang', w: 'auto', align: 'left' as const },
+            { label: 'Jumlah', w: '55px', align: 'center' as const },
+            { label: 'Unit', w: '42px', align: 'center' as const },
+            { label: 'Harga', w: '85px', align: 'right' as const },
+            { label: 'Disc.', w: '55px', align: 'center' as const },
+            { label: 'Sub Total', w: '90px', align: 'right' as const },
+            { label: 'Pajak', w: '42px', align: 'center' as const },
+          ];
+
+          const renderHeader = () => (
             <thead>
               <tr>
-                {[
-                  { label: 'No', w: '32px', align: 'center' as const },
-                  { label: 'Kode', w: '75px', align: 'left' as const },
-                  { label: 'Nama Barang', w: 'auto', align: 'left' as const },
-                  { label: 'Jumlah', w: '55px', align: 'center' as const },
-                  { label: 'Unit', w: '42px', align: 'center' as const },
-                  { label: 'Harga', w: '85px', align: 'right' as const },
-                  { label: 'Disc.', w: '55px', align: 'center' as const },
-                  { label: 'Sub Total', w: '90px', align: 'right' as const },
-                  { label: 'Pajak', w: '42px', align: 'center' as const },
-                ].map((h) => (
+                {headerColumns.map((h) => (
                   <th key={h.label} style={{
                     backgroundColor: CORP_GREEN,
                     color: '#fff',
@@ -237,23 +241,54 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
                 ))}
               </tr>
             </thead>
-            <tbody>
-              {items.map((item, idx) => (
-                <tr key={item.no} style={{ backgroundColor: idx % 2 === 1 ? CORP_GREEN_LIGHT : 'transparent' }}>
-                  <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', textAlign: 'center' }}>{item.no}</td>
-                  <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', color: CORP_GREEN, fontWeight: 700 }}>{item.code}</td>
-                  <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', lineHeight: '1.4', wordBreak: 'break-word' }}>{item.name}</td>
-                  <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', textAlign: 'center' }}>{item.qty}</td>
-                  <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', textAlign: 'center' }}>{item.unit}</td>
-                  <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>{fmt(item.price)}</td>
-                  <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', textAlign: 'center' }}>{item.discount > 0 ? `${item.discount}%` : '-'}</td>
-                  <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700 }}>{fmt(item.subtotal)}</td>
-                  <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', textAlign: 'center' }}>{item.taxPercent}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+          );
+
+          const renderRow = (item: PiPdfItem, idx: number) => (
+            <tr key={item.no} style={{ backgroundColor: idx % 2 === 1 ? CORP_GREEN_LIGHT : 'transparent' }}>
+              <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', textAlign: 'center' }}>{item.no}</td>
+              <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', color: CORP_GREEN, fontWeight: 700 }}>{item.code}</td>
+              <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', lineHeight: '1.4', wordBreak: 'break-word' }}>{item.name}</td>
+              <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', textAlign: 'center' }}>{item.qty}</td>
+              <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', textAlign: 'center' }}>{item.unit}</td>
+              <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>{fmt(item.price)}</td>
+              <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', textAlign: 'center' }}>{item.discount > 0 ? `${item.discount}%` : '-'}</td>
+              <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700 }}>{fmt(item.subtotal)}</td>
+              <td style={{ border: '1px solid #ccc', padding: '6px', fontSize: '10px', textAlign: 'center' }}>{item.taxPercent}</td>
+            </tr>
+          );
+
+          // Split items into chunks
+          const chunks: PiPdfItem[][] = [];
+          for (let i = 0; i < items.length; i += ROWS_PER_CHUNK) {
+            chunks.push(items.slice(i, i + ROWS_PER_CHUNK));
+          }
+
+          // If only 1 chunk, render as a single section (original behavior)
+          if (chunks.length <= 1) {
+            return (
+              <div data-pdf-section style={{ marginBottom: '8px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  {renderHeader()}
+                  <tbody>
+                    {items.map((item, idx) => renderRow(item, idx))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          }
+
+          // Multiple chunks: each chunk is its own section with repeated header
+          return chunks.map((chunk, chunkIdx) => (
+            <div key={chunkIdx} data-pdf-section style={{ marginBottom: chunkIdx < chunks.length - 1 ? '0px' : '8px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                {renderHeader()}
+                <tbody>
+                  {chunk.map((item, idx) => renderRow(item, chunkIdx * ROWS_PER_CHUNK + idx))}
+                </tbody>
+              </table>
+            </div>
+          ));
+        })()}
 
         {/* ═══ SECTION 3: BOTTOM AREA (Terbilang + Bank | Calculations) ═══ */}
         <div data-pdf-section style={{ marginTop: '24px' }}>
