@@ -22,7 +22,7 @@ import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { exportSectionBasedPdf } from '@/lib/pdfSectionExport';
-import { securePrint, printStyles, sanitizeHtml } from '@/lib/printUtils';
+import { sanitizeHtml } from '@/lib/printUtils';
 import { PdfGeneratingOverlay } from '@/components/PdfGeneratingOverlay';
 import PiPdfTemplate, { PiPdfData } from '@/components/reports/PiPdfTemplate';
 
@@ -129,18 +129,25 @@ export default function ProformaInvoicePage() {
 
   const piMargins = { top: 20, right: 15, bottom: 20, left: 15 };
 
-  const handlePrintPI = () => {
+  const handlePrintPI = async () => {
     if (!printRef.current || !detail) return;
-    const piPrintStyles = `
-      @page { size: A4 portrait; margin: 20mm 15mm 20mm 15mm; }
-      body { margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #222; background: #fff; background-image: url(/kop-surat-pi-bg.jpg); background-size: 210mm 297mm; background-repeat: no-repeat; background-position: center top; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-      th[style*="background"] { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    `;
-    securePrint({
-      title: `ProformaInvoice_${detail.pi_number}`,
-      styles: piPrintStyles,
-      content: printRef.current.innerHTML,
-    });
+    setIsSavingPdf(true);
+    setPdfProgress(0);
+    try {
+      const filename = `PI_${detail.pi_number.replace(/[^a-zA-Z0-9.-]/g, "_")}.pdf`;
+      await exportSectionBasedPdf({
+        element: printRef.current,
+        filename,
+        onProgress: setPdfProgress,
+        backgroundImage: `${window.location.origin}/kop-surat-pi-bg.jpg`,
+        margins: piMargins,
+        mode: "print",
+      });
+    } catch (err: any) {
+      toast.error('Gagal mencetak');
+    } finally {
+      setIsSavingPdf(false);
+    }
   };
 
   const handleSaveAsPDF = async () => {
@@ -477,10 +484,7 @@ export default function ProformaInvoicePage() {
               {isSavingPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
               Simpan PDF
             </Button>
-            <Button variant="outline" onClick={handlePrintPI}>
-              <Download className="w-4 h-4 mr-2" /> Cetak ke PDF
-            </Button>
-            <Button onClick={handlePrintPI}>
+            <Button onClick={handlePrintPI} disabled={isSavingPdf}>
               <Printer className="w-4 h-4 mr-2" /> Cetak
             </Button>
           </DialogFooter>
