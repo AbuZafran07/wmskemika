@@ -889,7 +889,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     
     let canCheckThisItem = false;
     if (isFinanceChecklist) {
-      canCheckThisItem = ['super_admin', 'finance'].includes(user.role || '');
+      canCheckThisItem = ['super_admin', 'admin', 'finance'].includes(user.role || '');
     } else if (isUploadChecklist) {
       canCheckThisItem = ['super_admin', 'warehouse'].includes(user.role || '');
     } else {
