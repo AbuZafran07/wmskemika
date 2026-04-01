@@ -898,7 +898,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
     if (!canCheckThisItem) {
       if (isFinanceChecklist) {
-        toast.error("Hanya Finance atau Super Admin yang dapat mencentang checklist ini");
+        toast.error("Hanya Admin, Finance, atau Super Admin yang dapat mencentang checklist ini");
       } else if (isUploadChecklist) {
         toast.error("Hanya Warehouse atau Super Admin yang dapat mencentang checklist ini");
       } else {
