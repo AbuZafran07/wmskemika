@@ -239,31 +239,25 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
           <div style={{ paddingTop: HEADER_TOP_OFFSET }}>
             <div
               style={{
-                display: 'flex',
-                alignItems: 'flex-end',
+                borderBottom: '0.65mm solid #222',
                 marginBottom: '5.5mm',
+                textAlign: 'right',
+                paddingBottom: '1.2mm',
               }}
             >
-              <div
-                style={{
-                  flex: 1,
-                  borderTop: '0.65mm solid #222',
-                  transform: 'translateY(-0.8mm)',
-                }}
-              />
               <h1
                 style={{
                   margin: 0,
                   fontSize: '6.2mm',
                   lineHeight: 1.0,
-                  fontWeight: 400,
+                  fontWeight: 700,
                   fontStyle: 'italic',
                   letterSpacing: '0.05px',
                   textTransform: 'uppercase',
                   color: '#111',
                   fontFamily: 'Georgia, "Times New Roman", Times, serif',
                   whiteSpace: 'nowrap',
-                  paddingLeft: '3.5mm',
+                  display: 'inline',
                 }}
               >
                 PROFORMA INVOICE
