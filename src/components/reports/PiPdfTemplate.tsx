@@ -84,7 +84,7 @@ const PAGE_PADDING_RIGHT = '18mm';
 const PAGE_PADDING_BOTTOM = '14mm';
 
 const HEADER_TOP_OFFSET = '26px';
-const TITLE_WIDTH_MM = 50;
+const TITLE_WIDTH_MM = 65;
 
 interface PiPdfTemplateProps {
   data: PiPdfData;
