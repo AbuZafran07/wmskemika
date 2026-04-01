@@ -119,7 +119,7 @@ const PiPdfTemplate = React.forwardRef<HTMLDivElement, PiPdfTemplateProps>(({ da
 
 
         {/* ═══ SECTION 1: HEADER ═══ */}
-        <div data-pdf-section style={{ paddingTop: '65px', marginBottom: '20px' }}>
+        <div data-pdf-section style={{ paddingTop: '55px', marginBottom: '16px' }}>
 
           {/* Title */}
           <h1 style={{
