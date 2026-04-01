@@ -568,7 +568,7 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
                         }}
                       />
                     ) : (
-                      <div style={{ height: '48px' }} />
+                      <div style={{ height: '40px' }} />
                     )}
                   </div>
 
