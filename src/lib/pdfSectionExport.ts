@@ -302,7 +302,21 @@ export async function exportSectionBasedPdf({
 
   progress(90);
 
-  pdf.save(filename);
+  if (mode === "print") {
+    const pdfBlob = pdf.output("blob");
+    const blobUrl = URL.createObjectURL(pdfBlob);
+    const printWindow = window.open(blobUrl, "_blank");
+    if (printWindow) {
+      printWindow.addEventListener("afterprint", () => {
+        printWindow.close();
+        URL.revokeObjectURL(blobUrl);
+      });
+      // Fallback: revoke after 5 minutes
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 300000);
+    }
+  } else {
+    pdf.save(filename);
+  }
 
   progress(100);
   await new Promise((r) => setTimeout(r, 300));
