@@ -335,7 +335,21 @@ export async function cancelSalesOrder(orderId: string): Promise<{ success: bool
   try {
     const { data, error } = await supabase.rpc('sales_order_cancel', { order_id: orderId });
     if (error) throw error;
-    return data as { success: boolean; error?: string };
+    const result = data as { success: boolean; error?: string };
+
+    // Auto-archive kanban card when SO is cancelled
+    if (result.success) {
+      try {
+        await supabase
+          .from('delivery_requests')
+          .update({ board_status: 'archived', moved_at: new Date().toISOString() })
+          .eq('sales_order_id', orderId);
+      } catch (archiveErr) {
+        console.warn('Failed to auto-archive delivery card:', archiveErr);
+      }
+    }
+
+    return result;
   } catch (error: unknown) {
     return { success: false, error: error instanceof Error ? error.message : 'Failed to cancel' };
   }

@@ -125,10 +125,6 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
             flexDirection: 'column',
             minHeight: '267mm',
             padding: '8mm 15mm 15mm 15mm',
-            backgroundImage: 'url(/kop-surat-bg.jpg)',
-            backgroundSize: '210mm 297mm',
-            backgroundRepeat: 'no-repeat',
-            backgroundPosition: 'center top',
             WebkitPrintColorAdjust: 'exact' as any,
           }}>
 
