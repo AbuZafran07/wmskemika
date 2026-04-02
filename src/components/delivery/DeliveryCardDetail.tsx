@@ -735,7 +735,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     }
   };
 
-  const canApproveUrgent = user?.role && ['super_admin', 'warehouse', 'finance'].includes(user.role);
+  const canApproveUrgent = user?.role && ['super_admin', 'admin', 'warehouse', 'finance'].includes(user.role);
 
   // Update existing label (super_admin only)
   const updateLabel = async (labelId: string) => {
