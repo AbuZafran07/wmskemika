@@ -394,10 +394,16 @@ export default function ProformaInvoicePage() {
                   <span>{formatCurrency(detail.subtotal)}</span>
                 </div>
                 {detail.tax_amount > 0 && (
-                  <div className="flex justify-between">
-                    <span>PPN ({detail.tax_rate}%)</span>
-                    <span>{formatCurrency(detail.tax_amount)}</span>
-                  </div>
+                  <>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>DPP Pengganti</span>
+                      <span>{formatCurrency(Math.round(detail.subtotal * 11 / 12))}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>PPN 12%</span>
+                      <span>{formatCurrency(detail.tax_amount)}</span>
+                    </div>
+                  </>
                 )}
                 <div className="flex justify-between font-semibold border-t pt-1">
                   <span>Total (DPP + PPN)</span>
