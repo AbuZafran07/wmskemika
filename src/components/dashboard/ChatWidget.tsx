@@ -124,7 +124,11 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
   useEffect(() => {
     if (isMinimized) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (chatCardRef.current && !chatCardRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (chatCardRef.current && !chatCardRef.current.contains(target)) {
+        // Don't close if clicking inside a popover portal (emoji picker, reaction picker, etc.)
+        const popoverContent = (target as Element)?.closest?.('[data-radix-popper-content-wrapper], [role="dialog"], .EmojiPickerReact');
+        if (popoverContent) return;
         setIsMinimized(true);
       }
     };
