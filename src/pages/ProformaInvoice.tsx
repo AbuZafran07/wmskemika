@@ -394,10 +394,16 @@ export default function ProformaInvoicePage() {
                   <span>{formatCurrency(detail.subtotal)}</span>
                 </div>
                 {detail.tax_amount > 0 && (
-                  <div className="flex justify-between">
-                    <span>PPN ({detail.tax_rate}%)</span>
-                    <span>{formatCurrency(detail.tax_amount)}</span>
-                  </div>
+                  <>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>DPP Pengganti</span>
+                      <span>{formatCurrency(Math.round(detail.subtotal * 11 / 12))}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>PPN 12%</span>
+                      <span>{formatCurrency(detail.tax_amount)}</span>
+                    </div>
+                  </>
                 )}
                 <div className="flex justify-between font-semibold border-t pt-1">
                   <span>Total (DPP + PPN)</span>
@@ -497,6 +503,7 @@ export default function ProformaInvoicePage() {
           const customer = detail.customer as any;
           const so = detail.sales_order as any;
           const dpp = Math.round(detail.subtotal);
+          const dppPenggantiCalc = Math.round(dpp * 11 / 12);
           const pajak = Math.round(detail.tax_amount || 0);
           const biayaPengantaran = Math.round(detail.shipping_cost || 0);
           const subTotalCalc = Math.round(dpp + pajak + biayaPengantaran);
@@ -539,11 +546,11 @@ export default function ProformaInvoicePage() {
               price: Math.round(item.unit_price),
               discount: item.discount || 0,
               subtotal: Math.round(item.subtotal),
-              taxPercent: detail.tax_rate ? `${detail.tax_rate}%` : '0%',
+              taxPercent: '12%',
             })),
             summary: {
               dpp,
-              dppPengganti: 0,
+              dppPengganti: dppPenggantiCalc,
               tax: pajak,
               deliveryFee: biayaPengantaran,
               subTotal: subTotalCalc,
