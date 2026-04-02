@@ -550,7 +550,7 @@ export default function ProformaInvoicePage() {
             })),
             summary: {
               dpp,
-              dppPengganti: 0,
+              dppPengganti: dppPenggantiCalc,
               tax: pajak,
               deliveryFee: biayaPengantaran,
               subTotal: subTotalCalc,
