@@ -298,6 +298,7 @@ export default function DeliveryMarqueeTicker() {
         <div
           ref={tickerRef}
           className="whitespace-nowrap animate-marquee inline-flex items-center gap-1"
+          style={{ animationDuration: `${Math.max(30, items.length * 12)}s` }}
         >
           {items.length > 0 ? items.map((item, idx) => (
             <React.Fragment key={item.id}>
