@@ -1336,9 +1336,12 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       const taxRate = soHeader.tax_rate || 0;
       const shippingCost = soHeader.shipping_cost || 0;
       const afterDiscount = Math.round(subtotal - discount);
-      const taxAmount = Math.round(afterDiscount * (taxRate / 100));
+      // DPP Pengganti scheme: DPP × 11/12, then PPN = DPP Pengganti × 12%
+      const dpp = afterDiscount;
+      const dppPengganti = Math.round(dpp * 11 / 12);
+      const taxAmount = Math.round(dppPengganti * 0.12);
       const materai = calculateMaterai(cust?.customer_type, afterDiscount, shippingCost, taxAmount, materaiAmount);
-      const grandTotal = Math.round(afterDiscount + shippingCost + taxAmount + materai);
+      const grandTotal = Math.round(dpp + shippingCost + taxAmount + materai);
 
       // Insert PI header
       const { data: piData, error: piError } = await (supabase

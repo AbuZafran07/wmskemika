@@ -503,6 +503,7 @@ export default function ProformaInvoicePage() {
           const customer = detail.customer as any;
           const so = detail.sales_order as any;
           const dpp = Math.round(detail.subtotal);
+          const dppPenggantiCalc = Math.round(dpp * 11 / 12);
           const pajak = Math.round(detail.tax_amount || 0);
           const biayaPengantaran = Math.round(detail.shipping_cost || 0);
           const subTotalCalc = Math.round(dpp + pajak + biayaPengantaran);
