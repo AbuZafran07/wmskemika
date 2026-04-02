@@ -546,7 +546,7 @@ export default function ProformaInvoicePage() {
               price: Math.round(item.unit_price),
               discount: item.discount || 0,
               subtotal: Math.round(item.subtotal),
-              taxPercent: detail.tax_rate ? `${detail.tax_rate}%` : '0%',
+              taxPercent: '12%',
             })),
             summary: {
               dpp,

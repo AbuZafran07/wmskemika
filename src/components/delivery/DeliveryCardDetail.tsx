@@ -1353,7 +1353,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           delivery_request_id: card.id,
           subtotal: afterDiscount,
           discount,
-          tax_rate: taxRate,
+          tax_rate: 12,
           tax_amount: taxAmount,
           shipping_cost: shippingCost,
           other_costs: 0,
