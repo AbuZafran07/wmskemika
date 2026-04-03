@@ -1331,7 +1331,7 @@ export default function RequestDelivery() {
                       onClick={() => setDetailCard(card)}
                     >
                       {/* Pending Approval Indicator */}
-                      {pendingApprovalsMap[card.id] > 0 && (
+                      {pendingApprovalsMap[card.id] > 0 && !["delivered", "delivered_sample"].includes(card.board_status) && (
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <div className="absolute -top-1.5 -right-1.5 z-10" onClick={(e) => e.stopPropagation()}>
