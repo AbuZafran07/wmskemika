@@ -1359,7 +1359,7 @@ export default function RequestDelivery() {
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
                           <Badge className={cn("px-1.5 py-0", isFullView ? "text-[7px] h-3.5" : "text-[9px] h-4", getStatusBadgeColor(card.so_status))}>
-                            {card.so_status}
+                            {card.so_status === "delivered" ? "Fulfilled" : card.so_status}
                           </Badge>
                         </div>
                       </div>
