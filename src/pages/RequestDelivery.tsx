@@ -1325,8 +1325,8 @@ export default function RequestDelivery() {
                         draggedCard?.id === card.id && "opacity-40 scale-95",
                         canManage && card.board_status !== "on_hold_delivery" && "cursor-grab active:cursor-grabbing",
                         card.board_status === "on_hold_delivery" && "opacity-75 cursor-not-allowed border-orange-500/30",
-                        cardLabelsMap[card.id]?.some(l => /urgent|cito/i.test(l.name)) && "ring-2 ring-destructive/70 border-destructive/50 animate-pulse",
-                        pendingApprovalsMap[card.id] > 0 && !cardLabelsMap[card.id]?.some(l => /urgent|cito/i.test(l.name)) && "ring-1 ring-amber-400/50 border-amber-400/40"
+                        cardLabelsMap[card.id]?.some(l => /urgent|cito/i.test(l.name)) && !["delivered", "delivered_sample"].includes(card.board_status) && "ring-2 ring-destructive/70 border-destructive/50 animate-pulse",
+                        pendingApprovalsMap[card.id] > 0 && !cardLabelsMap[card.id]?.some(l => /urgent|cito/i.test(l.name)) && !["delivered", "delivered_sample"].includes(card.board_status) && "ring-1 ring-amber-400/50 border-amber-400/40"
                       )}
                       onClick={() => setDetailCard(card)}
                     >
