@@ -699,23 +699,40 @@ function ArApSettings({ language }: { language: string }) {
   const handleTestConnection = async () => {
     setTesting(true);
     setTestResult(null);
+
+    if (!apiKey || apiKey.trim() === '') {
+      setTestResult({ success: false, message: 'API Key belum diisi. Silakan simpan API Key terlebih dahulu.' });
+      setTesting(false);
+      return;
+    }
+
     try {
+      const payload = {
+        entity: 'customer' as const,
+        action: 'upsert' as const,
+        data: { customer_name: '__connection_test__', _test: true }
+      };
+
       const response = await fetch('https://qekexdtidnbspqzwerrd.supabase.co/functions/v1/wms-sync', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
           'x-api-key': apiKey,
         },
-        body: JSON.stringify({ entity: 'customer', action: 'upsert', data: { customer_name: '__connection_test__', _test: true } }),
+        body: JSON.stringify(payload),
       });
 
       const result = await response.json().catch(() => ({}));
       
       if (response.ok || response.status === 404) {
-        // 200 = success, 404 = endpoint valid but test record not found (still means connection works)
         setTestResult({ success: true, message: 'Koneksi berhasil! Endpoint AR/AP merespons dengan benar.' });
       } else if (response.status === 401 || response.status === 403) {
         setTestResult({ success: false, message: 'API Key tidak valid atau tidak memiliki akses.' });
+      } else if (response.status === 400) {
+        // 400 with validation error means endpoint is reachable but rejected payload
+        const details = result.details ? JSON.stringify(result.details) : result.error;
+        setTestResult({ success: false, message: `Endpoint merespons tapi menolak request: ${details}` });
       } else {
         setTestResult({ success: false, message: `HTTP ${response.status}: ${result.error || 'Endpoint tidak merespons'}` });
       }
