@@ -710,7 +710,7 @@ function ArApSettings({ language }: { language: string }) {
       const payload = {
         entity: 'customer' as const,
         action: 'upsert' as const,
-        data: { customer_name: '__connection_test__', _test: true }
+        data: { customer_name: '__connection_test__' }
       };
 
       const response = await fetch('https://qekexdtidnbspqzwerrd.supabase.co/functions/v1/wms-sync', {
