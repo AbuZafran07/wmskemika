@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { syncCustomerToArAp } from '@/lib/arApSync';
 import { Plus, Search, Filter, MoreHorizontal, Edit, Trash2, Loader2, Eye, Download, Upload } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
