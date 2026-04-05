@@ -217,6 +217,10 @@ export default function SettingsPage() {
             <CalendarDays className="w-4 h-4 mr-2" />
             Hari Libur
           </TabsTrigger>
+          <TabsTrigger value="arap">
+            <Link2 className="w-4 h-4 mr-2" />
+            AR/AP
+          </TabsTrigger>
           <TabsTrigger value="backup">
             <Database className="w-4 h-4 mr-2" />
             Backup & Restore
