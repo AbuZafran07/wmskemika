@@ -426,6 +426,19 @@ export default function Customers() {
           ? (language === 'en' ? 'Customer updated successfully' : 'Customer berhasil diperbarui')
           : (language === 'en' ? 'Customer created successfully' : 'Customer berhasil dibuat')
       );
+
+      // Auto-sync customer ke AR/AP System
+      syncCustomerToArAp({
+        name: formData.name,
+        address: formData.address,
+        phone: formData.phone,
+        email: formData.email,
+      }).then(result => {
+        if (result.success) {
+          console.log('[WMS] Customer synced to AR/AP');
+        }
+      }).catch(err => console.warn('[WMS] Customer sync failed:', err));
+
       setIsDialogOpen(false);
       refetch();
     }
