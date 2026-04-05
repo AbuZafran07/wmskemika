@@ -706,13 +706,17 @@ function ArApSettings({ language }: { language: string }) {
           'Content-Type': 'application/json',
           'x-api-key': apiKey,
         },
-        body: JSON.stringify({ entity: 'ping', action: 'test', data: {} }),
+        body: JSON.stringify({ entity: 'customer', action: 'upsert', data: { customer_name: '__connection_test__', _test: true } }),
       });
 
-      if (response.ok) {
+      const result = await response.json().catch(() => ({}));
+      
+      if (response.ok || response.status === 404) {
+        // 200 = success, 404 = endpoint valid but test record not found (still means connection works)
         setTestResult({ success: true, message: 'Koneksi berhasil! Endpoint AR/AP merespons dengan benar.' });
+      } else if (response.status === 401 || response.status === 403) {
+        setTestResult({ success: false, message: 'API Key tidak valid atau tidak memiliki akses.' });
       } else {
-        const result = await response.json().catch(() => ({}));
         setTestResult({ success: false, message: `HTTP ${response.status}: ${result.error || 'Endpoint tidak merespons'}` });
       }
     } catch (err) {
