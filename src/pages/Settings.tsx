@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, Loader2, Users, Bell, Database, Smartphone, Clock, CalendarDays, Receipt } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Loader2, Users, Bell, Database, Smartphone, Clock, CalendarDays, Receipt, Link2, Eye, EyeOff, CheckCircle2, XCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,6 +9,8 @@ import { PushNotificationToggle } from '@/components/settings/PushNotificationTo
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -20,6 +22,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { clearApiKeyCache } from '@/lib/arApSync';
 
 interface SettingsData {
   allow_admin_approve: boolean;
