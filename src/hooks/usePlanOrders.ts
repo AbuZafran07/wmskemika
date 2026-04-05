@@ -359,6 +359,42 @@ export async function approvePlanOrder(orderId: string): Promise<{ success: bool
     if (error) throw error;
     
     const result = data as { success: boolean; error?: string };
+
+    // Auto-sync ke AR/AP System setelah PO di-approve
+    if (result.success) {
+      try {
+        const { data: poData } = await supabase
+          .from('plan_order_headers')
+          .select(`
+            plan_number, plan_date, grand_total, reference_no, notes,
+            supplier:suppliers(name, terms_payment)
+          `)
+          .eq('id', orderId)
+          .single();
+
+        if (poData) {
+          const supplier = poData.supplier as unknown as { name: string; terms_payment: string | null } | null;
+          const syncResult = await syncPlanOrderToAp({
+            supplierName: supplier?.name || '',
+            planNumber: poData.plan_number,
+            vendorInvoiceNumber: poData.reference_no || poData.plan_number,
+            planDate: poData.plan_date,
+            grandTotal: poData.grand_total ?? 0,
+            paymentTerms: supplier?.terms_payment,
+            notes: poData.notes,
+          });
+
+          if (syncResult.success) {
+            console.log('[WMS] AP Invoice berhasil dibuat dari PO:', poData.plan_number);
+          } else {
+            console.warn('[WMS] Gagal sync PO ke AR/AP:', syncResult.error);
+          }
+        }
+      } catch (syncErr) {
+        console.warn('[WMS] Error saat sync ke AR/AP:', syncErr);
+      }
+    }
+
     return result;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to approve plan order';
