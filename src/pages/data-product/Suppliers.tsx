@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { syncVendorToArAp } from '@/lib/arApSync';
 import { Plus, Search, Filter, MoreHorizontal, Edit, Trash2, Loader2, Eye, Download, Upload } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
@@ -396,6 +397,19 @@ export default function Suppliers() {
           ? (language === 'en' ? 'Supplier updated successfully' : 'Supplier berhasil diperbarui')
           : (language === 'en' ? 'Supplier created successfully' : 'Supplier berhasil dibuat')
       );
+
+      // Auto-sync vendor ke AR/AP System
+      syncVendorToArAp({
+        name: formData.name,
+        address: formData.address,
+        phone: formData.phone,
+        email: formData.email,
+      }).then(result => {
+        if (result.success) {
+          console.log('[WMS] Vendor synced to AR/AP');
+        }
+      }).catch(err => console.warn('[WMS] Vendor sync failed:', err));
+
       setIsDialogOpen(false);
       refetch();
     }

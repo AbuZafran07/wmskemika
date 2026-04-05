@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getUserFriendlyError, ErrorMessages } from '@/lib/errorHandler';
+import { syncSalesOrderToAr } from '@/lib/arApSync';
 import { 
   salesOrderHeaderSchema, 
   salesOrderItemsArraySchema, 
@@ -325,7 +326,46 @@ export async function approveSalesOrder(orderId: string): Promise<{ success: boo
   try {
     const { data, error } = await supabase.rpc('sales_order_approve', { order_id: orderId });
     if (error) throw error;
-    return data as { success: boolean; error?: string };
+
+    const result = data as { success: boolean; error?: string };
+
+    // Auto-sync ke AR/AP System setelah SO di-approve
+    if (result.success) {
+      try {
+        const { data: soData } = await supabase
+          .from('sales_order_headers')
+          .select(`
+            sales_order_number, order_date, grand_total, sales_name, notes,
+            customer:customers(name, terms_payment)
+          `)
+          .eq('id', orderId)
+          .single();
+
+        if (soData) {
+          const customer = soData.customer as unknown as { name: string; terms_payment: string | null } | null;
+          const syncResult = await syncSalesOrderToAr({
+            customerName: customer?.name || '',
+            salesOrderNumber: soData.sales_order_number,
+            invoiceNumber: soData.sales_order_number,
+            orderDate: soData.order_date,
+            grandTotal: soData.grand_total ?? 0,
+            salesName: soData.sales_name,
+            paymentTerms: customer?.terms_payment,
+            notes: soData.notes,
+          });
+
+          if (syncResult.success) {
+            console.log('[WMS] AR Invoice berhasil dibuat dari SO:', soData.sales_order_number);
+          } else {
+            console.warn('[WMS] Gagal sync SO ke AR/AP:', syncResult.error);
+          }
+        }
+      } catch (syncErr) {
+        console.warn('[WMS] Error saat sync ke AR/AP:', syncErr);
+      }
+    }
+
+    return result;
   } catch (error: unknown) {
     return { success: false, error: error instanceof Error ? error.message : 'Failed to approve' };
   }
