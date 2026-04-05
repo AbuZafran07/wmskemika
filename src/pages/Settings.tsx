@@ -609,10 +609,305 @@ export default function SettingsPage() {
           <HolidayManager />
         </TabsContent>
 
+        <TabsContent value="arap">
+          <ArApSettings language={language} />
+        </TabsContent>
+
         <TabsContent value="backup">
           <BackupRestore />
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+// ============================================
+// AR/AP Integration Settings Component
+// ============================================
+function ArApSettings({ language }: { language: string }) {
+  const [apiKey, setApiKey] = useState('');
+  const [showKey, setShowKey] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [hasKey, setHasKey] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  useEffect(() => {
+    fetchApiKey();
+  }, []);
+
+  const fetchApiKey = async () => {
+    setLoading(true);
+    try {
+      const { data } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'arap_api_key')
+        .single();
+
+      if (data?.value) {
+        const key = typeof data.value === 'string' ? data.value : String(data.value);
+        setApiKey(key);
+        setHasKey(true);
+      }
+    } catch {
+      // Key doesn't exist yet
+    }
+    setLoading(false);
+  };
+
+  const handleSaveKey = async () => {
+    if (!apiKey.trim()) {
+      toast.error('API Key tidak boleh kosong');
+      return;
+    }
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('settings')
+        .upsert(
+          { key: 'arap_api_key', value: apiKey.trim() as unknown as any, updated_at: new Date().toISOString() },
+          { onConflict: 'key' }
+        );
+
+      if (error) throw error;
+
+      clearApiKeyCache();
+      setHasKey(true);
+      setTestResult(null);
+
+      const { data: userData } = await supabase.auth.getUser();
+      await supabase.from('audit_logs').insert({
+        user_id: userData.user?.id,
+        user_email: userData.user?.email,
+        action: 'update',
+        module: 'settings',
+        ref_table: 'settings',
+        ref_no: 'arap_api_key',
+        new_data: { key_updated: true },
+      });
+
+      toast.success('API Key AR/AP berhasil disimpan');
+    } catch (error) {
+      console.error('Error saving AR/AP API key:', error);
+      toast.error('Gagal menyimpan API Key');
+    }
+    setSaving(false);
+  };
+
+  const handleTestConnection = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const response = await fetch('https://qekexdtidnbspqzwerrd.supabase.co/functions/v1/wms-sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+        },
+        body: JSON.stringify({ entity: 'ping', action: 'test', data: {} }),
+      });
+
+      if (response.ok) {
+        setTestResult({ success: true, message: 'Koneksi berhasil! Endpoint AR/AP merespons dengan benar.' });
+      } else {
+        const result = await response.json().catch(() => ({}));
+        setTestResult({ success: false, message: `HTTP ${response.status}: ${result.error || 'Endpoint tidak merespons'}` });
+      }
+    } catch (err) {
+      setTestResult({ success: false, message: `Koneksi gagal: ${err instanceof Error ? err.message : 'Network error'}` });
+    }
+    setTesting(false);
+  };
+
+  const handleDeleteKey = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('settings')
+        .delete()
+        .eq('key', 'arap_api_key');
+
+      if (error) throw error;
+
+      clearApiKeyCache();
+      setApiKey('');
+      setHasKey(false);
+      setTestResult(null);
+      toast.success('API Key AR/AP berhasil dihapus');
+    } catch (error) {
+      console.error('Error deleting AR/AP API key:', error);
+      toast.error('Gagal menghapus API Key');
+    }
+    setSaving(false);
+  };
+
+  const maskedKey = apiKey ? apiKey.slice(0, 8) + '••••••••' + apiKey.slice(-4) : '';
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-6">
+      {/* API Key Configuration */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Link2 className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">
+                Integrasi AR/AP System
+              </CardTitle>
+              <CardDescription>
+                Konfigurasi koneksi ke sistem Accounts Receivable & Accounts Payable
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Connection Status */}
+          <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+            <div className="space-y-1">
+              <Label className="text-base font-medium">Status Koneksi</Label>
+              <p className="text-sm text-muted-foreground">
+                Endpoint: wms-sync
+              </p>
+            </div>
+            <Badge variant={hasKey ? 'default' : 'secondary'} className={hasKey ? 'bg-success text-success-foreground' : ''}>
+              {hasKey ? '● Terkonfigurasi' : '○ Belum Dikonfigurasi'}
+            </Badge>
+          </div>
+
+          <Separator />
+
+          {/* API Key Input */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">API Key</Label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  type={showKey ? 'text' : 'password'}
+                  placeholder="Masukkan API Key AR/AP system..."
+                  value={showKey ? apiKey : (hasKey && !apiKey ? maskedKey : apiKey)}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowKey(!showKey)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <Button onClick={handleSaveKey} disabled={saving || !apiKey.trim()}>
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                <span className="ml-2 hidden sm:inline">Simpan</span>
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              API Key digunakan untuk autentikasi saat sinkronisasi data ke sistem AR/AP eksternal.
+            </p>
+          </div>
+
+          <Separator />
+
+          {/* Test & Delete buttons */}
+          <div className="flex flex-wrap gap-3">
+            <Button
+              variant="outline"
+              onClick={handleTestConnection}
+              disabled={testing || !hasKey}
+            >
+              {testing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+              Test Koneksi
+            </Button>
+            {hasKey && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleDeleteKey}
+                disabled={saving}
+              >
+                Hapus API Key
+              </Button>
+            )}
+          </div>
+
+          {/* Test Result */}
+          {testResult && (
+            <div className={`flex items-start gap-3 p-4 rounded-lg border ${testResult.success ? 'bg-success/5 border-success/30' : 'bg-destructive/5 border-destructive/30'}`}>
+              {testResult.success ? (
+                <CheckCircle2 className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
+              ) : (
+                <XCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+              )}
+              <div>
+                <p className={`text-sm font-medium ${testResult.success ? 'text-success' : 'text-destructive'}`}>
+                  {testResult.success ? 'Berhasil' : 'Gagal'}
+                </p>
+                <p className="text-sm text-muted-foreground">{testResult.message}</p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Auto-Sync Info */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-warning/10">
+              <RefreshCw className="w-5 h-5 text-warning" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Auto-Sync Triggers</CardTitle>
+              <CardDescription>
+                Data akan otomatis disinkronisasi ke AR/AP system pada event berikut
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-primary uppercase tracking-wider">Accounts Receivable (AR)</p>
+              <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+                  Sales Order di-approve → Invoice AR dibuat otomatis
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+                  Customer baru dibuat/diupdate → Data customer disinkronisasi
+                </li>
+              </ul>
+            </div>
+            <Separator />
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-warning uppercase tracking-wider">Accounts Payable (AP)</p>
+              <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-warning flex-shrink-0" />
+                  Plan Order di-approve → Invoice AP dibuat otomatis
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-warning flex-shrink-0" />
+                  Supplier baru dibuat/diupdate → Data vendor disinkronisasi
+                </li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
