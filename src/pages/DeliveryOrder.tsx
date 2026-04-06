@@ -258,10 +258,7 @@ export default function DeliveryOrder() {
                         <TableCell>{row.so_number}</TableCell>
                         <TableCell className="font-medium">{row.customer_name}</TableCell>
                         <TableCell>{row.customer_po}</TableCell>
-                        <TableCell>{formatDate((() => {
-                          const m = row.do_number.match(/(\d{4})(\d{2})(\d{2})/);
-                          return m ? `${m[1]}-${m[2]}-${m[3]}` : row.created_at;
-                        })())}</TableCell>
+                        <TableCell>{formatDate(row.created_at)}</TableCell>
                         <TableCell>
                           <div className="flex items-center justify-center gap-1">
                             <Button
