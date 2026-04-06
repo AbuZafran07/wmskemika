@@ -537,17 +537,22 @@ export default function ProformaInvoicePage() {
               picName: customer?.pic || so?.sales_name || '-',
               address: customer?.address || '-',
             },
-            items: (detail.items || []).map((item, idx) => ({
-              no: idx + 1,
-              code: (item as any).product?.sku || '-',
-              name: item.product_name,
-              qty: item.qty,
-              unit: (item as any).product?.unit?.name || 'unit',
-              price: Math.round(item.unit_price),
-              discount: item.discount || 0,
-              subtotal: Math.round(item.subtotal),
-              taxPercent: '12%',
-            })),
+            items: (detail.items || []).map((item, idx) => {
+              const baseAmount = item.qty * item.unit_price;
+              const discountNominal = item.discount || 0;
+              const discountPercent = baseAmount > 0 ? Math.round((discountNominal / baseAmount) * 100) : 0;
+              return {
+                no: idx + 1,
+                code: (item as any).product?.sku || '-',
+                name: item.product_name,
+                qty: item.qty,
+                unit: (item as any).product?.unit?.name || 'unit',
+                price: Math.round(item.unit_price),
+                discount: discountPercent,
+                subtotal: Math.round(item.subtotal),
+                taxPercent: '12%',
+              };
+            }),
             summary: {
               dpp,
               dppPengganti: dppPenggantiCalc,
