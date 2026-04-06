@@ -255,16 +255,27 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         .eq("id", so.id)
         .single();
 
-      // Use the Kanban column date as the DO date
-      const columnDeliveryDate = getColumnDeliveryDate(card.board_status);
-      const columnDateStr = format(columnDeliveryDate, 'yyyy-MM-dd');
+      // Determine the correct DO date:
+      // - For existing DOs: extract date from DO number (DO/YYYYMMDD.XX)
+      // - For new DOs: use the Kanban column date
+      // - Fallback: delivery_actual_date from stock_out, then stock_out delivery_date
+      let doDateStr: string;
+      const doDateMatch = doNumber.match(/(\d{4})(\d{2})(\d{2})/);
+      if (doDateMatch) {
+        doDateStr = `${doDateMatch[1]}-${doDateMatch[2]}-${doDateMatch[3]}`;
+      } else if (soOut?.delivery_actual_date) {
+        doDateStr = soOut.delivery_actual_date;
+      } else {
+        const columnDeliveryDate = getColumnDeliveryDate(card.board_status);
+        doDateStr = format(columnDeliveryDate, 'yyyy-MM-dd');
+      }
 
       setDoPreviewData({
         id: so.id,
         delivery_number: doNumber,
         stock_out_number: so.stock_out_number,
-        delivery_date: columnDateStr,
-        delivery_actual_date: soOut?.delivery_actual_date || columnDateStr,
+        delivery_date: doDateStr,
+        delivery_actual_date: soOut?.delivery_actual_date || doDateStr,
         notes: doNoteText || soOut?.notes || null,
         sales_order_number: soHeader?.sales_order_number || '-',
         customer_name: (soHeader?.customers as any)?.name || card.customer_name,
