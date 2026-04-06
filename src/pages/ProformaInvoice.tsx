@@ -551,7 +551,7 @@ export default function ProformaInvoicePage() {
                 price: Math.round(item.unit_price),
                 discount: discountPercent,
                 subtotal: Math.round(subtotalAfterDiscount),
-                taxPercent: '11%',
+                taxPercent: '12%',
               };
             }),
             summary: {

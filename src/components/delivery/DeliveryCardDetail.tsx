@@ -1348,12 +1348,11 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       const discount = soHeader.discount || 0;
       const taxRate = soHeader.tax_rate || 0;
       const shippingCost = soHeader.shipping_cost || 0;
-      const afterDiscount = Math.round(subtotal - discount);
-      // DPP Pengganti scheme: DPP × 11/12, then PPN = DPP Pengganti × 12%
-      const dpp = afterDiscount;
+      // total_amount sudah setelah diskon, jangan kurangi lagi
+      const dpp = Math.round(subtotal);
       const dppPengganti = Math.round(dpp * 11 / 12);
       const taxAmount = Math.round(dppPengganti * 0.12);
-      const materai = calculateMaterai(cust?.customer_type, afterDiscount, shippingCost, taxAmount, materaiAmount);
+      const materai = calculateMaterai(cust?.customer_type, dpp, shippingCost, taxAmount, materaiAmount);
       const grandTotal = Math.round(dpp + shippingCost + taxAmount + materai);
 
       // Insert PI header
@@ -1364,7 +1363,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           sales_order_id: card.sales_order_id,
           customer_id: soHeader.customer_id,
           delivery_request_id: card.id,
-          subtotal: afterDiscount,
+          subtotal: dpp,
           discount,
           tax_rate: 12,
           tax_amount: taxAmount,
