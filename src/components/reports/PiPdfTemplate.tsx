@@ -183,7 +183,7 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
       <td style={{ ...tdBase, textAlign: 'center' }}>{item.unit}</td>
       <td style={{ ...tdBase, textAlign: 'right', whiteSpace: 'nowrap' }}>{fmt(item.price)}</td>
       <td style={{ ...tdBase, textAlign: 'center', whiteSpace: 'nowrap' }}>
-        {item.discount > 0 ? `${item.discount}%` : '-'}
+        {item.discount > 0 ? `${item.discount.toFixed(2)}` : '-'}
       </td>
       <td style={{ ...tdBase, textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700 }}>
         {fmt(item.subtotal)}
@@ -194,8 +194,8 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
 
   const summaryRowsTop = [
     { label: 'DPP', value: fmt(summary.dpp) },
-    { label: 'DPP Pengganti', value: fmt(summary.dppPengganti) },
-    { label: 'PPN 12%', value: fmt(summary.tax) },
+    { label: 'DPP Lain', value: fmt(summary.dppPengganti) },
+    { label: 'Pajak', value: fmt(summary.tax) },
     { label: 'Biaya Pengantaran', value: fmt(summary.deliveryFee) },
   ];
 
