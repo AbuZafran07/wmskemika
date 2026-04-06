@@ -1316,6 +1316,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         .select('id, pi_number, status')
         .eq('delivery_request_id', card.id)
         .neq('status', 'cancelled')
+        .neq('status', 'rejected')
         .limit(1) as any);
       if (piData && piData.length > 0) {
         setExistingPI(piData[0].pi_number);
