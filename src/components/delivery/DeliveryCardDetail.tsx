@@ -198,10 +198,12 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         .limit(1);
 
       let doNumber: string;
+      let isNewDO = false;
 
       if (existingDO && existingDO.length > 0) {
         doNumber = existingDO[0].do_number;
       } else {
+        isNewDO = true;
         // Generate DO number based on the column's delivery date
         const columnDate = getColumnDeliveryDate(card.board_status);
         doNumber = await generateUniqueDONumber(columnDate);
@@ -215,19 +217,25 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           });
         if (insertErr) throw insertErr;
         toast.success(`Delivery Order ${doNumber} berhasil diterbitkan`);
+      }
 
-        // Insert system comment for DO generation
+      // Insert system comment for DO generation (only once per DO)
+      if (isNewDO) {
         const creatorName = user?.name || user?.email || 'System';
         let doCommentMsg = `📦 Delivery Order ${doNumber} telah dibuat oleh ${creatorName}.`;
         if (doNoteText.trim()) {
           doCommentMsg += `\nCatatan: ${doNoteText.trim()}`;
         }
-        await supabase.from("delivery_comments").insert({
-          delivery_request_id: card.id,
-          user_id: user?.id,
-          message: doCommentMsg,
-          type: 'activity',
-        });
+        try {
+          await supabase.from("delivery_comments").insert({
+            delivery_request_id: card.id,
+            user_id: user?.id,
+            message: doCommentMsg,
+            type: 'activity',
+          });
+        } catch (commentErr) {
+          console.error('Failed to insert DO comment:', commentErr);
+        }
       }
 
       const { data: items } = await supabase
