@@ -631,8 +631,7 @@ export default function RequestDelivery() {
         });
       }
 
-      const fromLabel = BOARD_COLUMNS.find(c => c.id === cardToMove.board_status)?.label || cardToMove.board_status;
-      const toLabel = BOARD_COLUMNS.find(c => c.id === newStatus)?.label || newStatus;
+      
       toast.success(`Card dipindahkan ke ${toLabel}`);
       
       // Push notification for board status change
