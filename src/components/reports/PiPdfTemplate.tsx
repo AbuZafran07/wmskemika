@@ -194,8 +194,8 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
 
   const summaryRowsTop = [
     { label: 'DPP', value: fmt(summary.dpp) },
-    { label: 'DPP Pengganti', value: fmt(summary.dppPengganti) },
-    { label: 'PPN 12%', value: fmt(summary.tax) },
+    { label: 'DPP Lain', value: fmt(summary.dppPengganti) },
+    { label: 'Pajak', value: fmt(summary.tax) },
     { label: 'Biaya Pengantaran', value: fmt(summary.deliveryFee) },
   ];
 
