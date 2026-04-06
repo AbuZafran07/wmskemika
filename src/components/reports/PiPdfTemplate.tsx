@@ -183,7 +183,7 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
       <td style={{ ...tdBase, textAlign: 'center' }}>{item.unit}</td>
       <td style={{ ...tdBase, textAlign: 'right', whiteSpace: 'nowrap' }}>{fmt(item.price)}</td>
       <td style={{ ...tdBase, textAlign: 'center', whiteSpace: 'nowrap' }}>
-        {item.discount > 0 ? `${item.discount}%` : '-'}
+        {item.discount > 0 ? `${item.discount.toFixed(2)}` : '-'}
       </td>
       <td style={{ ...tdBase, textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700 }}>
         {fmt(item.subtotal)}

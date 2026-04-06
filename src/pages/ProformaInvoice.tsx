@@ -540,7 +540,8 @@ export default function ProformaInvoicePage() {
             items: (detail.items || []).map((item, idx) => {
               const baseAmount = item.qty * item.unit_price;
               const discountNominal = item.discount || 0;
-              const discountPercent = baseAmount > 0 ? Math.round((discountNominal / baseAmount) * 100) : 0;
+              const discountPercent = baseAmount > 0 ? parseFloat(((discountNominal / baseAmount) * 100).toFixed(2)) : 0;
+              const subtotalAfterDiscount = baseAmount - discountNominal;
               return {
                 no: idx + 1,
                 code: (item as any).product?.sku || '-',
@@ -549,8 +550,8 @@ export default function ProformaInvoicePage() {
                 unit: (item as any).product?.unit?.name || 'unit',
                 price: Math.round(item.unit_price),
                 discount: discountPercent,
-                subtotal: Math.round(item.subtotal),
-                taxPercent: '12%',
+                subtotal: Math.round(subtotalAfterDiscount),
+                taxPercent: '11%',
               };
             }),
             summary: {
