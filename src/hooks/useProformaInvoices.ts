@@ -155,6 +155,13 @@ export function useApprovePI() {
   
   return useMutation({
     mutationFn: async (piId: string) => {
+      // Fetch PI details for system comment
+      const { data: piRow } = await (supabase
+        .from('proforma_invoices' as any)
+        .select('pi_number, delivery_request_id')
+        .eq('id', piId)
+        .single() as any);
+
       const { error } = await (supabase
         .from('proforma_invoices' as any)
         .update({
@@ -175,6 +182,16 @@ export function useApprovePI() {
         ref_id: piId,
         ref_table: 'proforma_invoices',
       });
+
+      // Add system comment to Kanban card
+      if (piRow?.delivery_request_id && user?.id) {
+        await supabase.from('delivery_comments').insert({
+          delivery_request_id: piRow.delivery_request_id,
+          user_id: user.id,
+          message: `✅ Proforma Invoice ${piRow.pi_number || piId} telah di-approve.`,
+          type: 'activity',
+        });
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['proforma_invoices'] });
@@ -191,6 +208,13 @@ export function useRejectPI() {
   
   return useMutation({
     mutationFn: async ({ piId, reason }: { piId: string; reason: string }) => {
+      // Fetch PI details first for the system comment
+      const { data: piRow } = await (supabase
+        .from('proforma_invoices' as any)
+        .select('pi_number, delivery_request_id')
+        .eq('id', piId)
+        .single() as any);
+
       const { error } = await (supabase
         .from('proforma_invoices' as any)
         .update({
@@ -211,6 +235,17 @@ export function useRejectPI() {
         ref_id: piId,
         ref_table: 'proforma_invoices',
       });
+
+      // Add system comment to Kanban card
+      if (piRow?.delivery_request_id && user?.id) {
+        const reasonText = reason ? `\nAlasan: ${reason}` : '';
+        await supabase.from('delivery_comments').insert({
+          delivery_request_id: piRow.delivery_request_id,
+          user_id: user.id,
+          message: `❌ Proforma Invoice ${piRow.pi_number || piId} ditolak.${reasonText}`,
+          type: 'activity',
+        });
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['proforma_invoices'] });
@@ -227,6 +262,13 @@ export function useCancelPI() {
   
   return useMutation({
     mutationFn: async ({ piId, reason }: { piId: string; reason: string }) => {
+      // Fetch PI details for system comment
+      const { data: piRow } = await (supabase
+        .from('proforma_invoices' as any)
+        .select('pi_number, delivery_request_id')
+        .eq('id', piId)
+        .single() as any);
+
       const { error } = await (supabase
         .from('proforma_invoices' as any)
         .update({
@@ -247,6 +289,17 @@ export function useCancelPI() {
         ref_id: piId,
         ref_table: 'proforma_invoices',
       });
+
+      // Add system comment to Kanban card
+      if (piRow?.delivery_request_id && user?.id) {
+        const reasonText = reason ? `\nAlasan: ${reason}` : '';
+        await supabase.from('delivery_comments').insert({
+          delivery_request_id: piRow.delivery_request_id,
+          user_id: user.id,
+          message: `🚫 Proforma Invoice ${piRow.pi_number || piId} dibatalkan.${reasonText}`,
+          type: 'activity',
+        });
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['proforma_invoices'] });
