@@ -135,12 +135,18 @@ export default function DeliveryOrder() {
 
       if (error) throw error;
 
+      // Extract date from DO number (DO/YYYYMMDD.XX) for accurate DO date
+      const doDateMatch = row.do_number.match(/(\d{4})(\d{2})(\d{2})/);
+      const doDateStr = doDateMatch
+        ? `${doDateMatch[1]}-${doDateMatch[2]}-${doDateMatch[3]}`
+        : row.delivery_actual_date || row.delivery_date;
+
       const doData: DeliveryOrderData = {
         id: row.id,
         delivery_number: row.do_number,
         stock_out_number: row.stock_out_number,
-        delivery_date: row.delivery_date,
-        delivery_actual_date: row.delivery_actual_date,
+        delivery_date: doDateStr,
+        delivery_actual_date: row.delivery_actual_date || doDateStr,
         notes: row.so_notes,
         sales_order_number: row.so_number,
         customer_name: row.customer_name,
@@ -252,7 +258,10 @@ export default function DeliveryOrder() {
                         <TableCell>{row.so_number}</TableCell>
                         <TableCell className="font-medium">{row.customer_name}</TableCell>
                         <TableCell>{row.customer_po}</TableCell>
-                        <TableCell>{formatDate(row.created_at)}</TableCell>
+                        <TableCell>{formatDate((() => {
+                          const m = row.do_number.match(/(\d{4})(\d{2})(\d{2})/);
+                          return m ? `${m[1]}-${m[2]}-${m[3]}` : row.created_at;
+                        })())}</TableCell>
                         <TableCell>
                           <div className="flex items-center justify-center gap-1">
                             <Button
