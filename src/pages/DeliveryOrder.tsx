@@ -243,7 +243,7 @@ export default function DeliveryOrder() {
                       <TableHead>No. SO</TableHead>
                       <TableHead>Customer</TableHead>
                       <TableHead>PO Customer</TableHead>
-                      <TableHead>Tanggal Terbit</TableHead>
+                      <TableHead>Tanggal Generate</TableHead>
                       <TableHead className="text-center">Aksi</TableHead>
                     </TableRow>
                   </TableHeader>
