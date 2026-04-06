@@ -255,12 +255,16 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         .eq("id", so.id)
         .single();
 
+      // Use the Kanban column date as the DO date
+      const columnDeliveryDate = getColumnDeliveryDate(card.board_status);
+      const columnDateStr = format(columnDeliveryDate, 'yyyy-MM-dd');
+
       setDoPreviewData({
         id: so.id,
         delivery_number: doNumber,
         stock_out_number: so.stock_out_number,
-        delivery_date: so.delivery_date,
-        delivery_actual_date: soOut?.delivery_actual_date || null,
+        delivery_date: columnDateStr,
+        delivery_actual_date: soOut?.delivery_actual_date || columnDateStr,
         notes: doNoteText || soOut?.notes || null,
         sales_order_number: soHeader?.sales_order_number || '-',
         customer_name: (soHeader?.customers as any)?.name || card.customer_name,
