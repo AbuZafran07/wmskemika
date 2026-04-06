@@ -215,6 +215,19 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           });
         if (insertErr) throw insertErr;
         toast.success(`Delivery Order ${doNumber} berhasil diterbitkan`);
+
+        // Insert system comment for DO generation
+        const creatorName = user?.name || user?.email || 'System';
+        let doCommentMsg = `📦 Delivery Order ${doNumber} telah dibuat oleh ${creatorName}.`;
+        if (doNoteText.trim()) {
+          doCommentMsg += `\nCatatan: ${doNoteText.trim()}`;
+        }
+        await supabase.from("delivery_comments").insert({
+          delivery_request_id: card.id,
+          user_id: user?.id,
+          message: doCommentMsg,
+          type: 'activity',
+        });
       }
 
       const { data: items } = await supabase
