@@ -603,6 +603,9 @@ export default function RequestDelivery() {
       if (error) throw error;
 
       // Auto-create upload checklists when moving to pengiriman columns
+      const fromLabel = BOARD_COLUMNS.find(c => c.id === cardToMove.board_status)?.label || cardToMove.board_status;
+      const toLabel = BOARD_COLUMNS.find(c => c.id === newStatus)?.label || newStatus;
+
       if (PENGIRIMAN_COLUMNS.includes(newStatus) && cardToMove.board_status === "approval_delivery") {
         const checklistLabels = ["Upload Foto Pengiriman", "Upload Dokumen Delivery Order"];
         for (const label of checklistLabels) {
@@ -615,7 +618,15 @@ export default function RequestDelivery() {
         await supabase.from("delivery_comments").insert({
           delivery_request_id: cardId,
           user_id: user.id,
-          message: `📦 Card dipindahkan ke ${BOARD_COLUMNS.find(c => c.id === newStatus)?.label}. Checklist pengiriman otomatis ditambahkan.`,
+          message: `📦 Card dipindahkan ke ${toLabel}. Checklist pengiriman otomatis ditambahkan.`,
+          type: "activity",
+        });
+      } else {
+        // Generic move comment for all other column transitions
+        await supabase.from("delivery_comments").insert({
+          delivery_request_id: cardId,
+          user_id: user.id,
+          message: `🔄 Card dipindahkan dari ${fromLabel} ke ${toLabel}.`,
           type: "activity",
         });
       }
