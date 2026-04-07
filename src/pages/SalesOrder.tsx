@@ -2215,7 +2215,7 @@ export default function SalesOrder() {
 
                         <div style={{ borderTop: "1px solid #888", marginTop: "4px", paddingTop: "6px", display: "flex", justifyContent: "space-between" }}>
                           <span style={{ fontWeight: 700 }}>Sub Total</span>
-                          <span style={{ fontWeight: 700 }}>Rp {formatCurrency(grandTotal).replace('Rp ', '')}</span>
+                          <span style={{ fontWeight: 700 }}>{formatCurrency(grandTotal)}</span>
                         </div>
 
                         <div
@@ -2231,7 +2231,7 @@ export default function SalesOrder() {
                         >
                           <span style={{ fontSize: "13px", fontWeight: 700 }}>Saldo</span>
                           <span style={{ fontSize: "13px", fontWeight: 700 }}>
-                            Rp {formatCurrency(grandTotal).replace('Rp ', '')}
+                            {formatCurrency(grandTotal)}
                           </span>
                         </div>
                       </>
