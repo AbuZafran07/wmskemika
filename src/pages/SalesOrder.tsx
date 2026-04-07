@@ -422,7 +422,7 @@ export default function SalesOrder() {
     setSelectedProductId("");
   };
 
-  // === TOTALS: ONLY LINE DISCOUNT ===
+  // === TOTALS: DPP Pengganti scheme (same as PI) ===
   const totals = useMemo(() => {
     const grossSubtotal = orderItems.reduce(
       (sum, it) => sum + safeNumber(it.ordered_qty, 0) * safeNumber(it.unit_price, 0),
@@ -431,19 +431,25 @@ export default function SalesOrder() {
     const totalDiscount = orderItems.reduce((sum, it) => sum + safeNumber(it.discount_nominal, 0), 0);
     const netSubtotal = grossSubtotal - totalDiscount;
 
-    const tax = netSubtotal * (clampNumber(safeNumber(taxRate, 0), 0, 100) / 100);
+    // DPP Pengganti = DPP × 11/12
+    const dpp = netSubtotal;
+    const dppPengganti = Math.round(dpp * 11 / 12);
+    // PPN 12% = DPP Pengganti × 12%
+    const tax = Math.round(dppPengganti * 12 / 100);
     const ship = clampNumber(safeNumber(shippingCost, 0), 0, 1_000_000_000_000);
-    const grandTotal = netSubtotal + tax + ship;
+    const grandTotal = dpp + tax + ship;
 
     return {
       grossSubtotal,
       totalDiscount,
       netSubtotal,
+      dpp,
+      dppPengganti,
       tax,
       ship,
       grandTotal,
     };
-  }, [orderItems, taxRate, shippingCost]);
+  }, [orderItems, shippingCost]);
 
   // === FILE UPLOAD ===
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -643,7 +649,7 @@ export default function SalesOrder() {
         // ✅ discount header dipakai sebagai Total Discount (Rp)
         discount: totals.totalDiscount,
 
-        tax_rate: clampNumber(safeNumber(taxRate, 11), 0, 100),
+        tax_rate: 12,
         shipping_cost: clampNumber(safeNumber(shippingCost, 0), 0, 1_000_000_000_000),
         grand_total: totals.grandTotal,
       };
@@ -1497,26 +1503,14 @@ export default function SalesOrder() {
             {/* Totals (NO header discount input) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>{language === "en" ? "Tax Rate (%)" : "Tarif Pajak (%)"}</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={taxRate}
-                      onChange={(e) => setTaxRate(safeNumber(e.target.value, 0))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{language === "en" ? "Shipping Cost" : "Biaya Pengiriman"}</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={shippingCost}
-                      onChange={(e) => setShippingCost(safeNumber(e.target.value, 0))}
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label>{language === "en" ? "Shipping Cost" : "Biaya Pengiriman"}</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={shippingCost}
+                    onChange={(e) => setShippingCost(safeNumber(e.target.value, 0))}
+                  />
                 </div>
               </div>
 
@@ -1529,7 +1523,6 @@ export default function SalesOrder() {
                     <span className="font-medium">{formatCurrency(totals.grossSubtotal)}</span>
                   </div>
 
-                  {/* ✅ sesuai permintaan: tampilkan Total Discount (Rp) */}
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">
                       {language === "en" ? "Total Discount" : "Total Diskon"}
@@ -1538,16 +1531,17 @@ export default function SalesOrder() {
                   </div>
 
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      {language === "en" ? "Subtotal (Net)" : "Subtotal (Bersih)"}
-                    </span>
-                    <span className="font-medium">{formatCurrency(totals.netSubtotal)}</span>
+                    <span className="text-muted-foreground">DPP</span>
+                    <span className="font-medium">{formatCurrency(totals.dpp)}</span>
                   </div>
 
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      {language === "en" ? "Tax" : "Pajak"} ({clampNumber(taxRate, 0, 100)}%)
-                    </span>
+                    <span className="text-muted-foreground">DPP Pengganti (11/12)</span>
+                    <span className="font-medium">{formatCurrency(totals.dppPengganti)}</span>
+                  </div>
+
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">PPN 12%</span>
                     <span className="font-medium">{formatCurrency(totals.tax)}</span>
                   </div>
 
@@ -2181,9 +2175,11 @@ export default function SalesOrder() {
                     }, 0);
 
                     const totalDiscount = safeNumber(selectedOrder.discount, 0);
-                    const netSubtotal = grossSubtotal - totalDiscount;
-                    const tax = (netSubtotal * safeNumber(selectedOrder.tax_rate, 0)) / 100;
+                    const dpp = grossSubtotal - totalDiscount;
+                    const dppPengganti = Math.round(dpp * 11 / 12);
+                    const tax = Math.round(dppPengganti * 12 / 100);
                     const ship = safeNumber(selectedOrder.shipping_cost, 0);
+                    const grandTotal = dpp + tax + ship;
 
                     return (
                       <>
@@ -2196,11 +2192,15 @@ export default function SalesOrder() {
                           <b>-{formatCurrency(totalDiscount)}</b>
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                          <span>Subtotal (Net)</span>
-                          <b>{formatCurrency(netSubtotal)}</b>
+                          <span>DPP</span>
+                          <b>{formatCurrency(dpp)}</b>
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                          <span>Tax ({selectedOrder.tax_rate}%)</span>
+                          <span>DPP Pengganti (11/12)</span>
+                          <b>{formatCurrency(dppPengganti)}</b>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                          <span>PPN 12%</span>
                           <b>{formatCurrency(tax)}</b>
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
@@ -2219,7 +2219,7 @@ export default function SalesOrder() {
                         >
                           <span style={{ fontSize: "13px", fontWeight: 700 }}>Grand Total</span>
                           <span style={{ fontSize: "13px", fontWeight: 700 }}>
-                            {formatCurrency(selectedOrder.grand_total)}
+                            {formatCurrency(grandTotal)}
                           </span>
                         </div>
                       </>
