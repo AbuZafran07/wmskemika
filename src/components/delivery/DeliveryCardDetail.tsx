@@ -1389,6 +1389,43 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
       // DPP = sum of all item subtotals (after discount)
       const dpp = piItemsData.reduce((sum: number, it: any) => sum + it.subtotal, 0);
+      const dppPengganti = Math.round(dpp * 11 / 12);
+      const taxAmount = Math.round(dppPengganti * 0.12);
+      const materai = calculateMaterai(cust?.customer_type, dpp, shippingCost, taxAmount, materaiAmount);
+      const grandTotal = Math.round(dpp + shippingCost + taxAmount + materai);
+
+      // Insert PI header
+      const { data: piInserted, error: piError } = await (supabase
+        .from('proforma_invoices' as any)
+        .insert({
+          pi_number: piNumber,
+          sales_order_id: card.sales_order_id,
+          customer_id: soHeader.customer_id,
+          delivery_request_id: card.id,
+          subtotal: dpp,
+          discount,
+          tax_rate: 12,
+          tax_amount: taxAmount,
+          shipping_cost: shippingCost,
+          other_costs: 0,
+          materai_amount: materai,
+          grand_total: grandTotal,
+          customer_type: cust?.customer_type,
+          payment_terms: cust?.terms_payment,
+          status: 'pending',
+          notes: null,
+          created_by: user.id,
+        })
+        .select('id')
+        .single() as any);
+
+      if (piError) throw piError;
+
+      // Insert PI items
+      const piItems = piItemsData.map((it: any) => ({
+        ...it,
+        proforma_invoice_id: piInserted.id,
+      }));
 
       const { error: itemsError } = await (supabase
         .from('proforma_invoice_items' as any)

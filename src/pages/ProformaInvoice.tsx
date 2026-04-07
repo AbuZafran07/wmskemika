@@ -566,10 +566,11 @@ export default function ProformaInvoicePage() {
               balance: saldo,
             },
             signatory: {
-              name: approverName,
+              name: detail.approved_by_profile?.full_name || null,
               position: "FINANCE",
-              signatureUrl: approverSignatureUrl,
-              isApproved,
+              signatureUrl: (detail as any).approver_signature_url || null,
+              isApproved: !!detail.approved_by && !!detail.approved_at,
+            },
             },
           };
 
