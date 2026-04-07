@@ -710,14 +710,13 @@ function ArApSettings({ language }: { language: string }) {
       const payload = {
         entity: 'customer' as const,
         action: 'upsert' as const,
-        data: { customer_name: '__connection_test__' }
+        data: { customer_name: 'Test Connection WMS' }
       };
 
       const response = await fetch('https://qekexdtidnbspqzwerrd.supabase.co/functions/v1/wms-sync', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
           'x-api-key': apiKey,
         },
         body: JSON.stringify(payload),
