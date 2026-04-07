@@ -1369,7 +1369,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       const piNumber = await generateUniquePINumber();
 
       const discount = soHeader.discount || 0;
-      const taxRate = soHeader.tax_rate || 0;
+      const _taxRate = soHeader.tax_rate || 0; // kept for reference
       const shippingCost = soHeader.shipping_cost || 0;
 
       // Build PI items with subtotal AFTER item-level discount
