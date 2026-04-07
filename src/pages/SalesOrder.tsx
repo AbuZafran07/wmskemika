@@ -1524,13 +1524,6 @@ export default function SalesOrder() {
                   </div>
 
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      {language === "en" ? "Total Discount" : "Total Diskon"}
-                    </span>
-                    <span className="font-medium text-destructive">-{formatCurrency(totals.totalDiscount)}</span>
-                  </div>
-
-                  <div className="flex justify-between">
                     <span className="text-muted-foreground">DPP</span>
                     <span className="font-medium">{formatCurrency(totals.dpp)}</span>
                   </div>
@@ -1545,18 +1538,18 @@ export default function SalesOrder() {
                     <span className="font-medium">{formatCurrency(totals.tax)}</span>
                   </div>
 
+                  <div className="border-t pt-2 flex justify-between">
+                    <span className="font-semibold">Subtotal</span>
+                    <span className="font-semibold">{formatCurrency(totals.dpp + totals.tax)}</span>
+                  </div>
+
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Biaya Pengantaran</span>
                     <span className="font-medium">{formatCurrency(totals.ship)}</span>
                   </div>
 
-                  <div className="border-t pt-2 flex justify-between">
-                    <span className="font-semibold">Sub Total</span>
-                    <span className="font-semibold">{formatCurrency(totals.grandTotal)}</span>
-                  </div>
-
                   <div className="border-t-2 border-foreground pt-2 flex justify-between">
-                    <span className="font-bold text-lg">Saldo</span>
+                    <span className="font-bold text-lg">Grand Total</span>
                     <span className="font-bold text-lg">{formatCurrency(totals.grandTotal)}</span>
                   </div>
                 </CardContent>
@@ -2189,14 +2182,6 @@ export default function SalesOrder() {
                     return (
                       <>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                          <span>Subtotal (Gross)</span>
-                          <b>{formatCurrency(grossSubtotal)}</b>
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                          <span>Total Discount</span>
-                          <b>-{formatCurrency(totalDiscount)}</b>
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
                           <span>DPP</span>
                           <b>{formatCurrency(dpp)}</b>
                         </div>
@@ -2208,28 +2193,28 @@ export default function SalesOrder() {
                           <span>Pajak</span>
                           <b>{formatCurrency(tax)}</b>
                         </div>
+
+                        <div style={{ borderTop: "1px solid #888", marginTop: "4px", paddingTop: "6px", display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                          <span style={{ fontWeight: 700 }}>Subtotal</span>
+                          <span style={{ fontWeight: 700 }}>{formatCurrency(dpp + tax)}</span>
+                        </div>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
                           <span>Biaya Pengantaran</span>
                           <b>{formatCurrency(ship)}</b>
-                        </div>
-
-                        <div style={{ borderTop: "1px solid #888", marginTop: "4px", paddingTop: "6px", display: "flex", justifyContent: "space-between" }}>
-                          <span style={{ fontWeight: 700 }}>Sub Total</span>
-                          <span style={{ fontWeight: 700 }}>{formatCurrency(grandTotal)}</span>
                         </div>
 
                         <div
                           style={{
                             borderTop: "2px solid #111",
                             borderBottom: "2px solid #111",
-                            marginTop: "6px",
+                            marginTop: "4px",
                             paddingTop: "6px",
                             paddingBottom: "6px",
                             display: "flex",
                             justifyContent: "space-between",
                           }}
                         >
-                          <span style={{ fontSize: "13px", fontWeight: 700 }}>Saldo</span>
+                          <span style={{ fontSize: "13px", fontWeight: 700 }}>Grand Total</span>
                           <span style={{ fontSize: "13px", fontWeight: 700 }}>
                             {formatCurrency(grandTotal)}
                           </span>
