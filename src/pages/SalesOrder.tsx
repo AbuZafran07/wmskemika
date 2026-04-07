@@ -649,7 +649,7 @@ export default function SalesOrder() {
         // ✅ discount header dipakai sebagai Total Discount (Rp)
         discount: totals.totalDiscount,
 
-        tax_rate: clampNumber(safeNumber(taxRate, 11), 0, 100),
+        tax_rate: 12,
         shipping_cost: clampNumber(safeNumber(shippingCost, 0), 0, 1_000_000_000_000),
         grand_total: totals.grandTotal,
       };
@@ -1503,26 +1503,14 @@ export default function SalesOrder() {
             {/* Totals (NO header discount input) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>{language === "en" ? "Tax Rate (%)" : "Tarif Pajak (%)"}</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={taxRate}
-                      onChange={(e) => setTaxRate(safeNumber(e.target.value, 0))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{language === "en" ? "Shipping Cost" : "Biaya Pengiriman"}</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={shippingCost}
-                      onChange={(e) => setShippingCost(safeNumber(e.target.value, 0))}
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label>{language === "en" ? "Shipping Cost" : "Biaya Pengiriman"}</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={shippingCost}
+                    onChange={(e) => setShippingCost(safeNumber(e.target.value, 0))}
+                  />
                 </div>
               </div>
 
