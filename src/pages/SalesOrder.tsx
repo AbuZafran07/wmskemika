@@ -246,8 +246,8 @@ export default function SalesOrder() {
   const canApprove = canApproveOrder("sales_order");
 
   const formatCurrency = (value: number) =>
-    new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(
-      safeNumber(value, 0),
+    new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(
+      Math.round(safeNumber(value, 0)),
     );
 
   // === FILTER LIST ===
