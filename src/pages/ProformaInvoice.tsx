@@ -529,6 +529,42 @@ export default function ProformaInvoicePage() {
           const subTotalCalc = Math.round(dpp + pajak + biayaPengantaran);
           const materai = Math.round(detail.materai_amount || 0);
           const saldo = Math.round(subTotalCalc + materai);
+
+          const pdfData: PiPdfData = {
+            company: {
+              name: "PT. KEMIKA KARYA PRATAMA",
+              address: "Jl. Raya Ciledug No. 10, Tangerang, Banten 15154",
+              phone: "(021) 7310808",
+              website: "www.kemika.co.id",
+              bankName: "Mandiri KCP Tangerang Ciledug",
+              bankAccount: "155-005-755-575-0",
+              npwp: "71.608.326.6-416.000",
+            },
+            invoice: {
+              number: detail.pi_number,
+              date: detail.created_at ? formatDateID(detail.created_at) : '-',
+              currency: "IDR - (Rupiah)",
+              soNumber: so?.sales_order_number || '-',
+              customerPoNumber: so?.customer_po_number || '-',
+              term: detail.payment_terms || '-',
+              amountInWords: numberToWords(saldo) + " Rupiah",
+            },
+            customer: {
+              companyName: customer?.name || '-',
+              picName: customer?.pic || so?.sales_name || '-',
+              address: customer?.address || '-',
+            },
+            items: pdfItems,
+            summary: {
+              dpp,
+              dppPengganti: dppPenggantiCalc,
+              tax: pajak,
+              deliveryFee: biayaPengantaran,
+              subTotal: subTotalCalc,
+              stampDuty: materai,
+              downPayment: 0,
+              balance: saldo,
+            },
             signatory: {
               name: approverName,
               position: "FINANCE",
