@@ -1368,19 +1368,34 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
       const piNumber = await generateUniquePINumber();
 
-      const subtotal = soHeader.total_amount || 0;
       const discount = soHeader.discount || 0;
-      const taxRate = soHeader.tax_rate || 0;
+      const _taxRate = soHeader.tax_rate || 0; // kept for reference
       const shippingCost = soHeader.shipping_cost || 0;
-      // total_amount sudah setelah diskon, jangan kurangi lagi
-      const dpp = Math.round(subtotal);
+
+      // Build PI items with subtotal AFTER item-level discount
+      const piItemsData = soItems.map((item: any) => {
+        const baseAmount = (item.ordered_qty || 0) * (item.unit_price || 0);
+        const itemDiscount = item.discount || 0;
+        const subtotalAfterDiscount = baseAmount - itemDiscount;
+        return {
+          product_id: item.product_id,
+          product_name: (item.product as any)?.name || 'Unknown',
+          qty: item.ordered_qty,
+          unit_price: item.unit_price,
+          discount: itemDiscount,
+          subtotal: Math.round(subtotalAfterDiscount),
+        };
+      });
+
+      // DPP = sum of all item subtotals (after discount)
+      const dpp = piItemsData.reduce((sum: number, it: any) => sum + it.subtotal, 0);
       const dppPengganti = Math.round(dpp * 11 / 12);
       const taxAmount = Math.round(dppPengganti * 0.12);
       const materai = calculateMaterai(cust?.customer_type, dpp, shippingCost, taxAmount, materaiAmount);
       const grandTotal = Math.round(dpp + shippingCost + taxAmount + materai);
 
       // Insert PI header
-      const { data: piData, error: piError } = await (supabase
+      const { data: piInserted, error: piError } = await (supabase
         .from('proforma_invoices' as any)
         .insert({
           pi_number: piNumber,
@@ -1407,14 +1422,9 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       if (piError) throw piError;
 
       // Insert PI items
-      const piItems = soItems.map((item: any) => ({
-        proforma_invoice_id: piData.id,
-        product_id: item.product_id,
-        product_name: (item.product as any)?.name || 'Unknown',
-        qty: item.ordered_qty,
-        unit_price: item.unit_price,
-        discount: item.discount || 0,
-        subtotal: item.subtotal || (item.ordered_qty * item.unit_price),
+      const piItems = piItemsData.map((it: any) => ({
+        ...it,
+        proforma_invoice_id: piInserted.id,
       }));
 
       const { error: itemsError } = await (supabase
@@ -1428,7 +1438,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         user_email: user.email,
         action: 'create',
         module: 'proforma_invoice',
-        ref_id: piData.id,
+        ref_id: piInserted.id,
         ref_no: piNumber,
         ref_table: 'proforma_invoices',
       });
