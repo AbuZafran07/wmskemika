@@ -502,68 +502,33 @@ export default function ProformaInvoicePage() {
         {detail && (() => {
           const customer = detail.customer as any;
           const so = detail.sales_order as any;
-          const dpp = Math.round(detail.subtotal);
+          // Build items with correct subtotal (after discount)
+          const pdfItems = (detail.items || []).map((item, idx) => {
+            const baseAmount = item.qty * item.unit_price;
+            const discountNominal = item.discount || 0;
+            const discountPercent = baseAmount > 0 ? parseFloat(((discountNominal / baseAmount) * 100).toFixed(2)) : 0;
+            const subtotalAfterDiscount = baseAmount - discountNominal;
+            return {
+              no: idx + 1,
+              code: (item as any).product?.sku || '-',
+              name: item.product_name,
+              qty: item.qty,
+              unit: (item as any).product?.unit?.name || 'unit',
+              price: Math.round(item.unit_price),
+              discount: discountPercent,
+              subtotal: Math.round(subtotalAfterDiscount),
+              taxPercent: '12%',
+            };
+          });
+
+          // DPP = sum of item subtotals after discount (recalculated for accuracy)
+          const dpp = pdfItems.reduce((sum, it) => sum + it.subtotal, 0);
           const dppPenggantiCalc = Math.round(dpp * 11 / 12);
-          const pajak = Math.round(detail.tax_amount || 0);
+          const pajak = Math.round(dppPenggantiCalc * 0.12);
           const biayaPengantaran = Math.round(detail.shipping_cost || 0);
           const subTotalCalc = Math.round(dpp + pajak + biayaPengantaran);
           const materai = Math.round(detail.materai_amount || 0);
-          const saldo = Math.round(detail.grand_total);
-          const approverName = detail.approved_by_profile?.full_name || null;
-          const isApproved = !!detail.approved_by && !!detail.approved_at;
-          const approverSignatureUrl = (detail as any).approver_signature_url || null;
-
-          const pdfData: PiPdfData = {
-            company: {
-              name: "PT. KEMIKA KARYA PRATAMA",
-              address: "Jl. Raya Ciledug No. 10, Tangerang, Banten 15154",
-              phone: "(021) 7310808",
-              website: "www.kemika.co.id",
-              bankName: "Mandiri KCP Tangerang Ciledug",
-              bankAccount: "155-005-755-575-0",
-              npwp: "71.608.326.6-416.000",
-            },
-            invoice: {
-              number: detail.pi_number,
-              date: detail.created_at ? formatDateID(detail.created_at) : '-',
-              currency: "IDR - (Rupiah)",
-              soNumber: so?.sales_order_number || '-',
-              customerPoNumber: so?.customer_po_number || '-',
-              term: detail.payment_terms || '-',
-              amountInWords: numberToWords(saldo) + " Rupiah",
-            },
-            customer: {
-              companyName: customer?.name || '-',
-              picName: customer?.pic || so?.sales_name || '-',
-              address: customer?.address || '-',
-            },
-            items: (detail.items || []).map((item, idx) => {
-              const baseAmount = item.qty * item.unit_price;
-              const discountNominal = item.discount || 0;
-              const discountPercent = baseAmount > 0 ? parseFloat(((discountNominal / baseAmount) * 100).toFixed(2)) : 0;
-              const subtotalAfterDiscount = baseAmount - discountNominal;
-              return {
-                no: idx + 1,
-                code: (item as any).product?.sku || '-',
-                name: item.product_name,
-                qty: item.qty,
-                unit: (item as any).product?.unit?.name || 'unit',
-                price: Math.round(item.unit_price),
-                discount: discountPercent,
-                subtotal: Math.round(subtotalAfterDiscount),
-                taxPercent: '12%',
-              };
-            }),
-            summary: {
-              dpp,
-              dppPengganti: dppPenggantiCalc,
-              tax: pajak,
-              deliveryFee: biayaPengantaran,
-              subTotal: subTotalCalc,
-              stampDuty: materai,
-              downPayment: 0,
-              balance: saldo,
-            },
+          const saldo = Math.round(subTotalCalc + materai);
             signatory: {
               name: approverName,
               position: "FINANCE",
