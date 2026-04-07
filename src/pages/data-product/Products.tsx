@@ -3,6 +3,7 @@ import { Plus, Search, Filter, Download, Upload, MoreHorizontal, Edit, Trash2, E
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
@@ -61,6 +62,7 @@ import { usePagination } from '@/hooks/usePagination';
 interface ProductFormData {
   sku: string;
   name: string;
+  description: string;
   category_id: string;
   unit_id: string;
   supplier_id: string;
@@ -76,6 +78,7 @@ interface ProductFormData {
 const initialFormData: ProductFormData = {
   sku: '',
   name: '',
+  description: '',
   category_id: '',
   unit_id: '',
   supplier_id: '',
@@ -395,6 +398,7 @@ export default function Products() {
     setFormData({
       sku: product.sku || '',
       name: product.name,
+      description: (product as any).description || '',
       category_id: product.category_id || '',
       unit_id: product.unit_id || '',
       supplier_id: product.supplier_id || '',
@@ -464,6 +468,7 @@ export default function Products() {
       sku: formData.sku || null,
       barcode: editingProduct?.barcode || generateBarcode(),
       name: formData.name,
+      description: formData.description || null,
       category_id: formData.category_id,
       unit_id: formData.unit_id,
       supplier_id: formData.supplier_id,
@@ -822,6 +827,16 @@ export default function Products() {
               </div>
             </div>
 
+            <div className="space-y-2">
+              <Label>{language === 'en' ? 'Description / Specification' : 'Keterangan / Spesifikasi'}</Label>
+              <Textarea
+                placeholder={language === 'en' ? 'Enter product description or specification' : 'Masukkan keterangan atau spesifikasi produk'}
+                value={formData.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                rows={3}
+              />
+            </div>
+
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>{language === 'en' ? 'Category' : 'Kategori'} *</Label>
@@ -973,6 +988,12 @@ export default function Products() {
                   <p className="text-muted-foreground">{language === 'en' ? 'Name' : 'Nama'}</p>
                   <p className="font-medium">{viewingProduct.name}</p>
                 </div>
+                {(viewingProduct as any).description && (
+                  <div className="col-span-2">
+                    <p className="text-muted-foreground">{language === 'en' ? 'Description / Specification' : 'Keterangan / Spesifikasi'}</p>
+                    <p className="font-medium whitespace-pre-wrap">{(viewingProduct as any).description}</p>
+                  </div>
+                )}
                 <div>
                   <p className="text-muted-foreground">{language === 'en' ? 'Category' : 'Kategori'}</p>
                   <p className="font-medium">{viewingProduct.category?.name || '-'}</p>
