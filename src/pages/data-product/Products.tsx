@@ -126,6 +126,7 @@ export default function Products() {
     const columns = [
       { key: 'sku', header: 'SKU' },
       { key: 'name', header: language === 'en' ? 'Product Name' : 'Nama Produk' },
+      { key: 'description', header: language === 'en' ? 'Description' : 'Keterangan', getValue: (item: Product) => (item as any).description || '' },
       { key: 'category', header: language === 'en' ? 'Category' : 'Kategori', getValue: (item: Product) => item.category?.name || '' },
       { key: 'unit', header: language === 'en' ? 'Unit' : 'Satuan', getValue: (item: Product) => item.unit?.name || '' },
       { key: 'supplier', header: 'Supplier', getValue: (item: Product) => item.supplier?.name || '' },
@@ -153,6 +154,7 @@ export default function Products() {
       [
         { header: 'SKU', example: 'CHM-001' },
         { header: language === 'en' ? 'Product Name' : 'Nama Produk', example: 'Sodium Chloride' },
+        { header: language === 'en' ? 'Description' : 'Keterangan', example: 'NaCl 99.5% purity, industrial grade' },
         { header: language === 'en' ? 'Category Code' : 'Kode Kategori', example: 'CAT-001' },
         { header: language === 'en' ? 'Unit Code' : 'Kode Satuan', example: 'KG' },
         { header: 'Supplier Code', example: 'VND2026-0001' },
@@ -281,10 +283,13 @@ export default function Products() {
       const unit = units.find(u => u.code.toLowerCase() === unitCode?.toLowerCase());
       const supplier = suppliers.find(s => s.code.toLowerCase() === supplierCode?.toLowerCase());
 
+      const description = getColumnValue(row, ['Description', 'Keterangan']);
+
       const { error } = await supabase.from('products').insert({
         sku: sku || null,
         barcode: generateBarcode(),
         name,
+        description: description || null,
         category_id: category!.id,
         unit_id: unit!.id,
         supplier_id: supplier!.id,
@@ -321,9 +326,12 @@ export default function Products() {
       const unit = units.find(u => u.code.toLowerCase() === unitCode?.toLowerCase());
       const supplier = suppliers.find(s => s.code.toLowerCase() === supplierCode?.toLowerCase());
 
+      const description = getColumnValue(row, ['Description', 'Keterangan']);
+
       const { error } = await supabase.from('products')
         .update({
           name,
+          description: description || null,
           category_id: category!.id,
           unit_id: unit!.id,
           supplier_id: supplier!.id,
