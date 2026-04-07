@@ -827,7 +827,16 @@ export default function Products() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label>{language === 'en' ? 'Description / Specification' : 'Keterangan / Spesifikasi'}</Label>
+              <Textarea
+                placeholder={language === 'en' ? 'Enter product description or specification' : 'Masukkan keterangan atau spesifikasi produk'}
+                value={formData.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                rows={3}
+              />
+            </div>
+
               <div className="space-y-2">
                 <Label>{language === 'en' ? 'Category' : 'Kategori'} *</Label>
                 <SearchableSelect
@@ -978,6 +987,12 @@ export default function Products() {
                   <p className="text-muted-foreground">{language === 'en' ? 'Name' : 'Nama'}</p>
                   <p className="font-medium">{viewingProduct.name}</p>
                 </div>
+                {(viewingProduct as any).description && (
+                  <div className="col-span-2">
+                    <p className="text-muted-foreground">{language === 'en' ? 'Description / Specification' : 'Keterangan / Spesifikasi'}</p>
+                    <p className="font-medium whitespace-pre-wrap">{(viewingProduct as any).description}</p>
+                  </div>
+                )}
                 <div>
                   <p className="text-muted-foreground">{language === 'en' ? 'Category' : 'Kategori'}</p>
                   <p className="font-medium">{viewingProduct.category?.name || '-'}</p>
