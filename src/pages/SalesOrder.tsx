@@ -1536,22 +1536,27 @@ export default function SalesOrder() {
                   </div>
 
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">DPP Pengganti (11/12)</span>
+                    <span className="text-muted-foreground">DPP Pengganti</span>
                     <span className="font-medium">{formatCurrency(totals.dppPengganti)}</span>
                   </div>
 
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">PPN 12%</span>
+                    <span className="text-muted-foreground">Pajak</span>
                     <span className="font-medium">{formatCurrency(totals.tax)}</span>
                   </div>
 
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">{language === "en" ? "Shipping" : "Pengiriman"}</span>
+                    <span className="text-muted-foreground">Biaya Pengantaran</span>
                     <span className="font-medium">{formatCurrency(totals.ship)}</span>
                   </div>
 
                   <div className="border-t pt-2 flex justify-between">
-                    <span className="font-bold">Grand Total</span>
+                    <span className="font-semibold">Sub Total</span>
+                    <span className="font-semibold">{formatCurrency(totals.grandTotal)}</span>
+                  </div>
+
+                  <div className="border-t-2 border-foreground pt-2 flex justify-between">
+                    <span className="font-bold text-lg">Saldo</span>
                     <span className="font-bold text-lg">{formatCurrency(totals.grandTotal)}</span>
                   </div>
                 </CardContent>
@@ -2196,30 +2201,37 @@ export default function SalesOrder() {
                           <b>{formatCurrency(dpp)}</b>
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                          <span>DPP Pengganti (11/12)</span>
+                          <span>DPP Pengganti</span>
                           <b>{formatCurrency(dppPengganti)}</b>
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                          <span>PPN 12%</span>
+                          <span>Pajak</span>
                           <b>{formatCurrency(tax)}</b>
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                          <span>Shipping</span>
+                          <span>Biaya Pengantaran</span>
                           <b>{formatCurrency(ship)}</b>
+                        </div>
+
+                        <div style={{ borderTop: "1px solid #888", marginTop: "4px", paddingTop: "6px", display: "flex", justifyContent: "space-between" }}>
+                          <span style={{ fontWeight: 700 }}>Sub Total</span>
+                          <span style={{ fontWeight: 700 }}>Rp {formatCurrency(grandTotal).replace('Rp ', '')}</span>
                         </div>
 
                         <div
                           style={{
                             borderTop: "2px solid #111",
-                            marginTop: "8px",
-                            paddingTop: "8px",
+                            borderBottom: "2px solid #111",
+                            marginTop: "6px",
+                            paddingTop: "6px",
+                            paddingBottom: "6px",
                             display: "flex",
                             justifyContent: "space-between",
                           }}
                         >
-                          <span style={{ fontSize: "13px", fontWeight: 700 }}>Grand Total</span>
+                          <span style={{ fontSize: "13px", fontWeight: 700 }}>Saldo</span>
                           <span style={{ fontSize: "13px", fontWeight: 700 }}>
-                            {formatCurrency(grandTotal)}
+                            Rp {formatCurrency(grandTotal).replace('Rp ', '')}
                           </span>
                         </div>
                       </>
