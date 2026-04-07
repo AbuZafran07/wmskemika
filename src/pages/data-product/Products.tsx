@@ -395,6 +395,7 @@ export default function Products() {
     setFormData({
       sku: product.sku || '',
       name: product.name,
+      description: (product as any).description || '',
       category_id: product.category_id || '',
       unit_id: product.unit_id || '',
       supplier_id: product.supplier_id || '',
@@ -464,6 +465,7 @@ export default function Products() {
       sku: formData.sku || null,
       barcode: editingProduct?.barcode || generateBarcode(),
       name: formData.name,
+      description: formData.description || null,
       category_id: formData.category_id,
       unit_id: formData.unit_id,
       supplier_id: formData.supplier_id,
