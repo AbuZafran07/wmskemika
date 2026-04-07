@@ -61,6 +61,7 @@ import { usePagination } from '@/hooks/usePagination';
 interface ProductFormData {
   sku: string;
   name: string;
+  description: string;
   category_id: string;
   unit_id: string;
   supplier_id: string;
@@ -76,6 +77,7 @@ interface ProductFormData {
 const initialFormData: ProductFormData = {
   sku: '',
   name: '',
+  description: '',
   category_id: '',
   unit_id: '',
   supplier_id: '',
