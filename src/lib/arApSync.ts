@@ -57,6 +57,7 @@ async function sendToArAp(
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({ entity, action, data }),
     });
