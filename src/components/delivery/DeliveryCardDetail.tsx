@@ -1438,7 +1438,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         user_email: user.email,
         action: 'create',
         module: 'proforma_invoice',
-        ref_id: piData.id,
+        ref_id: piInserted.id,
         ref_no: piNumber,
         ref_table: 'proforma_invoices',
       });
