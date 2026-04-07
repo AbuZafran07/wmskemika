@@ -571,7 +571,6 @@ export default function ProformaInvoicePage() {
               signatureUrl: (detail as any).approver_signature_url || null,
               isApproved: !!detail.approved_by && !!detail.approved_at,
             },
-            },
           };
 
           return <PiPdfTemplate ref={printRef} data={pdfData} />;
