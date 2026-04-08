@@ -2206,7 +2206,37 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium truncate">{getDisplayFileName(att)}</p>
+                          {renamingAttachmentId === att.id ? (
+                            <div className="flex items-center gap-1">
+                              <Input
+                                value={renameValue}
+                                onChange={(e) => setRenameValue(e.target.value)}
+                                className="h-6 text-xs px-1.5"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleRenameAttachment(att);
+                                  if (e.key === 'Escape') { setRenamingAttachmentId(null); setRenameValue(""); }
+                                }}
+                              />
+                              <button onClick={() => handleRenameAttachment(att)} className="text-primary hover:text-primary/80 p-0.5" title="Simpan">
+                                <Check className="h-3 w-3" />
+                              </button>
+                              <button onClick={() => { setRenamingAttachmentId(null); setRenameValue(""); }} className="text-muted-foreground hover:text-foreground p-0.5" title="Batal">
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 group/name">
+                              <p className="text-xs font-medium truncate">{getDisplayFileName(att)}</p>
+                              <button
+                                onClick={() => { setRenamingAttachmentId(att.id); setRenameValue(getDisplayFileName(att)); }}
+                                className="opacity-0 group-hover/name:opacity-100 text-muted-foreground hover:text-foreground p-0.5 flex-shrink-0"
+                                title="Ubah nama"
+                              >
+                                <Pencil className="h-2.5 w-2.5" />
+                              </button>
+                            </div>
+                          )}
                           <p className="text-[10px] text-muted-foreground">
                             {formatSize(att.file_size)} • {att.uploader_name}
                             {att.uploaded_at && ` • ${formatDistanceToNow(new Date(att.uploaded_at), { addSuffix: true, locale: idLocale })}`}
