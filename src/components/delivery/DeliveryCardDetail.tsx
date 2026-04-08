@@ -1632,6 +1632,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         mime_type: "image/jpeg",
         file_size: stampedFile.size,
         uploaded_by: user.id,
+        file_name: `Foto_${format(new Date(), 'yyyyMMdd_HHmmss')}.jpg`,
       });
 
       setUploadProgress(100);
