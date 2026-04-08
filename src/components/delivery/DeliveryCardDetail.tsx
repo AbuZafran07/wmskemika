@@ -42,10 +42,10 @@ const LABEL_COLORS = [
   "#8b5cf6", "#ec4899", "#14b8a6", "#6366f1", "#64748b",
 ];
 
-/** Extract display name from file_key, stripping timestamp prefix */
-const getDisplayFileName = (fileKey: string): string => {
-  const raw = fileKey.split("/").pop() || "attachment";
-  // Pattern: 1234567890123_originalname.ext or 1234567890123.ext
+/** Extract display name: prefer file_name, then parse from file_key */
+const getDisplayFileName = (att: { file_key: string; file_name?: string | null }): string => {
+  if (att.file_name) return att.file_name;
+  const raw = att.file_key.split("/").pop() || "attachment";
   const match = raw.match(/^\d+_(.+)$/);
   return match ? match[1] : raw;
 };
@@ -100,6 +100,7 @@ interface Comment {
 interface Attachment {
   id: string;
   file_key: string;
+  file_name: string | null;
   url: string;
   mime_type: string | null;
   file_size: number | null;
@@ -159,6 +160,8 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const [uploadingFile, setUploadingFile] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [downloadingAttachmentId, setDownloadingAttachmentId] = useState<string | null>(null);
+  const [renamingAttachmentId, setRenamingAttachmentId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const cameraFrontInputRef = useRef<HTMLInputElement>(null);
@@ -1629,6 +1632,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         mime_type: "image/jpeg",
         file_size: stampedFile.size,
         uploaded_by: user.id,
+        file_name: `Foto_${format(new Date(), 'yyyyMMdd_HHmmss')}.jpg`,
       });
 
       setUploadProgress(100);
@@ -1685,6 +1689,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         mime_type: file.type,
         file_size: file.size,
         uploaded_by: user.id,
+        file_name: file.name,
       });
 
       setUploadProgress(100);
@@ -1716,7 +1721,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       if (error || !data) throw error || new Error("Gagal download file");
 
       const objectUrl = URL.createObjectURL(data);
-      const fileName = getDisplayFileName(att.file_key);
+      const fileName = getDisplayFileName(att);
       const link = document.createElement("a");
       link.href = objectUrl;
       link.download = fileName;
@@ -1745,6 +1750,22 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       fetchAttachments();
     } catch {
       toast.error("Gagal menghapus file");
+    }
+  };
+
+  // Rename attachment
+  const handleRenameAttachment = async (att: Attachment) => {
+    const trimmed = renameValue.trim();
+    if (!trimmed) { toast.error("Nama file tidak boleh kosong"); return; }
+    try {
+      const { error } = await supabase.from("attachments").update({ file_name: trimmed }).eq("id", att.id);
+      if (error) throw error;
+      toast.success("Nama file diperbarui");
+      setRenamingAttachmentId(null);
+      setRenameValue("");
+      fetchAttachments();
+    } catch {
+      toast.error("Gagal mengubah nama file");
     }
   };
 
@@ -2174,7 +2195,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                           >
                             <img
                               src={att.url}
-                              alt={getDisplayFileName(att.file_key)}
+                              alt={getDisplayFileName(att)}
                               className="w-full h-full object-cover"
                               loading="lazy"
                             />
@@ -2185,7 +2206,37 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium truncate">{getDisplayFileName(att.file_key)}</p>
+                          {renamingAttachmentId === att.id ? (
+                            <div className="flex items-center gap-1">
+                              <Input
+                                value={renameValue}
+                                onChange={(e) => setRenameValue(e.target.value)}
+                                className="h-6 text-xs px-1.5"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleRenameAttachment(att);
+                                  if (e.key === 'Escape') { setRenamingAttachmentId(null); setRenameValue(""); }
+                                }}
+                              />
+                              <button onClick={() => handleRenameAttachment(att)} className="text-primary hover:text-primary/80 p-0.5" title="Simpan">
+                                <Check className="h-3 w-3" />
+                              </button>
+                              <button onClick={() => { setRenamingAttachmentId(null); setRenameValue(""); }} className="text-muted-foreground hover:text-foreground p-0.5" title="Batal">
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 group/name">
+                              <p className="text-xs font-medium truncate">{getDisplayFileName(att)}</p>
+                              <button
+                                onClick={() => { setRenamingAttachmentId(att.id); setRenameValue(getDisplayFileName(att)); }}
+                                className="opacity-0 group-hover/name:opacity-100 text-muted-foreground hover:text-foreground p-0.5 flex-shrink-0"
+                                title="Ubah nama"
+                              >
+                                <Pencil className="h-2.5 w-2.5" />
+                              </button>
+                            </div>
+                          )}
                           <p className="text-[10px] text-muted-foreground">
                             {formatSize(att.file_size)} • {att.uploader_name}
                             {att.uploaded_at && ` • ${formatDistanceToNow(new Date(att.uploaded_at), { addSuffix: true, locale: idLocale })}`}
@@ -2701,7 +2752,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           <DialogHeader className="p-4 pb-0">
             <DialogTitle className="flex items-center gap-2 pr-8">
               <Eye className="h-4 w-4 text-primary" />
-              <span className="truncate">{previewAttachment ? getDisplayFileName(previewAttachment.file_key) : ''}</span>
+              <span className="truncate">{previewAttachment ? getDisplayFileName(previewAttachment) : ''}</span>
             </DialogTitle>
             <DialogDescription className="sr-only">
               Preview lampiran delivery card
@@ -2722,7 +2773,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                   ) : previewFileUrl ? (
                     <img
                       src={previewFileUrl}
-                      alt={getDisplayFileName(previewAttachment.file_key)}
+                      alt={getDisplayFileName(previewAttachment)}
                       className="max-w-full max-h-[65vh] object-contain rounded"
                     />
                   ) : (
