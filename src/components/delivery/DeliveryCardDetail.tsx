@@ -1688,6 +1688,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         mime_type: file.type,
         file_size: file.size,
         uploaded_by: user.id,
+        file_name: file.name,
       });
 
       setUploadProgress(100);
