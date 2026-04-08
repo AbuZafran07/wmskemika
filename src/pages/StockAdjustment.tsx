@@ -79,6 +79,7 @@ interface AdjustmentItem {
   adjustment_qty: number;
   notes: string;
   new_expired_date: string;
+  new_batch_no: string;
   product?: Partial<Product> & { id: string; name: string };
 }
 
@@ -216,6 +217,7 @@ export default function StockAdjustment() {
       adjustment_qty: 0,
       notes: '',
       new_expired_date: '',
+      new_batch_no: '',
     }]);
   };
 
@@ -278,12 +280,18 @@ export default function StockAdjustment() {
     return !!newExpiry && newExpiry !== oldExpiry;
   };
 
+  const isBatchNoChanged = (item: AdjustmentItem) => {
+    if (!item.batch_id || !item.new_batch_no?.trim()) return false;
+    const batch = allBatches.find((b) => b.id === item.batch_id);
+    return !!batch && item.new_batch_no.trim() !== batch.batch_no;
+  };
+
   const isLineItemComplete = (item: AdjustmentItem) => {
     if (!item.product_id || !item.batch_id) return false;
 
-    // Valid if: qty changes OR expiry actually changes
+    // Valid if: qty changes OR expiry actually changes OR batch_no changes
     const qtyChanged = item.adjustment_qty !== 0;
-    return qtyChanged || isExpiryChanged(item);
+    return qtyChanged || isExpiryChanged(item) || isBatchNoChanged(item);
   };
 
   const handleSubmit = async () => {
