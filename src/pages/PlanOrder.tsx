@@ -1629,7 +1629,7 @@ export default function PlanOrder() {
       </Card>
 
       {/* Approve Dialog */}
-      <AlertDialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
+      <AlertDialog open={isApproveDialogOpen} onOpenChange={(open) => { setIsApproveDialogOpen(open); if (!open) setApproveReason(""); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -1641,6 +1641,16 @@ export default function PlanOrder() {
                 : `Apakah Anda yakin ingin menyetujui "${selectedOrder?.plan_number}"?`}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="py-2">
+            <Label>{language === "en" ? "Approval Reason (optional)" : "Alasan Persetujuan (opsional)"}</Label>
+            <Textarea
+              value={approveReason}
+              onChange={(e) => setApproveReason(e.target.value)}
+              placeholder={language === "en" ? "Enter reason for approval..." : "Masukkan alasan persetujuan..."}
+              className="mt-1.5"
+              rows={3}
+            />
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isApproving}>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
