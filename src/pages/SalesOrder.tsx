@@ -1884,6 +1884,7 @@ export default function SalesOrder() {
                 </div>
               )}
 
+              <div>
                 <h4 className="font-semibold mb-3">{language === "en" ? "Order Items" : "Item Pesanan"}</h4>
                 {itemsLoading ? (
                   <div className="flex justify-center py-4">

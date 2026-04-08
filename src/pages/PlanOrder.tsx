@@ -1981,6 +1981,7 @@ export default function PlanOrder() {
                 </div>
               )}
 
+              {selectedOrder.notes && (
                 <div>
                   <p className="text-sm text-muted-foreground">{language === "en" ? "Notes" : "Catatan"}</p>
                   <p className="text-sm">{selectedOrder.notes}</p>
