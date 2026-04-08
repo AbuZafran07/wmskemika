@@ -255,6 +255,7 @@ export default function PlanOrder() {
   const [isApprovingRevision, setIsApprovingRevision] = useState(false);
   const [isRejectingRevision, setIsRejectingRevision] = useState(false);
   const [revisionReasonDisplay, setRevisionReasonDisplay] = useState<{ reason: string; requestedBy: string; requestedAt: string } | null>(null);
+  const [approveReasonDisplay, setApproveReasonDisplay] = useState<{ reason: string; approvedBy: string; approvedAt: string } | null>(null);
 
   // Stock In history
   const [stockInHistory, setStockInHistory] = useState<any[]>([]);
