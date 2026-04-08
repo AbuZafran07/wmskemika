@@ -1869,7 +1869,21 @@ export default function SalesOrder() {
                 </div>
               )}
 
-              <div>
+              {/* Approval Reason Banner */}
+              {approveReasonDisplay && (
+                <div className="rounded-lg border border-success/50 bg-success/10 p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-success font-semibold">
+                    <CheckCircle className="w-4 h-4" />
+                    {language === "en" ? "Approval Note" : "Catatan Persetujuan"}
+                  </div>
+                  <div className="text-sm space-y-1">
+                    <p><span className="text-muted-foreground">{language === "en" ? "Reason:" : "Alasan:"}</span> {approveReasonDisplay.reason}</p>
+                    <p><span className="text-muted-foreground">{language === "en" ? "Approved by:" : "Disetujui oleh:"}</span> {approveReasonDisplay.approvedBy}</p>
+                    <p><span className="text-muted-foreground">{language === "en" ? "Date:" : "Tanggal:"}</span> {approveReasonDisplay.approvedAt}</p>
+                  </div>
+                </div>
+              )}
+
                 <h4 className="font-semibold mb-3">{language === "en" ? "Order Items" : "Item Pesanan"}</h4>
                 {itemsLoading ? (
                   <div className="flex justify-center py-4">
