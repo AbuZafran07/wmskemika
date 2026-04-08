@@ -193,7 +193,7 @@ export const ACTION_PERMISSIONS: Record<ModuleType, Record<ActionType, UserRole[
     edit: ['super_admin', 'admin', 'finance'],
     delete: ['super_admin', 'admin'],
     cancel: ['super_admin', 'admin'],
-    approve: ['super_admin'], // Only super_admin can approve
+    approve: ['super_admin', 'admin'],
     upload: ['super_admin', 'admin', 'finance'],
     print: ['super_admin', 'admin', 'finance'],
   },
