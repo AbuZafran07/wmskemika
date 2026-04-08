@@ -1189,6 +1189,23 @@ export default function RequestDelivery() {
                       )}
                     </div>
                   </div>
+
+                  {/* Urgent/Cito filter */}
+                  <div className="pt-1 border-t">
+                    <button
+                      onClick={() => setFilterUrgent(!filterUrgent)}
+                      className={cn(
+                        "flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-xs transition-colors hover:bg-muted",
+                        filterUrgent && "bg-destructive/10"
+                      )}
+                    >
+                      <Bell className="h-3.5 w-3.5 text-destructive" />
+                      <span className="text-foreground">Urgent / Cito Request</span>
+                      {filterUrgent && (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-destructive ml-auto flex-shrink-0" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </PopoverContent>
             </Popover>
