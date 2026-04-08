@@ -787,6 +787,14 @@ export default function RequestDelivery() {
         c.items.some(i => i.product_name.toLowerCase().includes(q))
       );
     }
+    if (filterUrgent) {
+      filtered = filtered.filter(c => {
+        const labels = cardLabelsMap[c.id] || [];
+        const hasUrgentLabel = labels.some(l => /urgent|cito/i.test(l.name));
+        const hasPendingUrgent = (pendingApprovalsMap[c.id] || 0) > 0;
+        return hasUrgentLabel || hasPendingUrgent;
+      });
+    }
     return filtered;
   };
 
