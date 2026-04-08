@@ -204,6 +204,7 @@ export async function createStockAdjustment(
     adjustment_qty: number;
     notes?: string;
     new_expired_date?: string | null;
+    new_batch_no?: string | null;
   }>,
   attachmentMeta?: {
     file_key: string;
@@ -227,6 +228,7 @@ export async function createStockAdjustment(
         adjustment_qty: item.adjustment_qty,
         notes: item.notes || '',
         new_expired_date: item.new_expired_date || null,
+        new_batch_no: item.new_batch_no || null,
       })),
       attachment_meta: attachmentMeta || null,
     });
@@ -260,6 +262,7 @@ export async function updateStockAdjustment(
     adjustment_qty: number;
     notes?: string;
     new_expired_date?: string | null;
+    new_batch_no?: string | null;
   }>
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -277,6 +280,7 @@ export async function updateStockAdjustment(
         adjustment_qty: item.adjustment_qty,
         notes: item.notes || '',
         new_expired_date: item.new_expired_date || null,
+        new_batch_no: item.new_batch_no || null,
       })),
     });
 
