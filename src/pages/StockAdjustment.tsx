@@ -661,10 +661,18 @@ export default function StockAdjustment() {
                                 />
                                 {item.adjustment_qty > 0 && <TrendingUp className="w-4 h-4 text-success" />}
                                 {item.adjustment_qty < 0 && <TrendingDown className="w-4 h-4 text-destructive" />}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-center text-sm text-muted-foreground">
-                              {selectedBatch?.expired_date ? formatDate(selectedBatch.expired_date) : '-'}
+                               </div>
+                             </TableCell>
+                             <TableCell>
+                               <Input
+                                 placeholder={selectedBatch?.batch_no || (language === 'en' ? 'New batch no' : 'No. batch baru')}
+                                 value={item.new_batch_no}
+                                 className={`w-[110px] ${isBatchNoChanged(item) ? 'border-primary ring-1 ring-primary' : ''}`}
+                                 onChange={(e) => handleItemChange(item.id, 'new_batch_no', e.target.value)}
+                               />
+                             </TableCell>
+                             <TableCell className="text-center text-sm text-muted-foreground">
+                               {selectedBatch?.expired_date ? formatDate(selectedBatch.expired_date) : '-'}
                             </TableCell>
                             <TableCell>
                               {(() => {
