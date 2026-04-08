@@ -1753,6 +1753,22 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     }
   };
 
+  // Rename attachment
+  const handleRenameAttachment = async (att: Attachment) => {
+    const trimmed = renameValue.trim();
+    if (!trimmed) { toast.error("Nama file tidak boleh kosong"); return; }
+    try {
+      const { error } = await supabase.from("attachments").update({ file_name: trimmed }).eq("id", att.id);
+      if (error) throw error;
+      toast.success("Nama file diperbarui");
+      setRenamingAttachmentId(null);
+      setRenameValue("");
+      fetchAttachments();
+    } catch {
+      toast.error("Gagal mengubah nama file");
+    }
+  };
+
   const formatSize = (bytes: number | null) => {
     if (!bytes) return "";
     if (bytes < 1024) return `${bytes} B`;
