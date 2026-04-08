@@ -315,8 +315,8 @@ export function canApproveOrder(
   if (!role) return false;
   if (role === 'super_admin') return true;
   
-  // For stock_adjustment, only super_admin can approve
-  if (module === 'stock_adjustment') return false;
+  // For stock_adjustment, super_admin and admin can approve
+  if (module === 'stock_adjustment') return role === 'admin';
   
   // For plan_order and sales_order, admin needs allowAdminApprove
   if (role === 'admin' && allowAdminApprove) return true;
