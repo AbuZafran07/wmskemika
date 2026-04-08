@@ -233,6 +233,7 @@ export default function PlanOrder() {
 
   // Detail/approval dialogs
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
+  const [approveReason, setApproveReason] = useState("");
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
@@ -254,6 +255,7 @@ export default function PlanOrder() {
   const [isApprovingRevision, setIsApprovingRevision] = useState(false);
   const [isRejectingRevision, setIsRejectingRevision] = useState(false);
   const [revisionReasonDisplay, setRevisionReasonDisplay] = useState<{ reason: string; requestedBy: string; requestedAt: string } | null>(null);
+  const [approveReasonDisplay, setApproveReasonDisplay] = useState<{ reason: string; approvedBy: string; approvedAt: string } | null>(null);
 
   // Stock In history
   const [stockInHistory, setStockInHistory] = useState<any[]>([]);
@@ -689,7 +691,7 @@ export default function PlanOrder() {
 
     setIsApproving(true);
     try {
-      const result = await approvePlanOrder(selectedOrder.id);
+      const result = await approvePlanOrder(selectedOrder.id, approveReason.trim() || undefined);
       if (!result.success) throw new Error(result.error || "Failed to approve");
       toast.success(language === "en" ? "Plan Order approved" : "Plan Order disetujui");
       // Notify creator about approval
@@ -704,6 +706,7 @@ export default function PlanOrder() {
     }
     setIsApproving(false);
     setIsApproveDialogOpen(false);
+    setApproveReason("");
     setSelectedOrder(null);
   };
 
@@ -812,6 +815,33 @@ export default function PlanOrder() {
     setSelectedOrder(order);
     setIsDetailDialogOpen(true);
     setRevisionReasonDisplay(null);
+    setApproveReasonDisplay(null);
+
+    // Fetch approve reason if status is approved or beyond
+    if (['approved', 'partially_received', 'received'].includes(order.status)) {
+      try {
+        const { data: auditData } = await supabase
+          .from('audit_logs')
+          .select('new_data, user_email, created_at')
+          .eq('ref_id', order.id)
+          .eq('action', 'APPROVE')
+          .order('created_at', { ascending: false })
+          .limit(1);
+        if (auditData && auditData.length > 0) {
+          const nd = auditData[0].new_data as any;
+          const reason = nd?.approve_reason;
+          if (reason) {
+            setApproveReasonDisplay({
+              reason,
+              approvedBy: auditData[0].user_email || '-',
+              approvedAt: auditData[0].created_at ? formatDateTimeID(new Date(auditData[0].created_at)) : '-',
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch approve reason:', err);
+      }
+    }
 
     // Fetch revision reason if status is revision_requested
     if (order.status === 'revision_requested') {
@@ -1627,7 +1657,7 @@ export default function PlanOrder() {
       </Card>
 
       {/* Approve Dialog */}
-      <AlertDialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
+      <AlertDialog open={isApproveDialogOpen} onOpenChange={(open) => { setIsApproveDialogOpen(open); if (!open) setApproveReason(""); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -1639,6 +1669,16 @@ export default function PlanOrder() {
                 : `Apakah Anda yakin ingin menyetujui "${selectedOrder?.plan_number}"?`}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="py-2">
+            <Label>{language === "en" ? "Approval Reason (optional)" : "Alasan Persetujuan (opsional)"}</Label>
+            <Textarea
+              value={approveReason}
+              onChange={(e) => setApproveReason(e.target.value)}
+              placeholder={language === "en" ? "Enter reason for approval..." : "Masukkan alasan persetujuan..."}
+              className="mt-1.5"
+              rows={3}
+            />
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isApproving}>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
@@ -1922,6 +1962,21 @@ export default function PlanOrder() {
                     <p><span className="text-muted-foreground">{language === "en" ? "Reason:" : "Alasan:"}</span> {revisionReasonDisplay.reason}</p>
                     <p><span className="text-muted-foreground">{language === "en" ? "Requested by:" : "Diminta oleh:"}</span> {revisionReasonDisplay.requestedBy}</p>
                     <p><span className="text-muted-foreground">{language === "en" ? "Date:" : "Tanggal:"}</span> {revisionReasonDisplay.requestedAt}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Approval Reason Banner */}
+              {approveReasonDisplay && (
+                <div className="rounded-lg border border-success/50 bg-success/10 p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-success font-semibold">
+                    <CheckCircle className="w-4 h-4" />
+                    {language === "en" ? "Approval Note" : "Catatan Persetujuan"}
+                  </div>
+                  <div className="text-sm space-y-1">
+                    <p><span className="text-muted-foreground">{language === "en" ? "Reason:" : "Alasan:"}</span> {approveReasonDisplay.reason}</p>
+                    <p><span className="text-muted-foreground">{language === "en" ? "Approved by:" : "Disetujui oleh:"}</span> {approveReasonDisplay.approvedBy}</p>
+                    <p><span className="text-muted-foreground">{language === "en" ? "Date:" : "Tanggal:"}</span> {approveReasonDisplay.approvedAt}</p>
                   </div>
                 </div>
               )}

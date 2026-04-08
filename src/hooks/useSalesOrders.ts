@@ -322,9 +322,9 @@ export async function updateSalesOrder(
   }
 }
 
-export async function approveSalesOrder(orderId: string): Promise<{ success: boolean; error?: string }> {
+export async function approveSalesOrder(orderId: string, approveReason?: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const { data, error } = await supabase.rpc('sales_order_approve', { order_id: orderId });
+    const { data, error } = await supabase.rpc('sales_order_approve', { order_id: orderId, approve_reason: approveReason || null });
     if (error) throw error;
 
     const result = data as { success: boolean; error?: string };
