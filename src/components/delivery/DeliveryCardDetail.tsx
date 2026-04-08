@@ -1716,7 +1716,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       if (error || !data) throw error || new Error("Gagal download file");
 
       const objectUrl = URL.createObjectURL(data);
-      const fileName = att.file_key.split("/").pop() || "attachment";
+      const fileName = getDisplayFileName(att.file_key);
       const link = document.createElement("a");
       link.href = objectUrl;
       link.download = fileName;
@@ -2174,7 +2174,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                           >
                             <img
                               src={att.url}
-                              alt={att.file_key.split("/").pop() || ""}
+                              alt={getDisplayFileName(att.file_key)}
                               className="w-full h-full object-cover"
                               loading="lazy"
                             />
@@ -2185,7 +2185,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium truncate">{att.file_key.split("/").pop()}</p>
+                          <p className="text-xs font-medium truncate">{getDisplayFileName(att.file_key)}</p>
                           <p className="text-[10px] text-muted-foreground">
                             {formatSize(att.file_size)} • {att.uploader_name}
                             {att.uploaded_at && ` • ${formatDistanceToNow(new Date(att.uploaded_at), { addSuffix: true, locale: idLocale })}`}
@@ -2701,7 +2701,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           <DialogHeader className="p-4 pb-0">
             <DialogTitle className="flex items-center gap-2 pr-8">
               <Eye className="h-4 w-4 text-primary" />
-              <span className="truncate">{previewAttachment?.file_key.split("/").pop()}</span>
+              <span className="truncate">{previewAttachment ? getDisplayFileName(previewAttachment.file_key) : ''}</span>
             </DialogTitle>
             <DialogDescription className="sr-only">
               Preview lampiran delivery card
@@ -2722,7 +2722,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                   ) : previewFileUrl ? (
                     <img
                       src={previewFileUrl}
-                      alt={previewAttachment.file_key.split("/").pop() || "Preview"}
+                      alt={getDisplayFileName(previewAttachment.file_key)}
                       className="max-w-full max-h-[65vh] object-contain rounded"
                     />
                   ) : (
