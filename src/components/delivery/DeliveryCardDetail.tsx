@@ -51,6 +51,7 @@ const getDisplayFileName = (fileKey: string): string => {
 };
 
 
+interface DeliveryCard {
   id: string;
   sales_order_id: string;
   board_status: string;
