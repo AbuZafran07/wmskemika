@@ -42,7 +42,15 @@ const LABEL_COLORS = [
   "#8b5cf6", "#ec4899", "#14b8a6", "#6366f1", "#64748b",
 ];
 
-interface DeliveryCard {
+/** Extract display name from file_key, stripping timestamp prefix */
+const getDisplayFileName = (fileKey: string): string => {
+  const raw = fileKey.split("/").pop() || "attachment";
+  // Pattern: 1234567890123_originalname.ext or 1234567890123.ext
+  const match = raw.match(/^\d+_(.+)$/);
+  return match ? match[1] : raw;
+};
+
+
   id: string;
   sales_order_id: string;
   board_status: string;
