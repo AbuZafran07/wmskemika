@@ -1646,8 +1646,9 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     setUploadingFile(true);
     setUploadProgress(0);
     try {
-      const fileExt = file.name.split(".").pop();
-      const fileKey = `delivery/${card.id}/${Date.now()}.${fileExt}`;
+      // Sanitize original filename: remove special chars but keep readable name
+      const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const fileKey = `delivery/${card.id}/${Date.now()}_${sanitizedName}`;
 
       // Simulate progress for UX (storage SDK doesn't expose progress)
       const progressInterval = setInterval(() => {
