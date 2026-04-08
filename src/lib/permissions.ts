@@ -188,13 +188,13 @@ export const ACTION_PERMISSIONS: Record<ModuleType, Record<ActionType, UserRole[
     print: ['super_admin', 'admin', 'warehouse'],
   },
   stock_adjustment: {
-    view: ['super_admin', 'admin', 'finance'], // Warehouse removed
+    view: ['super_admin', 'admin', 'finance'],
     create: ['super_admin', 'admin', 'finance'],
-    edit: ['super_admin', 'admin'],
+    edit: ['super_admin', 'admin', 'finance'],
     delete: ['super_admin', 'admin'],
     cancel: ['super_admin', 'admin'],
     approve: ['super_admin'], // Only super_admin can approve
-    upload: ['super_admin', 'admin'],
+    upload: ['super_admin', 'admin', 'finance'],
     print: ['super_admin', 'admin', 'finance'],
   },
   product: {
