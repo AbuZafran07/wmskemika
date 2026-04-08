@@ -98,6 +98,7 @@ export default function RequestDelivery() {
   const [cardLabelsMap, setCardLabelsMap] = useState<Record<string, { name: string; color: string }[]>>({});
   const [allLabels, setAllLabels] = useState<{ id: string; name: string; color: string }[]>([]);
   const [filterLabelNames, setFilterLabelNames] = useState<string[]>([]);
+  const [filterUrgent, setFilterUrgent] = useState(false);
   const [pendingApprovalsMap, setPendingApprovalsMap] = useState<Record<string, number>>({});
   const [cardSearchQuery, setCardSearchQuery] = useState("");
   const [unreadCommentsMap, setUnreadCommentsMap] = useState<Record<string, number>>({});
