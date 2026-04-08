@@ -28,6 +28,7 @@ export interface StockAdjustmentItem {
   adjustment_qty: number;
   notes: string | null;
   new_expired_date?: string | null;
+  new_batch_no?: string | null;
   product?: {
     id: string;
     name: string;

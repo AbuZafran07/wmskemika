@@ -79,6 +79,7 @@ interface AdjustmentItem {
   adjustment_qty: number;
   notes: string;
   new_expired_date: string;
+  new_batch_no: string;
   product?: Partial<Product> & { id: string; name: string };
 }
 
@@ -216,6 +217,7 @@ export default function StockAdjustment() {
       adjustment_qty: 0,
       notes: '',
       new_expired_date: '',
+      new_batch_no: '',
     }]);
   };
 
@@ -278,12 +280,18 @@ export default function StockAdjustment() {
     return !!newExpiry && newExpiry !== oldExpiry;
   };
 
+  const isBatchNoChanged = (item: AdjustmentItem) => {
+    if (!item.batch_id || !item.new_batch_no?.trim()) return false;
+    const batch = allBatches.find((b) => b.id === item.batch_id);
+    return !!batch && item.new_batch_no.trim() !== batch.batch_no;
+  };
+
   const isLineItemComplete = (item: AdjustmentItem) => {
     if (!item.product_id || !item.batch_id) return false;
 
-    // Valid if: qty changes OR expiry actually changes
+    // Valid if: qty changes OR expiry actually changes OR batch_no changes
     const qtyChanged = item.adjustment_qty !== 0;
-    return qtyChanged || isExpiryChanged(item);
+    return qtyChanged || isExpiryChanged(item) || isBatchNoChanged(item);
   };
 
   const handleSubmit = async () => {
@@ -295,8 +303,8 @@ export default function StockAdjustment() {
     if (adjustmentItems.some((item) => !isLineItemComplete(item))) {
       toast.error(
         language === 'en'
-          ? 'Please complete all line items: set Adj. Qty (non-zero) or change New Expiry'
-          : 'Harap lengkapi semua item: isi Adj. Qty (tidak nol) atau ubah Exp. Baru'
+          ? 'Please complete all line items: set Adj. Qty (non-zero), change New Expiry, or change New Batch No'
+          : 'Harap lengkapi semua item: isi Adj. Qty (tidak nol), ubah Exp. Baru, atau ubah Batch Baru'
       );
       return;
     }
@@ -321,6 +329,7 @@ export default function StockAdjustment() {
         adjustment_qty: item.adjustment_qty,
         notes: item.notes,
         new_expired_date: item.new_expired_date || null,
+        new_batch_no: item.new_batch_no || null,
       })),
       attachmentKey
         ? {
@@ -353,8 +362,8 @@ export default function StockAdjustment() {
     if (adjustmentItems.some((item) => !isLineItemComplete(item))) {
       toast.error(
         language === 'en'
-          ? 'Please complete all line items: set Adj. Qty (non-zero) or change New Expiry'
-          : 'Harap lengkapi semua item: isi Adj. Qty (tidak nol) atau ubah Exp. Baru'
+          ? 'Please complete all line items: set Adj. Qty (non-zero), change New Expiry, or change New Batch No'
+          : 'Harap lengkapi semua item: isi Adj. Qty (tidak nol), ubah Exp. Baru, atau ubah Batch Baru'
       );
       return;
     }
@@ -375,6 +384,7 @@ export default function StockAdjustment() {
         adjustment_qty: item.adjustment_qty,
         notes: item.notes,
         new_expired_date: item.new_expired_date || null,
+        new_batch_no: item.new_batch_no || null,
       }))
     );
 
@@ -491,6 +501,7 @@ export default function StockAdjustment() {
         adjustment_qty: item.adjustment_qty,
         notes: item.notes || '',
         new_expired_date: item.new_expired_date || '',
+        new_batch_no: item.new_batch_no || '',
         product: item.product,
       })));
     }
@@ -582,22 +593,23 @@ export default function StockAdjustment() {
               <CardContent>
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[180px]">{language === 'en' ? 'Product' : 'Produk'}</TableHead>
-                      <TableHead className="w-[150px]">Batch</TableHead>
-                      <TableHead className="text-center w-[80px]">{language === 'en' ? 'Curr. Qty' : 'Qty Lama'}</TableHead>
-                      <TableHead className="text-center w-[100px]">{language === 'en' ? 'Adj. Qty' : 'Adj. Qty'}</TableHead>
-                      <TableHead className="text-center w-[110px]">{language === 'en' ? 'Curr. Expiry' : 'Exp. Lama'}</TableHead>
-                      <TableHead className="text-center w-[130px]">{language === 'en' ? 'New Expiry' : 'Exp. Baru'}</TableHead>
-                      <TableHead className="w-[120px]">{language === 'en' ? 'Notes' : 'Catatan'}</TableHead>
-                      <TableHead className="w-[50px]"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {adjustmentItems.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                          {language === 'en' ? 'No items added yet' : 'Belum ada item'}
+                     <TableRow>
+                       <TableHead className="w-[180px]">{language === 'en' ? 'Product' : 'Produk'}</TableHead>
+                       <TableHead className="w-[150px]">Batch</TableHead>
+                       <TableHead className="text-center w-[80px]">{language === 'en' ? 'Curr. Qty' : 'Qty Lama'}</TableHead>
+                       <TableHead className="text-center w-[100px]">{language === 'en' ? 'Adj. Qty' : 'Adj. Qty'}</TableHead>
+                       <TableHead className="w-[120px]">{language === 'en' ? 'New Batch No' : 'Batch Baru'}</TableHead>
+                       <TableHead className="text-center w-[110px]">{language === 'en' ? 'Curr. Expiry' : 'Exp. Lama'}</TableHead>
+                       <TableHead className="text-center w-[130px]">{language === 'en' ? 'New Expiry' : 'Exp. Baru'}</TableHead>
+                       <TableHead className="w-[120px]">{language === 'en' ? 'Notes' : 'Catatan'}</TableHead>
+                       <TableHead className="w-[50px]"></TableHead>
+                     </TableRow>
+                   </TableHeader>
+                   <TableBody>
+                     {adjustmentItems.length === 0 ? (
+                       <TableRow>
+                         <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                           {language === 'en' ? 'No items added yet' : 'Belum ada item'}
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -649,10 +661,18 @@ export default function StockAdjustment() {
                                 />
                                 {item.adjustment_qty > 0 && <TrendingUp className="w-4 h-4 text-success" />}
                                 {item.adjustment_qty < 0 && <TrendingDown className="w-4 h-4 text-destructive" />}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-center text-sm text-muted-foreground">
-                              {selectedBatch?.expired_date ? formatDate(selectedBatch.expired_date) : '-'}
+                               </div>
+                             </TableCell>
+                             <TableCell>
+                               <Input
+                                 placeholder={selectedBatch?.batch_no || (language === 'en' ? 'New batch no' : 'No. batch baru')}
+                                 value={item.new_batch_no}
+                                 className={`w-[110px] ${isBatchNoChanged(item) ? 'border-primary ring-1 ring-primary' : ''}`}
+                                 onChange={(e) => handleItemChange(item.id, 'new_batch_no', e.target.value)}
+                               />
+                             </TableCell>
+                             <TableCell className="text-center text-sm text-muted-foreground">
+                               {selectedBatch?.expired_date ? formatDate(selectedBatch.expired_date) : '-'}
                             </TableCell>
                             <TableCell>
                               {(() => {
@@ -736,17 +756,13 @@ export default function StockAdjustment() {
                   </Alert>
                 )}
                 <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">{language === 'en' ? 'Batch No Changes' : 'Perubahan No. Batch'}</span>
+                  <span>{adjustmentItems.filter(i => isBatchNoChanged(i)).length}</span>
+                </div>
+                <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">{language === 'en' ? 'Expiry Changes' : 'Perubahan Expired'}</span>
                   <span>
-                    {
-                      adjustmentItems.filter((item) => {
-                        if (!item.batch_id || !item.new_expired_date) return false;
-                        const batch = allBatches.find((b) => b.id === item.batch_id);
-                        const oldExpiry = batch?.expired_date ? batch.expired_date.split('T')[0] : null;
-                        const newExpiry = item.new_expired_date.split('T')[0];
-                        return newExpiry !== oldExpiry;
-                      }).length
-                    }
+                    {adjustmentItems.filter(i => isExpiryChanged(i)).length}
                   </span>
                 </div>
               </CardContent>
@@ -989,40 +1005,46 @@ export default function StockAdjustment() {
                 
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>SKU</TableHead>
-                      <TableHead>{language === 'en' ? 'Product' : 'Produk'}</TableHead>
-                      <TableHead>Batch</TableHead>
-                      <TableHead className="text-center">{language === 'en' ? 'Adj. Qty' : 'Adj. Qty'}</TableHead>
-                      <TableHead className="text-center">{language === 'en' ? 'New Expiry' : 'Exp. Baru'}</TableHead>
-                      <TableHead>{language === 'en' ? 'Notes' : 'Catatan'}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {itemsLoading ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-4">
-                          <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      selectedItems.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell>{item.product?.sku || '-'}</TableCell>
-                          <TableCell>{item.product?.name || '-'}</TableCell>
-                          <TableCell>{item.batch?.batch_no || '-'}</TableCell>
-                          <TableCell className="text-center">
-                            <span className={item.adjustment_qty >= 0 ? 'text-success' : 'text-destructive'}>
-                              {item.adjustment_qty >= 0 ? '+' : ''}{item.adjustment_qty}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {item.new_expired_date ? formatDate(item.new_expired_date) : '-'}
-                          </TableCell>
-                          <TableCell>{item.notes || '-'}</TableCell>
-                        </TableRow>
-                      ))
-                    )}
+                     <TableRow>
+                       <TableHead>SKU</TableHead>
+                       <TableHead>{language === 'en' ? 'Product' : 'Produk'}</TableHead>
+                       <TableHead>Batch</TableHead>
+                       <TableHead>{language === 'en' ? 'New Batch No' : 'Batch Baru'}</TableHead>
+                       <TableHead className="text-center">{language === 'en' ? 'Adj. Qty' : 'Adj. Qty'}</TableHead>
+                       <TableHead className="text-center">{language === 'en' ? 'New Expiry' : 'Exp. Baru'}</TableHead>
+                       <TableHead>{language === 'en' ? 'Notes' : 'Catatan'}</TableHead>
+                     </TableRow>
+                   </TableHeader>
+                   <TableBody>
+                     {itemsLoading ? (
+                       <TableRow>
+                         <TableCell colSpan={7} className="text-center py-4">
+                           <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                         </TableCell>
+                       </TableRow>
+                     ) : (
+                       selectedItems.map((item) => (
+                         <TableRow key={item.id}>
+                           <TableCell>{item.product?.sku || '-'}</TableCell>
+                           <TableCell>{item.product?.name || '-'}</TableCell>
+                           <TableCell>{item.batch?.batch_no || '-'}</TableCell>
+                           <TableCell>
+                             {(item as any).new_batch_no ? (
+                               <span className="text-primary font-medium">{(item as any).new_batch_no}</span>
+                             ) : '-'}
+                           </TableCell>
+                           <TableCell className="text-center">
+                             <span className={item.adjustment_qty >= 0 ? 'text-success' : 'text-destructive'}>
+                               {item.adjustment_qty >= 0 ? '+' : ''}{item.adjustment_qty}
+                             </span>
+                           </TableCell>
+                           <TableCell className="text-center">
+                             {item.new_expired_date ? formatDate(item.new_expired_date) : '-'}
+                           </TableCell>
+                           <TableCell>{item.notes || '-'}</TableCell>
+                         </TableRow>
+                       ))
+                     )}
                   </TableBody>
                 </Table>
               </div>
