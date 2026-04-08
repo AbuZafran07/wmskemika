@@ -42,10 +42,10 @@ const LABEL_COLORS = [
   "#8b5cf6", "#ec4899", "#14b8a6", "#6366f1", "#64748b",
 ];
 
-/** Extract display name from file_key, stripping timestamp prefix */
-const getDisplayFileName = (fileKey: string): string => {
-  const raw = fileKey.split("/").pop() || "attachment";
-  // Pattern: 1234567890123_originalname.ext or 1234567890123.ext
+/** Extract display name: prefer file_name, then parse from file_key */
+const getDisplayFileName = (att: { file_key: string; file_name?: string | null }): string => {
+  if (att.file_name) return att.file_name;
+  const raw = att.file_key.split("/").pop() || "attachment";
   const match = raw.match(/^\d+_(.+)$/);
   return match ? match[1] : raw;
 };
