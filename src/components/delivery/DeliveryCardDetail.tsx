@@ -160,6 +160,8 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const [uploadingFile, setUploadingFile] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [downloadingAttachmentId, setDownloadingAttachmentId] = useState<string | null>(null);
+  const [renamingAttachmentId, setRenamingAttachmentId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const cameraFrontInputRef = useRef<HTMLInputElement>(null);
