@@ -98,6 +98,7 @@ export default function RequestDelivery() {
   const [cardLabelsMap, setCardLabelsMap] = useState<Record<string, { name: string; color: string }[]>>({});
   const [allLabels, setAllLabels] = useState<{ id: string; name: string; color: string }[]>([]);
   const [filterLabelNames, setFilterLabelNames] = useState<string[]>([]);
+  const [filterUrgent, setFilterUrgent] = useState(false);
   const [pendingApprovalsMap, setPendingApprovalsMap] = useState<Record<string, number>>({});
   const [cardSearchQuery, setCardSearchQuery] = useState("");
   const [unreadCommentsMap, setUnreadCommentsMap] = useState<Record<string, number>>({});
@@ -786,6 +787,14 @@ export default function RequestDelivery() {
         c.items.some(i => i.product_name.toLowerCase().includes(q))
       );
     }
+    if (filterUrgent) {
+      filtered = filtered.filter(c => {
+        const labels = cardLabelsMap[c.id] || [];
+        const hasUrgentLabel = labels.some(l => /urgent|cito/i.test(l.name));
+        const hasPendingUrgent = (pendingApprovalsMap[c.id] || 0) > 0;
+        return hasUrgentLabel || hasPendingUrgent;
+      });
+    }
     return filtered;
   };
 
@@ -1110,11 +1119,11 @@ export default function RequestDelivery() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" size="icon" className={cn("h-8 w-8 relative", (filterLabelNames.length > 0 || cardSearchQuery.trim()) && "border-primary text-primary")}>
+                    <Button variant="outline" size="icon" className={cn("h-8 w-8 relative", (filterLabelNames.length > 0 || cardSearchQuery.trim() || filterUrgent) && "border-primary text-primary")}>
                       <Filter className="h-4 w-4" />
-                      {(filterLabelNames.length > 0 || cardSearchQuery.trim()) && (
+                      {(filterLabelNames.length > 0 || cardSearchQuery.trim() || filterUrgent) && (
                         <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[9px] flex items-center justify-center font-bold">
-                          {filterLabelNames.length + (cardSearchQuery.trim() ? 1 : 0)}
+                          {filterLabelNames.length + (cardSearchQuery.trim() ? 1 : 0) + (filterUrgent ? 1 : 0)}
                         </span>
                       )}
                     </Button>
@@ -1126,8 +1135,8 @@ export default function RequestDelivery() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium">Filter & Cari Card</p>
-                    {(filterLabelNames.length > 0 || cardSearchQuery.trim()) && (
-                      <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => { setFilterLabelNames([]); setCardSearchQuery(""); }}>
+                    {(filterLabelNames.length > 0 || cardSearchQuery.trim() || filterUrgent) && (
+                      <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => { setFilterLabelNames([]); setCardSearchQuery(""); setFilterUrgent(false); }}>
                         Reset
                       </Button>
                     )}
@@ -1179,6 +1188,23 @@ export default function RequestDelivery() {
                         <p className="text-xs text-muted-foreground text-center py-2">Belum ada label</p>
                       )}
                     </div>
+                  </div>
+
+                  {/* Urgent/Cito filter */}
+                  <div className="pt-1 border-t">
+                    <button
+                      onClick={() => setFilterUrgent(!filterUrgent)}
+                      className={cn(
+                        "flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-xs transition-colors hover:bg-muted",
+                        filterUrgent && "bg-destructive/10"
+                      )}
+                    >
+                      <Bell className="h-3.5 w-3.5 text-destructive" />
+                      <span className="text-foreground">Urgent / Cito Request</span>
+                      {filterUrgent && (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-destructive ml-auto flex-shrink-0" />
+                      )}
+                    </button>
                   </div>
                 </div>
               </PopoverContent>
