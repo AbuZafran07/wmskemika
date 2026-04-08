@@ -593,22 +593,23 @@ export default function StockAdjustment() {
               <CardContent>
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[180px]">{language === 'en' ? 'Product' : 'Produk'}</TableHead>
-                      <TableHead className="w-[150px]">Batch</TableHead>
-                      <TableHead className="text-center w-[80px]">{language === 'en' ? 'Curr. Qty' : 'Qty Lama'}</TableHead>
-                      <TableHead className="text-center w-[100px]">{language === 'en' ? 'Adj. Qty' : 'Adj. Qty'}</TableHead>
-                      <TableHead className="text-center w-[110px]">{language === 'en' ? 'Curr. Expiry' : 'Exp. Lama'}</TableHead>
-                      <TableHead className="text-center w-[130px]">{language === 'en' ? 'New Expiry' : 'Exp. Baru'}</TableHead>
-                      <TableHead className="w-[120px]">{language === 'en' ? 'Notes' : 'Catatan'}</TableHead>
-                      <TableHead className="w-[50px]"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {adjustmentItems.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                          {language === 'en' ? 'No items added yet' : 'Belum ada item'}
+                     <TableRow>
+                       <TableHead className="w-[180px]">{language === 'en' ? 'Product' : 'Produk'}</TableHead>
+                       <TableHead className="w-[150px]">Batch</TableHead>
+                       <TableHead className="text-center w-[80px]">{language === 'en' ? 'Curr. Qty' : 'Qty Lama'}</TableHead>
+                       <TableHead className="text-center w-[100px]">{language === 'en' ? 'Adj. Qty' : 'Adj. Qty'}</TableHead>
+                       <TableHead className="w-[120px]">{language === 'en' ? 'New Batch No' : 'Batch Baru'}</TableHead>
+                       <TableHead className="text-center w-[110px]">{language === 'en' ? 'Curr. Expiry' : 'Exp. Lama'}</TableHead>
+                       <TableHead className="text-center w-[130px]">{language === 'en' ? 'New Expiry' : 'Exp. Baru'}</TableHead>
+                       <TableHead className="w-[120px]">{language === 'en' ? 'Notes' : 'Catatan'}</TableHead>
+                       <TableHead className="w-[50px]"></TableHead>
+                     </TableRow>
+                   </TableHeader>
+                   <TableBody>
+                     {adjustmentItems.length === 0 ? (
+                       <TableRow>
+                         <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                           {language === 'en' ? 'No items added yet' : 'Belum ada item'}
                         </TableCell>
                       </TableRow>
                     ) : (
