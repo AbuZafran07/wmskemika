@@ -352,9 +352,9 @@ export async function updatePlanOrder(
 }
 
 // Approve Plan Order using RPC
-export async function approvePlanOrder(orderId: string): Promise<{ success: boolean; error?: string }> {
+export async function approvePlanOrder(orderId: string, approveReason?: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const { data, error } = await supabase.rpc('plan_order_approve', { order_id: orderId });
+    const { data, error } = await supabase.rpc('plan_order_approve', { order_id: orderId, approve_reason: approveReason || null });
     
     if (error) throw error;
     
