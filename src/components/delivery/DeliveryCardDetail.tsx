@@ -100,6 +100,7 @@ interface Comment {
 interface Attachment {
   id: string;
   file_key: string;
+  file_name: string | null;
   url: string;
   mime_type: string | null;
   file_size: number | null;
