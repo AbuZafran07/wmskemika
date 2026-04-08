@@ -303,8 +303,8 @@ export default function StockAdjustment() {
     if (adjustmentItems.some((item) => !isLineItemComplete(item))) {
       toast.error(
         language === 'en'
-          ? 'Please complete all line items: set Adj. Qty (non-zero) or change New Expiry'
-          : 'Harap lengkapi semua item: isi Adj. Qty (tidak nol) atau ubah Exp. Baru'
+          ? 'Please complete all line items: set Adj. Qty (non-zero), change New Expiry, or change New Batch No'
+          : 'Harap lengkapi semua item: isi Adj. Qty (tidak nol), ubah Exp. Baru, atau ubah Batch Baru'
       );
       return;
     }
@@ -329,6 +329,7 @@ export default function StockAdjustment() {
         adjustment_qty: item.adjustment_qty,
         notes: item.notes,
         new_expired_date: item.new_expired_date || null,
+        new_batch_no: item.new_batch_no || null,
       })),
       attachmentKey
         ? {
@@ -361,8 +362,8 @@ export default function StockAdjustment() {
     if (adjustmentItems.some((item) => !isLineItemComplete(item))) {
       toast.error(
         language === 'en'
-          ? 'Please complete all line items: set Adj. Qty (non-zero) or change New Expiry'
-          : 'Harap lengkapi semua item: isi Adj. Qty (tidak nol) atau ubah Exp. Baru'
+          ? 'Please complete all line items: set Adj. Qty (non-zero), change New Expiry, or change New Batch No'
+          : 'Harap lengkapi semua item: isi Adj. Qty (tidak nol), ubah Exp. Baru, atau ubah Batch Baru'
       );
       return;
     }
@@ -383,6 +384,7 @@ export default function StockAdjustment() {
         adjustment_qty: item.adjustment_qty,
         notes: item.notes,
         new_expired_date: item.new_expired_date || null,
+        new_batch_no: item.new_batch_no || null,
       }))
     );
 
@@ -499,6 +501,7 @@ export default function StockAdjustment() {
         adjustment_qty: item.adjustment_qty,
         notes: item.notes || '',
         new_expired_date: item.new_expired_date || '',
+        new_batch_no: item.new_batch_no || '',
         product: item.product,
       })));
     }
