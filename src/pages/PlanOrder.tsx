@@ -233,6 +233,7 @@ export default function PlanOrder() {
 
   // Detail/approval dialogs
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
+  const [approveReason, setApproveReason] = useState("");
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
@@ -689,7 +690,7 @@ export default function PlanOrder() {
 
     setIsApproving(true);
     try {
-      const result = await approvePlanOrder(selectedOrder.id);
+      const result = await approvePlanOrder(selectedOrder.id, approveReason.trim() || undefined);
       if (!result.success) throw new Error(result.error || "Failed to approve");
       toast.success(language === "en" ? "Plan Order approved" : "Plan Order disetujui");
       // Notify creator about approval
@@ -704,6 +705,7 @@ export default function PlanOrder() {
     }
     setIsApproving(false);
     setIsApproveDialogOpen(false);
+    setApproveReason("");
     setSelectedOrder(null);
   };
 

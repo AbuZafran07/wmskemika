@@ -181,6 +181,7 @@ export default function SalesOrder() {
   const [isUploading, setIsUploading] = useState(false);
 
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
+  const [approveReason, setApproveReason] = useState("");
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
@@ -708,7 +709,7 @@ export default function SalesOrder() {
     }
 
     setIsApproving(true);
-    const result = await approveSalesOrder(selectedOrder.id);
+    const result = await approveSalesOrder(selectedOrder.id, approveReason.trim() || undefined);
     if (result.success) {
       toast.success(language === "en" ? "Sales Order approved" : "Sales Order disetujui");
       // Notify creator about approval
@@ -722,6 +723,7 @@ export default function SalesOrder() {
     }
     setIsApproving(false);
     setIsApproveDialogOpen(false);
+    setApproveReason("");
     setSelectedOrder(null);
   };
 
