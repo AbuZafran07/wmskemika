@@ -1119,11 +1119,11 @@ export default function RequestDelivery() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" size="icon" className={cn("h-8 w-8 relative", (filterLabelNames.length > 0 || cardSearchQuery.trim()) && "border-primary text-primary")}>
+                    <Button variant="outline" size="icon" className={cn("h-8 w-8 relative", (filterLabelNames.length > 0 || cardSearchQuery.trim() || filterUrgent) && "border-primary text-primary")}>
                       <Filter className="h-4 w-4" />
-                      {(filterLabelNames.length > 0 || cardSearchQuery.trim()) && (
+                      {(filterLabelNames.length > 0 || cardSearchQuery.trim() || filterUrgent) && (
                         <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[9px] flex items-center justify-center font-bold">
-                          {filterLabelNames.length + (cardSearchQuery.trim() ? 1 : 0)}
+                          {filterLabelNames.length + (cardSearchQuery.trim() ? 1 : 0) + (filterUrgent ? 1 : 0)}
                         </span>
                       )}
                     </Button>
@@ -1135,8 +1135,8 @@ export default function RequestDelivery() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium">Filter & Cari Card</p>
-                    {(filterLabelNames.length > 0 || cardSearchQuery.trim()) && (
-                      <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => { setFilterLabelNames([]); setCardSearchQuery(""); }}>
+                    {(filterLabelNames.length > 0 || cardSearchQuery.trim() || filterUrgent) && (
+                      <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => { setFilterLabelNames([]); setCardSearchQuery(""); setFilterUrgent(false); }}>
                         Reset
                       </Button>
                     )}
