@@ -815,6 +815,33 @@ export default function PlanOrder() {
     setSelectedOrder(order);
     setIsDetailDialogOpen(true);
     setRevisionReasonDisplay(null);
+    setApproveReasonDisplay(null);
+
+    // Fetch approve reason if status is approved or beyond
+    if (['approved', 'partially_received', 'received'].includes(order.status)) {
+      try {
+        const { data: auditData } = await supabase
+          .from('audit_logs')
+          .select('new_data, user_email, created_at')
+          .eq('ref_id', order.id)
+          .eq('action', 'APPROVE')
+          .order('created_at', { ascending: false })
+          .limit(1);
+        if (auditData && auditData.length > 0) {
+          const nd = auditData[0].new_data as any;
+          const reason = nd?.approve_reason;
+          if (reason) {
+            setApproveReasonDisplay({
+              reason,
+              approvedBy: auditData[0].user_email || '-',
+              approvedAt: auditData[0].created_at ? formatDateTimeID(new Date(auditData[0].created_at)) : '-',
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch approve reason:', err);
+      }
+    }
 
     // Fetch revision reason if status is revision_requested
     if (order.status === 'revision_requested') {
