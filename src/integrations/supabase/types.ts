@@ -17,6 +17,7 @@ export type Database = {
       attachments: {
         Row: {
           file_key: string
+          file_name: string | null
           file_size: number | null
           id: string
           mime_type: string | null
@@ -29,6 +30,7 @@ export type Database = {
         }
         Insert: {
           file_key: string
+          file_name?: string | null
           file_size?: number | null
           id?: string
           mime_type?: string | null
@@ -41,6 +43,7 @@ export type Database = {
         }
         Update: {
           file_key?: string
+          file_name?: string | null
           file_size?: number | null
           id?: string
           mime_type?: string | null
