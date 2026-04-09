@@ -1257,7 +1257,7 @@ export default function RequestDelivery() {
                 <ZoomOut className="h-3.5 w-3.5 text-muted-foreground" />
                 <input
                   type="range"
-                  min={70}
+                  min={50}
                   max={100}
                   step={5}
                   value={zoomLevel}
