@@ -109,7 +109,7 @@ export default function RequestDelivery() {
   const [isFullView, setIsFullView] = useState(() => localStorage.getItem('delivery_full_view') === 'true');
   const [zoomLevel, setZoomLevel] = useState(() => {
     const saved = localStorage.getItem('delivery_zoom_level');
-    return saved ? Number(saved) : 70;
+    return saved ? Number(saved) : 90;
   });
 
   const handleSetFullView = (val: boolean) => {
@@ -1225,8 +1225,8 @@ export default function RequestDelivery() {
                 <ZoomOut className="h-3.5 w-3.5 text-muted-foreground" />
                 <input
                   type="range"
-                  min={50}
-                  max={120}
+                  min={70}
+                  max={130}
                   step={5}
                   value={zoomLevel}
                   onChange={(e) => handleSetZoom(Number(e.target.value))}
@@ -1280,8 +1280,8 @@ export default function RequestDelivery() {
       {/* Board */}
       <div ref={scrollRef} className={cn("flex-1 relative z-10", isFullView ? "overflow-auto" : "overflow-x-auto overflow-y-hidden")}>
         <div
-          className={cn("flex gap-3 p-4 h-full", isFullView ? "w-full" : "min-w-max")}
-          style={isFullView ? { transform: `scale(${zoomLevel / 100})`, transformOrigin: "top left", width: `${10000 / zoomLevel}%`, height: `${10000 / zoomLevel}%` } : undefined}
+          className={cn("flex p-3 h-full", isFullView ? "w-full gap-1" : "gap-3 min-w-max")}
+          style={isFullView ? { fontSize: `${zoomLevel}%` } : undefined}
         >
           {BOARD_COLUMNS.map((column) => {
             const columnCards = getColumnCards(column.id);
@@ -1295,7 +1295,7 @@ export default function RequestDelivery() {
                 key={column.id}
                 className={cn(
                   "flex flex-col rounded-xl border transition-colors",
-                  isFullView ? "flex-1 min-w-0" : "w-[280px] flex-shrink-0",
+                  isFullView ? "flex-1 min-w-[120px]" : "w-[280px] flex-shrink-0",
                   isHolidayColumn
                     ? "bg-red-500/10 border-red-500/30 dark:bg-red-950/20 dark:border-red-500/20"
                     : "bg-muted/30 border-border/50",
@@ -1307,15 +1307,17 @@ export default function RequestDelivery() {
               >
                 {/* Column Header */}
                 <div className={cn(
-                  "px-3 py-2.5 rounded-t-xl flex items-center justify-between",
+                  "rounded-t-xl flex items-center justify-between",
+                  isFullView ? "px-2 py-1.5" : "px-3 py-2.5",
                   isHolidayColumn ? "bg-red-600 dark:bg-red-800" : column.color
                 )}>
                   <span className={cn(
-                    "text-xs font-bold truncate",
+                    "font-bold truncate",
+                    isFullView ? "text-[10px]" : "text-xs",
                     isHolidayColumn ? "text-red-100" : "text-white"
                   )}>
-                    {column.label}
-                    {colDate ? ` - ${format(colDate, "d MMM yyyy", { locale: idLocale })}` : ""}
+                    {isFullView ? column.label.replace("Pengiriman ", "").replace("Approval Delivery Order", "Approval DO").replace("On Hold Delivery Order", "On Hold") : column.label}
+                    {colDate ? ` ${format(colDate, isFullView ? "d/M" : "d MMM yyyy", { locale: idLocale })}` : ""}
                   </span>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {isHolidayColumn && (
@@ -1338,7 +1340,7 @@ export default function RequestDelivery() {
                 </div>
 
                 {/* Holiday Overlay / Cards Container */}
-                <div className="flex-1 overflow-y-auto p-2 space-y-2 relative" style={{ maxHeight: "calc(100vh - 11rem)" }}>
+                <div className={cn("flex-1 overflow-y-auto relative", isFullView ? "p-1 space-y-1" : "p-2 space-y-2")} style={{ maxHeight: "calc(100vh - 11rem)" }}>
                   {isHolidayColumn && columnCards.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-8 text-red-400 dark:text-red-500/60">
                       <CalendarIcon className="h-8 w-8 mb-2 opacity-50" />
@@ -1357,7 +1359,7 @@ export default function RequestDelivery() {
                       title={isFullView ? `${card.sales_order_number}\n${card.customer_name}\nPO: ${card.customer_po_number}\n${card.project_instansi} • ${card.allocation_type}\nSales: ${card.sales_name}\nDeadline: ${card.delivery_deadline ? format(new Date(card.delivery_deadline), "dd MMM yy") : "-"}\nItems: ${card.items.map(i => `${i.product_name} ×${i.ordered_qty}`).join(", ")}${card.notes ? `\nNotes: ${card.notes}` : ""}` : undefined}
                       className={cn(
                         "relative overflow-visible cursor-pointer hover:shadow-md transition-all border-border/60 bg-card",
-                        isFullView ? "p-1.5 hover:scale-[1.05] hover:z-20 hover:shadow-lg" : "p-3",
+                        isFullView ? "p-1.5 hover:ring-2 hover:ring-primary/30 hover:z-20" : "p-3",
                         draggedCard?.id === card.id && "opacity-40 scale-95",
                         canManage && card.board_status !== "on_hold_delivery" && "cursor-grab active:cursor-grabbing",
                         card.board_status === "on_hold_delivery" && "opacity-75 cursor-not-allowed border-orange-500/30",
@@ -1387,16 +1389,19 @@ export default function RequestDelivery() {
 
                       {/* SO Number & Status */}
                       <div className="flex items-start justify-between gap-1 mb-1">
-                        <div className="flex items-center gap-1 truncate min-w-0">
+                        <div className="flex items-center gap-1 min-w-0">
                           {cardLabelsMap[card.id]?.some(l => /ready to deliver/i.test(l.name)) && (
                             <CheckCircle2 className={cn("text-success flex-shrink-0", isFullView ? "h-3 w-3" : "h-3.5 w-3.5")} />
                           )}
-                          <span className={cn("font-bold text-primary truncate", isFullView ? "text-[9px]" : "text-[11px]")}>{card.sales_order_number}</span>
+                          <span className={cn("font-bold text-primary", isFullView ? "text-[10px] break-all leading-tight" : "text-[11px] truncate")}>{card.sales_order_number}</span>
                         </div>
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <Badge className={cn("px-1.5 py-0", isFullView ? "text-[7px] h-3.5" : "text-[9px] h-4", getStatusBadgeColor(card.so_status))}>
+                        <div className="flex items-center gap-0.5 flex-shrink-0 flex-wrap justify-end">
+                          <Badge className={cn("px-1 py-0", isFullView ? "text-[7px] h-3.5" : "text-[9px] h-4", getStatusBadgeColor(card.so_status))}>
                             {card.so_status === "delivered" && ["delivered", "delivered_sample"].includes(card.board_status) ? "Delivered" : card.so_status === "delivered" ? "Fulfilled" : card.so_status}
                           </Badge>
+                          {isFullView && card.so_status === "partially_delivered" && (
+                            <Badge variant="outline" className="text-[6px] h-3 px-0.5 border-orange-400 text-orange-600">P</Badge>
+                          )}
                         </div>
                       </div>
 
@@ -1418,10 +1423,14 @@ export default function RequestDelivery() {
                         </div>
                       )}
 
-                      {/* Customer */}
-                      <div className="flex items-center gap-1 mb-1">
-                        <Building2 className={cn("text-muted-foreground flex-shrink-0", isFullView ? "h-2.5 w-2.5" : "h-3 w-3")} />
-                        <span className={cn("text-foreground truncate font-medium", isFullView ? "text-[9px]" : "text-[11px]")}>{card.customer_name}</span>
+                      <div className={cn("flex items-start gap-1 mb-1", isFullView && "flex-col gap-0")}>
+                        <div className="flex items-center gap-1 w-full">
+                          <Building2 className={cn("text-muted-foreground flex-shrink-0", isFullView ? "h-2.5 w-2.5" : "h-3 w-3")} />
+                          <span className={cn("text-foreground font-medium leading-tight", isFullView ? "text-[9px] line-clamp-2" : "text-[11px] truncate")}>{card.customer_name}</span>
+                        </div>
+                        {isFullView && (
+                          <span className="text-[8px] text-muted-foreground leading-tight pl-3.5">{card.allocation_type}</span>
+                        )}
                       </div>
 
                       {/* Customer PO Number - hide in full view */}
