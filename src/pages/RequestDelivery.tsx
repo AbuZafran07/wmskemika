@@ -1258,7 +1258,7 @@ export default function RequestDelivery() {
                 <input
                   type="range"
                   min={70}
-                  max={130}
+                  max={100}
                   step={5}
                   value={zoomLevel}
                   onChange={(e) => handleSetZoom(Number(e.target.value))}
@@ -1312,8 +1312,12 @@ export default function RequestDelivery() {
       {/* Board */}
       <div ref={scrollRef} className={cn("flex-1 relative z-10", isFullView ? "overflow-auto" : "overflow-x-auto overflow-y-hidden")}>
         <div
-          className={cn("flex p-3 h-full", isFullView ? "w-full gap-1" : "gap-3 min-w-max")}
-          style={isFullView ? { fontSize: `${zoomLevel}%` } : undefined}
+          className={cn("flex p-3 h-full", isFullView ? "gap-2" : "gap-3 min-w-max")}
+          style={isFullView ? {
+            transform: `scale(${zoomLevel / 100})`,
+            transformOrigin: 'top left',
+            width: `${100 / (zoomLevel / 100)}%`,
+          } : undefined}
         >
           {BOARD_COLUMNS.map((column) => {
             const columnCards = getColumnCards(column.id);
