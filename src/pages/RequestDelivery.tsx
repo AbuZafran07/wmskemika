@@ -1225,8 +1225,8 @@ export default function RequestDelivery() {
                 <ZoomOut className="h-3.5 w-3.5 text-muted-foreground" />
                 <input
                   type="range"
-                  min={50}
-                  max={120}
+                  min={70}
+                  max={130}
                   step={5}
                   value={zoomLevel}
                   onChange={(e) => handleSetZoom(Number(e.target.value))}
