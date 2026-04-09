@@ -140,6 +140,16 @@ export default function RequestDelivery() {
     const clamped = Math.max(70, Math.min(130, ratio));
     handleSetZoom(clamped);
   }, []);
+
+  // Auto-fit on resize when in full view
+  useEffect(() => {
+    if (!isFullView || !scrollRef.current) return;
+    const observer = new ResizeObserver(() => {
+      handleAutoFitZoom();
+    });
+    observer.observe(scrollRef.current);
+    return () => observer.disconnect();
+  }, [isFullView, handleAutoFitZoom]);
   const [bgInput, setBgInput] = useState("");
   const bgFileRef = useRef<HTMLInputElement>(null);
   const [showArchivedDialog, setShowArchivedDialog] = useState(false);
