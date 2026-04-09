@@ -1429,7 +1429,7 @@ export default function RequestDelivery() {
                           {cardLabelsMap[card.id]?.some(l => /ready to deliver/i.test(l.name)) && (
                             <CheckCircle2 className={cn("text-success flex-shrink-0", isFullView ? "h-3 w-3" : "h-3.5 w-3.5")} />
                           )}
-                          <span className={cn("font-bold text-primary", isFullView ? "text-[10px] break-all leading-tight" : "text-[11px] truncate")}>{card.sales_order_number}</span>
+                          <span className={cn("font-bold text-primary truncate", isFullView ? "text-[10px]" : "text-[11px]")}>{card.sales_order_number}</span>
                         </div>
                         <div className="flex items-center gap-0.5 flex-shrink-0 flex-wrap justify-end">
                           <Badge className={cn("px-1 py-0", isFullView ? "text-[7px] h-3.5" : "text-[9px] h-4", getStatusBadgeColor(card.so_status))}>
