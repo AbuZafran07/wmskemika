@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Download, CalendarIcon, ArrowUpFromLine, Loader2, MoreHorizontal, Eye, Printer, Info, FileText } from 'lucide-react';
+import { Search, Download, CalendarIcon, ArrowUpFromLine, Loader2, MoreHorizontal, Eye, Printer, Info, FileText, FileSpreadsheet } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -45,6 +45,7 @@ import { DataTablePagination } from '@/components/DataTablePagination';
 import { OutboundDetailModal } from '@/components/reports/OutboundDetailModal';
 import { OutboundPdfPreview } from '@/components/reports/OutboundPdfPreview';
 import { OutboundBulkPdfPreview } from '@/components/reports/OutboundBulkPdfPreview';
+import { exportToXlsx } from '@/lib/xlsxExport';
 
 interface StockOutRecord {
   id: string;
@@ -212,6 +213,38 @@ export default function OutboundReport() {
     link.click();
   };
 
+  const handleExportXlsx = () => {
+    const xlsxRows: Record<string, any>[] = [];
+    filteredRecords.forEach(record => {
+      const displayNo = record.delivery_number || record.stock_out_number;
+      const displayDate = record.delivery_actual_date || record.delivery_date;
+      record.items.forEach(item => {
+        xlsxRows.push({
+          delivery_no: displayNo,
+          date: formatDate(displayDate),
+          sales_order: record.sales_order?.sales_order_number || '',
+          customer: record.sales_order?.customer?.name || '',
+          product: item.product?.name || '',
+          sku: item.product?.sku || '',
+          qty_out: item.qty_out,
+          batch_no: item.batch?.batch_no || '',
+          expiry: item.batch?.expired_date ? formatDate(item.batch.expired_date) : '',
+        });
+      });
+    });
+    exportToXlsx(xlsxRows, [
+      { header: 'Delivery No', key: 'delivery_no', width: 20 },
+      { header: 'Tanggal', key: 'date', width: 14 },
+      { header: 'Sales Order', key: 'sales_order', width: 20 },
+      { header: 'Customer', key: 'customer', width: 22 },
+      { header: 'Produk', key: 'product', width: 25 },
+      { header: 'SKU', key: 'sku', width: 15 },
+      { header: 'Qty Out', key: 'qty_out', width: 8 },
+      { header: 'Batch No', key: 'batch_no', width: 15 },
+      { header: 'Expiry', key: 'expiry', width: 14 },
+    ], `outbound-report-${new Date().toISOString().split('T')[0]}.xlsx`, 'Outbound Report');
+  };
+
   const handleViewDetail = (record: StockOutRecord) => {
     setSelectedOutbound(record);
     setIsOutboundDetailOpen(true);
@@ -263,10 +296,16 @@ export default function OutboundReport() {
             )}
           </Button>
           {canUpload('report') && (
-            <Button onClick={handleExportCSV} variant="outline">
-              <Download className="w-4 h-4 mr-2" />
-              {language === 'en' ? 'Export CSV' : 'Ekspor CSV'}
-            </Button>
+            <>
+              <Button onClick={handleExportXlsx} variant="outline">
+                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                Export Excel
+              </Button>
+              <Button onClick={handleExportCSV} variant="outline">
+                <Download className="w-4 h-4 mr-2" />
+                Export CSV
+              </Button>
+            </>
           )}
         </div>
       </div>
