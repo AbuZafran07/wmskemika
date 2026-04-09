@@ -1280,7 +1280,9 @@ export default function RequestDelivery() {
       {/* Board */}
       <div ref={scrollRef} className={cn("flex-1 relative z-10", isFullView ? "overflow-auto" : "overflow-x-auto overflow-y-hidden")}>
         <div
-          className={cn("flex p-3 h-full", isFullView ? "w-full gap-1.5" : "gap-3 min-w-max")}
+          className={cn("flex p-3 h-full", isFullView ? "w-full gap-1" : "gap-3 min-w-max")}
+          style={isFullView ? { fontSize: `${zoomLevel}%` } : undefined}
+        >
         >
           {BOARD_COLUMNS.map((column) => {
             const columnCards = getColumnCards(column.id);
