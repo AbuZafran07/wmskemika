@@ -117,6 +117,7 @@ export async function syncVendorToArAp(supplier: {
 export async function syncSalesOrderToAr(order: {
   customerName: string;
   salesOrderNumber: string;
+  customerPoNumber?: string | null;
   invoiceNumber: string;
   orderDate: string;
   grandTotal: number;
@@ -127,6 +128,7 @@ export async function syncSalesOrderToAr(order: {
   return sendToArAp('sales_order', 'upsert', {
     customer_name: order.customerName,
     order_number: order.salesOrderNumber,
+    customer_po_number: order.customerPoNumber || null,
     invoice_number: order.invoiceNumber,
     invoice_date: order.orderDate,
     sp_po_date: order.orderDate,

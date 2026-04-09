@@ -335,7 +335,7 @@ export async function approveSalesOrder(orderId: string, approveReason?: string)
         const { data: soData } = await supabase
           .from('sales_order_headers')
           .select(`
-            sales_order_number, order_date, grand_total, sales_name, notes,
+            sales_order_number, customer_po_number, order_date, grand_total, sales_name, notes,
             customer:customers(name, terms_payment)
           `)
           .eq('id', orderId)
@@ -346,6 +346,7 @@ export async function approveSalesOrder(orderId: string, approveReason?: string)
           const syncResult = await syncSalesOrderToAr({
             customerName: customer?.name || '',
             salesOrderNumber: soData.sales_order_number,
+            customerPoNumber: soData.customer_po_number,
             invoiceNumber: soData.sales_order_number,
             orderDate: soData.order_date,
             grandTotal: soData.grand_total ?? 0,
