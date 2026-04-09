@@ -1422,10 +1422,15 @@ export default function RequestDelivery() {
                         </div>
                       )}
 
-                      {/* Customer */}
-                      <div className="flex items-center gap-1 mb-1">
-                        <Building2 className={cn("text-muted-foreground flex-shrink-0", isFullView ? "h-2.5 w-2.5" : "h-3 w-3")} />
-                        <span className={cn("text-foreground truncate font-medium", isFullView ? "text-[9px]" : "text-[11px]")}>{card.customer_name}</span>
+                      <div className={cn("flex items-start gap-1 mb-1", isFullView && "flex-col gap-0")}>
+                        <div className="flex items-center gap-1 w-full">
+                          <Building2 className={cn("text-muted-foreground flex-shrink-0", isFullView ? "h-2.5 w-2.5" : "h-3 w-3")} />
+                          <span className={cn("text-foreground font-medium leading-tight", isFullView ? "text-[9px] line-clamp-2" : "text-[11px] truncate")}>{card.customer_name}</span>
+                        </div>
+                        {isFullView && (
+                          <span className="text-[8px] text-muted-foreground leading-tight pl-3.5">{card.allocation_type}</span>
+                        )}
+                      </div>
                       </div>
 
                       {/* Customer PO Number - hide in full view */}
