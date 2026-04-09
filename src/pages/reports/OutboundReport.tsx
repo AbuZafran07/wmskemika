@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Search, Download, CalendarIcon, ArrowUpFromLine, Loader2, MoreHorizontal, Eye, Printer, Info } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Search, Download, CalendarIcon, ArrowUpFromLine, Loader2, MoreHorizontal, Eye, Printer, Info, FileText } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -31,12 +31,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { usePagination } from '@/hooks/usePagination';
 import { DataTablePagination } from '@/components/DataTablePagination';
 import { OutboundDetailModal } from '@/components/reports/OutboundDetailModal';
 import { OutboundPdfPreview } from '@/components/reports/OutboundPdfPreview';
+import { OutboundBulkPdfPreview } from '@/components/reports/OutboundBulkPdfPreview';
 
 interface StockOutRecord {
   id: string;
@@ -65,11 +73,14 @@ export default function OutboundReport() {
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [productFilter, setProductFilter] = useState('');
+  const [customerFilter, setCustomerFilter] = useState('__all__');
 
   // Modal states
   const [selectedOutbound, setSelectedOutbound] = useState<StockOutRecord | null>(null);
   const [isOutboundDetailOpen, setIsOutboundDetailOpen] = useState(false);
   const [isOutboundPdfPreviewOpen, setIsOutboundPdfPreviewOpen] = useState(false);
+  const [isBulkPdfOpen, setIsBulkPdfOpen] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -101,6 +112,15 @@ export default function OutboundReport() {
     setLoading(false);
   };
 
+  // Extract unique customer names for dropdown
+  const uniqueCustomers = Array.from(
+    new Set(
+      records
+        .map(r => r.sales_order?.customer?.name)
+        .filter(Boolean) as string[]
+    )
+  ).sort();
+
   const filteredRecords = records.filter(record => {
     const displayNo = record.delivery_number || record.stock_out_number;
     const matchesSearch = 
@@ -109,12 +129,22 @@ export default function OutboundReport() {
       record.sales_order?.sales_order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
       record.sales_order?.customer?.name.toLowerCase().includes(searchQuery.toLowerCase());
     
+    // Product name filter
+    const matchesProduct = !productFilter || 
+      record.items.some(item => 
+        item.product?.name?.toLowerCase().includes(productFilter.toLowerCase())
+      );
+
+    // Customer filter
+    const matchesCustomer = customerFilter === '__all__' || 
+      record.sales_order?.customer?.name === customerFilter;
+
     const displayDate = record.delivery_actual_date || record.delivery_date;
     const recordDate = new Date(displayDate);
     const matchesDateFrom = !dateFrom || recordDate >= new Date(dateFrom);
     const matchesDateTo = !dateTo || recordDate <= new Date(dateTo);
     
-    return matchesSearch && matchesDateFrom && matchesDateTo;
+    return matchesSearch && matchesProduct && matchesCustomer && matchesDateFrom && matchesDateTo;
   });
 
   // Pagination
@@ -138,9 +168,13 @@ export default function OutboundReport() {
   const clearFilters = () => {
     setDateFrom('');
     setDateTo('');
+    setProductFilter('');
+    setCustomerFilter('__all__');
+    setSearchQuery('');
   };
 
-  const hasActiveFilters = dateFrom || dateTo;
+  const hasActiveFilters = dateFrom || dateTo || productFilter || customerFilter !== '__all__';
+  const activeFilterCount = [dateFrom || dateTo, productFilter, customerFilter !== '__all__'].filter(Boolean).length;
 
   const totalQtyOut = filteredRecords.reduce(
     (sum, r) => sum + r.items.reduce((s, i) => s + i.qty_out, 0),
@@ -188,18 +222,16 @@ export default function OutboundReport() {
     setIsOutboundPdfPreviewOpen(true);
   };
 
-  // Group records for rowspan rendering
-  const getRowSpanGroups = () => {
-    const groups: { record: StockOutRecord; isFirst: boolean; item: StockOutRecord['items'][0] }[] = [];
-    paginatedRecords.forEach(record => {
-      record.items.forEach((item, idx) => {
-        groups.push({ record, isFirst: idx === 0, item });
-      });
-    });
-    return groups;
+  // Build filter description for bulk PDF
+  const getFilterDescription = () => {
+    const parts: string[] = [];
+    if (customerFilter !== '__all__') parts.push(`Customer: ${customerFilter}`);
+    if (productFilter) parts.push(`Produk: ${productFilter}`);
+    if (dateFrom) parts.push(`Dari: ${formatDate(dateFrom)}`);
+    if (dateTo) parts.push(`Sampai: ${formatDate(dateTo)}`);
+    if (searchQuery) parts.push(`Pencarian: ${searchQuery}`);
+    return parts.length > 0 ? parts.join(' | ') : 'Semua Data';
   };
-
-  const rowGroups = getRowSpanGroups();
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -218,12 +250,25 @@ export default function OutboundReport() {
             </p>
           </div>
         </div>
-        {canUpload('report') && (
-          <Button onClick={handleExportCSV} variant="outline">
-            <Download className="w-4 h-4 mr-2" />
-            {language === 'en' ? 'Export CSV' : 'Ekspor CSV'}
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => setIsBulkPdfOpen(true)} 
+            variant="outline"
+            disabled={filteredRecords.length === 0}
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            {language === 'en' ? 'Print Report' : 'Cetak Report'}
+            {filteredRecords.length > 0 && (
+              <Badge variant="secondary" className="ml-2">{filteredRecords.length}</Badge>
+            )}
           </Button>
-        )}
+          {canUpload('report') && (
+            <Button onClick={handleExportCSV} variant="outline">
+              <Download className="w-4 h-4 mr-2" />
+              {language === 'en' ? 'Export CSV' : 'Ekspor CSV'}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -251,41 +296,72 @@ export default function OutboundReport() {
       {/* Filters */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <Input
-                placeholder={language === 'en' ? 'Search by stock out no, SO, or customer...' : 'Cari berdasarkan no stock out, SO, atau customer...'}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                icon={<Search className="w-4 h-4" />}
-              />
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <Input
+                  placeholder={language === 'en' ? 'Search by stock out no, SO, or customer...' : 'Cari berdasarkan no stock out, SO, atau customer...'}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  icon={<Search className="w-4 h-4" />}
+                />
+              </div>
+              <div className="flex-1">
+                <Input
+                  placeholder={language === 'en' ? 'Filter by product name...' : 'Filter nama barang...'}
+                  value={productFilter}
+                  onChange={(e) => setProductFilter(e.target.value)}
+                  icon={<Search className="w-4 h-4" />}
+                />
+              </div>
             </div>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="gap-2">
-                  <CalendarIcon className="w-4 h-4" />
-                  {language === 'en' ? 'Date Range' : 'Rentang Tanggal'}
-                  {hasActiveFilters && <Badge variant="secondary" className="ml-1">1</Badge>}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="sm:w-64">
+                <Select value={customerFilter} onValueChange={setCustomerFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={language === 'en' ? 'All Customers' : 'Semua Customer'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">{language === 'en' ? 'All Customers' : 'Semua Customer'}</SelectItem>
+                    {uniqueCustomers.map(name => (
+                      <SelectItem key={name} value={name}>{name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="gap-2">
+                    <CalendarIcon className="w-4 h-4" />
+                    {language === 'en' ? 'Date Range' : 'Rentang Tanggal'}
+                    {(dateFrom || dateTo) && <Badge variant="secondary" className="ml-1">1</Badge>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80" align="end">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>{language === 'en' ? 'From Date' : 'Dari Tanggal'}</Label>
+                      <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === 'en' ? 'To Date' : 'Sampai Tanggal'}</Label>
+                      <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+                    </div>
+                    {(dateFrom || dateTo) && (
+                      <Button variant="ghost" size="sm" onClick={() => { setDateFrom(''); setDateTo(''); }} className="w-full">
+                        {language === 'en' ? 'Clear Date' : 'Hapus Tanggal'}
+                      </Button>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters}>
+                  {language === 'en' ? 'Clear All Filters' : 'Hapus Semua Filter'}
+                  <Badge variant="destructive" className="ml-2">{activeFilterCount}</Badge>
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80" align="end">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>{language === 'en' ? 'From Date' : 'Dari Tanggal'}</Label>
-                    <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{language === 'en' ? 'To Date' : 'Sampai Tanggal'}</Label>
-                    <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-                  </div>
-                  {hasActiveFilters && (
-                    <Button variant="ghost" size="sm" onClick={clearFilters} className="w-full">
-                      {language === 'en' ? 'Clear Filters' : 'Hapus Filter'}
-                    </Button>
-                  )}
-                </div>
-              </PopoverContent>
-            </Popover>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -424,6 +500,12 @@ export default function OutboundReport() {
         open={isOutboundPdfPreviewOpen}
         onOpenChange={setIsOutboundPdfPreviewOpen}
         record={selectedOutbound}
+      />
+      <OutboundBulkPdfPreview
+        open={isBulkPdfOpen}
+        onOpenChange={setIsBulkPdfOpen}
+        records={filteredRecords}
+        filterDescription={getFilterDescription()}
       />
     </div>
   );
