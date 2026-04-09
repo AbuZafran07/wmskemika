@@ -1840,9 +1840,10 @@ export type Database = {
         }
         Returns: boolean
       }
-      plan_order_approve:
-        | { Args: { order_id: string }; Returns: Json }
-        | { Args: { approve_reason?: string; order_id: string }; Returns: Json }
+      plan_order_approve: {
+        Args: { approve_reason?: string; order_id: string }
+        Returns: Json
+      }
       plan_order_approve_revision: { Args: { order_id: string }; Returns: Json }
       plan_order_cancel: { Args: { order_id: string }; Returns: Json }
       plan_order_create: {
@@ -1862,9 +1863,10 @@ export type Database = {
         Args: { header_data: Json; items_data: Json; order_id: string }
         Returns: Json
       }
-      sales_order_approve:
-        | { Args: { order_id: string }; Returns: Json }
-        | { Args: { approve_reason?: string; order_id: string }; Returns: Json }
+      sales_order_approve: {
+        Args: { approve_reason?: string; order_id: string }
+        Returns: Json
+      }
       sales_order_approve_revision: {
         Args: { order_id: string }
         Returns: Json
