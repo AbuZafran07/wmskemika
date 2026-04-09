@@ -1312,11 +1312,12 @@ export default function RequestDelivery() {
       {/* Board */}
       <div ref={scrollRef} className={cn("flex-1 relative z-10", isFullView ? "overflow-auto" : "overflow-x-auto overflow-y-hidden")}>
         <div
-          className={cn("flex p-3 h-full", isFullView ? "gap-2" : "gap-3 min-w-max")}
+          className={cn("flex p-3", isFullView ? "gap-2" : "gap-3 min-w-max h-full")}
           style={isFullView ? {
             transform: `scale(${zoomLevel / 100})`,
             transformOrigin: 'top left',
             width: `${100 / (zoomLevel / 100)}%`,
+            height: `${100 / (zoomLevel / 100)}%`,
           } : undefined}
         >
           {BOARD_COLUMNS.map((column) => {
