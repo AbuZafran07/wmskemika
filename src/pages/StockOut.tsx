@@ -333,12 +333,15 @@ export default function StockOut() {
       // === AUTOMATION: Move delivery card from Checking → Approval Delivery ===
       try {
         // Find delivery card for this SO in "checking" status
-        const { data: deliveryCard, error: findError } = await supabase
+        const { data: deliveryCards, error: findError } = await supabase
           .from("delivery_requests")
           .select("id")
           .eq("sales_order_id", selectedSalesOrderId)
           .eq("board_status", "checking")
-          .maybeSingle();
+          .order("created_at", { ascending: true })
+          .limit(1);
+
+        const deliveryCard = deliveryCards?.[0] || null;
 
         if (findError) {
           console.error("Failed to find delivery card:", findError);
