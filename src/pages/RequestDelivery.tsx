@@ -1283,7 +1283,6 @@ export default function RequestDelivery() {
           className={cn("flex p-3 h-full", isFullView ? "w-full gap-1" : "gap-3 min-w-max")}
           style={isFullView ? { fontSize: `${zoomLevel}%` } : undefined}
         >
-        >
           {BOARD_COLUMNS.map((column) => {
             const columnCards = getColumnCards(column.id);
             const weekDates = getWeekDates();
