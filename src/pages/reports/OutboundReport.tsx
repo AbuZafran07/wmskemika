@@ -243,6 +243,8 @@ export default function OutboundReport() {
       { header: 'Batch No', key: 'batch_no', width: 15 },
       { header: 'Expiry', key: 'expiry', width: 14 },
     ], `outbound-report-${new Date().toISOString().split('T')[0]}.xlsx`, 'Outbound Report');
+  };
+
   const handleViewDetail = (record: StockOutRecord) => {
     setSelectedOutbound(record);
     setIsOutboundDetailOpen(true);
