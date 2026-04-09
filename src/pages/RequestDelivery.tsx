@@ -1388,16 +1388,19 @@ export default function RequestDelivery() {
 
                       {/* SO Number & Status */}
                       <div className="flex items-start justify-between gap-1 mb-1">
-                        <div className="flex items-center gap-1 truncate min-w-0">
+                        <div className="flex items-center gap-1 min-w-0">
                           {cardLabelsMap[card.id]?.some(l => /ready to deliver/i.test(l.name)) && (
                             <CheckCircle2 className={cn("text-success flex-shrink-0", isFullView ? "h-3 w-3" : "h-3.5 w-3.5")} />
                           )}
-                          <span className={cn("font-bold text-primary truncate", isFullView ? "text-[9px]" : "text-[11px]")}>{card.sales_order_number}</span>
+                          <span className={cn("font-bold text-primary", isFullView ? "text-[10px] break-all leading-tight" : "text-[11px] truncate")}>{card.sales_order_number}</span>
                         </div>
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <Badge className={cn("px-1.5 py-0", isFullView ? "text-[7px] h-3.5" : "text-[9px] h-4", getStatusBadgeColor(card.so_status))}>
+                        <div className="flex items-center gap-0.5 flex-shrink-0 flex-wrap justify-end">
+                          <Badge className={cn("px-1 py-0", isFullView ? "text-[7px] h-3.5" : "text-[9px] h-4", getStatusBadgeColor(card.so_status))}>
                             {card.so_status === "delivered" && ["delivered", "delivered_sample"].includes(card.board_status) ? "Delivered" : card.so_status === "delivered" ? "Fulfilled" : card.so_status}
                           </Badge>
+                          {isFullView && card.so_status === "partially_delivered" && (
+                            <Badge variant="outline" className="text-[6px] h-3 px-0.5 border-orange-400 text-orange-600">P</Badge>
+                          )}
                         </div>
                       </div>
 
