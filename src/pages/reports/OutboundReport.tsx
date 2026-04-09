@@ -45,6 +45,7 @@ import { DataTablePagination } from '@/components/DataTablePagination';
 import { OutboundDetailModal } from '@/components/reports/OutboundDetailModal';
 import { OutboundPdfPreview } from '@/components/reports/OutboundPdfPreview';
 import { OutboundBulkPdfPreview } from '@/components/reports/OutboundBulkPdfPreview';
+import { exportToXlsx } from '@/lib/xlsxExport';
 
 interface StockOutRecord {
   id: string;
