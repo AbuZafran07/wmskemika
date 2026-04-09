@@ -109,14 +109,13 @@ export default function RequestDelivery() {
   const [isFullView, setIsFullView] = useState(() => localStorage.getItem('delivery_full_view') === 'true');
   const [zoomLevel, setZoomLevel] = useState(() => {
     const saved = localStorage.getItem('delivery_zoom_level');
-    return saved ? Number(saved) : 90;
+    return saved ? Number(saved) : 100;
   });
 
   const handleSetFullView = (val: boolean) => {
     setIsFullView(val);
     localStorage.setItem('delivery_full_view', String(val));
     if (val) {
-      // Auto-fit on entering full view
       setTimeout(() => handleAutoFitZoom(), 50);
     }
   };
@@ -129,15 +128,11 @@ export default function RequestDelivery() {
   const handleAutoFitZoom = useCallback(() => {
     if (!scrollRef.current) return;
     const containerWidth = scrollRef.current.clientWidth;
-    // Each column needs ~160px min readable width, plus gaps (1*4px per gap) and padding (12px*2)
     const columnCount = BOARD_COLUMNS.length;
-    const totalGaps = (columnCount - 1) * 4;
-    const totalPadding = 24;
-    const availableForColumns = containerWidth - totalGaps - totalPadding;
-    const idealColumnWidth = availableForColumns / columnCount;
-    // Base column width at 100% font-size is ~140px, calculate ratio
-    const ratio = Math.round((idealColumnWidth / 140) * 100);
-    const clamped = Math.max(70, Math.min(130, ratio));
+    // Each column at 100% scale = 220px + 8px gap
+    const totalNeeded = columnCount * 220 + (columnCount - 1) * 8 + 24;
+    const ratio = Math.round((containerWidth / totalNeeded) * 100);
+    const clamped = Math.max(50, Math.min(100, ratio));
     handleSetZoom(clamped);
   }, []);
 
@@ -1262,8 +1257,8 @@ export default function RequestDelivery() {
                 <ZoomOut className="h-3.5 w-3.5 text-muted-foreground" />
                 <input
                   type="range"
-                  min={70}
-                  max={130}
+                  min={50}
+                  max={100}
                   step={5}
                   value={zoomLevel}
                   onChange={(e) => handleSetZoom(Number(e.target.value))}
@@ -1317,8 +1312,12 @@ export default function RequestDelivery() {
       {/* Board */}
       <div ref={scrollRef} className={cn("flex-1 relative z-10", isFullView ? "overflow-auto" : "overflow-x-auto overflow-y-hidden")}>
         <div
-          className={cn("flex p-3 h-full", isFullView ? "w-full gap-1" : "gap-3 min-w-max")}
-          style={isFullView ? { fontSize: `${zoomLevel}%` } : undefined}
+          className={cn("flex p-3 h-full", isFullView ? "gap-2" : "gap-3 min-w-max")}
+          style={isFullView ? {
+            transform: `scale(${zoomLevel / 100})`,
+            transformOrigin: 'top left',
+            width: `${100 / (zoomLevel / 100)}%`,
+          } : undefined}
         >
           {BOARD_COLUMNS.map((column) => {
             const columnCards = getColumnCards(column.id);
@@ -1332,7 +1331,7 @@ export default function RequestDelivery() {
                 key={column.id}
                 className={cn(
                   "flex flex-col rounded-xl border transition-colors",
-                  isFullView ? "flex-1 min-w-[120px]" : "w-[280px] flex-shrink-0",
+                  isFullView ? "w-[220px] flex-shrink-0" : "w-[280px] flex-shrink-0",
                   isHolidayColumn
                     ? "bg-red-500/10 border-red-500/30 dark:bg-red-950/20 dark:border-red-500/20"
                     : "bg-muted/30 border-border/50",
@@ -1430,7 +1429,7 @@ export default function RequestDelivery() {
                           {cardLabelsMap[card.id]?.some(l => /ready to deliver/i.test(l.name)) && (
                             <CheckCircle2 className={cn("text-success flex-shrink-0", isFullView ? "h-3 w-3" : "h-3.5 w-3.5")} />
                           )}
-                          <span className={cn("font-bold text-primary", isFullView ? "text-[10px] break-all leading-tight" : "text-[11px] truncate")}>{card.sales_order_number}</span>
+                          <span className={cn("font-bold text-primary truncate", isFullView ? "text-[10px]" : "text-[11px]")}>{card.sales_order_number}</span>
                         </div>
                         <div className="flex items-center gap-0.5 flex-shrink-0 flex-wrap justify-end">
                           <Badge className={cn("px-1 py-0", isFullView ? "text-[7px] h-3.5" : "text-[9px] h-4", getStatusBadgeColor(card.so_status))}>
@@ -1463,7 +1462,7 @@ export default function RequestDelivery() {
                       <div className={cn("flex items-start gap-1 mb-1", isFullView && "flex-col gap-0")}>
                         <div className="flex items-center gap-1 w-full">
                           <Building2 className={cn("text-muted-foreground flex-shrink-0", isFullView ? "h-2.5 w-2.5" : "h-3 w-3")} />
-                          <span className={cn("text-foreground font-medium leading-tight", isFullView ? "text-[9px] line-clamp-2" : "text-[11px] truncate")}>{card.customer_name}</span>
+                          <span className={cn("text-foreground font-medium truncate", isFullView ? "text-[10px]" : "text-[11px]")}>{card.customer_name}</span>
                         </div>
                         {isFullView && (
                           <span className="text-[8px] text-muted-foreground leading-tight pl-3.5">{card.allocation_type}</span>
