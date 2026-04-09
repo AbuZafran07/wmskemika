@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Plus, Package, Calendar as CalendarIcon, User, Building2, Truck, RefreshCw, Search, CheckSquare, Image, X, Maximize2, Minimize2, ZoomIn, ZoomOut, CheckCircle2, Filter, Archive, RotateCcw, Trash2, AlertTriangle, Bell, CalendarDays, MessageCircle } from "lucide-react";
+import { Plus, Package, Calendar as CalendarIcon, User, Building2, Truck, RefreshCw, Search, CheckSquare, Image, X, Maximize2, Minimize2, ZoomIn, ZoomOut, CheckCircle2, Filter, Archive, RotateCcw, Trash2, AlertTriangle, Bell, CalendarDays, MessageCircle, Crosshair } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, startOfWeek, addDays, isSameDay } from "date-fns";
@@ -115,12 +115,41 @@ export default function RequestDelivery() {
   const handleSetFullView = (val: boolean) => {
     setIsFullView(val);
     localStorage.setItem('delivery_full_view', String(val));
+    if (val) {
+      // Auto-fit on entering full view
+      setTimeout(() => handleAutoFitZoom(), 50);
+    }
   };
 
   const handleSetZoom = (val: number) => {
     setZoomLevel(val);
     localStorage.setItem('delivery_zoom_level', String(val));
   };
+
+  const handleAutoFitZoom = useCallback(() => {
+    if (!scrollRef.current) return;
+    const containerWidth = scrollRef.current.clientWidth;
+    // Each column needs ~160px min readable width, plus gaps (1*4px per gap) and padding (12px*2)
+    const columnCount = BOARD_COLUMNS.length;
+    const totalGaps = (columnCount - 1) * 4;
+    const totalPadding = 24;
+    const availableForColumns = containerWidth - totalGaps - totalPadding;
+    const idealColumnWidth = availableForColumns / columnCount;
+    // Base column width at 100% font-size is ~140px, calculate ratio
+    const ratio = Math.round((idealColumnWidth / 140) * 100);
+    const clamped = Math.max(70, Math.min(130, ratio));
+    handleSetZoom(clamped);
+  }, []);
+
+  // Auto-fit on resize when in full view
+  useEffect(() => {
+    if (!isFullView || !scrollRef.current) return;
+    const observer = new ResizeObserver(() => {
+      handleAutoFitZoom();
+    });
+    observer.observe(scrollRef.current);
+    return () => observer.disconnect();
+  }, [isFullView, handleAutoFitZoom]);
   const [bgInput, setBgInput] = useState("");
   const bgFileRef = useRef<HTMLInputElement>(null);
   const [showArchivedDialog, setShowArchivedDialog] = useState(false);
@@ -1222,6 +1251,14 @@ export default function RequestDelivery() {
 
             {isFullView && (
               <div className="flex items-center gap-2 bg-muted/50 rounded-md px-2 py-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleAutoFitZoom}>
+                      <Crosshair className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent><p>Auto-fit</p></TooltipContent>
+                </Tooltip>
                 <ZoomOut className="h-3.5 w-3.5 text-muted-foreground" />
                 <input
                   type="range"
