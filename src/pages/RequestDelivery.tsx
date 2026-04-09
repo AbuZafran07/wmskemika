@@ -1280,8 +1280,7 @@ export default function RequestDelivery() {
       {/* Board */}
       <div ref={scrollRef} className={cn("flex-1 relative z-10", isFullView ? "overflow-auto" : "overflow-x-auto overflow-y-hidden")}>
         <div
-          className={cn("flex gap-3 p-4 h-full", isFullView ? "w-full" : "min-w-max")}
-          style={isFullView ? { transform: `scale(${zoomLevel / 100})`, transformOrigin: "top left", width: `${10000 / zoomLevel}%`, height: `${10000 / zoomLevel}%` } : undefined}
+          className={cn("flex p-3 h-full", isFullView ? "w-full gap-1.5" : "gap-3 min-w-max")}
         >
           {BOARD_COLUMNS.map((column) => {
             const columnCards = getColumnCards(column.id);
@@ -1295,7 +1294,7 @@ export default function RequestDelivery() {
                 key={column.id}
                 className={cn(
                   "flex flex-col rounded-xl border transition-colors",
-                  isFullView ? "flex-1 min-w-0" : "w-[280px] flex-shrink-0",
+                  isFullView ? "flex-1 min-w-[120px]" : "w-[280px] flex-shrink-0",
                   isHolidayColumn
                     ? "bg-red-500/10 border-red-500/30 dark:bg-red-950/20 dark:border-red-500/20"
                     : "bg-muted/30 border-border/50",
@@ -1307,15 +1306,17 @@ export default function RequestDelivery() {
               >
                 {/* Column Header */}
                 <div className={cn(
-                  "px-3 py-2.5 rounded-t-xl flex items-center justify-between",
+                  "rounded-t-xl flex items-center justify-between",
+                  isFullView ? "px-2 py-1.5" : "px-3 py-2.5",
                   isHolidayColumn ? "bg-red-600 dark:bg-red-800" : column.color
                 )}>
                   <span className={cn(
-                    "text-xs font-bold truncate",
+                    "font-bold truncate",
+                    isFullView ? "text-[10px]" : "text-xs",
                     isHolidayColumn ? "text-red-100" : "text-white"
                   )}>
-                    {column.label}
-                    {colDate ? ` - ${format(colDate, "d MMM yyyy", { locale: idLocale })}` : ""}
+                    {isFullView ? column.label.replace("Pengiriman ", "").replace("Approval Delivery Order", "Approval DO").replace("On Hold Delivery Order", "On Hold") : column.label}
+                    {colDate ? ` ${format(colDate, isFullView ? "d/M" : "d MMM yyyy", { locale: idLocale })}` : ""}
                   </span>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {isHolidayColumn && (
@@ -1338,7 +1339,7 @@ export default function RequestDelivery() {
                 </div>
 
                 {/* Holiday Overlay / Cards Container */}
-                <div className="flex-1 overflow-y-auto p-2 space-y-2 relative" style={{ maxHeight: "calc(100vh - 11rem)" }}>
+                <div className={cn("flex-1 overflow-y-auto relative", isFullView ? "p-1 space-y-1" : "p-2 space-y-2")} style={{ maxHeight: "calc(100vh - 11rem)" }}>
                   {isHolidayColumn && columnCards.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-8 text-red-400 dark:text-red-500/60">
                       <CalendarIcon className="h-8 w-8 mb-2 opacity-50" />
