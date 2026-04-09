@@ -1331,7 +1331,7 @@ export default function RequestDelivery() {
                 key={column.id}
                 className={cn(
                   "flex flex-col rounded-xl border transition-colors",
-                  isFullView ? "flex-1 min-w-[120px]" : "w-[280px] flex-shrink-0",
+                  isFullView ? "w-[220px] flex-shrink-0" : "w-[280px] flex-shrink-0",
                   isHolidayColumn
                     ? "bg-red-500/10 border-red-500/30 dark:bg-red-950/20 dark:border-red-500/20"
                     : "bg-muted/30 border-border/50",
