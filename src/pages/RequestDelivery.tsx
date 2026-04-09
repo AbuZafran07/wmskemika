@@ -115,12 +115,31 @@ export default function RequestDelivery() {
   const handleSetFullView = (val: boolean) => {
     setIsFullView(val);
     localStorage.setItem('delivery_full_view', String(val));
+    if (val) {
+      // Auto-fit on entering full view
+      setTimeout(() => handleAutoFitZoom(), 50);
+    }
   };
 
   const handleSetZoom = (val: number) => {
     setZoomLevel(val);
     localStorage.setItem('delivery_zoom_level', String(val));
   };
+
+  const handleAutoFitZoom = useCallback(() => {
+    if (!scrollRef.current) return;
+    const containerWidth = scrollRef.current.clientWidth;
+    // Each column needs ~160px min readable width, plus gaps (1*4px per gap) and padding (12px*2)
+    const columnCount = BOARD_COLUMNS.length;
+    const totalGaps = (columnCount - 1) * 4;
+    const totalPadding = 24;
+    const availableForColumns = containerWidth - totalGaps - totalPadding;
+    const idealColumnWidth = availableForColumns / columnCount;
+    // Base column width at 100% font-size is ~140px, calculate ratio
+    const ratio = Math.round((idealColumnWidth / 140) * 100);
+    const clamped = Math.max(70, Math.min(130, ratio));
+    handleSetZoom(clamped);
+  }, []);
   const [bgInput, setBgInput] = useState("");
   const bgFileRef = useRef<HTMLInputElement>(null);
   const [showArchivedDialog, setShowArchivedDialog] = useState(false);
