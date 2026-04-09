@@ -404,12 +404,12 @@ export default function StockOut() {
             );
 
             if (hasRemaining) {
-              // Create new card in new_order for remaining items
+              // Create new card in checking for remaining items (ready for next stock out)
               const { data: newCard, error: newCardError } = await supabase
                 .from("delivery_requests")
                 .insert({
                   sales_order_id: selectedSalesOrderId,
-                  board_status: "new_order",
+                  board_status: "checking",
                   notes: `Sisa pengiriman dari Stock Out ${stockOutNumber}`,
                   created_by: userId,
                 })
@@ -420,17 +420,11 @@ export default function StockOut() {
                 console.error("Failed to create partial delivery card:", newCardError);
                 toast.warning("Gagal membuat card partial otomatis.");
               } else if (newCard?.id) {
-                // Auto-create checklist
-                await supabase.from("delivery_checklists").insert({
-                  delivery_request_id: newCard.id,
-                  label: "Proses Sales Order",
-                });
-
                 if (userId) {
                   await supabase.from("delivery_comments").insert({
                     delivery_request_id: newCard.id,
                     user_id: userId,
-                    message: `🔄 Card baru dibuat otomatis untuk sisa barang dari pengiriman partial (Stock Out: ${stockOutNumber}).`,
+                    message: `🔄 Card baru dibuat otomatis di Checking untuk sisa barang dari pengiriman partial (Stock Out: ${stockOutNumber}).`,
                     type: "activity",
                   });
                 }
