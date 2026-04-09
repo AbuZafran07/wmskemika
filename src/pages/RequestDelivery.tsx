@@ -109,7 +109,7 @@ export default function RequestDelivery() {
   const [isFullView, setIsFullView] = useState(() => localStorage.getItem('delivery_full_view') === 'true');
   const [zoomLevel, setZoomLevel] = useState(() => {
     const saved = localStorage.getItem('delivery_zoom_level');
-    return saved ? Number(saved) : 70;
+    return saved ? Number(saved) : 90;
   });
 
   const handleSetFullView = (val: boolean) => {
