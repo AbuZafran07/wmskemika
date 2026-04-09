@@ -109,14 +109,13 @@ export default function RequestDelivery() {
   const [isFullView, setIsFullView] = useState(() => localStorage.getItem('delivery_full_view') === 'true');
   const [zoomLevel, setZoomLevel] = useState(() => {
     const saved = localStorage.getItem('delivery_zoom_level');
-    return saved ? Number(saved) : 90;
+    return saved ? Number(saved) : 100;
   });
 
   const handleSetFullView = (val: boolean) => {
     setIsFullView(val);
     localStorage.setItem('delivery_full_view', String(val));
     if (val) {
-      // Auto-fit on entering full view
       setTimeout(() => handleAutoFitZoom(), 50);
     }
   };
@@ -129,15 +128,11 @@ export default function RequestDelivery() {
   const handleAutoFitZoom = useCallback(() => {
     if (!scrollRef.current) return;
     const containerWidth = scrollRef.current.clientWidth;
-    // Each column needs ~160px min readable width, plus gaps (1*4px per gap) and padding (12px*2)
     const columnCount = BOARD_COLUMNS.length;
-    const totalGaps = (columnCount - 1) * 4;
-    const totalPadding = 24;
-    const availableForColumns = containerWidth - totalGaps - totalPadding;
-    const idealColumnWidth = availableForColumns / columnCount;
-    // Base column width at 100% font-size is ~140px, calculate ratio
-    const ratio = Math.round((idealColumnWidth / 140) * 100);
-    const clamped = Math.max(70, Math.min(130, ratio));
+    // Each column at 100% scale = 220px + 8px gap
+    const totalNeeded = columnCount * 220 + (columnCount - 1) * 8 + 24;
+    const ratio = Math.round((containerWidth / totalNeeded) * 100);
+    const clamped = Math.max(50, Math.min(100, ratio));
     handleSetZoom(clamped);
   }, []);
 
