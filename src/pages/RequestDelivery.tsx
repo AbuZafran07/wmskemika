@@ -1431,7 +1431,6 @@ export default function RequestDelivery() {
                           <span className="text-[8px] text-muted-foreground leading-tight pl-3.5">{card.allocation_type}</span>
                         )}
                       </div>
-                      </div>
 
                       {/* Customer PO Number - hide in full view */}
                       {!isFullView && (
