@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Plus, Package, Calendar as CalendarIcon, User, Building2, Truck, RefreshCw, Search, CheckSquare, Image, X, Maximize2, Minimize2, ZoomIn, ZoomOut, CheckCircle2, Filter, Archive, RotateCcw, Trash2, AlertTriangle, Bell, CalendarDays, MessageCircle } from "lucide-react";
+import { Plus, Package, Calendar as CalendarIcon, User, Building2, Truck, RefreshCw, Search, CheckSquare, Image, X, Maximize2, Minimize2, ZoomIn, ZoomOut, CheckCircle2, Filter, Archive, RotateCcw, Trash2, AlertTriangle, Bell, CalendarDays, MessageCircle, Crosshair } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, startOfWeek, addDays, isSameDay } from "date-fns";
@@ -1241,6 +1241,14 @@ export default function RequestDelivery() {
 
             {isFullView && (
               <div className="flex items-center gap-2 bg-muted/50 rounded-md px-2 py-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleAutoFitZoom}>
+                      <Crosshair className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent><p>Auto-fit</p></TooltipContent>
+                </Tooltip>
                 <ZoomOut className="h-3.5 w-3.5 text-muted-foreground" />
                 <input
                   type="range"
