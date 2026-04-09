@@ -1358,7 +1358,7 @@ export default function RequestDelivery() {
                       title={isFullView ? `${card.sales_order_number}\n${card.customer_name}\nPO: ${card.customer_po_number}\n${card.project_instansi} • ${card.allocation_type}\nSales: ${card.sales_name}\nDeadline: ${card.delivery_deadline ? format(new Date(card.delivery_deadline), "dd MMM yy") : "-"}\nItems: ${card.items.map(i => `${i.product_name} ×${i.ordered_qty}`).join(", ")}${card.notes ? `\nNotes: ${card.notes}` : ""}` : undefined}
                       className={cn(
                         "relative overflow-visible cursor-pointer hover:shadow-md transition-all border-border/60 bg-card",
-                        isFullView ? "p-1.5 hover:scale-[1.05] hover:z-20 hover:shadow-lg" : "p-3",
+                        isFullView ? "p-1.5 hover:ring-2 hover:ring-primary/30 hover:z-20" : "p-3",
                         draggedCard?.id === card.id && "opacity-40 scale-95",
                         canManage && card.board_status !== "on_hold_delivery" && "cursor-grab active:cursor-grabbing",
                         card.board_status === "on_hold_delivery" && "opacity-75 cursor-not-allowed border-orange-500/30",
