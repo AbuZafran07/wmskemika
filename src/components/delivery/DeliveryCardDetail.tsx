@@ -967,8 +967,9 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         .eq("id", checklistId);
       if (error) throw error;
 
-      // Auto-add/remove "Ready to Deliver" label when finance checklist is toggled on approval_delivery
-      if (isFinanceChecklist && card.board_status === "approval_delivery") {
+      // Auto-add/remove "Ready to Deliver" label when finance checklist is toggled
+      const deliveryStatuses = ["approval_delivery", "pengiriman_senin", "pengiriman_selasa", "pengiriman_rabu", "pengiriman_kamis", "pengiriman_jumat", "pengiriman_sabtu", "on_hold_delivery"];
+      if (isFinanceChecklist && (deliveryStatuses.includes(card.board_status) || card.board_status.startsWith("pengiriman_"))) {
         const { data: readyLabel } = await supabase
           .from("delivery_labels")
           .select("id")
