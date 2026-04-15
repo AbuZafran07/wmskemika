@@ -76,7 +76,8 @@ export default function InboundReport() {
         ),
         items:stock_in_items(
           id, qty_received, batch_no, expired_date,
-          product:products(name, sku)
+          product:products(name, sku),
+          plan_order_item:plan_order_items(planned_qty)
         )
       `)
       .order('received_date', { ascending: false });
