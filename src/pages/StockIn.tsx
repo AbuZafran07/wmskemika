@@ -1,5 +1,15 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { RefreshCw, Info, CheckCircle, AlertCircle, Package, Building2, Upload, Loader2, X } from "lucide-react";
+import { RefreshCw, Info, CheckCircle, AlertCircle, AlertTriangle, Package, Building2, Upload, Loader2, X } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,6 +84,8 @@ export default function StockIn() {
   const [deliveryNoteUrl, setDeliveryNoteUrl] = useState("");
   const [deliveryNoteFileName, setDeliveryNoteFileName] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [showOverQtyWarning, setShowOverQtyWarning] = useState(false);
+  const [overQtyItems, setOverQtyItems] = useState<{ name: string; qty_received: number; qty_remaining: number }[]>([]);
 
   const fetchPlanOrders = useCallback(async () => {
     setLoadingPlanOrders(true);
@@ -216,17 +228,32 @@ export default function StockIn() {
         );
         return;
       }
-      if (item.qty_received > item.qty_remaining) {
-        toast.error(
-          language === "en"
-            ? `Quantity received cannot exceed remaining for ${item.product_name}`
-            : `Kuantitas diterima tidak boleh melebihi sisa untuk ${item.product_name}`,
-        );
-        return;
-      }
     }
 
+    // Check for over-qty items and show warning dialog
+    const itemsOverQty = validItems
+      .filter((item) => item.qty_received > item.qty_remaining)
+      .map((item) => ({
+        name: item.product_name,
+        qty_received: item.qty_received,
+        qty_remaining: item.qty_remaining,
+      }));
+
+    if (itemsOverQty.length > 0) {
+      setOverQtyItems(itemsOverQty);
+      setShowOverQtyWarning(true);
+      return;
+    }
+
+    await executeSave();
+
+  };
+
+  const executeSave = async () => {
+    setShowOverQtyWarning(false);
     setIsSaving(true);
+
+    const validItems = items.filter((item) => item.qty_received > 0);
 
     try {
       // Build header data for RPC
@@ -487,14 +514,21 @@ export default function StockIn() {
                         <Badge variant="pending">{item.qty_remaining}</Badge>
                       </TableCell>
                       <TableCell>
-                        <Input
-                          type="number"
-                          min="0"
-                          max={item.qty_remaining}
-                          value={item.qty_received || ""}
-                          onChange={(e) => handleItemChange(index, "qty_received", parseInt(e.target.value) || 0)}
-                          className="w-24 mx-auto text-center"
-                        />
+                        <div className="flex flex-col items-center gap-1">
+                          <Input
+                            type="number"
+                            min="0"
+                            value={item.qty_received || ""}
+                            onChange={(e) => handleItemChange(index, "qty_received", parseInt(e.target.value) || 0)}
+                            className={`w-24 mx-auto text-center ${item.qty_received > item.qty_remaining ? "border-warning text-warning" : ""}`}
+                          />
+                          {item.qty_received > item.qty_remaining && (
+                            <span className="text-[10px] text-warning flex items-center gap-0.5">
+                              <AlertTriangle className="w-3 h-3" />
+                              +{item.qty_received - item.qty_remaining}
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Input
@@ -565,6 +599,52 @@ export default function StockIn() {
           </Button>
         )}
       </div>
+
+      {/* Over Qty Warning Dialog */}
+      <AlertDialog open={showOverQtyWarning} onOpenChange={setShowOverQtyWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-warning">
+              <AlertTriangle className="w-5 h-5" />
+              {language === "en" ? "Quantity Exceeds Plan Order" : "Kuantitas Melebihi Plan Order"}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  {language === "en"
+                    ? "The following items have received quantity exceeding the Plan Order:"
+                    : "Item berikut memiliki kuantitas diterima melebihi Plan Order:"}
+                </p>
+                <div className="rounded-md border bg-warning/5 p-3 space-y-2">
+                  {overQtyItems.map((item, i) => (
+                    <div key={i} className="flex justify-between text-sm">
+                      <span className="font-medium">{item.name}</span>
+                      <span className="text-warning font-semibold">
+                        {item.qty_received} / {item.qty_remaining} 
+                        <span className="text-xs ml-1">(+{item.qty_received - item.qty_remaining})</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {language === "en"
+                    ? "The excess quantity will be recorded. Plan Order remaining will be set to 0."
+                    : "Kelebihan kuantitas akan tetap tercatat. Sisa Plan Order akan diatur menjadi 0."}
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{language === "en" ? "Cancel" : "Batal"}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={executeSave}
+              className="bg-warning text-warning-foreground hover:bg-warning/90"
+            >
+              {language === "en" ? "Yes, Continue" : "Ya, Lanjutkan"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
