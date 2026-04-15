@@ -1,5 +1,15 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { RefreshCw, Info, CheckCircle, AlertCircle, Package, Building2, Upload, Loader2, X } from "lucide-react";
+import { RefreshCw, Info, CheckCircle, AlertCircle, AlertTriangle, Package, Building2, Upload, Loader2, X } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,6 +84,8 @@ export default function StockIn() {
   const [deliveryNoteUrl, setDeliveryNoteUrl] = useState("");
   const [deliveryNoteFileName, setDeliveryNoteFileName] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [showOverQtyWarning, setShowOverQtyWarning] = useState(false);
+  const [overQtyItems, setOverQtyItems] = useState<{ name: string; qty_received: number; qty_remaining: number }[]>([]);
 
   const fetchPlanOrders = useCallback(async () => {
     setLoadingPlanOrders(true);
@@ -216,17 +228,32 @@ export default function StockIn() {
         );
         return;
       }
-      if (item.qty_received > item.qty_remaining) {
-        toast.error(
-          language === "en"
-            ? `Quantity received cannot exceed remaining for ${item.product_name}`
-            : `Kuantitas diterima tidak boleh melebihi sisa untuk ${item.product_name}`,
-        );
-        return;
-      }
     }
 
+    // Check for over-qty items and show warning dialog
+    const itemsOverQty = validItems
+      .filter((item) => item.qty_received > item.qty_remaining)
+      .map((item) => ({
+        name: item.product_name,
+        qty_received: item.qty_received,
+        qty_remaining: item.qty_remaining,
+      }));
+
+    if (itemsOverQty.length > 0) {
+      setOverQtyItems(itemsOverQty);
+      setShowOverQtyWarning(true);
+      return;
+    }
+
+    await executeSave();
+
+  };
+
+  const executeSave = async () => {
+    setShowOverQtyWarning(false);
     setIsSaving(true);
+
+    const validItems = items.filter((item) => item.qty_received > 0);
 
     try {
       // Build header data for RPC
