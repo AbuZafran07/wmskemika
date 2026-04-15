@@ -41,6 +41,7 @@ interface StockInRecord {
     batch_no: string;
     expired_date: string | null;
     product: { name: string; sku: string | null } | null;
+    plan_order_item: { planned_qty: number } | null;
   }[];
   created_by_email?: string;
 }
