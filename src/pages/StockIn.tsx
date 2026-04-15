@@ -514,14 +514,21 @@ export default function StockIn() {
                         <Badge variant="pending">{item.qty_remaining}</Badge>
                       </TableCell>
                       <TableCell>
-                        <Input
-                          type="number"
-                          min="0"
-                          max={item.qty_remaining}
-                          value={item.qty_received || ""}
-                          onChange={(e) => handleItemChange(index, "qty_received", parseInt(e.target.value) || 0)}
-                          className="w-24 mx-auto text-center"
-                        />
+                        <div className="flex flex-col items-center gap-1">
+                          <Input
+                            type="number"
+                            min="0"
+                            value={item.qty_received || ""}
+                            onChange={(e) => handleItemChange(index, "qty_received", parseInt(e.target.value) || 0)}
+                            className={`w-24 mx-auto text-center ${item.qty_received > item.qty_remaining ? "border-warning text-warning" : ""}`}
+                          />
+                          {item.qty_received > item.qty_remaining && (
+                            <span className="text-[10px] text-warning flex items-center gap-0.5">
+                              <AlertTriangle className="w-3 h-3" />
+                              +{item.qty_received - item.qty_remaining}
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Input
@@ -592,6 +599,52 @@ export default function StockIn() {
           </Button>
         )}
       </div>
+
+      {/* Over Qty Warning Dialog */}
+      <AlertDialog open={showOverQtyWarning} onOpenChange={setShowOverQtyWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-warning">
+              <AlertTriangle className="w-5 h-5" />
+              {language === "en" ? "Quantity Exceeds Plan Order" : "Kuantitas Melebihi Plan Order"}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  {language === "en"
+                    ? "The following items have received quantity exceeding the Plan Order:"
+                    : "Item berikut memiliki kuantitas diterima melebihi Plan Order:"}
+                </p>
+                <div className="rounded-md border bg-warning/5 p-3 space-y-2">
+                  {overQtyItems.map((item, i) => (
+                    <div key={i} className="flex justify-between text-sm">
+                      <span className="font-medium">{item.name}</span>
+                      <span className="text-warning font-semibold">
+                        {item.qty_received} / {item.qty_remaining} 
+                        <span className="text-xs ml-1">(+{item.qty_received - item.qty_remaining})</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {language === "en"
+                    ? "The excess quantity will be recorded. Plan Order remaining will be set to 0."
+                    : "Kelebihan kuantitas akan tetap tercatat. Sisa Plan Order akan diatur menjadi 0."}
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{language === "en" ? "Cancel" : "Batal"}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={executeSave}
+              className="bg-warning text-warning-foreground hover:bg-warning/90"
+            >
+              {language === "en" ? "Yes, Continue" : "Ya, Lanjutkan"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
