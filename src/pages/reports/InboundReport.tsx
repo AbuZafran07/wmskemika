@@ -135,6 +135,8 @@ export default function InboundReport() {
     const rows: Record<string, any>[] = [];
     filteredRecords.forEach(record => {
       record.items.forEach(item => {
+        const plannedQty = item.plan_order_item?.planned_qty ?? 0;
+        const overQty = item.qty_received > plannedQty ? item.qty_received - plannedQty : 0;
         rows.push({
           stock_in_no: record.stock_in_number,
           date: formatDate(record.received_date),
@@ -143,6 +145,8 @@ export default function InboundReport() {
           product: item.product?.name || '',
           sku: item.product?.sku || '',
           qty: item.qty_received,
+          planned_qty: plannedQty,
+          over_qty: overQty,
           batch: item.batch_no,
           expiry: item.expired_date ? formatDate(item.expired_date) : '',
         });
@@ -158,7 +162,9 @@ export default function InboundReport() {
     { header: 'Supplier', key: 'supplier', width: 22 },
     { header: 'Produk', key: 'product', width: 25 },
     { header: 'SKU', key: 'sku', width: 15 },
-    { header: 'Qty', key: 'qty', width: 8 },
+    { header: 'Qty Received', key: 'qty', width: 12 },
+    { header: 'Planned Qty', key: 'planned_qty', width: 12 },
+    { header: 'Over Qty', key: 'over_qty', width: 10 },
     { header: 'Batch No', key: 'batch', width: 15 },
     { header: 'Expiry', key: 'expiry', width: 14 },
   ];
@@ -334,6 +340,7 @@ export default function InboundReport() {
                   <TableHead>Supplier</TableHead>
                   <TableHead>{language === 'en' ? 'Product' : 'Produk'}</TableHead>
                   <TableHead className="text-center">Qty</TableHead>
+                  <TableHead className="text-center">Over Qty</TableHead>
                   <TableHead>{language === 'en' ? 'Batch No' : 'No. Batch'}</TableHead>
                   <TableHead>{language === 'en' ? 'Expiry' : 'Kadaluarsa'}</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -342,7 +349,7 @@ export default function InboundReport() {
               <TableBody>
                 {paginatedRecords.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
                       {language === 'en' ? 'No inbound records found' : 'Tidak ada data penerimaan'}
                     </TableCell>
                   </TableRow>
@@ -360,6 +367,17 @@ export default function InboundReport() {
                         ) : null}
                         <TableCell>{item.product?.name}</TableCell>
                         <TableCell className="text-center"><Badge variant="success">{item.qty_received}</Badge></TableCell>
+                        <TableCell className="text-center">
+                          {(() => {
+                            const plannedQty = item.plan_order_item?.planned_qty ?? 0;
+                            const overQty = item.qty_received > plannedQty ? item.qty_received - plannedQty : 0;
+                            return overQty > 0 ? (
+                              <Badge variant="destructive">+{overQty}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            );
+                          })()}
+                        </TableCell>
                         <TableCell>{item.batch_no}</TableCell>
                         <TableCell>{item.expired_date ? formatDate(item.expired_date) : '-'}</TableCell>
                         {idx === 0 ? (
