@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.stock_in_create(json, json);
