@@ -77,6 +77,7 @@ interface AdjustmentItem {
   product_id: string;
   batch_id: string;
   adjustment_qty: number;
+  physical_qty: number | null; // null = manual mode, number = calculator mode
   notes: string;
   new_expired_date: string;
   new_batch_no: string;
