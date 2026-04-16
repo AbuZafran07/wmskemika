@@ -242,6 +242,7 @@ export default function StockAdjustment() {
     setReason('');
     setAttachmentUrl('');
     setAttachmentKey('');
+    setAttachmentPreviewUrl('');
     setAdjustmentItems([]);
   };
 
