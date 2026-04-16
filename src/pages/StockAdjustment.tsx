@@ -216,6 +216,7 @@ export default function StockAdjustment() {
       product_id: '',
       batch_id: '',
       adjustment_qty: 0,
+      physical_qty: null,
       notes: '',
       new_expired_date: '',
       new_batch_no: '',
