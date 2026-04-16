@@ -86,7 +86,6 @@ interface AdjustmentItem {
 
 // Helper component for viewing attachments with fresh signed URLs
 function AttachmentButton({ urlOrPath, label }: { urlOrPath: string; label: string }) {
-  const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleClick = async () => {
