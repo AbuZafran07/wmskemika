@@ -810,6 +810,12 @@ export default function StockAdjustment() {
                   <span className="text-muted-foreground">{language === 'en' ? 'Total Items' : 'Total Item'}</span>
                   <span>{adjustmentItems.length}</span>
                 </div>
+                {adjustmentItems.some(i => i.physical_qty !== null) && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">{language === 'en' ? 'Auto-calculated' : 'Hitung Otomatis'}</span>
+                    <Badge variant="draft" className="text-xs">{adjustmentItems.filter(i => i.physical_qty !== null).length} item</Badge>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">{language === 'en' ? 'Total Increase' : 'Total Penambahan'}</span>
                   <span className="text-success">+{adjustmentItems.filter(i => i.adjustment_qty > 0).reduce((s, i) => s + i.adjustment_qty, 0)}</span>
