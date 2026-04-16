@@ -169,8 +169,8 @@ export async function getSecureFileUrl(
  * Gets a signed URL for a product photo.
  * Use this for displaying product images in the UI.
  */
-export function getProductPhotoUrl(photoUrlOrPath: string): Promise<string | null> {
-  return new Promise((resolve) => {
+export async function getProductPhotoUrl(photoUrlOrPath: string): Promise<string | null> {
+  return new Promise(async (resolve) => {
     if (!photoUrlOrPath) {
       resolve(null);
       return;
