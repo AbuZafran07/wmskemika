@@ -1428,6 +1428,15 @@ export default function StockAdjustment() {
         allBatches={allBatches}
         onSubmit={handleSplitBatchSubmit}
       />
+
+      {/* Batch Merge Dialog */}
+      <MergeBatchDialog
+        open={isMergeDialogOpen}
+        onOpenChange={setIsMergeDialogOpen}
+        products={products}
+        allBatches={allBatches}
+        onSubmit={handleSplitBatchSubmit}
+      />
     </div>
   );
 }
