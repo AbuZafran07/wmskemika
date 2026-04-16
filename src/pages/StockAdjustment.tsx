@@ -1066,10 +1066,16 @@ export default function StockAdjustment() {
           <p className="text-muted-foreground">{language === 'en' ? 'Adjust inventory with approval workflow' : 'Sesuaikan inventori dengan alur persetujuan'}</p>
         </div>
         {canCreate('stock_adjustment') && (
-          <Button onClick={async () => { await generateAdjustmentNumber(); setAdjustmentDate(new Date().toISOString().split('T')[0]); setIsFormOpen(true); }}>
-            <Plus className="w-4 h-4 mr-2" />
-            {language === 'en' ? 'Create Adjustment' : 'Buat Penyesuaian'}
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsSplitDialogOpen(true)}>
+              <Split className="w-4 h-4 mr-2" />
+              {language === 'en' ? 'Split Batch' : 'Pecah Batch'}
+            </Button>
+            <Button onClick={async () => { await generateAdjustmentNumber(); setAdjustmentDate(new Date().toISOString().split('T')[0]); setIsFormOpen(true); }}>
+              <Plus className="w-4 h-4 mr-2" />
+              {language === 'en' ? 'Create Adjustment' : 'Buat Penyesuaian'}
+            </Button>
+          </div>
         )}
       </div>
 
