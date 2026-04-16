@@ -1,7 +1,8 @@
 import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { notifyNewStockAdjustment } from '@/lib/pushNotifications';
 import { securePrint, printStyles } from '@/lib/printUtils';
-import { Plus, Search, Eye, Edit, MoreHorizontal, CheckCircle, XCircle, Loader2, Upload, ArrowLeft, Trash2, Printer, Archive, List, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Eye, Edit, MoreHorizontal, CheckCircle, XCircle, Loader2, Upload, ArrowLeft, Trash2, Printer, Archive, List, TrendingUp, TrendingDown, AlertTriangle, Split } from 'lucide-react';
+import BatchSplitDialog from '@/components/stock-adjustment/BatchSplitDialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
@@ -160,6 +161,7 @@ export default function StockAdjustment() {
   const [attachmentKey, setAttachmentKey] = useState('');
   const [adjustmentItems, setAdjustmentItems] = useState<AdjustmentItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSplitDialogOpen, setIsSplitDialogOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
@@ -370,6 +372,48 @@ export default function StockAdjustment() {
     // Valid if: qty changes OR expiry actually changes OR batch_no changes
     const qtyChanged = item.adjustment_qty !== 0;
     return qtyChanged || isExpiryChanged(item) || isBatchNoChanged(item);
+  };
+
+  const handleSplitBatchSubmit = async (data: {
+    reason: string;
+    attachmentUrl: string;
+    attachmentKey: string;
+    items: Array<{
+      product_id: string;
+      batch_id: string;
+      adjustment_qty: number;
+      notes: string;
+      new_batch_no: string;
+      new_expired_date: string | null;
+    }>;
+  }) => {
+    const adjNum = await generateUniqueStockAdjustmentNumber();
+    const result = await createStockAdjustment(
+      {
+        adjustment_number: adjNum,
+        adjustment_date: new Date().toISOString().split('T')[0],
+        reason: data.reason,
+        attachment_url: data.attachmentUrl,
+      },
+      data.items.map(item => ({
+        product_id: item.product_id,
+        batch_id: item.batch_id,
+        adjustment_qty: item.adjustment_qty,
+        notes: item.notes,
+        new_expired_date: item.new_expired_date,
+        new_batch_no: item.new_batch_no,
+      })),
+      data.attachmentKey ? { file_key: data.attachmentKey, url: data.attachmentUrl } : undefined
+    );
+
+    if (result.success) {
+      toast.success(language === 'en' ? 'Batch split adjustment created' : 'Pecah batch berhasil dibuat');
+      notifyNewStockAdjustment(adjNum, user?.id);
+      refetch();
+    } else {
+      toast.error(result.error || 'Failed');
+      throw new Error(result.error);
+    }
   };
 
   const handleSubmit = async () => {
@@ -1022,10 +1066,16 @@ export default function StockAdjustment() {
           <p className="text-muted-foreground">{language === 'en' ? 'Adjust inventory with approval workflow' : 'Sesuaikan inventori dengan alur persetujuan'}</p>
         </div>
         {canCreate('stock_adjustment') && (
-          <Button onClick={async () => { await generateAdjustmentNumber(); setAdjustmentDate(new Date().toISOString().split('T')[0]); setIsFormOpen(true); }}>
-            <Plus className="w-4 h-4 mr-2" />
-            {language === 'en' ? 'Create Adjustment' : 'Buat Penyesuaian'}
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsSplitDialogOpen(true)}>
+              <Split className="w-4 h-4 mr-2" />
+              {language === 'en' ? 'Split Batch' : 'Pecah Batch'}
+            </Button>
+            <Button onClick={async () => { await generateAdjustmentNumber(); setAdjustmentDate(new Date().toISOString().split('T')[0]); setIsFormOpen(true); }}>
+              <Plus className="w-4 h-4 mr-2" />
+              {language === 'en' ? 'Create Adjustment' : 'Buat Penyesuaian'}
+            </Button>
+          </div>
         )}
       </div>
 
@@ -1363,6 +1413,15 @@ export default function StockAdjustment() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Batch Split Dialog */}
+      <BatchSplitDialog
+        open={isSplitDialogOpen}
+        onOpenChange={setIsSplitDialogOpen}
+        products={products}
+        allBatches={allBatches}
+        onSubmit={handleSplitBatchSubmit}
+      />
     </div>
   );
 }
