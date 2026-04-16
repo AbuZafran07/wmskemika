@@ -84,6 +84,41 @@ interface AdjustmentItem {
   product?: Partial<Product> & { id: string; name: string };
 }
 
+// Helper component for viewing attachments with fresh signed URLs
+function AttachmentButton({ urlOrPath, label }: { urlOrPath: string; label: string }) {
+  const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleClick = async () => {
+    setLoading(true);
+    try {
+      let path = urlOrPath;
+      // Extract path from full URL if needed
+      if (urlOrPath.startsWith('http')) {
+        const match = urlOrPath.match(/\/documents\/(.+?)(?:\?|$)/);
+        if (match) path = match[1];
+      }
+      const { getSignedUrl } = await import('@/lib/storage');
+      const signed = await getSignedUrl(path, 'documents');
+      if (signed) {
+        window.open(signed, '_blank');
+      } else {
+        window.open(urlOrPath, '_blank');
+      }
+    } catch {
+      window.open(urlOrPath, '_blank');
+    }
+    setLoading(false);
+  };
+
+  return (
+    <Button variant="outline" onClick={handleClick} disabled={loading}>
+      {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+      {label}
+    </Button>
+  );
+}
+
 const statusConfig: Record<string, { label: string; labelId: string; variant: 'draft' | 'approved' | 'pending' | 'success' | 'cancelled' }> = {
   draft: { label: 'Draft', labelId: 'Draft', variant: 'draft' },
   posted: { label: 'Posted', labelId: 'Diposting', variant: 'success' },
