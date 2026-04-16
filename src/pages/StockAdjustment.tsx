@@ -161,6 +161,7 @@ export default function StockAdjustment() {
   const [attachmentKey, setAttachmentKey] = useState('');
   const [adjustmentItems, setAdjustmentItems] = useState<AdjustmentItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSplitDialogOpen, setIsSplitDialogOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
