@@ -1,8 +1,9 @@
 import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { notifyNewStockAdjustment } from '@/lib/pushNotifications';
 import { securePrint, printStyles } from '@/lib/printUtils';
-import { Plus, Search, Eye, Edit, MoreHorizontal, CheckCircle, XCircle, Loader2, Upload, ArrowLeft, Trash2, Printer, Archive, List, TrendingUp, TrendingDown, AlertTriangle, Split } from 'lucide-react';
+import { Plus, Search, Eye, Edit, MoreHorizontal, CheckCircle, XCircle, Loader2, Upload, ArrowLeft, Trash2, Printer, Archive, List, TrendingUp, TrendingDown, AlertTriangle, Split, Merge } from 'lucide-react';
 import BatchSplitDialog from '@/components/stock-adjustment/BatchSplitDialog';
+import MergeBatchDialog from '@/components/stock-adjustment/MergeBatchDialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
@@ -162,6 +163,7 @@ export default function StockAdjustment() {
   const [adjustmentItems, setAdjustmentItems] = useState<AdjustmentItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isSplitDialogOpen, setIsSplitDialogOpen] = useState(false);
+  const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
@@ -1067,6 +1069,10 @@ export default function StockAdjustment() {
         </div>
         {canCreate('stock_adjustment') && (
           <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsMergeDialogOpen(true)}>
+              <Merge className="w-4 h-4 mr-2" />
+              {language === 'en' ? 'Merge Batch' : 'Gabung Batch'}
+            </Button>
             <Button variant="outline" onClick={() => setIsSplitDialogOpen(true)}>
               <Split className="w-4 h-4 mr-2" />
               {language === 'en' ? 'Split Batch' : 'Pecah Batch'}
@@ -1418,6 +1424,15 @@ export default function StockAdjustment() {
       <BatchSplitDialog
         open={isSplitDialogOpen}
         onOpenChange={setIsSplitDialogOpen}
+        products={products}
+        allBatches={allBatches}
+        onSubmit={handleSplitBatchSubmit}
+      />
+
+      {/* Batch Merge Dialog */}
+      <MergeBatchDialog
+        open={isMergeDialogOpen}
+        onOpenChange={setIsMergeDialogOpen}
         products={products}
         allBatches={allBatches}
         onSubmit={handleSplitBatchSubmit}
