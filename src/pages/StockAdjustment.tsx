@@ -852,6 +852,85 @@ export default function StockAdjustment() {
               </CardContent>
             </Card>
 
+            {/* Live Stock Preview */}
+            {adjustmentItems.some(i => i.batch_id && i.adjustment_qty !== 0) && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">{language === 'en' ? 'Stock Preview' : 'Pratinjau Stok'}</CardTitle>
+                  <p className="text-xs text-muted-foreground">{language === 'en' ? 'Estimated stock after approval' : 'Perkiraan stok setelah disetujui'}</p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {/* Per-batch detail */}
+                  <div className="space-y-1">
+                    {adjustmentItems
+                      .filter(i => i.batch_id && i.adjustment_qty !== 0)
+                      .map((item) => {
+                        const batch = allBatches.find(b => b.id === item.batch_id);
+                        const product = products.find(p => p.id === item.product_id);
+                        if (!batch || !product) return null;
+                        const isSplit = isBatchNoChanged(item);
+                        const after = isSplit ? batch.qty_on_hand - item.adjustment_qty : batch.qty_on_hand + item.adjustment_qty;
+                        return (
+                          <div key={item.id} className="text-xs border rounded-md p-2 space-y-1">
+                            <div className="font-medium truncate">{product.name}</div>
+                            <div className="flex justify-between text-muted-foreground">
+                              <span>{batch.batch_no}</span>
+                              <span>
+                                {batch.qty_on_hand} → <span className={after > batch.qty_on_hand ? 'text-success font-semibold' : after < batch.qty_on_hand ? 'text-destructive font-semibold' : ''}>{after}</span>
+                              </span>
+                            </div>
+                            {isSplit && (
+                              <div className="flex justify-between text-muted-foreground">
+                                <span className="text-primary">{item.new_batch_no} <Badge variant="draft" className="text-[9px] px-1 py-0">Baru</Badge></span>
+                                <span className="text-success font-semibold">{item.adjustment_qty}</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
+                  {/* Per-product summary */}
+                  {(() => {
+                    const productMap = new Map<string, { name: string; currentTotal: number; afterTotal: number }>();
+                    adjustmentItems.filter(i => i.batch_id && i.product_id).forEach(item => {
+                      const product = products.find(p => p.id === item.product_id);
+                      const batch = allBatches.find(b => b.id === item.batch_id);
+                      if (!product || !batch) return;
+                      if (!productMap.has(item.product_id)) {
+                        // Sum all batches for this product
+                        const allProductBatches = allBatches.filter(b => b.product_id === item.product_id);
+                        const currentTotal = allProductBatches.reduce((s, b) => s + b.qty_on_hand, 0);
+                        productMap.set(item.product_id, { name: product.name, currentTotal, afterTotal: currentTotal });
+                      }
+                      const entry = productMap.get(item.product_id)!;
+                      const isSplit = isBatchNoChanged(item);
+                      // Split doesn't change total, only regular adj changes total
+                      if (!isSplit) {
+                        entry.afterTotal += item.adjustment_qty;
+                      }
+                    });
+                    const entries = Array.from(productMap.values());
+                    if (entries.length === 0) return null;
+                    return (
+                      <div className="border-t pt-2 space-y-1">
+                        <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                          {language === 'en' ? 'Product Total' : 'Total Produk'}
+                        </div>
+                        {entries.map((e, i) => (
+                          <div key={i} className="flex justify-between text-xs">
+                            <span className="truncate mr-2">{e.name}</span>
+                            <span className="whitespace-nowrap">
+                              {e.currentTotal} → <span className={e.afterTotal > e.currentTotal ? 'text-success font-semibold' : e.afterTotal < e.currentTotal ? 'text-destructive font-semibold' : 'font-semibold'}>{e.afterTotal}</span>
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            )}
+
             <div className="flex flex-col gap-2">
               <Button onClick={isEditMode ? handleUpdate : handleSubmit} disabled={isSaving} className="w-full">
                 {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
