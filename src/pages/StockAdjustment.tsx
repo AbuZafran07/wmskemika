@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { notifyNewStockAdjustment } from '@/lib/pushNotifications';
 import { securePrint, printStyles } from '@/lib/printUtils';
 import { Plus, Search, Eye, Edit, MoreHorizontal, CheckCircle, XCircle, Loader2, Upload, ArrowLeft, Trash2, Printer, Archive, List, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
@@ -82,6 +82,40 @@ interface AdjustmentItem {
   new_expired_date: string;
   new_batch_no: string;
   product?: Partial<Product> & { id: string; name: string };
+}
+
+// Helper component for viewing attachments with fresh signed URLs
+function AttachmentButton({ urlOrPath, label }: { urlOrPath: string; label: string }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleClick = async () => {
+    setLoading(true);
+    try {
+      let path = urlOrPath;
+      // Extract path from full URL if needed
+      if (urlOrPath.startsWith('http')) {
+        const match = urlOrPath.match(/\/documents\/(.+?)(?:\?|$)/);
+        if (match) path = match[1];
+      }
+      const { getSignedUrl } = await import('@/lib/storage');
+      const signed = await getSignedUrl(path, 'documents');
+      if (signed) {
+        window.open(signed, '_blank');
+      } else {
+        window.open(urlOrPath, '_blank');
+      }
+    } catch {
+      window.open(urlOrPath, '_blank');
+    }
+    setLoading(false);
+  };
+
+  return (
+    <Button variant="outline" onClick={handleClick} disabled={loading}>
+      {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+      {label}
+    </Button>
+  );
 }
 
 const statusConfig: Record<string, { label: string; labelId: string; variant: 'draft' | 'approved' | 'pending' | 'success' | 'cancelled' }> = {
@@ -207,6 +241,7 @@ export default function StockAdjustment() {
     setReason('');
     setAttachmentUrl('');
     setAttachmentKey('');
+    setAttachmentPreviewUrl('');
     setAdjustmentItems([]);
   };
 
@@ -266,6 +301,28 @@ export default function StockAdjustment() {
     return allBatches.filter(b => b.product_id === productId);
   };
 
+  // State for signed attachment preview URL
+  const [attachmentPreviewUrl, setAttachmentPreviewUrl] = useState('');
+
+  const resolveAttachmentUrl = useCallback(async (urlOrPath: string) => {
+    if (!urlOrPath) return '';
+    // If it's already a full signed URL that's still valid, try it
+    if (urlOrPath.startsWith('http')) {
+      // It might be an old public URL or expired signed URL - extract path
+      const match = urlOrPath.match(/\/documents\/(.+?)(?:\?|$)/);
+      if (match) {
+        const { getSignedUrl } = await import('@/lib/storage');
+        const signed = await getSignedUrl(match[1], 'documents');
+        return signed || urlOrPath;
+      }
+      return urlOrPath;
+    }
+    // It's a path - generate signed URL
+    const { getSignedUrl } = await import('@/lib/storage');
+    const signed = await getSignedUrl(urlOrPath, 'documents');
+    return signed || urlOrPath;
+  }, []);
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -274,8 +331,10 @@ export default function StockAdjustment() {
     const result = await uploadFile(file, 'documents', 'adjustments');
     
     if (result) {
-      setAttachmentUrl(result.url);
+      // Store the path for database persistence (not the expiring signed URL)
+      setAttachmentUrl(result.path);
       setAttachmentKey(result.path);
+      setAttachmentPreviewUrl(result.url);
       toast.success(language === 'en' ? 'Document uploaded' : 'Dokumen diupload');
     } else {
       toast.error(language === 'en' ? 'Failed to upload' : 'Gagal upload');
@@ -536,6 +595,12 @@ export default function StockAdjustment() {
     setReason(adj.reason);
     setAttachmentUrl(adj.attachment_url || '');
     setAttachmentKey('');
+    // Resolve signed URL for preview
+    if (adj.attachment_url) {
+      resolveAttachmentUrl(adj.attachment_url).then(url => setAttachmentPreviewUrl(url));
+    } else {
+      setAttachmentPreviewUrl('');
+    }
     setEditingAdjustmentId(adj.id);
     setIsEditMode(true);
     setIsFormOpen(true);
@@ -615,12 +680,12 @@ export default function StockAdjustment() {
                 <div className="space-y-2">
                   <Label>{language === 'en' ? 'Evidence/Attachment' : 'Bukti/Lampiran'} *</Label>
                   <div className="flex items-center gap-4">
-                    {attachmentUrl ? (
+                    {(attachmentPreviewUrl || attachmentUrl) ? (
                       <div className="flex items-center gap-2 p-2 bg-muted rounded">
-                        <a href={attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-sm truncate max-w-xs text-primary hover:underline">
-                          {attachmentUrl.split('/').pop()}
+                        <a href={attachmentPreviewUrl || attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-sm truncate max-w-xs text-primary hover:underline">
+                          {(attachmentPreviewUrl || attachmentUrl).split('/').pop()?.split('?')[0]}
                         </a>
-                        <Button variant="ghost" size="iconSm" onClick={() => { setAttachmentUrl(''); setAttachmentKey(''); }}>
+                        <Button variant="ghost" size="iconSm" onClick={() => { setAttachmentUrl(''); setAttachmentKey(''); setAttachmentPreviewUrl(''); }}>
                           <XCircle className="w-4 h-4" />
                         </Button>
                       </div>
@@ -1214,11 +1279,7 @@ export default function StockAdjustment() {
               
               <DialogFooter>
                 {selectedAdjustment.attachment_url && (
-                  <Button variant="outline" asChild>
-                    <a href={selectedAdjustment.attachment_url} target="_blank" rel="noopener noreferrer">
-                      {language === 'en' ? 'View Attachment' : 'Lihat Lampiran'}
-                    </a>
-                  </Button>
+                  <AttachmentButton urlOrPath={selectedAdjustment.attachment_url} label={language === 'en' ? 'View Attachment' : 'Lihat Lampiran'} />
                 )}
                 <Button variant="outline" onClick={handleExportPDF}>
                   <Printer className="w-4 h-4 mr-2" />
