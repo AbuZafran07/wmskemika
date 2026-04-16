@@ -1069,6 +1069,10 @@ export default function StockAdjustment() {
         </div>
         {canCreate('stock_adjustment') && (
           <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsMergeDialogOpen(true)}>
+              <Merge className="w-4 h-4 mr-2" />
+              {language === 'en' ? 'Merge Batch' : 'Gabung Batch'}
+            </Button>
             <Button variant="outline" onClick={() => setIsSplitDialogOpen(true)}>
               <Split className="w-4 h-4 mr-2" />
               {language === 'en' ? 'Split Batch' : 'Pecah Batch'}
