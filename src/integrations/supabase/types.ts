@@ -1909,9 +1909,10 @@ export type Database = {
         Args: { adjustment_id: string; header_data: Json; items_data: Json }
         Returns: Json
       }
-      stock_in_create:
-        | { Args: { header_data: Json; items_data: Json }; Returns: Json }
-        | { Args: { header_data: Json; items_data: Json }; Returns: Json }
+      stock_in_create: {
+        Args: { header_data: Json; items_data: Json }
+        Returns: Json
+      }
       stock_out_create: {
         Args: { header_data: Json; items_data: Json }
         Returns: Json
