@@ -266,6 +266,28 @@ export default function StockAdjustment() {
     return allBatches.filter(b => b.product_id === productId);
   };
 
+  // State for signed attachment preview URL
+  const [attachmentPreviewUrl, setAttachmentPreviewUrl] = useState('');
+
+  const resolveAttachmentUrl = useCallback(async (urlOrPath: string) => {
+    if (!urlOrPath) return '';
+    // If it's already a full signed URL that's still valid, try it
+    if (urlOrPath.startsWith('http')) {
+      // It might be an old public URL or expired signed URL - extract path
+      const match = urlOrPath.match(/\/documents\/(.+?)(?:\?|$)/);
+      if (match) {
+        const { getSignedUrl } = await import('@/lib/storage');
+        const signed = await getSignedUrl(match[1], 'documents');
+        return signed || urlOrPath;
+      }
+      return urlOrPath;
+    }
+    // It's a path - generate signed URL
+    const { getSignedUrl } = await import('@/lib/storage');
+    const signed = await getSignedUrl(urlOrPath, 'documents');
+    return signed || urlOrPath;
+  }, []);
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -274,8 +296,10 @@ export default function StockAdjustment() {
     const result = await uploadFile(file, 'documents', 'adjustments');
     
     if (result) {
-      setAttachmentUrl(result.url);
+      // Store the path for database persistence (not the expiring signed URL)
+      setAttachmentUrl(result.path);
       setAttachmentKey(result.path);
+      setAttachmentPreviewUrl(result.url);
       toast.success(language === 'en' ? 'Document uploaded' : 'Dokumen diupload');
     } else {
       toast.error(language === 'en' ? 'Failed to upload' : 'Gagal upload');
