@@ -1238,11 +1238,7 @@ export default function StockAdjustment() {
               
               <DialogFooter>
                 {selectedAdjustment.attachment_url && (
-                  <Button variant="outline" asChild>
-                    <a href={selectedAdjustment.attachment_url} target="_blank" rel="noopener noreferrer">
-                      {language === 'en' ? 'View Attachment' : 'Lihat Lampiran'}
-                    </a>
-                  </Button>
+                  <AttachmentButton urlOrPath={selectedAdjustment.attachment_url} label={language === 'en' ? 'View Attachment' : 'Lihat Lampiran'} />
                 )}
                 <Button variant="outline" onClick={handleExportPDF}>
                   <Printer className="w-4 h-4 mr-2" />
