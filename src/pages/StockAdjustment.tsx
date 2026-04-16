@@ -535,6 +535,7 @@ export default function StockAdjustment() {
         product_id: item.product_id,
         batch_id: item.batch_id,
         adjustment_qty: item.adjustment_qty,
+        physical_qty: null,
         notes: item.notes || '',
         new_expired_date: item.new_expired_date || '',
         new_batch_no: item.new_batch_no || '',
