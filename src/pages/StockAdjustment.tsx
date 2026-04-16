@@ -77,6 +77,7 @@ interface AdjustmentItem {
   product_id: string;
   batch_id: string;
   adjustment_qty: number;
+  physical_qty: number | null; // null = manual mode, number = calculator mode
   notes: string;
   new_expired_date: string;
   new_batch_no: string;
@@ -215,6 +216,7 @@ export default function StockAdjustment() {
       product_id: '',
       batch_id: '',
       adjustment_qty: 0,
+      physical_qty: null,
       notes: '',
       new_expired_date: '',
       new_batch_no: '',
@@ -225,7 +227,7 @@ export default function StockAdjustment() {
     setAdjustmentItems(prev => prev.filter(item => item.id !== id));
   };
 
-  const handleItemChange = (id: string, field: keyof AdjustmentItem, value: string | number) => {
+  const handleItemChange = (id: string, field: keyof AdjustmentItem | 'physical_qty', value: string | number | null) => {
     setAdjustmentItems(prev => prev.map(item => {
       if (item.id !== id) return item;
       
@@ -235,8 +237,25 @@ export default function StockAdjustment() {
           ...item,
           product_id: value as string,
           product,
-          batch_id: '', // Reset batch when product changes
+          batch_id: '',
+          physical_qty: null,
+          adjustment_qty: 0,
         };
+      }
+
+      if (field === 'physical_qty') {
+        const batch = allBatches.find(b => b.id === item.batch_id);
+        const currentQty = batch?.qty_on_hand ?? 0;
+        const physicalVal = value === null || value === '' ? null : Number(value);
+        return {
+          ...item,
+          physical_qty: physicalVal,
+          adjustment_qty: physicalVal !== null ? physicalVal - currentQty : 0,
+        };
+      }
+
+      if (field === 'adjustment_qty') {
+        return { ...item, adjustment_qty: value as number, physical_qty: null };
       }
       
       return { ...item, [field]: value };
@@ -533,6 +552,7 @@ export default function StockAdjustment() {
         product_id: item.product_id,
         batch_id: item.batch_id,
         adjustment_qty: item.adjustment_qty,
+        physical_qty: null,
         notes: item.notes || '',
         new_expired_date: item.new_expired_date || '',
         new_batch_no: item.new_batch_no || '',
@@ -630,7 +650,8 @@ export default function StockAdjustment() {
                      <TableRow>
                        <TableHead className="w-[180px]">{language === 'en' ? 'Product' : 'Produk'}</TableHead>
                        <TableHead className="w-[150px]">Batch</TableHead>
-                       <TableHead className="text-center w-[80px]">{language === 'en' ? 'Curr. Qty' : 'Qty Lama'}</TableHead>
+                       <TableHead className="text-center w-[80px]">{language === 'en' ? 'Curr. Qty' : 'Qty Sistem'}</TableHead>
+                       <TableHead className="text-center w-[100px]">{language === 'en' ? 'Physical Qty' : 'Stok Fisik'}</TableHead>
                        <TableHead className="text-center w-[100px]">{language === 'en' ? 'Adj. Qty' : 'Adj. Qty'}</TableHead>
                        <TableHead className="w-[120px]">{language === 'en' ? 'New Batch No' : 'Batch Baru'}</TableHead>
                        <TableHead className="text-center w-[110px]">{language === 'en' ? 'Curr. Expiry' : 'Exp. Lama'}</TableHead>
@@ -642,8 +663,8 @@ export default function StockAdjustment() {
                    <TableBody>
                      {adjustmentItems.length === 0 ? (
                        <TableRow>
-                         <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                           {language === 'en' ? 'No items added yet' : 'Belum ada item'}
+                         <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                            {language === 'en' ? 'No items added yet' : 'Belum ada item'}
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -686,13 +707,29 @@ export default function StockAdjustment() {
                               {selectedBatch ? selectedBatch.qty_on_hand : '-'}
                             </TableCell>
                             <TableCell className="text-center">
+                              <Input
+                                type="number"
+                                className={`w-20 text-center ${item.physical_qty !== null ? 'border-primary ring-1 ring-primary' : ''}`}
+                                value={item.physical_qty ?? ''}
+                                placeholder={selectedBatch ? String(selectedBatch.qty_on_hand) : '-'}
+                                onChange={(e) => handleItemChange(item.id, 'physical_qty', e.target.value)}
+                                disabled={!selectedBatch}
+                              />
+                              {item.physical_qty !== null && selectedBatch && (
+                                <span className="text-[10px] text-muted-foreground mt-1 block">
+                                  = {item.physical_qty - selectedBatch.qty_on_hand >= 0 ? '+' : ''}{item.physical_qty - selectedBatch.qty_on_hand}
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center">
                               <div className="flex flex-col items-center gap-1">
                                 <div className="flex items-center gap-1 justify-center">
                                   <Input
                                     type="number"
-                                    className="w-20 text-center"
+                                    className={`w-20 text-center ${item.physical_qty !== null ? 'bg-muted' : ''}`}
                                     value={item.adjustment_qty}
                                     onChange={(e) => handleItemChange(item.id, 'adjustment_qty', parseInt(e.target.value) || 0)}
+                                    readOnly={item.physical_qty !== null}
                                   />
                                   {item.adjustment_qty > 0 && <TrendingUp className="w-4 h-4 text-success" />}
                                   {item.adjustment_qty < 0 && <TrendingDown className="w-4 h-4 text-destructive" />}
@@ -773,6 +810,12 @@ export default function StockAdjustment() {
                   <span className="text-muted-foreground">{language === 'en' ? 'Total Items' : 'Total Item'}</span>
                   <span>{adjustmentItems.length}</span>
                 </div>
+                {adjustmentItems.some(i => i.physical_qty !== null) && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">{language === 'en' ? 'Auto-calculated' : 'Hitung Otomatis'}</span>
+                    <Badge variant="draft" className="text-xs">{adjustmentItems.filter(i => i.physical_qty !== null).length} item</Badge>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">{language === 'en' ? 'Total Increase' : 'Total Penambahan'}</span>
                   <span className="text-success">+{adjustmentItems.filter(i => i.adjustment_qty > 0).reduce((s, i) => s + i.adjustment_qty, 0)}</span>
