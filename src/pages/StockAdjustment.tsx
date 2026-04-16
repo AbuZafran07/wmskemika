@@ -686,16 +686,23 @@ export default function StockAdjustment() {
                               {selectedBatch ? selectedBatch.qty_on_hand : '-'}
                             </TableCell>
                             <TableCell className="text-center">
-                              <div className="flex items-center gap-1 justify-center">
-                                <Input
-                                  type="number"
-                                  className="w-20 text-center"
-                                  value={item.adjustment_qty}
-                                  onChange={(e) => handleItemChange(item.id, 'adjustment_qty', parseInt(e.target.value) || 0)}
-                                />
-                                {item.adjustment_qty > 0 && <TrendingUp className="w-4 h-4 text-success" />}
-                                {item.adjustment_qty < 0 && <TrendingDown className="w-4 h-4 text-destructive" />}
-                               </div>
+                              <div className="flex flex-col items-center gap-1">
+                                <div className="flex items-center gap-1 justify-center">
+                                  <Input
+                                    type="number"
+                                    className="w-20 text-center"
+                                    value={item.adjustment_qty}
+                                    onChange={(e) => handleItemChange(item.id, 'adjustment_qty', parseInt(e.target.value) || 0)}
+                                  />
+                                  {item.adjustment_qty > 0 && <TrendingUp className="w-4 h-4 text-success" />}
+                                  {item.adjustment_qty < 0 && <TrendingDown className="w-4 h-4 text-destructive" />}
+                                </div>
+                                {isBatchNoChanged(item) && (
+                                  <span className="text-[10px] text-primary font-medium">
+                                    Split → {item.new_batch_no}
+                                  </span>
+                                )}
+                              </div>
                              </TableCell>
                              <TableCell>
                                <Input
