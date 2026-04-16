@@ -326,20 +326,30 @@ export function useNotifications() {
 
         if (urgentRequests && urgentRequests.length > 0) {
           const requesterIds = [...new Set(urgentRequests.map(r => r.user_id))];
-          const { data: requesterProfiles } = await supabase
-            .from('profiles')
-            .select('id, full_name')
-            .in('id', requesterIds);
+          const deliveryRequestIds = [...new Set(urgentRequests.map(r => r.delivery_request_id))];
+          
+          const [{ data: requesterProfiles }, { data: deliveryRequests }] = await Promise.all([
+            supabase.from('profiles').select('id, full_name').in('id', requesterIds),
+            supabase.from('delivery_requests').select('id, sales_order_id, sales_order_headers!inner(sales_order_number)').in('id', deliveryRequestIds),
+          ]);
+
+          const soMap: Record<string, string> = {};
+          deliveryRequests?.forEach((dr: any) => {
+            soMap[dr.id] = dr.sales_order_headers?.sales_order_number || '';
+          });
 
           urgentRequests.forEach((req: any) => {
             const requesterName = requesterProfiles?.find(p => p.id === req.user_id)?.full_name || 'Unknown';
+            const soNumber = soMap[req.delivery_request_id] || '';
+            const soLabel = soNumber ? ` [${soNumber}]` : '';
             notifs.push({
               id: `urgent_req_${req.id}`,
               type: 'urgent_request',
-              title: '🚨 Permintaan Label Urgent/Cito',
+              title: `🚨 Permintaan Label Urgent/Cito${soLabel}`,
               message: `${requesterName}: ${req.message.substring(0, 100)}${req.message.length > 100 ? '...' : ''}`,
               module: 'delivery',
               refId: req.delivery_request_id,
+              refNo: soNumber,
               createdAt: new Date(req.created_at),
               read: false,
             });
@@ -360,28 +370,41 @@ export function useNotifications() {
 
         if (resolvedRequests && resolvedRequests.length > 0) {
           const approverIds = [...new Set(resolvedRequests.map(r => r.approved_by).filter(Boolean))];
-          const { data: approverProfiles } = approverIds.length > 0
-            ? await supabase.from('profiles').select('id, full_name').in('id', approverIds)
-            : { data: [] };
+          const resolvedDeliveryIds = [...new Set(resolvedRequests.map(r => r.delivery_request_id))];
+          
+          const [{ data: approverProfiles }, { data: resolvedDeliveryReqs }] = await Promise.all([
+            approverIds.length > 0
+              ? supabase.from('profiles').select('id, full_name').in('id', approverIds)
+              : Promise.resolve({ data: [] as any[] }),
+            supabase.from('delivery_requests').select('id, sales_order_id, sales_order_headers!inner(sales_order_number)').in('id', resolvedDeliveryIds),
+          ]);
+
+          const resolvedSoMap: Record<string, string> = {};
+          resolvedDeliveryReqs?.forEach((dr: any) => {
+            resolvedSoMap[dr.id] = dr.sales_order_headers?.sales_order_number || '';
+          });
 
           resolvedRequests.forEach((req: any) => {
             const approverName = approverProfiles?.find((p: any) => p.id === req.approved_by)?.full_name || 'Unknown';
             const isApproved = req.approval_status === 'approved';
             const approvedAt = req.approved_at ? new Date(req.approved_at) : new Date(req.created_at);
-            // Only show notifications from last 7 days
             const sevenDaysAgo = new Date();
             sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
             if (approvedAt < sevenDaysAgo) return;
 
+            const resolvedSoNumber = resolvedSoMap[req.delivery_request_id] || '';
+            const resolvedSoLabel = resolvedSoNumber ? ` [${resolvedSoNumber}]` : '';
+
             notifs.push({
               id: `urgent_${req.approval_status}_${req.id}`,
               type: isApproved ? 'urgent_approved' : 'urgent_rejected',
-              title: isApproved ? '✅ Permintaan Urgent/Cito Disetujui' : '❌ Permintaan Urgent/Cito Ditolak',
+              title: isApproved ? `✅ Urgent/Cito Disetujui${resolvedSoLabel}` : `❌ Urgent/Cito Ditolak${resolvedSoLabel}`,
               message: isApproved
                 ? `Disetujui oleh ${approverName}`
                 : `Ditolak oleh ${approverName}${req.rejected_reason ? `: ${req.rejected_reason}` : ''}`,
               module: 'delivery',
               refId: req.delivery_request_id,
+              refNo: resolvedSoNumber,
               createdAt: approvedAt,
               read: false,
             });

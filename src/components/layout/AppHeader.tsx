@@ -131,6 +131,8 @@ export default function AppHeader({ onMenuClick, isMobileDrawerOpen }: AppHeader
       navigate('/stock-in');
     } else if (notif.module === 'stock_out') {
       navigate('/stock-out');
+    } else if (notif.module === 'delivery') {
+      navigate('/request-delivery');
     }
   };
 
