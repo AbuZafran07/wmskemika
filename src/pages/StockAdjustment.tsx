@@ -227,7 +227,7 @@ export default function StockAdjustment() {
     setAdjustmentItems(prev => prev.filter(item => item.id !== id));
   };
 
-  const handleItemChange = (id: string, field: keyof AdjustmentItem, value: string | number) => {
+  const handleItemChange = (id: string, field: keyof AdjustmentItem | 'physical_qty', value: string | number | null) => {
     setAdjustmentItems(prev => prev.map(item => {
       if (item.id !== id) return item;
       
@@ -237,8 +237,25 @@ export default function StockAdjustment() {
           ...item,
           product_id: value as string,
           product,
-          batch_id: '', // Reset batch when product changes
+          batch_id: '',
+          physical_qty: null,
+          adjustment_qty: 0,
         };
+      }
+
+      if (field === 'physical_qty') {
+        const batch = allBatches.find(b => b.id === item.batch_id);
+        const currentQty = batch?.qty_on_hand ?? 0;
+        const physicalVal = value === null || value === '' ? null : Number(value);
+        return {
+          ...item,
+          physical_qty: physicalVal,
+          adjustment_qty: physicalVal !== null ? physicalVal - currentQty : 0,
+        };
+      }
+
+      if (field === 'adjustment_qty') {
+        return { ...item, adjustment_qty: value as number, physical_qty: null };
       }
       
       return { ...item, [field]: value };
