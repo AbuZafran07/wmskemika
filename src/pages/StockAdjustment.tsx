@@ -374,6 +374,48 @@ export default function StockAdjustment() {
     return qtyChanged || isExpiryChanged(item) || isBatchNoChanged(item);
   };
 
+  const handleSplitBatchSubmit = async (data: {
+    reason: string;
+    attachmentUrl: string;
+    attachmentKey: string;
+    items: Array<{
+      product_id: string;
+      batch_id: string;
+      adjustment_qty: number;
+      notes: string;
+      new_batch_no: string;
+      new_expired_date: string | null;
+    }>;
+  }) => {
+    const adjNum = await generateUniqueStockAdjustmentNumber();
+    const result = await createStockAdjustment(
+      {
+        adjustment_number: adjNum,
+        adjustment_date: new Date().toISOString().split('T')[0],
+        reason: data.reason,
+        attachment_url: data.attachmentUrl,
+      },
+      data.items.map(item => ({
+        product_id: item.product_id,
+        batch_id: item.batch_id,
+        adjustment_qty: item.adjustment_qty,
+        notes: item.notes,
+        new_expired_date: item.new_expired_date,
+        new_batch_no: item.new_batch_no,
+      })),
+      data.attachmentKey ? { file_key: data.attachmentKey, url: data.attachmentUrl } : undefined
+    );
+
+    if (result.success) {
+      toast.success(language === 'en' ? 'Batch split adjustment created' : 'Pecah batch berhasil dibuat');
+      notifyNewStockAdjustment(adjNum, user?.id);
+      refetch();
+    } else {
+      toast.error(result.error || 'Failed');
+      throw new Error(result.error);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!adjustmentNumber || !reason || adjustmentItems.length === 0) {
       toast.error(language === 'en' ? 'Please fill all required fields' : 'Harap isi semua field wajib');
