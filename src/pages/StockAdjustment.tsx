@@ -862,6 +862,7 @@ export default function StockAdjustment() {
                     )}
                   </TableBody>
                 </Table>
+                </div>
               </CardContent>
             </Card>
           </div>
