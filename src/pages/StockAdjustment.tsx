@@ -309,6 +309,40 @@ export default function StockAdjustment() {
       return;
     }
 
+    // Validate batch split items: qty must be positive when new_batch_no differs from source
+    const invalidSplitItems = adjustmentItems.filter((item) => {
+      if (!isBatchNoChanged(item)) return false;
+      return item.adjustment_qty <= 0;
+    });
+    if (invalidSplitItems.length > 0) {
+      toast.error(
+        language === 'en'
+          ? 'Batch split requires positive Adj. Qty (qty to move to new batch)'
+          : 'Batch split memerlukan Adj. Qty positif (jumlah yang dipindahkan ke batch baru)'
+      );
+      return;
+    }
+
+    // Validate split qty doesn't exceed source batch
+    const splitOverflow = adjustmentItems.filter((item) => {
+      if (!isBatchNoChanged(item)) return false;
+      const batch = allBatches.find((b) => b.id === item.batch_id);
+      if (!batch) return false;
+      // Sum all split qty from same source batch in this adjustment
+      const totalSplitFromBatch = adjustmentItems
+        .filter((i) => i.batch_id === item.batch_id && isBatchNoChanged(i))
+        .reduce((sum, i) => sum + i.adjustment_qty, 0);
+      return totalSplitFromBatch > batch.qty_on_hand;
+    });
+    if (splitOverflow.length > 0) {
+      toast.error(
+        language === 'en'
+          ? 'Total split qty exceeds source batch stock'
+          : 'Total qty split melebihi stok batch asal'
+      );
+      return;
+    }
+
     if (!attachmentUrl) {
       toast.error(language === 'en' ? 'Please upload evidence/attachment' : 'Harap upload bukti/lampiran');
       return;
