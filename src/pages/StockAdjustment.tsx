@@ -650,7 +650,8 @@ export default function StockAdjustment() {
                      <TableRow>
                        <TableHead className="w-[180px]">{language === 'en' ? 'Product' : 'Produk'}</TableHead>
                        <TableHead className="w-[150px]">Batch</TableHead>
-                       <TableHead className="text-center w-[80px]">{language === 'en' ? 'Curr. Qty' : 'Qty Lama'}</TableHead>
+                       <TableHead className="text-center w-[80px]">{language === 'en' ? 'Curr. Qty' : 'Qty Sistem'}</TableHead>
+                       <TableHead className="text-center w-[100px]">{language === 'en' ? 'Physical Qty' : 'Stok Fisik'}</TableHead>
                        <TableHead className="text-center w-[100px]">{language === 'en' ? 'Adj. Qty' : 'Adj. Qty'}</TableHead>
                        <TableHead className="w-[120px]">{language === 'en' ? 'New Batch No' : 'Batch Baru'}</TableHead>
                        <TableHead className="text-center w-[110px]">{language === 'en' ? 'Curr. Expiry' : 'Exp. Lama'}</TableHead>
@@ -662,8 +663,8 @@ export default function StockAdjustment() {
                    <TableBody>
                      {adjustmentItems.length === 0 ? (
                        <TableRow>
-                         <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                           {language === 'en' ? 'No items added yet' : 'Belum ada item'}
+                         <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                            {language === 'en' ? 'No items added yet' : 'Belum ada item'}
                         </TableCell>
                       </TableRow>
                     ) : (
