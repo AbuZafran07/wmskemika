@@ -639,12 +639,12 @@ export default function StockAdjustment() {
                 <div className="space-y-2">
                   <Label>{language === 'en' ? 'Evidence/Attachment' : 'Bukti/Lampiran'} *</Label>
                   <div className="flex items-center gap-4">
-                    {attachmentUrl ? (
+                    {(attachmentPreviewUrl || attachmentUrl) ? (
                       <div className="flex items-center gap-2 p-2 bg-muted rounded">
-                        <a href={attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-sm truncate max-w-xs text-primary hover:underline">
-                          {attachmentUrl.split('/').pop()}
+                        <a href={attachmentPreviewUrl || attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-sm truncate max-w-xs text-primary hover:underline">
+                          {(attachmentPreviewUrl || attachmentUrl).split('/').pop()?.split('?')[0]}
                         </a>
-                        <Button variant="ghost" size="iconSm" onClick={() => { setAttachmentUrl(''); setAttachmentKey(''); }}>
+                        <Button variant="ghost" size="iconSm" onClick={() => { setAttachmentUrl(''); setAttachmentKey(''); setAttachmentPreviewUrl(''); }}>
                           <XCircle className="w-4 h-4" />
                         </Button>
                       </div>
