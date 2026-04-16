@@ -595,6 +595,12 @@ export default function StockAdjustment() {
     setReason(adj.reason);
     setAttachmentUrl(adj.attachment_url || '');
     setAttachmentKey('');
+    // Resolve signed URL for preview
+    if (adj.attachment_url) {
+      resolveAttachmentUrl(adj.attachment_url).then(url => setAttachmentPreviewUrl(url));
+    } else {
+      setAttachmentPreviewUrl('');
+    }
     setEditingAdjustmentId(adj.id);
     setIsEditMode(true);
     setIsFormOpen(true);
