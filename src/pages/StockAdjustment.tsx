@@ -707,13 +707,29 @@ export default function StockAdjustment() {
                               {selectedBatch ? selectedBatch.qty_on_hand : '-'}
                             </TableCell>
                             <TableCell className="text-center">
+                              <Input
+                                type="number"
+                                className={`w-20 text-center ${item.physical_qty !== null ? 'border-primary ring-1 ring-primary' : ''}`}
+                                value={item.physical_qty ?? ''}
+                                placeholder={selectedBatch ? String(selectedBatch.qty_on_hand) : '-'}
+                                onChange={(e) => handleItemChange(item.id, 'physical_qty', e.target.value)}
+                                disabled={!selectedBatch}
+                              />
+                              {item.physical_qty !== null && selectedBatch && (
+                                <span className="text-[10px] text-muted-foreground mt-1 block">
+                                  = {item.physical_qty - selectedBatch.qty_on_hand >= 0 ? '+' : ''}{item.physical_qty - selectedBatch.qty_on_hand}
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center">
                               <div className="flex flex-col items-center gap-1">
                                 <div className="flex items-center gap-1 justify-center">
                                   <Input
                                     type="number"
-                                    className="w-20 text-center"
+                                    className={`w-20 text-center ${item.physical_qty !== null ? 'bg-muted' : ''}`}
                                     value={item.adjustment_qty}
                                     onChange={(e) => handleItemChange(item.id, 'adjustment_qty', parseInt(e.target.value) || 0)}
+                                    readOnly={item.physical_qty !== null}
                                   />
                                   {item.adjustment_qty > 0 && <TrendingUp className="w-4 h-4 text-success" />}
                                   {item.adjustment_qty < 0 && <TrendingDown className="w-4 h-4 text-destructive" />}
