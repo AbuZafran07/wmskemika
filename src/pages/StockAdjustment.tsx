@@ -710,6 +710,7 @@ export default function StockAdjustment() {
                 </Button>
               </CardHeader>
               <CardContent>
+                <div className="overflow-x-auto -mx-6 px-6">
                 <Table>
                   <TableHeader>
                      <TableRow>
