@@ -193,13 +193,17 @@ export function getProductPhotoUrl(photoUrlOrPath: string): Promise<string | nul
         path = path.replace('product-photos/', '');
       }
       
-      // Product-photos bucket is public, use public URL for better performance
-      const { data } = supabase.storage
+      // Product-photos bucket is private, use signed URL
+      const { data, error } = await supabase.storage
         .from('product-photos')
-        .getPublicUrl(path);
+        .createSignedUrl(path, 3600);
       
-      // Return the public URL directly
-      resolve(data.publicUrl);
+      if (error || !data?.signedUrl) {
+        console.error('Failed to get signed URL for product photo:', error);
+        resolve(null);
+        return;
+      }
+      resolve(data.signedUrl);
     } catch (error) {
       console.error('Failed to get product photo URL:', error);
       resolve(null);
