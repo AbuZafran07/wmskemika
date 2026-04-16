@@ -1413,6 +1413,15 @@ export default function StockAdjustment() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Batch Split Dialog */}
+      <BatchSplitDialog
+        open={isSplitDialogOpen}
+        onOpenChange={setIsSplitDialogOpen}
+        products={products}
+        allBatches={allBatches}
+        onSubmit={handleSplitBatchSubmit}
+      />
     </div>
   );
 }
