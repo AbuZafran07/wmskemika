@@ -394,15 +394,15 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       ? await supabase.from("profiles").select("id, full_name").in("id", userIds)
       : { data: [] };
 
-    setAttachments(data.map(a => {
-      const { data: publicUrlData } = supabase.storage.from("documents").getPublicUrl(a.file_key);
+    const attachmentsWithUrls = await Promise.all(data.map(async (a) => {
+      const { data: signedData } = await supabase.storage.from("documents").createSignedUrl(a.file_key, 1800);
       return {
         ...a,
-        // Always rebuild URL from file_key to avoid stale/expired URLs saved in DB
-        url: publicUrlData?.publicUrl || a.url,
+        url: signedData?.signedUrl || a.url,
         uploader_name: profiles?.find(p => p.id === a.uploaded_by)?.full_name || "Unknown",
       };
     }));
+    setAttachments(attachmentsWithUrls);
   }, [card]);
 
   // Fetch checklists
@@ -1622,14 +1622,14 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       if (uploadError) throw uploadError;
 
       setUploadProgress(95);
-      const { data: urlData } = supabase.storage.from("documents").getPublicUrl(fileKey);
+      const { data: urlData } = await supabase.storage.from("documents").createSignedUrl(fileKey, 1800);
 
       await supabase.from("attachments").insert({
         ref_table: "delivery_requests",
         ref_id: card.id,
         module_name: "delivery",
         file_key: fileKey,
-        url: urlData.publicUrl,
+        url: urlData?.signedUrl || fileKey,
         mime_type: "image/jpeg",
         file_size: stampedFile.size,
         uploaded_by: user.id,
@@ -1679,14 +1679,14 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
       setUploadProgress(95);
 
-      const { data: urlData } = supabase.storage.from("documents").getPublicUrl(fileKey);
+      const { data: urlData } = await supabase.storage.from("documents").createSignedUrl(fileKey, 1800);
 
       await supabase.from("attachments").insert({
         ref_table: "delivery_requests",
         ref_id: card.id,
         module_name: "delivery",
         file_key: fileKey,
-        url: urlData.publicUrl,
+        url: urlData?.signedUrl || fileKey,
         mime_type: file.type,
         file_size: file.size,
         uploaded_by: user.id,

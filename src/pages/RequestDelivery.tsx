@@ -223,8 +223,8 @@ export default function RequestDelivery() {
       const fileKey = `board-bg/${Date.now()}.${fileExt}`;
       const { error } = await supabase.storage.from("documents").upload(fileKey, file);
       if (error) throw error;
-      const { data: urlData } = supabase.storage.from("documents").getPublicUrl(fileKey);
-      await handleSetBg(urlData.publicUrl);
+      const { data: urlData } = await supabase.storage.from("documents").createSignedUrl(fileKey, 1800);
+      await handleSetBg(urlData?.signedUrl || fileKey);
     } catch (err: any) {
       toast.error("Gagal upload background: " + err.message);
     }
