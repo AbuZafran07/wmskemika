@@ -39,6 +39,34 @@ function sanitizePositiveInteger(value: unknown) {
   return normalized >= 1 ? normalized : null;
 }
 
+function normalizeReferenceList(payload: unknown, includeSelectedReference: string | null) {
+  const entries = Array.isArray((payload as Record<string, unknown>)?.data)
+    ? ((payload as Record<string, unknown>).data as Array<Record<string, unknown>>)
+    : [];
+
+  const filtered = entries.filter((item) => {
+    const referenceNumber = sanitizeText(item?.reference_number, 100);
+    const stage = sanitizeText(item?.stage, 50).toLowerCase();
+    const expectedCloseDate = sanitizeText(item?.expected_close_date, 20);
+    const isProtectedSelected = includeSelectedReference && referenceNumber === includeSelectedReference;
+
+    if (isProtectedSelected) return true;
+    if (!referenceNumber) return false;
+    if (stage !== "po_secured") return true;
+    if (!expectedCloseDate) return true;
+
+    return expectedCloseDate < "2026-04-20";
+  });
+
+  const seen = new Set<string>();
+  return filtered.filter((item) => {
+    const referenceNumber = sanitizeText(item?.reference_number, 100);
+    if (!referenceNumber || seen.has(referenceNumber)) return false;
+    seen.add(referenceNumber);
+    return true;
+  });
+}
+
 async function parseBody(req: Request) {
   try {
     return await req.json();
@@ -100,11 +128,20 @@ serve(async (req) => {
       const incomingUrl = new URL(req.url);
       const search = sanitizeText((req.method === "GET" ? incomingUrl.searchParams.get("search") : body.search) || "", 100);
       const segment = sanitizeText((req.method === "GET" ? incomingUrl.searchParams.get("segment") : body.segment) || "", 20);
-      const limit = Number((req.method === "GET" ? incomingUrl.searchParams.get("limit") : body.limit) || "50");
+      const includeSelectedReference = sanitizeNullableText(
+        req.method === "GET" ? incomingUrl.searchParams.get("include_selected_reference") : body.include_selected_reference,
+        100,
+      );
+      const rawLimit = req.method === "GET" ? incomingUrl.searchParams.get("limit") : body.limit;
+      const limit = rawLimit === null || rawLimit === undefined || rawLimit === ""
+        ? null
+        : Number(rawLimit);
 
       if (search) url.searchParams.set("search", search);
       if (segment) url.searchParams.set("segment", segment);
-      url.searchParams.set("limit", String(Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 500) : 50));
+      if (Number.isFinite(limit)) {
+        url.searchParams.set("limit", String(Math.min(Math.max(Number(limit), 1), 5000)));
+      }
 
       const { data: logRow } = await adminClient
         .from("sales_pulse_sync_logs")
@@ -113,7 +150,12 @@ serve(async (req) => {
           http_method: "GET",
           direction: "sales_pulse_to_wms",
           status: "pending",
-          request_payload: { search: search || null, segment: segment || null, limit },
+          request_payload: {
+            search: search || null,
+            segment: segment || null,
+            limit,
+            include_selected_reference: includeSelectedReference,
+          },
           triggered_by: userId,
         })
         .select("id")
@@ -127,6 +169,16 @@ serve(async (req) => {
       });
 
       const responsePayload = await upstream.json().catch(() => ({ error: "Invalid JSON response" }));
+      const normalizedData = upstream.ok
+        ? normalizeReferenceList(responsePayload, includeSelectedReference)
+        : null;
+      const filteredResponsePayload = upstream.ok
+        ? {
+            ...(responsePayload as Record<string, unknown>),
+            count: normalizedData?.length ?? 0,
+            data: normalizedData,
+          }
+        : responsePayload;
 
       if (logRow?.id) {
         await adminClient
@@ -134,13 +186,13 @@ serve(async (req) => {
           .update({
             status: upstream.ok ? "success" : "failed",
             status_code: upstream.status,
-            response_payload: responsePayload,
+            response_payload: filteredResponsePayload,
             error_message: upstream.ok ? null : sanitizeText((responsePayload as Record<string, unknown>)?.error || `HTTP ${upstream.status}`, 500),
           })
           .eq("id", logRow.id);
       }
 
-      return jsonResponse(responsePayload, upstream.status);
+      return jsonResponse(filteredResponsePayload, upstream.status);
     }
 
     if (action === "wms-so-approved") {
