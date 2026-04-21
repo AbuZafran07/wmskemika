@@ -46,7 +46,7 @@ interface SyncProductPayload {
   sku: string;
   name: string;
   category_name?: string | null;
-  unit_name?: string | null;
+  unit?: string | null;
   purchase_price?: number | null;
   selling_price?: number | null;
   is_active?: boolean;

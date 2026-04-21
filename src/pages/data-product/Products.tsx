@@ -96,7 +96,7 @@ const syncProductSalesPulseAsync = (product: {
   sku?: string | null;
   name: string;
   category_name?: string | null;
-  unit_name?: string | null;
+  unit?: string | null;
   purchase_price?: number | null;
   selling_price?: number | null;
   is_active: boolean;
@@ -110,7 +110,7 @@ const syncProductSalesPulseAsync = (product: {
     sku: product.sku.trim(),
     name: product.name,
     category_name: product.category_name || null,
-    unit_name: product.unit_name || null,
+    unit: product.unit || null,
     purchase_price: product.purchase_price ?? null,
     selling_price: product.selling_price ?? null,
     is_active: product.is_active,
@@ -335,7 +335,7 @@ export default function Products() {
           sku: sku || null,
           name,
           category_name: category?.name || null,
-          unit_name: unit?.name || null,
+          unit: unit?.name || null,
           purchase_price: parseFloat(purchase_price),
           selling_price: selling_price ? parseFloat(selling_price) : null,
           is_active: status !== 'inactive',
@@ -387,7 +387,7 @@ export default function Products() {
           sku: products.find((product) => product.id === previewRow.existingId)?.sku || null,
           name,
           category_name: category?.name || null,
-          unit_name: unit?.name || null,
+          unit: unit?.name || null,
           purchase_price: parseFloat(purchase_price),
           selling_price: selling_price ? parseFloat(selling_price) : null,
           is_active: status !== 'inactive',
@@ -555,7 +555,7 @@ export default function Products() {
         sku: productData.sku,
         name: productData.name,
         category_name: categories.find((category) => category.id === productData.category_id)?.name || null,
-        unit_name: units.find((unit) => unit.id === productData.unit_id)?.name || null,
+        unit: units.find((unit) => unit.id === productData.unit_id)?.name || null,
         purchase_price: productData.purchase_price,
         selling_price: productData.selling_price,
         is_active: productData.is_active,

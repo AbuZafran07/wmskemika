@@ -229,7 +229,7 @@ serve(async (req) => {
             sku: sanitizeText(body.sku, 100),
             name: sanitizeText(body.name, 255),
             category_name: sanitizeNullableText(body.category_name, 100),
-            unit_name: sanitizeNullableText(body.unit_name, 50),
+            unit: sanitizeNullableText(body.unit, 50) ?? sanitizeNullableText(body.unit_name, 50),
             purchase_price: sanitizeNullableNumber(body.purchase_price),
             selling_price: sanitizeNullableNumber(body.selling_price),
             is_active: typeof body.is_active === "boolean" ? body.is_active : true,
