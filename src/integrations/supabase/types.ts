@@ -1095,6 +1095,7 @@ export type Database = {
           project_instansi: string
           sales_name: string
           sales_order_number: string
+          sales_pulse_reference_number: string | null
           ship_to_address: string | null
           shipping_cost: number | null
           status: string
@@ -1123,6 +1124,7 @@ export type Database = {
           project_instansi: string
           sales_name: string
           sales_order_number: string
+          sales_pulse_reference_number?: string | null
           ship_to_address?: string | null
           shipping_cost?: number | null
           status?: string
@@ -1151,6 +1153,7 @@ export type Database = {
           project_instansi?: string
           sales_name?: string
           sales_order_number?: string
+          sales_pulse_reference_number?: string | null
           ship_to_address?: string | null
           shipping_cost?: number | null
           status?: string
