@@ -263,9 +263,10 @@ export async function createSalesOrder(
 
     const validatedHeader = headerValidation.data;
     const validatedItems = itemsValidation.data;
-    const salesPulseReferenceNumber = validatedHeader.customer_po_number?.startsWith('REF-')
-      ? validatedHeader.customer_po_number.trim()
-      : null;
+    const salesPulseReferenceNumber = validatedHeader.sales_pulse_reference_number?.trim()
+      || (validatedHeader.customer_po_number?.startsWith('REF-')
+        ? validatedHeader.customer_po_number.trim()
+        : null);
 
     // Use RPC function to handle insert (avoids generated column issues)
     const { data, error } = await supabase.rpc('sales_order_create', {
@@ -314,9 +315,10 @@ export async function updateSalesOrder(
   items: Array<{ product_id: string; unit_price: number; ordered_qty: number; discount?: number; }>
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const salesPulseReferenceNumber = header.customer_po_number?.startsWith('REF-')
-      ? header.customer_po_number.trim()
-      : null;
+    const salesPulseReferenceNumber = header.sales_pulse_reference_number?.trim()
+      || (header.customer_po_number?.startsWith('REF-')
+        ? header.customer_po_number.trim()
+        : null);
     const { data, error } = await supabase.rpc('sales_order_update', {
       order_id: orderId,
       header_data: {

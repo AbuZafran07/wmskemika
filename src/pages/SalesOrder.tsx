@@ -90,6 +90,7 @@ import { usePagination } from "@/hooks/usePagination";
 import { DataTablePagination } from "@/components/DataTablePagination";
 import { generateUniqueSalesOrderNumber } from "@/lib/transactionNumberUtils";
 import { supabase } from "@/integrations/supabase/client";
+import { listSalesPulseOpenReferences, type SalesPulseReference } from "@/lib/salesPulseSync";
 import { toast } from "sonner";
 
 const statusConfig: Record<
@@ -224,6 +225,9 @@ export default function SalesOrder() {
   const [orderDate, setOrderDate] = useState(new Date().toISOString().split("T")[0]);
   const [customerId, setCustomerId] = useState("");
   const [customerPoNumber, setCustomerPoNumber] = useState("");
+  const [salesPulseReferenceNumber, setSalesPulseReferenceNumber] = useState("");
+  const [salesPulseOptions, setSalesPulseOptions] = useState<SalesPulseReference[]>([]);
+  const [isSalesPulseLoading, setIsSalesPulseLoading] = useState(false);
   const [salesName, setSalesName] = useState("");
   const [allocationType, setAllocationType] = useState<AllocationType | "">("");
   const [projectInstansi, setProjectInstansi] = useState("");
@@ -304,6 +308,7 @@ export default function SalesOrder() {
     setOrderDate(new Date().toISOString().split("T")[0]);
     setCustomerId("");
     setCustomerPoNumber("");
+    setSalesPulseReferenceNumber("");
     setSalesName("");
     setAllocationType("");
     setProjectInstansi("");
@@ -339,6 +344,32 @@ export default function SalesOrder() {
       if (!shipToAddress) setShipToAddress(c.address || "");
     }
   };
+
+  useEffect(() => {
+    if (!isDialogOpen) return;
+
+    let isActive = true;
+    const loadSalesPulseReferences = async () => {
+      setIsSalesPulseLoading(true);
+      try {
+        const data = await listSalesPulseOpenReferences({ limit: 50 });
+        if (isActive) setSalesPulseOptions(data);
+      } catch (error) {
+        console.error('Failed to load Sales Pulse references:', error);
+        if (isActive) {
+          setSalesPulseOptions([]);
+          toast.error(language === "en" ? "Failed to load Sales Pulse references" : "Gagal memuat referensi SalesPulse");
+        }
+      } finally {
+        if (isActive) setIsSalesPulseLoading(false);
+      }
+    };
+
+    void loadSalesPulseReferences();
+    return () => {
+      isActive = false;
+    };
+  }, [isDialogOpen, language]);
 
   // === ITEMS: DISCOUNT % -> NOMINAL + SUBTOTAL ===
   const recomputeLine = (qty: number, price: number, discPct: number) => {
@@ -535,6 +566,7 @@ export default function SalesOrder() {
     setOrderDate(order.order_date);
     setCustomerId(order.customer_id);
     setCustomerPoNumber(order.customer_po_number);
+    setSalesPulseReferenceNumber(order.sales_pulse_reference_number || "");
     setSalesName(order.sales_name);
     setAllocationType((order.allocation_type as AllocationType) || "");
     setProjectInstansi(order.project_instansi);
@@ -635,6 +667,7 @@ export default function SalesOrder() {
         order_date: orderDate,
         customer_id: customerId,
         customer_po_number: customerPoNumber,
+        sales_pulse_reference_number: salesPulseReferenceNumber || null,
         sales_name: salesName,
         allocation_type: allocationType,
         project_instansi: projectInstansi,
@@ -1296,6 +1329,29 @@ export default function SalesOrder() {
               </div>
             </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="space-y-2 md:col-span-2">
+                <Label>{language === "en" ? "SalesPulse Reference No." : "No. Referensi SalesPulse"}</Label>
+                <SearchableSelect
+                  value={salesPulseReferenceNumber}
+                  onValueChange={setSalesPulseReferenceNumber}
+                  options={salesPulseOptions.map((reference) => ({
+                    value: reference.reference_number,
+                    label: reference.reference_number,
+                    description: [reference.customer_name, reference.deal_name].filter(Boolean).join(' • '),
+                  }))}
+                  placeholder={
+                    isSalesPulseLoading
+                      ? (language === "en" ? "Loading references..." : "Memuat referensi...")
+                      : (language === "en" ? "Select SalesPulse reference" : "Pilih referensi SalesPulse")
+                  }
+                  searchPlaceholder={language === "en" ? "Search reference..." : "Cari referensi..."}
+                  emptyMessage={language === "en" ? "No reference found" : "Referensi tidak ditemukan"}
+                  disabled={isSalesPulseLoading}
+                />
+              </div>
+            </div>
+
             {/* Header Row 2 */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
@@ -1857,6 +1913,10 @@ export default function SalesOrder() {
                 <div>
                   <p className="text-sm text-muted-foreground">{language === "en" ? "Customer PO" : "PO Customer"}</p>
                   <p className="font-medium">{selectedOrder.customer_po_number}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{language === "en" ? "SalesPulse Reference" : "Referensi SalesPulse"}</p>
+                  <p className="font-medium">{selectedOrder.sales_pulse_reference_number || '-'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Sales</p>
