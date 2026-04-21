@@ -27,6 +27,7 @@ interface SearchableSelectProps {
   options: SearchableSelectOption[];
   value: string;
   onValueChange: (value: string) => void;
+  onSearchChange?: (value: string) => void;
   placeholder?: string;
   searchPlaceholder?: string;
   emptyMessage?: string;
@@ -39,6 +40,7 @@ export function SearchableSelect({
   options,
   value,
   onValueChange,
+  onSearchChange,
   placeholder = "Select option...",
   searchPlaceholder = "Search...",
   emptyMessage = "No results found.",
@@ -47,8 +49,16 @@ export function SearchableSelect({
   triggerClassName,
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false);
+  const [searchValue, setSearchValue] = React.useState("");
 
   const selectedOption = options.find((option) => option.value === value);
+
+  React.useEffect(() => {
+    if (!open && searchValue) {
+      setSearchValue("");
+      onSearchChange?.("");
+    }
+  }, [open, onSearchChange, searchValue]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -72,7 +82,15 @@ export function SearchableSelect({
       </PopoverTrigger>
       <PopoverContent className={cn("w-full p-0 z-[9999]", className)} align="start" sideOffset={4}>
         <Command>
-          <CommandInput placeholder={searchPlaceholder} className="h-9" />
+          <CommandInput
+            placeholder={searchPlaceholder}
+            className="h-9"
+            value={searchValue}
+            onValueChange={(nextValue) => {
+              setSearchValue(nextValue);
+              onSearchChange?.(nextValue);
+            }}
+          />
           <CommandList className="max-h-64 overflow-y-auto [&>div]:overflow-visible" style={{ maxHeight: '16rem', overflowY: 'auto' }} onWheel={(e) => { e.stopPropagation(); const el = e.currentTarget; el.scrollTop += e.deltaY; }}>
             <CommandEmpty>{emptyMessage}</CommandEmpty>
             <CommandGroup>
