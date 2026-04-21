@@ -81,6 +81,7 @@ export const salesOrderHeaderSchema = z.object({
   order_date: dateStringSchema,
   customer_id: uuidSchema,
   customer_po_number: requiredString('Customer PO number', 50),
+  sales_pulse_reference_number: sanitizedString(50).nullable().optional().transform(val => val === '' ? null : val),
   sales_name: requiredString('Sales name', 100),
   allocation_type: requiredString('Allocation type', 50),
   project_instansi: requiredString('Project/Instansi', 200),
