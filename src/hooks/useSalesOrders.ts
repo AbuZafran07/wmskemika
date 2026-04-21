@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getUserFriendlyError, ErrorMessages } from '@/lib/errorHandler';
 import { syncSalesOrderToAr } from '@/lib/arApSync';
+import { syncSalesOrderApprovedToSalesPulse } from '@/lib/salesPulseSync';
 import { 
   salesOrderHeaderSchema, 
   salesOrderItemsArraySchema, 
@@ -15,6 +16,7 @@ export interface SalesOrderHeader {
   order_date: string;
   customer_id: string;
   customer_po_number: string;
+  sales_pulse_reference_number?: string | null;
   sales_name: string;
   allocation_type: string;
   project_instansi: string;
@@ -261,6 +263,9 @@ export async function createSalesOrder(
 
     const validatedHeader = headerValidation.data;
     const validatedItems = itemsValidation.data;
+    const salesPulseReferenceNumber = validatedHeader.customer_po_number?.startsWith('REF-')
+      ? validatedHeader.customer_po_number.trim()
+      : null;
 
     // Use RPC function to handle insert (avoids generated column issues)
     const { data, error } = await supabase.rpc('sales_order_create', {
@@ -269,6 +274,7 @@ export async function createSalesOrder(
         order_date: validatedHeader.order_date,
         customer_id: validatedHeader.customer_id,
         customer_po_number: validatedHeader.customer_po_number,
+        sales_pulse_reference_number: salesPulseReferenceNumber,
         sales_name: validatedHeader.sales_name,
         allocation_type: validatedHeader.allocation_type,
         project_instansi: validatedHeader.project_instansi,
@@ -308,9 +314,15 @@ export async function updateSalesOrder(
   items: Array<{ product_id: string; unit_price: number; ordered_qty: number; discount?: number; }>
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const salesPulseReferenceNumber = header.customer_po_number?.startsWith('REF-')
+      ? header.customer_po_number.trim()
+      : null;
     const { data, error } = await supabase.rpc('sales_order_update', {
       order_id: orderId,
-      header_data: header,
+      header_data: {
+        ...header,
+        sales_pulse_reference_number: salesPulseReferenceNumber,
+      },
       items_data: items,
     });
     if (error) throw error;
@@ -335,7 +347,7 @@ export async function approveSalesOrder(orderId: string, approveReason?: string)
         const { data: soData } = await supabase
           .from('sales_order_headers')
           .select(`
-            sales_order_number, customer_po_number, order_date, grand_total, sales_name, notes,
+            id, sales_order_number, customer_po_number, sales_pulse_reference_number, order_date, grand_total, sales_name, notes,
             customer:customers(name, terms_payment)
           `)
           .eq('id', orderId)
@@ -359,6 +371,23 @@ export async function approveSalesOrder(orderId: string, approveReason?: string)
             console.log('[WMS] AR Invoice berhasil dibuat dari SO:', soData.sales_order_number);
           } else {
             console.warn('[WMS] Gagal sync SO ke AR/AP:', syncResult.error);
+          }
+
+          const salesPulseReference = soData.sales_pulse_reference_number || soData.customer_po_number;
+          if (salesPulseReference?.startsWith('REF-')) {
+            try {
+              await syncSalesOrderApprovedToSalesPulse({
+                sales_order_id: soData.id,
+                reference_number: salesPulseReference,
+                so_number: soData.sales_order_number,
+                so_date: soData.order_date,
+                total_value: Number(soData.grand_total ?? 0),
+                customer_name: customer?.name || null,
+              });
+              console.log('[WMS] Sales Pulse sync berhasil:', soData.sales_order_number);
+            } catch (salesPulseErr) {
+              console.warn('[WMS] Gagal sync SO ke Sales Pulse:', salesPulseErr);
+            }
           }
         }
       } catch (syncErr) {
