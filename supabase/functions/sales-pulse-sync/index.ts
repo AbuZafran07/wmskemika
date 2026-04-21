@@ -69,9 +69,10 @@ serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
+    const body = req.method === "GET" ? {} : await parseBody(req);
     const action = req.method === "GET"
       ? sanitizeText(new URL(req.url).searchParams.get("action") || "")
-      : sanitizeText((await parseBody(req)).action || "");
+      : sanitizeText(body.action || "");
 
     if (!action) {
       return jsonResponse({ error: "Missing action" }, 400);
@@ -80,13 +81,26 @@ serve(async (req) => {
     if (action === "list-open-references") {
       const url = new URL(`${SALES_PULSE_BASE_URL}/list-open-references`);
       const incomingUrl = new URL(req.url);
-      const search = sanitizeText(incomingUrl.searchParams.get("search") || "", 100);
-      const segment = sanitizeText(incomingUrl.searchParams.get("segment") || "", 20);
-      const limit = Number(incomingUrl.searchParams.get("limit") || "50");
+      const search = sanitizeText((req.method === "GET" ? incomingUrl.searchParams.get("search") : body.search) || "", 100);
+      const segment = sanitizeText((req.method === "GET" ? incomingUrl.searchParams.get("segment") : body.segment) || "", 20);
+      const limit = Number((req.method === "GET" ? incomingUrl.searchParams.get("limit") : body.limit) || "50");
 
       if (search) url.searchParams.set("search", search);
       if (segment) url.searchParams.set("segment", segment);
       url.searchParams.set("limit", String(Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 500) : 50));
+
+      const { data: logRow } = await adminClient
+        .from("sales_pulse_sync_logs")
+        .insert({
+          endpoint: "/list-open-references",
+          http_method: "GET",
+          direction: "sales_pulse_to_wms",
+          status: "pending",
+          request_payload: { search: search || null, segment: segment || null, limit },
+          triggered_by: userId,
+        })
+        .select("id")
+        .single();
 
       const upstream = await fetch(url.toString(), {
         method: "GET",
@@ -96,11 +110,23 @@ serve(async (req) => {
       });
 
       const responsePayload = await upstream.json().catch(() => ({ error: "Invalid JSON response" }));
+
+      if (logRow?.id) {
+        await adminClient
+          .from("sales_pulse_sync_logs")
+          .update({
+            status: upstream.ok ? "success" : "failed",
+            status_code: upstream.status,
+            response_payload: responsePayload,
+            error_message: upstream.ok ? null : sanitizeText((responsePayload as Record<string, unknown>)?.error || `HTTP ${upstream.status}`, 500),
+          })
+          .eq("id", logRow.id);
+      }
+
       return jsonResponse(responsePayload, upstream.status);
     }
 
     if (action === "wms-so-approved") {
-      const body = await parseBody(req);
       const referenceNumber = sanitizeText(body.reference_number, 100);
       const soNumber = sanitizeText(body.so_number, 100);
       const soDate = sanitizeText(body.so_date, 20);
