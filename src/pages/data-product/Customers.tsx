@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { syncCustomerToArAp } from '@/lib/arApSync';
+import { syncCustomerToSalesPulse } from '@/lib/salesPulseSync';
 import { Plus, Search, Filter, MoreHorizontal, Edit, Trash2, Loader2, Eye, Download, Upload } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
@@ -88,6 +89,29 @@ const initialFormData: CustomerFormData = {
 };
 
 const customerTypes = ['Corporate', 'Government', 'Individual', 'Distributor', 'Retail'];
+
+const syncCustomerSalesPulseAsync = (customer: {
+  code: string;
+  name: string;
+  customer_type?: string | null;
+  pic?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  city?: string | null;
+  is_active: boolean;
+}) => {
+  syncCustomerToSalesPulse({
+    code: customer.code,
+    name: customer.name,
+    customer_type: customer.customer_type || null,
+    pic: customer.pic || null,
+    email: customer.email || null,
+    phone: customer.phone || null,
+    city: customer.city || null,
+    region: customer.city || null,
+    is_active: customer.is_active,
+  }).catch((err) => console.warn('[WMS] Customer sync to Sales Pulse failed:', err));
+};
 
 export default function Customers() {
   const { t, language } = useLanguage();
@@ -277,6 +301,16 @@ export default function Customers() {
         errorCount++;
       } else {
         insertCount++;
+        syncCustomerSalesPulseAsync({
+          code: autoCode.toUpperCase(),
+          name,
+          customer_type: customer_type || null,
+          pic: pic || null,
+          email: email || null,
+          phone: phone || null,
+          city: city || null,
+          is_active: status !== 'inactive',
+        });
       }
     }
 
@@ -314,6 +348,16 @@ export default function Customers() {
         errorCount++;
       } else {
         updateCount++;
+        syncCustomerSalesPulseAsync({
+          code: customers.find((customer) => customer.id === previewRow.existingId)?.code || '',
+          name,
+          customer_type: customer_type || null,
+          pic: pic || null,
+          email: email || null,
+          phone: phone || null,
+          city: city || null,
+          is_active: status !== 'inactive',
+        });
       }
     }
 
@@ -438,6 +482,17 @@ export default function Customers() {
           console.log('[WMS] Customer synced to AR/AP');
         }
       }).catch(err => console.warn('[WMS] Customer sync failed:', err));
+
+      syncCustomerSalesPulseAsync({
+        code: formData.code,
+        name: formData.name,
+        customer_type: formData.customer_type || null,
+        pic: formData.pic || null,
+        email: formData.email || null,
+        phone: formData.phone || null,
+        city: formData.city || null,
+        is_active: formData.is_active,
+      });
 
       setIsDialogOpen(false);
       refetch();

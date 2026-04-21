@@ -30,6 +30,28 @@ interface SyncApprovedSalesOrderPayload {
   customer_name?: string | null;
 }
 
+interface SyncCustomerPayload {
+  code: string;
+  name: string;
+  customer_type?: string | null;
+  pic?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  city?: string | null;
+  region?: string | null;
+  is_active?: boolean;
+}
+
+interface SyncProductPayload {
+  sku: string;
+  name: string;
+  category_name?: string | null;
+  unit_name?: string | null;
+  purchase_price?: number | null;
+  selling_price?: number | null;
+  is_active?: boolean;
+}
+
 export async function listSalesPulseOpenReferences(params: ListOpenReferencesParams = {}) {
   const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
     body: {
@@ -48,6 +70,30 @@ export async function syncSalesOrderApprovedToSalesPulse(payload: SyncApprovedSa
   const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
     body: {
       action: 'wms-so-approved',
+      ...payload,
+    },
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+export async function syncCustomerToSalesPulse(payload: SyncCustomerPayload) {
+  const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
+    body: {
+      action: 'wms-customer-upsert',
+      ...payload,
+    },
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+export async function syncProductToSalesPulse(payload: SyncProductPayload) {
+  const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
+    body: {
+      action: 'wms-product-upsert',
       ...payload,
     },
   });
