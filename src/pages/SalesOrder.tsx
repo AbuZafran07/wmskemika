@@ -228,6 +228,7 @@ export default function SalesOrder() {
   const [salesPulseReferenceNumber, setSalesPulseReferenceNumber] = useState("");
   const [salesPulseOptions, setSalesPulseOptions] = useState<SalesPulseReference[]>([]);
   const [isSalesPulseLoading, setIsSalesPulseLoading] = useState(false);
+  const [salesPulseSearchQuery, setSalesPulseSearchQuery] = useState("");
   const [salesName, setSalesName] = useState("");
   const [allocationType, setAllocationType] = useState<AllocationType | "">("");
   const [projectInstansi, setProjectInstansi] = useState("");
@@ -309,6 +310,7 @@ export default function SalesOrder() {
     setCustomerId("");
     setCustomerPoNumber("");
     setSalesPulseReferenceNumber("");
+    setSalesPulseSearchQuery("");
     setSalesName("");
     setAllocationType("");
     setProjectInstansi("");
@@ -349,27 +351,50 @@ export default function SalesOrder() {
     if (!isDialogOpen) return;
 
     let isActive = true;
-    const loadSalesPulseReferences = async () => {
-      setIsSalesPulseLoading(true);
-      try {
-        const data = await listSalesPulseOpenReferences({ limit: 50 });
-        if (isActive) setSalesPulseOptions(data);
-      } catch (error) {
-        console.error('Failed to load Sales Pulse references:', error);
-        if (isActive) {
-          setSalesPulseOptions([]);
-          toast.error(language === "en" ? "Failed to load Sales Pulse references" : "Gagal memuat referensi SalesPulse");
-        }
-      } finally {
-        if (isActive) setIsSalesPulseLoading(false);
-      }
-    };
+    const searchDelay = window.setTimeout(() => {
+      const loadSalesPulseReferences = async () => {
+        setIsSalesPulseLoading(true);
+        try {
+          const data = await listSalesPulseOpenReferences({
+            search: salesPulseSearchQuery.trim() || undefined,
+            includeSelectedReference: salesPulseReferenceNumber || undefined,
+          });
 
-    void loadSalesPulseReferences();
+          if (!isActive) return;
+
+          setSalesPulseOptions((prev) => {
+            const selectedReference = salesPulseReferenceNumber
+              ? prev.find((item) => item.reference_number === salesPulseReferenceNumber)
+              : undefined;
+
+            return selectedReference && !data.some((item) => item.reference_number === selectedReference.reference_number)
+              ? [selectedReference, ...data]
+              : data;
+          });
+        } catch (error) {
+          console.error('Failed to load Sales Pulse references:', error);
+          if (isActive) {
+            setSalesPulseOptions((prev) => {
+              const selectedReference = salesPulseReferenceNumber
+                ? prev.find((item) => item.reference_number === salesPulseReferenceNumber)
+                : undefined;
+              return selectedReference ? [selectedReference] : [];
+            });
+            toast.error(language === "en" ? "Failed to load Sales Pulse references" : "Gagal memuat referensi SalesPulse");
+          }
+        } finally {
+          if (isActive) setIsSalesPulseLoading(false);
+        }
+      };
+
+      void loadSalesPulseReferences();
+    }, 300);
+
     return () => {
       isActive = false;
+      window.clearTimeout(searchDelay);
     };
-  }, [isDialogOpen, language]);
+  }, [isDialogOpen, language, salesPulseReferenceNumber, salesPulseSearchQuery]);
 
   // === ITEMS: DISCOUNT % -> NOMINAL + SUBTOTAL ===
   const recomputeLine = (qty: number, price: number, discPct: number) => {
@@ -567,6 +592,7 @@ export default function SalesOrder() {
     setCustomerId(order.customer_id);
     setCustomerPoNumber(order.customer_po_number);
     setSalesPulseReferenceNumber(order.sales_pulse_reference_number || "");
+    setSalesPulseSearchQuery("");
     setSalesName(order.sales_name);
     setAllocationType((order.allocation_type as AllocationType) || "");
     setProjectInstansi(order.project_instansi);
@@ -1335,6 +1361,7 @@ export default function SalesOrder() {
                 <SearchableSelect
                   value={salesPulseReferenceNumber}
                   onValueChange={setSalesPulseReferenceNumber}
+                  onSearchChange={setSalesPulseSearchQuery}
                   options={salesPulseOptions.map((reference) => ({
                     value: reference.reference_number,
                     label: reference.reference_number,
