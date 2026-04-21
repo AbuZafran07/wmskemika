@@ -94,9 +94,9 @@ const syncCustomerSalesPulseAsync = (customer: {
   code: string;
   name: string;
   customer_type?: string | null;
-  pic?: string | null;
-  email?: string | null;
-  phone?: string | null;
+  pic_name?: string | null;
+  pic_email?: string | null;
+  pic_contact?: string | null;
   city?: string | null;
   is_active: boolean;
 }) => {
@@ -104,9 +104,9 @@ const syncCustomerSalesPulseAsync = (customer: {
     code: customer.code,
     name: customer.name,
     customer_type: customer.customer_type || null,
-    pic: customer.pic || null,
-    email: customer.email || null,
-    phone: customer.phone || null,
+    pic_name: customer.pic_name || null,
+    pic_email: customer.pic_email || null,
+    pic_contact: customer.pic_contact || null,
     city: customer.city || null,
     region: customer.city || null,
     is_active: customer.is_active,
@@ -305,9 +305,9 @@ export default function Customers() {
           code: autoCode.toUpperCase(),
           name,
           customer_type: customer_type || null,
-          pic: pic || null,
-          email: email || null,
-          phone: phone || null,
+          pic_name: pic || null,
+          pic_email: email || null,
+          pic_contact: phone || null,
           city: city || null,
           is_active: status !== 'inactive',
         });
@@ -352,9 +352,9 @@ export default function Customers() {
           code: customers.find((customer) => customer.id === previewRow.existingId)?.code || '',
           name,
           customer_type: customer_type || null,
-          pic: pic || null,
-          email: email || null,
-          phone: phone || null,
+          pic_name: pic || null,
+          pic_email: email || null,
+          pic_contact: phone || null,
           city: city || null,
           is_active: status !== 'inactive',
         });
@@ -487,9 +487,9 @@ export default function Customers() {
         code: formData.code,
         name: formData.name,
         customer_type: formData.customer_type || null,
-        pic: formData.pic || null,
-        email: formData.email || null,
-        phone: formData.phone || null,
+        pic_name: formData.pic || null,
+        pic_email: formData.email || null,
+        pic_contact: formData.phone || null,
         city: formData.city || null,
         is_active: formData.is_active,
       });

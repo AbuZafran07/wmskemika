@@ -28,15 +28,24 @@ interface SyncApprovedSalesOrderPayload {
   so_date: string;
   total_value: number;
   customer_name?: string | null;
+  items?: Array<{
+    sku?: string | null;
+    product_name: string;
+    category?: string | null;
+    unit?: string | null;
+    qty: number;
+    price_per_unit: number;
+    other_cost?: number | null;
+  }>;
 }
 
 interface SyncCustomerPayload {
   code: string;
   name: string;
   customer_type?: string | null;
-  pic?: string | null;
-  email?: string | null;
-  phone?: string | null;
+  pic_name?: string | null;
+  pic_email?: string | null;
+  pic_contact?: string | null;
   city?: string | null;
   region?: string | null;
   is_active?: boolean;

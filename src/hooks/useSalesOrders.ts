@@ -355,8 +355,43 @@ export async function approveSalesOrder(orderId: string, approveReason?: string)
           .eq('id', orderId)
           .single();
 
+        const { data: soItemsData, error: soItemsError } = await supabase
+          .from('sales_order_items')
+          .select(`
+            ordered_qty, unit_price,
+            product:products(
+              sku, name,
+              category:categories(name),
+              unit:units(name)
+            )
+          `)
+          .eq('sales_order_id', orderId);
+
+        if (soItemsError) {
+          console.warn('[WMS] Gagal mengambil item SO untuk Sales Pulse:', soItemsError);
+        }
+
         if (soData) {
           const customer = soData.customer as unknown as { name: string; terms_payment: string | null } | null;
+          const salesPulseItems = (soItemsData || []).map((item) => {
+            const product = item.product as unknown as {
+              sku: string | null;
+              name: string;
+              category?: { name?: string | null } | null;
+              unit?: { name?: string | null } | null;
+            } | null;
+
+            return {
+              sku: product?.sku || null,
+              product_name: product?.name || 'Produk',
+              category: product?.category?.name || null,
+              unit: product?.unit?.name || 'pcs',
+              qty: Number(item.ordered_qty ?? 0),
+              price_per_unit: Number(item.unit_price ?? 0),
+              other_cost: 0,
+            };
+          }).filter((item) => item.qty > 0 && item.price_per_unit >= 0);
+
           const syncResult = await syncSalesOrderToAr({
             customerName: customer?.name || '',
             salesOrderNumber: soData.sales_order_number,
@@ -385,6 +420,7 @@ export async function approveSalesOrder(orderId: string, approveReason?: string)
                 so_date: soData.order_date,
                 total_value: Number(soData.grand_total ?? 0),
                 customer_name: customer?.name || null,
+                items: salesPulseItems,
               });
               console.log('[WMS] Sales Pulse sync berhasil:', soData.sales_order_number);
             } catch (salesPulseErr) {
