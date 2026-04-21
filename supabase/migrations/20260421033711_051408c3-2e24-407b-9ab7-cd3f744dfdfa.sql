@@ -1,0 +1,5 @@
+ALTER TABLE public.sales_order_headers
+ADD COLUMN sales_pulse_reference_number TEXT NULL;
+
+CREATE INDEX idx_sales_order_headers_sales_pulse_reference_number
+ON public.sales_order_headers (sales_pulse_reference_number);
