@@ -2550,16 +2550,12 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
               <Trash2 className="h-4 w-4 mr-1" /> Hapus Card
             </Button>
           )}
-          {/* Generate PI button - CBD payment terms OR CBD label, sales/admin/finance/super_admin */}
+          {/* Generate PI button - CBD payment terms OR CBD label, sales & super_admin */}
           {(() => {
             const isCBDTerms = customerPaymentTerms?.toUpperCase() === 'CBD';
             const hasCBDLabel = allLabels.some(l => l.name.toUpperCase() === 'CBD' && cardLabelIds.includes(l.id));
             const isCBD = isCBDTerms || hasCBDLabel;
-            const canGenerate =
-              user?.role === 'sales' ||
-              user?.role === 'super_admin' ||
-              user?.role === 'admin' ||
-              user?.role === 'finance';
+            const canGenerate = user?.role === 'sales' || user?.role === 'super_admin';
             return isCBD && canGenerate && !existingPI ? (
               <Button
                 size="sm"
