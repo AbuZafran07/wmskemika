@@ -2553,7 +2553,11 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           {/* Generate PI button - CBD payment terms OR CBD label, sales & super_admin */}
           {(() => {
             const isCBDTerms = customerPaymentTerms?.toUpperCase() === 'CBD';
-            const hasCBDLabel = allLabels.some(l => l.name.toUpperCase() === 'CBD' && cardLabelIds.includes(l.id));
+            const hasCBDLabel = allLabels.some(l => {
+              const n = l.name.toUpperCase();
+              const isCBDName = n === 'CBD' || n.includes('CBD') || n.includes('CASH BEFORE DELIVERY');
+              return isCBDName && cardLabelIds.includes(l.id);
+            });
             const isCBD = isCBDTerms || hasCBDLabel;
             const canGenerate = user?.role === 'sales' || user?.role === 'super_admin';
             return isCBD && canGenerate && !existingPI ? (
