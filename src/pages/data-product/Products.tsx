@@ -555,7 +555,7 @@ export default function Products() {
         sku: productData.sku,
         name: productData.name,
         category_name: categories.find((category) => category.id === productData.category_id)?.name || null,
-        unit_name: units.find((unit) => unit.id === productData.unit_id)?.name || null,
+        unit: units.find((unit) => unit.id === productData.unit_id)?.name || null,
         purchase_price: productData.purchase_price,
         selling_price: productData.selling_price,
         is_active: productData.is_active,
