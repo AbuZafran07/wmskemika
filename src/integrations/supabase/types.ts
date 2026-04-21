@@ -1228,6 +1228,65 @@ export type Database = {
           },
         ]
       }
+      sales_pulse_sync_logs: {
+        Row: {
+          created_at: string
+          direction: string
+          endpoint: string
+          error_message: string | null
+          http_method: string
+          id: string
+          reference_number: string | null
+          request_payload: Json | null
+          response_payload: Json | null
+          retry_count: number
+          sales_order_id: string | null
+          status: string
+          status_code: number | null
+          triggered_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          direction?: string
+          endpoint: string
+          error_message?: string | null
+          http_method?: string
+          id?: string
+          reference_number?: string | null
+          request_payload?: Json | null
+          response_payload?: Json | null
+          retry_count?: number
+          sales_order_id?: string | null
+          status?: string
+          status_code?: number | null
+          triggered_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          direction?: string
+          endpoint?: string
+          error_message?: string | null
+          http_method?: string
+          id?: string
+          reference_number?: string | null
+          request_payload?: Json | null
+          response_payload?: Json | null
+          retry_count?: number
+          sales_order_id?: string | null
+          status?: string
+          status_code?: number | null
+          triggered_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_pulse_sync_logs_sales_order_id_fkey"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_order_headers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       settings: {
         Row: {
           created_at: string | null
