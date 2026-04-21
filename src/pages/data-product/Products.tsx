@@ -58,6 +58,7 @@ import { exportToCSV, parseCSV, readFileAsText, downloadCSVTemplate, checkDuplic
 import { ImportPreviewDialog, ImportPreviewRow } from '@/components/ImportPreviewDialog';
 import { DataTablePagination } from '@/components/DataTablePagination';
 import { usePagination } from '@/hooks/usePagination';
+import { syncProductToSalesPulse } from '@/lib/salesPulseSync';
 
 interface ProductFormData {
   sku: string;
@@ -89,6 +90,31 @@ const initialFormData: ProductFormData = {
   location_rack: '',
   is_active: true,
   photo_url: '',
+};
+
+const syncProductSalesPulseAsync = (product: {
+  sku?: string | null;
+  name: string;
+  category_name?: string | null;
+  unit_name?: string | null;
+  purchase_price?: number | null;
+  selling_price?: number | null;
+  is_active: boolean;
+}) => {
+  if (!product.sku?.trim()) {
+    console.warn('[WMS] Product sync to Sales Pulse skipped: SKU kosong');
+    return;
+  }
+
+  syncProductToSalesPulse({
+    sku: product.sku.trim(),
+    name: product.name,
+    category_name: product.category_name || null,
+    unit_name: product.unit_name || null,
+    purchase_price: product.purchase_price ?? null,
+    selling_price: product.selling_price ?? null,
+    is_active: product.is_active,
+  }).catch((err) => console.warn('[WMS] Product sync to Sales Pulse failed:', err));
 };
 
 export default function Products() {
@@ -305,6 +331,15 @@ export default function Products() {
         errorCount++;
       } else {
         insertCount++;
+        syncProductSalesPulseAsync({
+          sku: sku || null,
+          name,
+          category_name: category?.name || null,
+          unit_name: unit?.name || null,
+          purchase_price: parseFloat(purchase_price),
+          selling_price: selling_price ? parseFloat(selling_price) : null,
+          is_active: status !== 'inactive',
+        });
       }
     }
 
@@ -348,6 +383,15 @@ export default function Products() {
         errorCount++;
       } else {
         updateCount++;
+        syncProductSalesPulseAsync({
+          sku: products.find((product) => product.id === previewRow.existingId)?.sku || null,
+          name,
+          category_name: category?.name || null,
+          unit_name: unit?.name || null,
+          purchase_price: parseFloat(purchase_price),
+          selling_price: selling_price ? parseFloat(selling_price) : null,
+          is_active: status !== 'inactive',
+        });
       }
     }
 
@@ -507,6 +551,16 @@ export default function Products() {
     if (error) {
       toast.error(error.message);
     } else {
+      syncProductSalesPulseAsync({
+        sku: productData.sku,
+        name: productData.name,
+        category_name: categories.find((category) => category.id === productData.category_id)?.name || null,
+        unit_name: units.find((unit) => unit.id === productData.unit_id)?.name || null,
+        purchase_price: productData.purchase_price,
+        selling_price: productData.selling_price,
+        is_active: productData.is_active,
+      });
+
       toast.success(
         editingProduct 
           ? (language === 'en' ? 'Product updated successfully' : 'Produk berhasil diperbarui')
