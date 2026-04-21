@@ -22,6 +22,16 @@ function sanitizeText(value: unknown, maxLength = 255) {
   return String(value ?? "").trim().slice(0, maxLength);
 }
 
+function sanitizeNullableText(value: unknown, maxLength = 255) {
+  const sanitized = sanitizeText(value, maxLength);
+  return sanitized || null;
+}
+
+function sanitizeNullableNumber(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 async function parseBody(req: Request) {
   try {
     return await req.json();
@@ -193,6 +203,96 @@ serve(async (req) => {
 
         if (updateError) {
           console.error("Failed to update Sales Pulse sync log:", updateError);
+        }
+      }
+
+      return jsonResponse(responsePayload, upstream.status);
+    }
+
+    if (action === "wms-customer-upsert" || action === "wms-product-upsert") {
+      const isCustomerSync = action === "wms-customer-upsert";
+      const endpoint = isCustomerSync ? "/wms-customer-upsert" : "/wms-product-upsert";
+
+      const requestPayload = isCustomerSync
+        ? {
+            code: sanitizeText(body.code, 50),
+            name: sanitizeText(body.name, 255),
+            customer_type: sanitizeNullableText(body.customer_type, 50),
+            pic: sanitizeNullableText(body.pic, 255),
+            email: sanitizeNullableText(body.email, 255),
+            phone: sanitizeNullableText(body.phone, 50),
+            city: sanitizeNullableText(body.city, 100),
+            region: sanitizeNullableText(body.region, 100) ?? sanitizeNullableText(body.city, 100),
+            is_active: typeof body.is_active === "boolean" ? body.is_active : true,
+          }
+        : {
+            sku: sanitizeText(body.sku, 100),
+            name: sanitizeText(body.name, 255),
+            category_name: sanitizeNullableText(body.category_name, 100),
+            unit_name: sanitizeNullableText(body.unit_name, 50),
+            purchase_price: sanitizeNullableNumber(body.purchase_price),
+            selling_price: sanitizeNullableNumber(body.selling_price),
+            is_active: typeof body.is_active === "boolean" ? body.is_active : true,
+          };
+
+      if ((!isCustomerSync && !(requestPayload as { sku: string }).sku) || !requestPayload.name || (isCustomerSync && !(requestPayload as { code: string }).code)) {
+        return jsonResponse({
+          error: isCustomerSync
+            ? "code and name are required"
+            : "sku and name are required",
+        }, 400);
+      }
+
+      const referenceNumber = isCustomerSync
+        ? (requestPayload as { code: string }).code
+        : (requestPayload as { sku: string }).sku;
+
+      const { data: logRow, error: logError } = await adminClient
+        .from("sales_pulse_sync_logs")
+        .insert({
+          reference_number: referenceNumber,
+          endpoint,
+          http_method: "POST",
+          direction: "wms_to_sales_pulse",
+          status: "pending",
+          request_payload: requestPayload,
+          triggered_by: userId,
+        })
+        .select("id")
+        .single();
+
+      if (logError) {
+        console.error("Failed to create Sales Pulse master sync log:", logError);
+      }
+
+      const upstream = await fetch(`${SALES_PULSE_BASE_URL}${endpoint}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-WMS-API-Key": salesPulseApiKey,
+        },
+        body: JSON.stringify(requestPayload),
+      });
+
+      const responsePayload = await upstream.json().catch(() => ({ error: "Invalid JSON response" }));
+      const syncStatus = upstream.ok ? "success" : "failed";
+      const errorMessage = upstream.ok
+        ? null
+        : sanitizeText((responsePayload as Record<string, unknown>)?.error || (responsePayload as Record<string, unknown>)?.reason || `HTTP ${upstream.status}`, 500);
+
+      if (logRow?.id) {
+        const { error: updateError } = await adminClient
+          .from("sales_pulse_sync_logs")
+          .update({
+            status: syncStatus,
+            status_code: upstream.status,
+            response_payload: responsePayload,
+            error_message: errorMessage,
+          })
+          .eq("id", logRow.id);
+
+        if (updateError) {
+          console.error("Failed to update Sales Pulse master sync log:", updateError);
         }
       }
 
