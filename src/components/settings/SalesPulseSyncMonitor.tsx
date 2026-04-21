@@ -237,7 +237,7 @@ export default function SalesPulseSyncMonitor() {
                     <TableRow key={log.id}>
                       <TableCell className="whitespace-nowrap text-sm">{formatDateTime(log.created_at)}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="capitalize">{log.direction.replaceAll('_', ' ')}</Badge>
+                        <Badge variant="outline" className="capitalize">{log.direction.replace(/_/g, ' ')}</Badge>
                       </TableCell>
                       <TableCell className="font-medium">{log.endpoint}</TableCell>
                       <TableCell>

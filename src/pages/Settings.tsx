@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import BackupRestore from '@/components/settings/BackupRestore';
 import HolidayManager from '@/components/settings/HolidayManager';
+import SalesPulseSyncMonitor from '@/components/settings/SalesPulseSyncMonitor';
 import { PushNotificationToggle } from '@/components/settings/PushNotificationToggle';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -224,6 +225,10 @@ export default function SettingsPage() {
           <TabsTrigger value="backup">
             <Database className="w-4 h-4 mr-2" />
             Backup & Restore
+          </TabsTrigger>
+          <TabsTrigger value="sales-pulse">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Sales Pulse
           </TabsTrigger>
         </TabsList>
 
@@ -615,6 +620,10 @@ export default function SettingsPage() {
 
         <TabsContent value="backup">
           <BackupRestore />
+        </TabsContent>
+
+        <TabsContent value="sales-pulse">
+          <SalesPulseSyncMonitor />
         </TabsContent>
       </Tabs>
     </div>
