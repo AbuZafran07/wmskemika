@@ -13,12 +13,14 @@ export interface SalesPulseReference {
   already_synced: boolean;
   wms_so_number: string | null;
   wms_so_date: string | null;
+  expected_close_date?: string | null;
 }
 
 interface ListOpenReferencesParams {
   search?: string;
   segment?: string;
   limit?: number;
+  includeSelectedReference?: string | null;
 }
 
 interface SyncApprovedSalesOrderPayload {
@@ -67,7 +69,8 @@ export async function listSalesPulseOpenReferences(params: ListOpenReferencesPar
       action: 'list-open-references',
       search: params.search || null,
       segment: params.segment || null,
-      limit: params.limit ?? 50,
+      limit: params.limit ?? null,
+      include_selected_reference: params.includeSelectedReference || null,
     },
   });
 
