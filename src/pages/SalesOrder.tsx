@@ -1353,6 +1353,7 @@ export default function SalesOrder() {
             </div>
 
             {/* Header Row 2 */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label>{language === "en" ? "Sales Name" : "Nama Sales"} *</Label>
                 <Input value={salesName} onChange={(e) => setSalesName(e.target.value)} />
