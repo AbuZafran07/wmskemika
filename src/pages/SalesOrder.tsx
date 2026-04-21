@@ -592,6 +592,7 @@ export default function SalesOrder() {
     setCustomerId(order.customer_id);
     setCustomerPoNumber(order.customer_po_number);
     setSalesPulseReferenceNumber(order.sales_pulse_reference_number || "");
+    setSalesPulseSearchQuery("");
     setSalesName(order.sales_name);
     setAllocationType((order.allocation_type as AllocationType) || "");
     setProjectInstansi(order.project_instansi);
@@ -1360,6 +1361,7 @@ export default function SalesOrder() {
                 <SearchableSelect
                   value={salesPulseReferenceNumber}
                   onValueChange={setSalesPulseReferenceNumber}
+                  onSearchChange={setSalesPulseSearchQuery}
                   options={salesPulseOptions.map((reference) => ({
                     value: reference.reference_number,
                     label: reference.reference_number,
