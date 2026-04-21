@@ -32,6 +32,13 @@ function sanitizeNullableNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function sanitizePositiveInteger(value: unknown) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  const normalized = Math.trunc(parsed);
+  return normalized >= 1 ? normalized : null;
+}
+
 async function parseBody(req: Request) {
   try {
     return await req.json();
@@ -154,6 +161,19 @@ serve(async (req) => {
         so_date: soDate,
         total_value: Math.round(totalValueRaw),
         customer_name: customerName,
+        items: Array.isArray(body.items)
+          ? body.items
+              .map((item) => ({
+                sku: sanitizeNullableText(item?.sku, 100),
+                product_name: sanitizeText(item?.product_name, 255),
+                category: sanitizeNullableText(item?.category, 100),
+                unit: sanitizeNullableText(item?.unit, 50),
+                qty: sanitizePositiveInteger(item?.qty),
+                price_per_unit: sanitizeNullableNumber(item?.price_per_unit),
+                other_cost: sanitizeNullableNumber(item?.other_cost) ?? 0,
+              }))
+              .filter((item) => item.product_name && item.qty !== null && item.price_per_unit !== null)
+          : undefined,
       };
 
       const { data: logRow, error: logError } = await adminClient
@@ -218,9 +238,9 @@ serve(async (req) => {
             code: sanitizeText(body.code, 50),
             name: sanitizeText(body.name, 255),
             customer_type: sanitizeNullableText(body.customer_type, 50),
-            pic: sanitizeNullableText(body.pic, 255),
-            email: sanitizeNullableText(body.email, 255),
-            phone: sanitizeNullableText(body.phone, 50),
+            pic_name: sanitizeNullableText(body.pic_name, 255) ?? sanitizeNullableText(body.pic, 255),
+            pic_email: sanitizeNullableText(body.pic_email, 255) ?? sanitizeNullableText(body.email, 255),
+            pic_contact: sanitizeNullableText(body.pic_contact, 50) ?? sanitizeNullableText(body.phone, 50),
             city: sanitizeNullableText(body.city, 100),
             region: sanitizeNullableText(body.region, 100) ?? sanitizeNullableText(body.city, 100),
             is_active: typeof body.is_active === "boolean" ? body.is_active : true,
