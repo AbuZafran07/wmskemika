@@ -136,6 +136,30 @@ export async function syncSalesOrderApprovedToSalesPulse(payload: SyncApprovedSa
   return data;
 }
 
+export async function syncSalesOrderUpdatedToSalesPulse(payload: SyncUpdatedSalesOrderPayload) {
+  const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
+    body: {
+      action: 'wms-so-updated',
+      ...payload,
+    },
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+export async function syncSalesOrderCancelledToSalesPulse(payload: SyncCancelledSalesOrderPayload) {
+  const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
+    body: {
+      action: 'wms-so-cancelled',
+      ...payload,
+    },
+  });
+
+  if (error) throw error;
+  return data;
+}
+
 export async function syncCustomerToSalesPulse(payload: SyncCustomerPayload) {
   const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
     body: {
