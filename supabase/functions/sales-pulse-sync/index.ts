@@ -297,6 +297,117 @@ serve(async (req) => {
       return jsonResponse(responsePayload, upstream.status);
     }
 
+    if (action === "wms-so-updated" || action === "wms-so-cancelled") {
+      const isCancelled = action === "wms-so-cancelled";
+      const endpoint = isCancelled ? "/wms-so-cancelled" : "/wms-so-updated";
+
+      const referenceNumber = sanitizeNullableText(body.reference_number, 100);
+      const soNumber = sanitizeText(body.so_number, 100);
+      const salesOrderId = sanitizeText(body.sales_order_id, 100) || null;
+
+      if (!soNumber) {
+        return jsonResponse({ error: "so_number is required" }, 400);
+      }
+
+      let requestPayload: Record<string, unknown>;
+
+      if (isCancelled) {
+        const cancelledAt = sanitizeNullableText(body.cancelled_at, 40) || new Date().toISOString();
+        const reason = sanitizeNullableText(body.reason, 500);
+        requestPayload = {
+          so_number: soNumber,
+          ...(referenceNumber ? { reference_number: referenceNumber } : {}),
+          cancelled_at: cancelledAt,
+          ...(reason ? { reason } : {}),
+        };
+      } else {
+        const soDate = sanitizeNullableText(body.so_date, 20);
+        const customerName = sanitizeNullableText(body.customer_name, 255);
+        const customerPo = sanitizeCustomerPo(body.customer_po);
+        const totalValueRaw = body.total_value === null || body.total_value === undefined || body.total_value === ""
+          ? null
+          : Number(body.total_value);
+        const items = Array.isArray(body.items)
+          ? body.items
+              .map((item) => ({
+                sku: sanitizeNullableText(item?.sku, 100),
+                product_name: sanitizeText(item?.product_name, 255),
+                category: sanitizeNullableText(item?.category, 100),
+                unit: sanitizeNullableText(item?.unit, 50),
+                qty: sanitizePositiveInteger(item?.qty),
+                price_per_unit: sanitizeNullableNumber(item?.price_per_unit),
+                other_cost: sanitizeNullableNumber(item?.other_cost) ?? 0,
+              }))
+              .filter((item) => item.product_name && item.qty !== null && item.price_per_unit !== null)
+          : null;
+
+        // Hanya kirim field yang ada nilainya — backend Sales Pulse tidak akan overwrite field kosong
+        requestPayload = {
+          so_number: soNumber,
+          ...(referenceNumber ? { reference_number: referenceNumber } : {}),
+          ...(soDate ? { so_date: soDate } : {}),
+          ...(customerName ? { customer_name: customerName } : {}),
+          ...(customerPo ? { customer_po: customerPo } : {}),
+          ...(totalValueRaw !== null && Number.isFinite(totalValueRaw)
+            ? { total_value: Math.round(totalValueRaw) }
+            : {}),
+          ...(items && items.length > 0 ? { items } : {}),
+        };
+      }
+
+      const { data: logRow, error: logError } = await adminClient
+        .from("sales_pulse_sync_logs")
+        .insert({
+          sales_order_id: salesOrderId || null,
+          reference_number: referenceNumber || null,
+          endpoint,
+          http_method: "POST",
+          direction: "wms_to_sales_pulse",
+          status: "pending",
+          request_payload: requestPayload,
+          triggered_by: userId,
+        })
+        .select("id")
+        .single();
+
+      if (logError) {
+        console.error("Failed to create Sales Pulse sync log:", logError);
+      }
+
+      const upstream = await fetch(`${SALES_PULSE_BASE_URL}${endpoint}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-WMS-API-Key": salesPulseApiKey,
+        },
+        body: JSON.stringify(requestPayload),
+      });
+
+      const responsePayload = await upstream.json().catch(() => ({ error: "Invalid JSON response" }));
+      const syncStatus = upstream.ok ? "success" : "failed";
+      const errorMessage = upstream.ok
+        ? null
+        : sanitizeText((responsePayload as Record<string, unknown>)?.error || (responsePayload as Record<string, unknown>)?.reason || `HTTP ${upstream.status}`, 500);
+
+      if (logRow?.id) {
+        const { error: updateError } = await adminClient
+          .from("sales_pulse_sync_logs")
+          .update({
+            status: syncStatus,
+            status_code: upstream.status,
+            response_payload: responsePayload,
+            error_message: errorMessage,
+          })
+          .eq("id", logRow.id);
+
+        if (updateError) {
+          console.error("Failed to update Sales Pulse sync log:", updateError);
+        }
+      }
+
+      return jsonResponse(responsePayload, upstream.status);
+    }
+
     if (action === "wms-customer-upsert" || action === "wms-product-upsert") {
       const isCustomerSync = action === "wms-customer-upsert";
       const endpoint = isCustomerSync ? "/wms-customer-upsert" : "/wms-product-upsert";

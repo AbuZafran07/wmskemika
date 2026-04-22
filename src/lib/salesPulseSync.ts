@@ -60,6 +60,33 @@ interface SyncApprovedSalesOrderPayload {
   }>;
 }
 
+interface SyncUpdatedSalesOrderPayload {
+  sales_order_id: string;
+  so_number: string;
+  reference_number?: string | null;
+  so_date?: string | null;
+  total_value?: number | null;
+  customer_name?: string | null;
+  customer_po?: string | null;
+  items?: Array<{
+    sku?: string | null;
+    product_name: string;
+    category?: string | null;
+    unit?: string | null;
+    qty: number;
+    price_per_unit: number;
+    other_cost?: number | null;
+  }> | null;
+}
+
+interface SyncCancelledSalesOrderPayload {
+  sales_order_id: string;
+  so_number: string;
+  reference_number?: string | null;
+  cancelled_at?: string | null;
+  reason?: string | null;
+}
+
 interface SyncCustomerPayload {
   code: string;
   name: string;
@@ -101,6 +128,30 @@ export async function syncSalesOrderApprovedToSalesPulse(payload: SyncApprovedSa
   const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
     body: {
       action: 'wms-so-approved',
+      ...payload,
+    },
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+export async function syncSalesOrderUpdatedToSalesPulse(payload: SyncUpdatedSalesOrderPayload) {
+  const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
+    body: {
+      action: 'wms-so-updated',
+      ...payload,
+    },
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+export async function syncSalesOrderCancelledToSalesPulse(payload: SyncCancelledSalesOrderPayload) {
+  const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
+    body: {
+      action: 'wms-so-cancelled',
       ...payload,
     },
   });
