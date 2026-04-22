@@ -242,6 +242,68 @@ export async function getProductBatches(productId: string): Promise<InventoryBat
   return data || [];
 }
 
+// Internal helper: ambil data SO dari DB & kirim event SO Updated ke Sales Pulse.
+// Hanya akan kirim jika SO sudah pernah di-approve (status approved/partially_delivered/completed)
+// dan punya reference number yang valid (REF- prefix).
+async function syncSalesOrderUpdatedFromDb(orderId: string): Promise<void> {
+  const { data: soData } = await supabase
+    .from('sales_order_headers')
+    .select(`
+      id, sales_order_number, customer_po_number, sales_pulse_reference_number,
+      order_date, grand_total, status,
+      customer:customers(name)
+    `)
+    .eq('id', orderId)
+    .single();
+
+  if (!soData) return;
+
+  const eligibleStatuses = ['approved', 'partially_delivered', 'completed'];
+  if (!eligibleStatuses.includes(soData.status)) return;
+
+  const reference = soData.sales_pulse_reference_number || soData.customer_po_number;
+  if (!reference?.startsWith('REF-')) return;
+
+  const { data: soItemsData } = await supabase
+    .from('sales_order_items')
+    .select(`
+      ordered_qty, unit_price,
+      product:products(sku, name, category:categories(name), unit:units(name))
+    `)
+    .eq('sales_order_id', orderId);
+
+  const customer = soData.customer as unknown as { name: string } | null;
+  const items = (soItemsData || []).map((item) => {
+    const product = item.product as unknown as {
+      sku: string | null;
+      name: string;
+      category?: { name?: string | null } | null;
+      unit?: { name?: string | null } | null;
+    } | null;
+    return {
+      sku: product?.sku || null,
+      product_name: product?.name || 'Produk',
+      category: product?.category?.name || null,
+      unit: product?.unit?.name || 'pcs',
+      qty: Number(item.ordered_qty ?? 0),
+      price_per_unit: Number(item.unit_price ?? 0),
+      other_cost: 0,
+    };
+  }).filter((item) => item.qty > 0 && item.price_per_unit >= 0);
+
+  await syncSalesOrderUpdatedToSalesPulse({
+    sales_order_id: soData.id,
+    so_number: soData.sales_order_number,
+    reference_number: reference,
+    so_date: soData.order_date,
+    total_value: Number(soData.grand_total ?? 0),
+    customer_name: customer?.name || null,
+    customer_po: sanitizeCustomerPoNumber(soData.customer_po_number),
+    items,
+  });
+  console.log('[WMS] Sales Pulse SO Updated sync berhasil:', soData.sales_order_number);
+}
+
 export async function createSalesOrder(
   header: Omit<SalesOrderHeader, 'id' | 'created_at' | 'customer'>,
   items: Array<{
