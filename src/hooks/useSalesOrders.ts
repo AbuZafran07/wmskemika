@@ -593,7 +593,18 @@ export async function approveSalesOrderRevision(orderId: string): Promise<{ succ
   try {
     const { data, error } = await supabase.rpc('sales_order_approve_revision', { order_id: orderId });
     if (error) throw error;
-    return data as { success: boolean; error?: string };
+    const result = data as { success: boolean; error?: string };
+
+    // Sync revisi yang sudah di-approve ke Sales Pulse
+    if (result.success) {
+      try {
+        await syncSalesOrderUpdatedFromDb(orderId);
+      } catch (syncErr) {
+        console.warn('[WMS] Gagal sync approve revision SO ke Sales Pulse:', syncErr);
+      }
+    }
+
+    return result;
   } catch (error: unknown) {
     return { success: false, error: error instanceof Error ? error.message : 'Failed to approve revision' };
   }
