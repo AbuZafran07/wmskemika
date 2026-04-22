@@ -519,6 +519,13 @@ export async function approveSalesOrder(orderId: string, approveReason?: string)
 
 export async function cancelSalesOrder(orderId: string): Promise<{ success: boolean; error?: string }> {
   try {
+    // Ambil data SO dulu untuk dapat reference & so_number sebelum stage berubah
+    const { data: soBefore } = await supabase
+      .from('sales_order_headers')
+      .select('id, sales_order_number, customer_po_number, sales_pulse_reference_number, status')
+      .eq('id', orderId)
+      .single();
+
     const { data, error } = await supabase.rpc('sales_order_cancel', { order_id: orderId });
     if (error) throw error;
     const result = data as { success: boolean; error?: string };
@@ -532,6 +539,25 @@ export async function cancelSalesOrder(orderId: string): Promise<{ success: bool
           .eq('sales_order_id', orderId);
       } catch (archiveErr) {
         console.warn('Failed to auto-archive delivery card:', archiveErr);
+      }
+
+      // Sync ke Sales Pulse (soft cancel) jika SO sudah pernah di-approve
+      if (soBefore && ['approved', 'partially_delivered', 'completed'].includes(soBefore.status)) {
+        const reference = soBefore.sales_pulse_reference_number || soBefore.customer_po_number;
+        if (reference?.startsWith('REF-')) {
+          try {
+            await syncSalesOrderCancelledToSalesPulse({
+              sales_order_id: soBefore.id,
+              so_number: soBefore.sales_order_number,
+              reference_number: reference,
+              cancelled_at: new Date().toISOString(),
+              reason: 'SO dibatalkan dari WMS',
+            });
+            console.log('[WMS] Sales Pulse SO Cancelled sync berhasil:', soBefore.sales_order_number);
+          } catch (cancelSyncErr) {
+            console.warn('[WMS] Gagal sync cancel SO ke Sales Pulse:', cancelSyncErr);
+          }
+        }
       }
     }
 
