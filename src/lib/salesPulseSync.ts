@@ -18,6 +18,71 @@ export function sanitizeCustomerPoNumber(value: string | null | undefined): stri
   return cleaned || null;
 }
 
+/**
+ * Sanitasi reference_number Sales Pulse.
+ * Format wajib: REF-XXXX (case-insensitive, dinormalisasi ke uppercase).
+ * Hanya karakter alfanumerik dan tanda hubung yang diizinkan.
+ * Mengembalikan null jika tidak valid (caller harus skip sync jika null).
+ */
+export function sanitizeSalesPulseReference(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+  const raw = String(value).trim().toUpperCase();
+  if (!raw) return null;
+  const cleaned = raw.replace(/[^A-Z0-9-]/g, '');
+  if (!cleaned.startsWith('REF-')) return null;
+  if (cleaned.length <= 4) return null;
+  return cleaned;
+}
+
+/**
+ * Validasi format reference_number Sales Pulse tanpa modifikasi.
+ */
+export function isValidSalesPulseReference(value: string | null | undefined): boolean {
+  return sanitizeSalesPulseReference(value) !== null;
+}
+
+/**
+ * Retry helper untuk panggilan sync ke Sales Pulse.
+ * Hanya retry pada error transient (network/timeout/5xx). Error 4xx tidak di-retry.
+ * Default: 3 attempt total dengan exponential backoff (500ms, 1500ms).
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  options: { retries?: number; baseDelayMs?: number; label?: string } = {},
+): Promise<T> {
+  const retries = options.retries ?? 2;
+  const baseDelay = options.baseDelayMs ?? 500;
+  const label = options.label ?? 'sales-pulse-sync';
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      const message = err instanceof Error ? err.message : String(err);
+      const isTransient =
+        /network|fetch|timeout|503|502|504|temporarily|ECONNRESET|ETIMEDOUT/i.test(message);
+
+      if (!isTransient || attempt === retries) {
+        if (attempt > 0) {
+          console.warn(`[${label}] Gagal setelah ${attempt + 1} attempt:`, message);
+        }
+        throw err;
+      }
+
+      const delay = baseDelay * Math.pow(3, attempt);
+      console.warn(
+        `[${label}] Attempt ${attempt + 1} gagal (transient), retry dalam ${delay}ms:`,
+        message,
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  throw lastError;
+}
+
 export interface SalesPulseReference {
   deal_id: string;
   reference_number: string;
@@ -125,39 +190,66 @@ export async function listSalesPulseOpenReferences(params: ListOpenReferencesPar
 }
 
 export async function syncSalesOrderApprovedToSalesPulse(payload: SyncApprovedSalesOrderPayload) {
-  const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
-    body: {
-      action: 'wms-so-approved',
-      ...payload,
-    },
-  });
+  const referenceNumber = sanitizeSalesPulseReference(payload.reference_number);
+  if (!referenceNumber) {
+    throw new Error(`Invalid Sales Pulse reference number: "${payload.reference_number}". Format harus REF-XXXX.`);
+  }
 
-  if (error) throw error;
-  return data;
+  return withRetry(async () => {
+    const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
+      body: {
+        action: 'wms-so-approved',
+        ...payload,
+        reference_number: referenceNumber,
+        customer_po: sanitizeCustomerPoNumber(payload.customer_po),
+      },
+    });
+    if (error) throw error;
+    return data;
+  }, { label: 'sales-pulse-approved' });
 }
 
 export async function syncSalesOrderUpdatedToSalesPulse(payload: SyncUpdatedSalesOrderPayload) {
-  const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
-    body: {
-      action: 'wms-so-updated',
-      ...payload,
-    },
-  });
+  const referenceNumber = payload.reference_number != null
+    ? sanitizeSalesPulseReference(payload.reference_number)
+    : null;
+  if (payload.reference_number != null && !referenceNumber) {
+    throw new Error(`Invalid Sales Pulse reference number: "${payload.reference_number}". Format harus REF-XXXX.`);
+  }
 
-  if (error) throw error;
-  return data;
+  return withRetry(async () => {
+    const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
+      body: {
+        action: 'wms-so-updated',
+        ...payload,
+        reference_number: referenceNumber ?? payload.reference_number ?? null,
+        customer_po: sanitizeCustomerPoNumber(payload.customer_po),
+      },
+    });
+    if (error) throw error;
+    return data;
+  }, { label: 'sales-pulse-updated' });
 }
 
 export async function syncSalesOrderCancelledToSalesPulse(payload: SyncCancelledSalesOrderPayload) {
-  const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
-    body: {
-      action: 'wms-so-cancelled',
-      ...payload,
-    },
-  });
+  const referenceNumber = payload.reference_number != null
+    ? sanitizeSalesPulseReference(payload.reference_number)
+    : null;
+  if (payload.reference_number != null && !referenceNumber) {
+    throw new Error(`Invalid Sales Pulse reference number: "${payload.reference_number}". Format harus REF-XXXX.`);
+  }
 
-  if (error) throw error;
-  return data;
+  return withRetry(async () => {
+    const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
+      body: {
+        action: 'wms-so-cancelled',
+        ...payload,
+        reference_number: referenceNumber ?? payload.reference_number ?? null,
+      },
+    });
+    if (error) throw error;
+    return data;
+  }, { label: 'sales-pulse-cancelled' });
 }
 
 export async function syncCustomerToSalesPulse(payload: SyncCustomerPayload) {

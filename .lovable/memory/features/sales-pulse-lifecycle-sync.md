@@ -16,3 +16,7 @@ WMS Integration Guide v5 mendefinisikan 4 webhook (approved/updated/cancelled/de
 **Edge function** `sales-pulse-sync` melakukan whitelist sanitasi `customer_po` (A-Za-z0-9 spasi - _ . / \ # ()), forward ke `https://ggzttrxpkbpjbymrzpsg.supabase.co/functions/v1/wms-so-{approved,updated,cancelled}` dengan header `X-WMS-API-Key`, dan log ke `sales_pulse_sync_logs`.
 
 Untuk update: hanya kirim field yang non-kosong (sesuai behaviour Sales Pulse: tidak overwrite field yang tidak dikirim). Items kalau dikirim → REPLACE TOTAL.
+
+**Validasi reference_number** (`sanitizeSalesPulseReference` di `salesPulseSync.ts`): Wajib format `REF-XXXX` (uppercase, alfanumerik + dash). Semua call site di `useSalesOrders.ts` (createSalesOrder, updateSalesOrder, approveSalesOrder, cancelSalesOrder, syncSalesOrderUpdatedFromDb) menggunakan helper ini sebelum invoke edge function — input invalid otomatis di-skip tanpa throw.
+
+**Retry otomatis** (`withRetry` internal di `salesPulseSync.ts`): Ketiga fungsi sync (approved/updated/cancelled) dibungkus retry 3 attempt total dengan exponential backoff (500ms → 1500ms). Hanya error transient yang di-retry (regex: network|fetch|timeout|503|502|504|temporarily|ECONNRESET|ETIMEDOUT). Error 4xx (validasi/conflict) langsung throw tanpa retry. Kegagalan akhir di-catch di caller dengan console.warn → tidak mengganggu transaksi WMS utama.

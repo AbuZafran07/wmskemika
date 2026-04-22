@@ -8,6 +8,7 @@ import {
   syncSalesOrderUpdatedToSalesPulse,
   syncSalesOrderCancelledToSalesPulse,
   sanitizeCustomerPoNumber,
+  sanitizeSalesPulseReference,
 } from '@/lib/salesPulseSync';
 import { 
   salesOrderHeaderSchema, 
@@ -261,8 +262,10 @@ async function syncSalesOrderUpdatedFromDb(orderId: string): Promise<void> {
   const eligibleStatuses = ['approved', 'partially_delivered', 'completed'];
   if (!eligibleStatuses.includes(soData.status)) return;
 
-  const reference = soData.sales_pulse_reference_number || soData.customer_po_number;
-  if (!reference?.startsWith('REF-')) return;
+  const reference = sanitizeSalesPulseReference(
+    soData.sales_pulse_reference_number || soData.customer_po_number,
+  );
+  if (!reference) return;
 
   const { data: soItemsData } = await supabase
     .from('sales_order_items')
@@ -331,9 +334,7 @@ export async function createSalesOrder(
     const validatedHeader = headerValidation.data;
     const validatedItems = itemsValidation.data;
     const salesPulseReferenceNumber = validatedHeader.sales_pulse_reference_number?.trim()
-      || (validatedHeader.customer_po_number?.startsWith('REF-')
-        ? validatedHeader.customer_po_number.trim()
-        : null);
+      || (sanitizeSalesPulseReference(validatedHeader.customer_po_number) ?? null);
 
     // Use RPC function to handle insert (avoids generated column issues)
     const { data, error } = await supabase.rpc('sales_order_create', {
@@ -383,9 +384,7 @@ export async function updateSalesOrder(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const salesPulseReferenceNumber = header.sales_pulse_reference_number?.trim()
-      || (header.customer_po_number?.startsWith('REF-')
-        ? header.customer_po_number.trim()
-        : null);
+      || (sanitizeSalesPulseReference(header.customer_po_number) ?? null);
     const { data, error } = await supabase.rpc('sales_order_update', {
       order_id: orderId,
       header_data: {
@@ -487,8 +486,10 @@ export async function approveSalesOrder(orderId: string, approveReason?: string)
             console.warn('[WMS] Gagal sync SO ke AR/AP:', syncResult.error);
           }
 
-          const salesPulseReference = soData.sales_pulse_reference_number || soData.customer_po_number;
-          if (salesPulseReference?.startsWith('REF-')) {
+          const salesPulseReference = sanitizeSalesPulseReference(
+            soData.sales_pulse_reference_number || soData.customer_po_number,
+          );
+          if (salesPulseReference) {
             try {
               await syncSalesOrderApprovedToSalesPulse({
                 sales_order_id: soData.id,
@@ -543,8 +544,10 @@ export async function cancelSalesOrder(orderId: string): Promise<{ success: bool
 
       // Sync ke Sales Pulse (soft cancel) jika SO sudah pernah di-approve
       if (soBefore && ['approved', 'partially_delivered', 'completed'].includes(soBefore.status)) {
-        const reference = soBefore.sales_pulse_reference_number || soBefore.customer_po_number;
-        if (reference?.startsWith('REF-')) {
+        const reference = sanitizeSalesPulseReference(
+          soBefore.sales_pulse_reference_number || soBefore.customer_po_number,
+        );
+        if (reference) {
           try {
             await syncSalesOrderCancelledToSalesPulse({
               sales_order_id: soBefore.id,
