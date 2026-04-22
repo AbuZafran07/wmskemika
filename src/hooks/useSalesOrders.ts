@@ -420,6 +420,7 @@ export async function approveSalesOrder(orderId: string, approveReason?: string)
                 so_date: soData.order_date,
                 total_value: Number(soData.grand_total ?? 0),
                 customer_name: customer?.name || null,
+                customer_po: soData.customer_po_number || null,
                 items: salesPulseItems,
               });
               console.log('[WMS] Sales Pulse sync berhasil:', soData.sales_order_number);

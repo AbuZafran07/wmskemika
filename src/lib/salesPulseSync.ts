@@ -30,6 +30,7 @@ interface SyncApprovedSalesOrderPayload {
   so_date: string;
   total_value: number;
   customer_name?: string | null;
+  customer_po?: string | null;
   items?: Array<{
     sku?: string | null;
     product_name: string;
