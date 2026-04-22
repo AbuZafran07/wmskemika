@@ -90,7 +90,7 @@ import { usePagination } from "@/hooks/usePagination";
 import { DataTablePagination } from "@/components/DataTablePagination";
 import { generateUniqueSalesOrderNumber } from "@/lib/transactionNumberUtils";
 import { supabase } from "@/integrations/supabase/client";
-import { listSalesPulseOpenReferences, type SalesPulseReference } from "@/lib/salesPulseSync";
+import { listSalesPulseOpenReferences, sanitizeCustomerPoNumber, type SalesPulseReference } from "@/lib/salesPulseSync";
 import { toast } from "sonner";
 
 const statusConfig: Record<
