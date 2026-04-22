@@ -125,39 +125,66 @@ export async function listSalesPulseOpenReferences(params: ListOpenReferencesPar
 }
 
 export async function syncSalesOrderApprovedToSalesPulse(payload: SyncApprovedSalesOrderPayload) {
-  const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
-    body: {
-      action: 'wms-so-approved',
-      ...payload,
-    },
-  });
+  const referenceNumber = sanitizeSalesPulseReference(payload.reference_number);
+  if (!referenceNumber) {
+    throw new Error(`Invalid Sales Pulse reference number: "${payload.reference_number}". Format harus REF-XXXX.`);
+  }
 
-  if (error) throw error;
-  return data;
+  return withRetry(async () => {
+    const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
+      body: {
+        action: 'wms-so-approved',
+        ...payload,
+        reference_number: referenceNumber,
+        customer_po: sanitizeCustomerPoNumber(payload.customer_po),
+      },
+    });
+    if (error) throw error;
+    return data;
+  }, { label: 'sales-pulse-approved' });
 }
 
 export async function syncSalesOrderUpdatedToSalesPulse(payload: SyncUpdatedSalesOrderPayload) {
-  const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
-    body: {
-      action: 'wms-so-updated',
-      ...payload,
-    },
-  });
+  const referenceNumber = payload.reference_number != null
+    ? sanitizeSalesPulseReference(payload.reference_number)
+    : null;
+  if (payload.reference_number != null && !referenceNumber) {
+    throw new Error(`Invalid Sales Pulse reference number: "${payload.reference_number}". Format harus REF-XXXX.`);
+  }
 
-  if (error) throw error;
-  return data;
+  return withRetry(async () => {
+    const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
+      body: {
+        action: 'wms-so-updated',
+        ...payload,
+        reference_number: referenceNumber ?? payload.reference_number ?? null,
+        customer_po: sanitizeCustomerPoNumber(payload.customer_po),
+      },
+    });
+    if (error) throw error;
+    return data;
+  }, { label: 'sales-pulse-updated' });
 }
 
 export async function syncSalesOrderCancelledToSalesPulse(payload: SyncCancelledSalesOrderPayload) {
-  const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
-    body: {
-      action: 'wms-so-cancelled',
-      ...payload,
-    },
-  });
+  const referenceNumber = payload.reference_number != null
+    ? sanitizeSalesPulseReference(payload.reference_number)
+    : null;
+  if (payload.reference_number != null && !referenceNumber) {
+    throw new Error(`Invalid Sales Pulse reference number: "${payload.reference_number}". Format harus REF-XXXX.`);
+  }
 
-  if (error) throw error;
-  return data;
+  return withRetry(async () => {
+    const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
+      body: {
+        action: 'wms-so-cancelled',
+        ...payload,
+        reference_number: referenceNumber ?? payload.reference_number ?? null,
+      },
+    });
+    if (error) throw error;
+    return data;
+  }, { label: 'sales-pulse-cancelled' });
 }
 
 export async function syncCustomerToSalesPulse(payload: SyncCustomerPayload) {
