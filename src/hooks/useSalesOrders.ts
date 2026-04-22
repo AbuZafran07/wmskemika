@@ -8,6 +8,7 @@ import {
   syncSalesOrderUpdatedToSalesPulse,
   syncSalesOrderCancelledToSalesPulse,
   sanitizeCustomerPoNumber,
+  sanitizeSalesPulseReference,
 } from '@/lib/salesPulseSync';
 import { 
   salesOrderHeaderSchema, 
