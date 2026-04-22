@@ -334,6 +334,16 @@ export async function updateSalesOrder(
     });
     if (error) throw error;
     const result = data as { success: boolean; error?: string };
+
+    // Sync ke Sales Pulse jika SO sudah pernah di-approve (so_number sudah ada di CRM)
+    if (result.success) {
+      try {
+        await syncSalesOrderUpdatedFromDb(orderId);
+      } catch (syncErr) {
+        console.warn('[WMS] Gagal sync update SO ke Sales Pulse:', syncErr);
+      }
+    }
+
     return result;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to update';
