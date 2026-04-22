@@ -1,5 +1,23 @@
 import { supabase } from '@/integrations/supabase/client';
 
+/**
+ * Sanitasi customer_po_number sebelum dikirim ke Sales Pulse.
+ * Sesuai WMS Integration Guide v4: hanya karakter aman yang diizinkan.
+ * Whitelist: A-Z a-z 0-9 spasi dan - _ . / \ # ( )
+ * Tidak ada batas maksimum panjang (sesuai keputusan internal).
+ * Mengembalikan null jika hasil akhir kosong.
+ */
+export function sanitizeCustomerPoNumber(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const cleaned = raw
+    .replace(/[^A-Za-z0-9 \-_.\/\\#()]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned || null;
+}
+
 export interface SalesPulseReference {
   deal_id: string;
   reference_number: string;
