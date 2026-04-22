@@ -688,11 +688,23 @@ export default function SalesOrder() {
     setIsSaving(true);
 
     try {
+      // Validate customer_po_number against WMS Integration Guide v4 whitelist.
+      // Allowed: A-Z a-z 0-9 space and - _ . / \ # ( ). No max length.
+      const sanitizedCustomerPo = sanitizeCustomerPoNumber(customerPoNumber) ?? "";
+      if (sanitizedCustomerPo !== customerPoNumber) {
+        setCustomerPoNumber(sanitizedCustomerPo);
+        toast.warning(
+          language === "en"
+            ? `Customer PO cleaned to "${sanitizedCustomerPo}" (only letters, numbers, space and - _ . / \\ # ( ) allowed)`
+            : `PO Customer dibersihkan menjadi "${sanitizedCustomerPo}" (hanya huruf, angka, spasi dan - _ . / \\ # ( ) diizinkan)`,
+        );
+      }
+
       const payloadHeader = {
         sales_order_number: soNumber,
         order_date: orderDate,
         customer_id: customerId,
-        customer_po_number: customerPoNumber,
+        customer_po_number: sanitizedCustomerPo,
         sales_pulse_reference_number: salesPulseReferenceNumber || null,
         sales_name: salesName,
         allocation_type: allocationType,
