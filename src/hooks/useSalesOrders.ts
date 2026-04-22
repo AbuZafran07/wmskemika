@@ -544,8 +544,10 @@ export async function cancelSalesOrder(orderId: string): Promise<{ success: bool
 
       // Sync ke Sales Pulse (soft cancel) jika SO sudah pernah di-approve
       if (soBefore && ['approved', 'partially_delivered', 'completed'].includes(soBefore.status)) {
-        const reference = soBefore.sales_pulse_reference_number || soBefore.customer_po_number;
-        if (reference?.startsWith('REF-')) {
+        const reference = sanitizeSalesPulseReference(
+          soBefore.sales_pulse_reference_number || soBefore.customer_po_number,
+        );
+        if (reference) {
           try {
             await syncSalesOrderCancelledToSalesPulse({
               sales_order_id: soBefore.id,
