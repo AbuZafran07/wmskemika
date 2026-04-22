@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getUserFriendlyError, ErrorMessages } from '@/lib/errorHandler';
 import { syncSalesOrderToAr } from '@/lib/arApSync';
-import { syncSalesOrderApprovedToSalesPulse } from '@/lib/salesPulseSync';
+import { syncSalesOrderApprovedToSalesPulse, sanitizeCustomerPoNumber } from '@/lib/salesPulseSync';
 import { 
   salesOrderHeaderSchema, 
   salesOrderItemsArraySchema, 
@@ -420,7 +420,7 @@ export async function approveSalesOrder(orderId: string, approveReason?: string)
                 so_date: soData.order_date,
                 total_value: Number(soData.grand_total ?? 0),
                 customer_name: customer?.name || null,
-                customer_po: soData.customer_po_number || null,
+                customer_po: sanitizeCustomerPoNumber(soData.customer_po_number),
                 items: salesPulseItems,
               });
               console.log('[WMS] Sales Pulse sync berhasil:', soData.sales_order_number);
