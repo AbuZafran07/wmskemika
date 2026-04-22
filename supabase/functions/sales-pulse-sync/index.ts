@@ -39,6 +39,20 @@ function sanitizePositiveInteger(value: unknown) {
   return normalized >= 1 ? normalized : null;
 }
 
+// WMS Integration Guide v4: customer_po hanya boleh karakter aman.
+// Whitelist: A-Z a-z 0-9 spasi dan - _ . / \ # ( )
+// Tanpa batas maksimum panjang (sesuai permintaan internal).
+function sanitizeCustomerPo(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const cleaned = raw
+    .replace(/[^A-Za-z0-9 \-_.\/\\#()]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || null;
+}
+
 function normalizeReferenceList(payload: unknown, includeSelectedReference: string | null) {
   const entries = Array.isArray((payload as Record<string, unknown>)?.data)
     ? ((payload as Record<string, unknown>).data as Array<Record<string, unknown>>)
