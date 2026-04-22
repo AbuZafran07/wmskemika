@@ -262,8 +262,10 @@ async function syncSalesOrderUpdatedFromDb(orderId: string): Promise<void> {
   const eligibleStatuses = ['approved', 'partially_delivered', 'completed'];
   if (!eligibleStatuses.includes(soData.status)) return;
 
-  const reference = soData.sales_pulse_reference_number || soData.customer_po_number;
-  if (!reference?.startsWith('REF-')) return;
+  const reference = sanitizeSalesPulseReference(
+    soData.sales_pulse_reference_number || soData.customer_po_number,
+  );
+  if (!reference) return;
 
   const { data: soItemsData } = await supabase
     .from('sales_order_items')
