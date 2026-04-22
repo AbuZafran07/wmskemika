@@ -3,7 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getUserFriendlyError, ErrorMessages } from '@/lib/errorHandler';
 import { syncSalesOrderToAr } from '@/lib/arApSync';
-import { syncSalesOrderApprovedToSalesPulse, sanitizeCustomerPoNumber } from '@/lib/salesPulseSync';
+import {
+  syncSalesOrderApprovedToSalesPulse,
+  syncSalesOrderUpdatedToSalesPulse,
+  syncSalesOrderCancelledToSalesPulse,
+  sanitizeCustomerPoNumber,
+} from '@/lib/salesPulseSync';
 import { 
   salesOrderHeaderSchema, 
   salesOrderItemsArraySchema, 
