@@ -201,6 +201,7 @@ serve(async (req) => {
       const soDate = sanitizeText(body.so_date, 20);
       const customerName = sanitizeText(body.customer_name, 255) || null;
       const salesOrderId = sanitizeText(body.sales_order_id, 100) || null;
+      const customerPo = sanitizeText(body.customer_po, 100) || null;
       const totalValueRaw = Number(body.total_value);
 
       if (!referenceNumber || !soNumber || !soDate || !Number.isFinite(totalValueRaw)) {
@@ -213,6 +214,7 @@ serve(async (req) => {
         so_date: soDate,
         total_value: Math.round(totalValueRaw),
         customer_name: customerName,
+        ...(customerPo ? { customer_po: customerPo } : {}),
         items: Array.isArray(body.items)
           ? body.items
               .map((item) => ({
