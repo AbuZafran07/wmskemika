@@ -486,8 +486,10 @@ export async function approveSalesOrder(orderId: string, approveReason?: string)
             console.warn('[WMS] Gagal sync SO ke AR/AP:', syncResult.error);
           }
 
-          const salesPulseReference = soData.sales_pulse_reference_number || soData.customer_po_number;
-          if (salesPulseReference?.startsWith('REF-')) {
+          const salesPulseReference = sanitizeSalesPulseReference(
+            soData.sales_pulse_reference_number || soData.customer_po_number,
+          );
+          if (salesPulseReference) {
             try {
               await syncSalesOrderApprovedToSalesPulse({
                 sales_order_id: soData.id,
