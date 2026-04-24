@@ -156,18 +156,17 @@ interface SyncCustomerPayload {
   code: string;
   name: string;
   customer_type?: string | null;
-  pic_name?: string | null;
-  pic_email?: string | null;
-  pic_contact?: string | null;
+  pic?: string | null;
+  phone?: string | null;
+  email?: string | null;
   city?: string | null;
-  region?: string | null;
   is_active?: boolean;
 }
 
 interface SyncProductPayload {
   sku: string;
   name: string;
-  category_name?: string | null;
+  category?: string | null;
   unit?: string | null;
   purchase_price?: number | null;
   selling_price?: number | null;
