@@ -334,7 +334,7 @@ export default function Products() {
         syncProductSalesPulseAsync({
           sku: sku || null,
           name,
-          category_name: category?.name || null,
+          category: category?.name || null,
           unit: unit?.name || null,
           purchase_price: parseFloat(purchase_price),
           selling_price: selling_price ? parseFloat(selling_price) : null,
@@ -386,7 +386,7 @@ export default function Products() {
         syncProductSalesPulseAsync({
           sku: products.find((product) => product.id === previewRow.existingId)?.sku || null,
           name,
-          category_name: category?.name || null,
+          category: category?.name || null,
           unit: unit?.name || null,
           purchase_price: parseFloat(purchase_price),
           selling_price: selling_price ? parseFloat(selling_price) : null,
@@ -554,7 +554,7 @@ export default function Products() {
       syncProductSalesPulseAsync({
         sku: productData.sku,
         name: productData.name,
-        category_name: categories.find((category) => category.id === productData.category_id)?.name || null,
+        category: categories.find((category) => category.id === productData.category_id)?.name || null,
         unit: units.find((unit) => unit.id === productData.unit_id)?.name || null,
         purchase_price: productData.purchase_price,
         selling_price: productData.selling_price,
