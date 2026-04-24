@@ -412,27 +412,50 @@ serve(async (req) => {
       const isCustomerSync = action === "wms-customer-upsert";
       const endpoint = isCustomerSync ? "/wms-customer-upsert" : "/wms-product-upsert";
 
-      const requestPayload = isCustomerSync
-        ? {
-            code: sanitizeText(body.code, 50),
-            name: sanitizeText(body.name, 255),
-            customer_type: sanitizeNullableText(body.customer_type, 50),
-            pic_name: sanitizeNullableText(body.pic_name, 255) ?? sanitizeNullableText(body.pic, 255),
-            pic_email: sanitizeNullableText(body.pic_email, 255) ?? sanitizeNullableText(body.email, 255),
-            pic_contact: sanitizeNullableText(body.pic_contact, 50) ?? sanitizeNullableText(body.phone, 50),
-            city: sanitizeNullableText(body.city, 100),
-            region: sanitizeNullableText(body.region, 100) ?? sanitizeNullableText(body.city, 100),
-            is_active: typeof body.is_active === "boolean" ? body.is_active : true,
-          }
-        : {
-            sku: sanitizeText(body.sku, 100),
-            name: sanitizeText(body.name, 255),
-            category_name: sanitizeNullableText(body.category_name, 100),
-            unit: sanitizeNullableText(body.unit, 50) ?? sanitizeNullableText(body.unit_name, 50),
-            purchase_price: sanitizeNullableNumber(body.purchase_price),
-            selling_price: sanitizeNullableNumber(body.selling_price),
-            is_active: typeof body.is_active === "boolean" ? body.is_active : true,
-          };
+      // Spec Sales Pulse v2.0 — hanya kirim field yang didukung.
+      // Field lain (barcode, description, address, npwp, dll) di-drop di sisi WMS untuk hemat bandwidth.
+      let requestPayload: Record<string, unknown>;
+
+      if (isCustomerSync) {
+        const code = sanitizeText(body.code, 50);
+        const name = sanitizeText(body.name, 255);
+        const pic = sanitizeNullableText(body.pic, 255);
+        const phone = sanitizeNullableText(body.phone, 50);
+        const email = sanitizeNullableText(body.email, 255);
+        const city = sanitizeNullableText(body.city, 100);
+        const isActive = typeof body.is_active === "boolean" ? body.is_active : true;
+        // customer_type WMS dikirim apa adanya — Sales Pulse yang melakukan mapping ke segment
+        const customerType = sanitizeNullableText(body.customer_type, 50);
+
+        requestPayload = {
+          code,
+          name,
+          is_active: isActive,
+          ...(customerType ? { customer_type: customerType } : {}),
+          ...(pic ? { pic } : {}),
+          ...(phone ? { phone } : {}),
+          ...(email ? { email } : {}),
+          ...(city ? { city } : {}),
+        };
+      } else {
+        const sku = sanitizeText(body.sku, 100);
+        const name = sanitizeText(body.name, 255);
+        const sellingPrice = sanitizeNullableNumber(body.selling_price);
+        const purchasePrice = sanitizeNullableNumber(body.purchase_price);
+        const unit = sanitizeNullableText(body.unit, 50);
+        const category = sanitizeNullableText(body.category, 100);
+        const isActive = typeof body.is_active === "boolean" ? body.is_active : true;
+
+        requestPayload = {
+          sku,
+          name,
+          is_active: isActive,
+          ...(sellingPrice !== null ? { selling_price: sellingPrice } : {}),
+          ...(purchasePrice !== null ? { purchase_price: purchasePrice } : {}),
+          ...(unit ? { unit } : {}),
+          ...(category ? { category } : {}),
+        };
+      }
 
       if ((!isCustomerSync && !(requestPayload as { sku: string }).sku) || !requestPayload.name || (isCustomerSync && !(requestPayload as { code: string }).code)) {
         return jsonResponse({

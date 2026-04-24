@@ -95,7 +95,7 @@ const initialFormData: ProductFormData = {
 const syncProductSalesPulseAsync = (product: {
   sku?: string | null;
   name: string;
-  category_name?: string | null;
+  category?: string | null;
   unit?: string | null;
   purchase_price?: number | null;
   selling_price?: number | null;
@@ -109,7 +109,7 @@ const syncProductSalesPulseAsync = (product: {
   syncProductToSalesPulse({
     sku: product.sku.trim(),
     name: product.name,
-    category_name: product.category_name || null,
+    category: product.category || null,
     unit: product.unit || null,
     purchase_price: product.purchase_price ?? null,
     selling_price: product.selling_price ?? null,
@@ -334,7 +334,7 @@ export default function Products() {
         syncProductSalesPulseAsync({
           sku: sku || null,
           name,
-          category_name: category?.name || null,
+          category: category?.name || null,
           unit: unit?.name || null,
           purchase_price: parseFloat(purchase_price),
           selling_price: selling_price ? parseFloat(selling_price) : null,
@@ -386,7 +386,7 @@ export default function Products() {
         syncProductSalesPulseAsync({
           sku: products.find((product) => product.id === previewRow.existingId)?.sku || null,
           name,
-          category_name: category?.name || null,
+          category: category?.name || null,
           unit: unit?.name || null,
           purchase_price: parseFloat(purchase_price),
           selling_price: selling_price ? parseFloat(selling_price) : null,
@@ -554,7 +554,7 @@ export default function Products() {
       syncProductSalesPulseAsync({
         sku: productData.sku,
         name: productData.name,
-        category_name: categories.find((category) => category.id === productData.category_id)?.name || null,
+        category: categories.find((category) => category.id === productData.category_id)?.name || null,
         unit: units.find((unit) => unit.id === productData.unit_id)?.name || null,
         purchase_price: productData.purchase_price,
         selling_price: productData.selling_price,
