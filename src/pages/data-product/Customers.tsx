@@ -94,9 +94,9 @@ const syncCustomerSalesPulseAsync = (customer: {
   code: string;
   name: string;
   customer_type?: string | null;
-  pic_name?: string | null;
-  pic_email?: string | null;
-  pic_contact?: string | null;
+  pic?: string | null;
+  phone?: string | null;
+  email?: string | null;
   city?: string | null;
   is_active: boolean;
 }) => {
@@ -104,11 +104,10 @@ const syncCustomerSalesPulseAsync = (customer: {
     code: customer.code,
     name: customer.name,
     customer_type: customer.customer_type || null,
-    pic_name: customer.pic_name || null,
-    pic_email: customer.pic_email || null,
-    pic_contact: customer.pic_contact || null,
+    pic: customer.pic || null,
+    phone: customer.phone || null,
+    email: customer.email || null,
     city: customer.city || null,
-    region: customer.city || null,
     is_active: customer.is_active,
   }).catch((err) => console.warn('[WMS] Customer sync to Sales Pulse failed:', err));
 };

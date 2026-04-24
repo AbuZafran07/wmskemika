@@ -95,7 +95,7 @@ const initialFormData: ProductFormData = {
 const syncProductSalesPulseAsync = (product: {
   sku?: string | null;
   name: string;
-  category_name?: string | null;
+  category?: string | null;
   unit?: string | null;
   purchase_price?: number | null;
   selling_price?: number | null;
@@ -109,7 +109,7 @@ const syncProductSalesPulseAsync = (product: {
   syncProductToSalesPulse({
     sku: product.sku.trim(),
     name: product.name,
-    category_name: product.category_name || null,
+    category: product.category || null,
     unit: product.unit || null,
     purchase_price: product.purchase_price ?? null,
     selling_price: product.selling_price ?? null,
