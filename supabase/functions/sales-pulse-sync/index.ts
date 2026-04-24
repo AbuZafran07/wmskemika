@@ -39,16 +39,6 @@ function sanitizePositiveInteger(value: unknown) {
   return normalized >= 1 ? normalized : null;
 }
 
-// Mapping customer_type WMS → segment Sales Pulse (spec v2.0)
-// Government → B2G; Individual / Retail → B2C; lainnya → B2B
-function mapCustomerTypeToSegment(value: unknown): string {
-  const raw = String(value ?? "").trim().toLowerCase();
-  if (!raw) return "B2B";
-  if (raw === "government" || raw === "pemerintah" || raw === "instansi") return "B2G";
-  if (raw === "individual" || raw === "retail" || raw === "perorangan") return "B2C";
-  return "B2B";
-}
-
 // WMS Integration Guide v4: customer_po hanya boleh karakter aman.
 // Whitelist: A-Z a-z 0-9 spasi dan - _ . / \ # ( )
 // Tanpa batas maksimum panjang (sesuai permintaan internal).
