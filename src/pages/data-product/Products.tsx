@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Plus, Search, Filter, Download, Upload, MoreHorizontal, Edit, Trash2, Eye, Loader2, Crop } from 'lucide-react';
+import { Plus, Search, Filter, Download, Upload, MoreHorizontal, Edit, Trash2, Eye, Loader2, Crop, X, ChevronDown } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -123,9 +123,13 @@ export default function Products() {
   const { categories } = useCategories();
   const { units } = useUnits();
   const { suppliers } = useSuppliers();
-  const { canCreate, canEdit, canDelete, canUpload, canViewPurchasePrice } = usePermissions();
+  const { canCreate, canEdit, canDelete, canUpload, canViewPurchasePrice, canViewSupplier } = usePermissions();
   
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterCategory, setFilterCategory] = useState('');
+  const [filterSupplier, setFilterSupplier] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -416,9 +420,11 @@ export default function Products() {
     }).format(value);
   };
 
+  const activeFilterCount = [filterCategory, filterSupplier, filterStatus].filter(Boolean).length;
+
   const filteredProducts = products.filter(product => {
     const q = searchQuery.toLowerCase();
-    return (
+    const matchSearch = !q || (
       product.name.toLowerCase().includes(q) ||
       (product.sku && product.sku.toLowerCase().includes(q)) ||
       (product.category?.name && product.category.name.toLowerCase().includes(q)) ||
@@ -426,6 +432,10 @@ export default function Products() {
       (product.supplier?.name && product.supplier.name.toLowerCase().includes(q)) ||
       (product.unit?.name && product.unit.name.toLowerCase().includes(q))
     );
+    const matchCategory = !filterCategory || product.category_id === filterCategory;
+    const matchSupplier = !filterSupplier || (product as any).supplier_id === filterSupplier;
+    const matchStatus = !filterStatus || (filterStatus === 'active' ? product.is_active : !product.is_active);
+    return matchSearch && matchCategory && matchSupplier && matchStatus;
   });
 
   const {
@@ -643,23 +653,105 @@ export default function Products() {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Search & Filter */}
       <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder={language === 'en' ? 'Search products...' : 'Cari produk...'}
+                placeholder={language === 'en' ? 'Search by name, SKU, category, supplier...' : 'Cari nama, SKU, kategori, supplier...'}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                icon={<Search className="w-4 h-4" />}
+                className="pl-9"
               />
             </div>
-            <Button variant="outline">
-              <Filter className="w-4 h-4 mr-2" />
-              {t('common.filter')}
+            <Button
+              variant={showFilterPanel ? 'default' : 'outline'}
+              onClick={() => setShowFilterPanel(v => !v)}
+              className="gap-2 relative"
+            >
+              <Filter className="w-4 h-4" />
+              {language === 'en' ? 'Filter' : 'Filter'}
+              {activeFilterCount > 0 && (
+                <span className="ml-1 bg-primary-foreground text-primary rounded-full text-[10px] font-bold w-4 h-4 flex items-center justify-center">
+                  {activeFilterCount}
+                </span>
+              )}
+              <ChevronDown className={`w-3 h-3 transition-transform ${showFilterPanel ? 'rotate-180' : ''}`} />
             </Button>
           </div>
+
+          {/* Filter Panel */}
+          {showFilterPanel && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t">
+              {/* Category Filter */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">
+                  {language === 'en' ? 'Category' : 'Kategori'}
+                </label>
+                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder={language === 'en' ? 'All categories' : 'Semua kategori'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">{language === 'en' ? 'All categories' : 'Semua kategori'}</SelectItem>
+                    {categories.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Supplier Filter — hidden for sales */}
+              {canViewSupplier() && (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Supplier</label>
+                  <Select value={filterSupplier} onValueChange={setFilterSupplier}>
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue placeholder={language === 'en' ? 'All suppliers' : 'Semua supplier'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">{language === 'en' ? 'All suppliers' : 'Semua supplier'}</SelectItem>
+                      {suppliers.map(s => (
+                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Status Filter */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Status</label>
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder={language === 'en' ? 'All status' : 'Semua status'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">{language === 'en' ? 'All status' : 'Semua status'}</SelectItem>
+                    <SelectItem value="active">{language === 'en' ? 'Active' : 'Aktif'}</SelectItem>
+                    <SelectItem value="inactive">{language === 'en' ? 'Inactive' : 'Tidak Aktif'}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Reset filter */}
+              {activeFilterCount > 0 && (
+                <div className="sm:col-span-3 flex justify-end">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                    onClick={() => { setFilterCategory(''); setFilterSupplier(''); setFilterStatus(''); }}
+                  >
+                    <X className="w-3 h-3" />
+                    {language === 'en' ? 'Reset filters' : 'Reset filter'}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -679,6 +771,9 @@ export default function Products() {
                   <TableHead>{language === 'en' ? 'Product Name' : 'Nama Produk'}</TableHead>
                   <TableHead>{language === 'en' ? 'Category' : 'Kategori'}</TableHead>
                   <TableHead>{language === 'en' ? 'Unit' : 'Satuan'}</TableHead>
+                  {canViewSupplier() && (
+                    <TableHead>Supplier</TableHead>
+                  )}
                   {canViewPurchasePrice() && (
                     <TableHead className="text-right">{language === 'en' ? 'Purchase Price' : 'Harga Beli'}</TableHead>
                   )}
@@ -690,20 +785,23 @@ export default function Products() {
               <TableBody>
                 {filteredProducts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={canViewPurchasePrice() ? 9 : 8} className="text-center py-12 text-muted-foreground">
+                    <TableCell
+                      colSpan={7 + (canViewSupplier() ? 1 : 0) + (canViewPurchasePrice() ? 1 : 0)}
+                      className="text-center py-12 text-muted-foreground"
+                    >
                       {language === 'en' ? 'No products found' : 'Tidak ada produk ditemukan'}
                     </TableCell>
                   </TableRow>
                 ) : (
                   paginatedProducts.map((product) => (
-                    <TableRow 
+                    <TableRow
                       key={product.id}
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => handleView(product)}
                     >
                       <TableCell onClick={(e) => e.stopPropagation()}>
-                        <ProductThumbnail 
-                          photoPath={product.photo_url} 
+                        <ProductThumbnail
+                          photoPath={product.photo_url}
                           alt={product.name}
                           className="w-10 h-10"
                           onClick={() => handleImageClick(product)}
@@ -718,6 +816,11 @@ export default function Products() {
                       </TableCell>
                       <TableCell>{product.category?.name || '-'}</TableCell>
                       <TableCell>{product.unit?.name || '-'}</TableCell>
+                      {canViewSupplier() && (
+                        <TableCell>
+                          <span className="text-sm">{product.supplier?.name || '-'}</span>
+                        </TableCell>
+                      )}
                       {canViewPurchasePrice() && (
                         <TableCell className="text-right">{formatCurrency(product.purchase_price)}</TableCell>
                       )}
