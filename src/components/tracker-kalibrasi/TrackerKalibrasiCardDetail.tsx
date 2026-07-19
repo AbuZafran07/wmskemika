@@ -445,79 +445,91 @@ export default function TrackerKalibrasiCardDetail({
         ) : (
           <>
             {/* ── header ── */}
-            <div className="flex items-start justify-between px-5 py-3.5 border-b flex-shrink-0 gap-3">
-              <div className="flex-1 min-w-0 flex flex-col gap-2">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <FlaskConical className="w-5 h-5 text-primary" />
-                  <div>
-                    <h2 className="font-semibold text-base leading-tight font-mono">
-                      {receipt?.receipt_number ?? "-"}
-                    </h2>
-                    <p className="text-xs text-muted-foreground">{receipt?.customer?.name ?? "-"}</p>
-                    {receipt?.customer?.code && receipt.customer.code !== "-" && (
-                      <p className="text-[10px] text-muted-foreground">
-                        Kode: <span className="font-medium text-foreground/80">{receipt.customer.code}</span>
-                      </p>
-                    )}
-                  </div>
-                  {receipt?.customer_po_number && (
-                    <span className="text-xs bg-muted px-2 py-0.5 rounded font-mono text-muted-foreground">
-                      PO: {receipt.customer_po_number}
-                    </span>
-                  )}
-                  {receipt?.spk_number && (
-                    <span className="text-xs bg-muted px-2 py-0.5 rounded font-mono text-muted-foreground">
-                      {receipt.spk_number}
-                    </span>
-                  )}
-                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
-                    {STATUS_LABEL[receipt?.status ?? ""] ?? receipt?.status ?? "-"}
-                  </span>
-                </div>
-                {receiptId && <CalibrationLabelPicker salesOrderId={receiptId} />}
+            <div className="flex items-start justify-between px-6 pt-5 pb-0 flex-shrink-0 gap-3">
+              <div className="flex items-center gap-2">
+                <FlaskConical className="h-5 w-5 text-primary" />
+                <h2 className="font-semibold text-base leading-tight font-mono">
+                  {receipt?.receipt_number ?? "-"}
+                </h2>
               </div>
               <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={onClose}>
                 <X className="w-4 h-4" />
               </Button>
             </div>
 
+            {/* Labels section */}
+            <div className="flex flex-wrap items-center gap-1.5 px-6 py-2">
+              {receiptId && <CalibrationLabelPicker salesOrderId={receiptId} canManage={canToggle} />}
+            </div>
+
             {/* ── body ── */}
-            <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
+            <div className="flex flex-col md:flex-row flex-1 min-h-0 border-t overflow-y-auto md:overflow-hidden">
 
               {/* ── LEFT: main content ── */}
-              <div className="flex-1 overflow-y-auto p-5 space-y-5">
+              <ScrollArea className="md:flex-1 min-w-0 md:border-r !overflow-visible md:!overflow-hidden [&>div[data-radix-scroll-area-viewport]]:!overflow-visible md:[&>div[data-radix-scroll-area-viewport]]:!overflow-auto">
+                <div className="space-y-4 p-4">
 
-                {/* Customer */}
-                <div>
-                  <SectionTitle>Customer</SectionTitle>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    <Field label="Nama Customer" value={receipt?.customer?.name} />
-                    <Field label="Kode Customer" value={receipt?.customer?.code} />
-                    <Field label="No. PO Customer" value={receipt?.customer_po_number} />
-                    <Field label="Alamat" value={receipt?.customer?.address} />
+                  {/* Detail info */}
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <span className="text-muted-foreground text-xs">Customer</span>
+                      <p className="font-medium">{receipt?.customer?.name ?? "-"}</p>
+                      <p className="text-xs text-muted-foreground">{receipt?.customer?.code ?? "-"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-xs">Sales</span>
+                      <p className="font-medium">{receipt?.sales_name ?? "-"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-xs">No. PO Customer</span>
+                      <p className="font-medium">{receipt?.customer_po_number ?? "-"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-xs">Tipe Alokasi</span>
+                      <p className="font-medium">{receipt?.allocation_type ?? "-"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-xs">Project/Instansi</span>
+                      <p className="font-medium">{receipt?.project_instansi ?? "-"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-xs">Target Selesai</span>
+                      <p className="font-medium">{fmtDate(receipt?.target_completion_date ?? null)}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-xs block mb-1">Status Board</span>
+                      <Badge className={cn("text-white", getBoardColumn(checklists)?.color ?? "bg-blue-600")}>
+                        {getBoardColumn(checklists)?.label ?? "-"}
+                      </Badge>
+                    </div>
                   </div>
-                </div>
 
-                {/* PIC & Lokasi */}
-                <div>
-                  <SectionTitle>PIC & Lokasi</SectionTitle>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    <div className="flex items-start gap-1.5">
-                      <User className="w-3.5 h-3.5 text-muted-foreground mt-3" />
-                      <Field label="Nama PIC" value={receipt?.service_pic_name} />
+                  {receipt?.service_location && (
+                    <div className="text-sm">
+                      <span className="text-muted-foreground text-xs">Lokasi Kalibrasi</span>
+                      <p className="text-xs">{receipt.service_location}</p>
                     </div>
-                    <div className="flex items-start gap-1.5">
-                      <Phone className="w-3.5 h-3.5 text-muted-foreground mt-3" />
-                      <Field label="No. HP PIC" value={receipt?.service_pic_phone} />
-                    </div>
-                    <div className="flex items-start gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-muted-foreground mt-3" />
-                      <Field label="Lokasi Kalibrasi" value={receipt?.service_location} />
-                    </div>
-                  </div>
-                </div>
+                  )}
 
-                {/* Jadwal & SPK */}
+                  {/* PIC */}
+                  {(receipt?.service_pic_name || receipt?.service_pic_phone) && (
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      {receipt?.service_pic_name && (
+                        <div>
+                          <span className="text-muted-foreground text-xs">Nama PIC</span>
+                          <p className="font-medium">{receipt.service_pic_name}</p>
+                        </div>
+                      )}
+                      {receipt?.service_pic_phone && (
+                        <div>
+                          <span className="text-muted-foreground text-xs">No. HP PIC</span>
+                          <p className="font-medium">{receipt.service_pic_phone}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Jadwal & SPK */}
                 <div>
                   <SectionTitle>Jadwal & SPK</SectionTitle>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
