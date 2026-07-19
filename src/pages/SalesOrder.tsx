@@ -1156,6 +1156,12 @@ export default function SalesOrder() {
               {language === "en" ? "Create Sales Order" : "Buat Sales Order"}
             </Button>
           )}
+          {canCreate("sales_order") && (
+            <Button variant="secondary" onClick={() => setIsCalibrationDialogOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              {language === "en" ? "Create Calibration SO" : "Buat SO Kalibrasi"}
+            </Button>
+          )}
         </div>
       </div>
 
