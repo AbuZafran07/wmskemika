@@ -226,7 +226,7 @@ export default function StockOut() {
 
   const fetchCalibrationParts = useCallback(async () => {
     setLoadingCalParts(true);
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("calibration_spare_parts")
       .select(`
         id, instrument_id, product_id, qty_used, unit_price, notes, created_at,
@@ -318,7 +318,7 @@ export default function StockOut() {
     }
 
     setIsIssuingCal(true);
-    const { data: result, error } = await supabase.rpc("calibration_spare_part_issue", {
+    const { data: result, error } = await (supabase as any).rpc("calibration_spare_part_issue", {
       p_spare_part_id: part.id,
       p_batches: JSON.stringify(
         batchesWithQty.map((b) => ({ batch_id: b.batch_id, qty_out: b.qty_out }))

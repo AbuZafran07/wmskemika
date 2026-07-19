@@ -213,7 +213,7 @@ export default function TrackerKalibrasiCardDetail({
       // fetch spare parts (join product name + sku)
       if (instList.length > 0) {
         const ids = instList.map(i => i.id);
-        const { data: spData } = await supabase
+        const { data: spData } = await (supabase as any)
           .from("calibration_spare_parts")
           .select("*, product:products(name, sku)")
           .in("instrument_id", ids)
@@ -319,7 +319,7 @@ export default function TrackerKalibrasiCardDetail({
     }
 
     // 2. Simpan spare part — warehouse proses pengeluaran dari menu Stock Out
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("calibration_spare_parts")
       .insert({
         instrument_id: newPart.instrument_id,
@@ -351,7 +351,7 @@ export default function TrackerKalibrasiCardDetail({
   };
 
   const deleteSparePart = async (id: string) => {
-    const { error } = await supabase.from("calibration_spare_parts").delete().eq("id", id);
+    const { error } = await (supabase as any).from("calibration_spare_parts").delete().eq("id", id);
     if (error) { toast.error("Gagal hapus spare part"); return; }
     setSpareParts(prev => prev.filter(p => p.id !== id));
   };
