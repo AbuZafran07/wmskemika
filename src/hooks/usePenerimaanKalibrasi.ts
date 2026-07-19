@@ -78,6 +78,79 @@ export async function updateReceiptStatus(id: string, status: string) {
   if (error) throw error;
 }
 
+export async function deleteCalibrationReceipt(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { error: instErr } = await supabase
+      .from('calibration_instruments')
+      .delete()
+      .eq('calibration_receipt_id', id);
+    if (instErr) throw instErr;
+    const { error } = await supabase.from('calibration_receipts').delete().eq('id', id);
+    if (error) throw error;
+    return { success: true };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Gagal menghapus';
+    return { success: false, error: message };
+  }
+}
+
+export async function updateCalibrationReceipt(
+  id: string,
+  header: {
+    customer_id: string;
+    service_pic_name: string;
+    service_pic_phone: string;
+    service_location: string;
+    received_date: string;
+    target_completion_date: string;
+    customer_request_notes: string;
+  },
+  instruments: CalibrationInstrumentInput[]
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { error: updErr } = await supabase
+      .from('calibration_receipts')
+      .update({
+        customer_id: header.customer_id,
+        service_pic_name: header.service_pic_name || null,
+        service_pic_phone: header.service_pic_phone || null,
+        service_location: header.service_location || 'Lab Kemika, Tangerang',
+        received_date: header.received_date,
+        target_completion_date: header.target_completion_date || null,
+        customer_request_notes: header.customer_request_notes || null,
+      })
+      .eq('id', id);
+    if (updErr) throw updErr;
+
+    const { error: delErr } = await supabase
+      .from('calibration_instruments')
+      .delete()
+      .eq('calibration_receipt_id', id);
+    if (delErr) throw delErr;
+
+    if (instruments.length > 0) {
+      const rows = instruments.map((inst, idx) => ({
+        calibration_receipt_id: id,
+        item_number: idx + 1,
+        instrument_name: inst.instrument_name,
+        brand_model: inst.brand_model || null,
+        serial_number: inst.serial_number || null,
+        measurement_range: inst.measurement_range || null,
+        calibration_method: inst.calibration_method || null,
+        unit_price: inst.unit_price,
+        sla_working_days: inst.sla_working_days || 5,
+      }));
+      const { error: insErr } = await supabase.from('calibration_instruments').insert(rows);
+      if (insErr) throw insErr;
+    }
+
+    return { success: true };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Gagal memperbarui';
+    return { success: false, error: message };
+  }
+}
+
 export async function createCalibrationReceipt(
   header: {
     customer_id: string;
