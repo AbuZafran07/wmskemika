@@ -28,6 +28,7 @@ import CalibrationLabelPicker from "./CalibrationLabelPicker";
 interface ReceiptDetail {
   id: string;
   receipt_number: string;
+  customer_po_number: string | null;
   spk_number: string | null;
   spk_issued_at: string | null;
   spk_signed_at: string | null;
@@ -183,7 +184,7 @@ export default function TrackerKalibrasiCardDetail({
         (supabase as any)
           .from("sales_order_headers")
           .select(`
-            id, sales_order_number, spk_number, spk_issued_at,
+            id, sales_order_number, customer_po_number, spk_number, spk_issued_at,
             calibration_status, status, calibration_received_at,
             target_completion_date, service_location, service_pic_name,
             service_pic_phone, customer_request_notes, created_at, created_by,
@@ -226,6 +227,7 @@ export default function TrackerKalibrasiCardDetail({
         ? {
             id: h.id,
             receipt_number: h.sales_order_number ?? "-",
+            customer_po_number: h.customer_po_number ?? null,
             spk_number: h.spk_number ?? null,
             spk_issued_at: h.spk_issued_at ?? null,
             spk_signed_at: null,
