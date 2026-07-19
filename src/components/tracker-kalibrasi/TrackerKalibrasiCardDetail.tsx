@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   FlaskConical, X, Send, Loader2, CheckSquare, Square,
   MapPin, Phone, User, CalendarDays, FileText, Download,
-  Plus, Trash2, Package,
+  Plus, Trash2, Package, MessageSquare,
 } from "lucide-react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
@@ -11,8 +11,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   COLUMN_DEFS,
@@ -42,6 +44,9 @@ interface ReceiptDetail {
   customer_request_notes: string | null;
   created_at: string;
   created_by: string | null;
+  sales_name: string | null;
+  allocation_type: string | null;
+  project_instansi: string | null;
   customer: { id: string; name: string; code: string; pic: string | null; phone: string | null; address: string | null } | null;
 }
 
@@ -116,6 +121,14 @@ const FEASIBILITY_CFG: Record<string, { label: string; className: string }> = {
   not_feasible: { label: "Tidak Layak", className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" },
 };
 
+function getBoardColumn(checklists: KalibrasiV2Checklist[]) {
+  const ok = (key: string) => checklists.some((c) => c.checklist_key === key && c.is_checked);
+  if (!ok('spk_issued') || !ok('physical_check') || !ok('calibration_done')) return COLUMN_DEFS.find(c => c.id === 'in_progress');
+  if (!ok('certificate_issued') || !ok('invoice_sent')) return COLUMN_DEFS.find(c => c.id === 'completed');
+  if (!ok('payment_received') || !ok('tools_returned')) return COLUMN_DEFS.find(c => c.id === 'invoiced');
+  return COLUMN_DEFS.find(c => c.id === 'selesai');
+}
+
 function FeasibilityBadge({ status }: { status: string | null }) {
   const cfg = FEASIBILITY_CFG[status ?? "pending"] ?? FEASIBILITY_CFG.pending;
   return <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", cfg.className)}>{cfg.label}</span>;
@@ -188,6 +201,7 @@ export default function TrackerKalibrasiCardDetail({
             calibration_status, status, calibration_received_at,
             target_completion_date, service_location, service_pic_name,
             service_pic_phone, customer_request_notes, created_at, created_by,
+            sales_name, allocation_type, project_instansi,
             customer:customers(id, name, code, pic, phone, address)
           `)
           .eq("id", receiptId)
@@ -243,6 +257,9 @@ export default function TrackerKalibrasiCardDetail({
             customer_request_notes: h.customer_request_notes ?? null,
             created_at: h.created_at,
             created_by: h.created_by ?? null,
+            sales_name: h.sales_name ?? null,
+            allocation_type: h.allocation_type ?? null,
+            project_instansi: h.project_instansi ?? null,
             customer: h.customer ?? null,
           }
         : null;
@@ -428,79 +445,91 @@ export default function TrackerKalibrasiCardDetail({
         ) : (
           <>
             {/* ── header ── */}
-            <div className="flex items-start justify-between px-5 py-3.5 border-b flex-shrink-0 gap-3">
-              <div className="flex-1 min-w-0 flex flex-col gap-2">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <FlaskConical className="w-5 h-5 text-primary" />
-                  <div>
-                    <h2 className="font-semibold text-base leading-tight font-mono">
-                      {receipt?.receipt_number ?? "-"}
-                    </h2>
-                    <p className="text-xs text-muted-foreground">{receipt?.customer?.name ?? "-"}</p>
-                    {receipt?.customer?.code && receipt.customer.code !== "-" && (
-                      <p className="text-[10px] text-muted-foreground">
-                        Kode: <span className="font-medium text-foreground/80">{receipt.customer.code}</span>
-                      </p>
-                    )}
-                  </div>
-                  {receipt?.customer_po_number && (
-                    <span className="text-xs bg-muted px-2 py-0.5 rounded font-mono text-muted-foreground">
-                      PO: {receipt.customer_po_number}
-                    </span>
-                  )}
-                  {receipt?.spk_number && (
-                    <span className="text-xs bg-muted px-2 py-0.5 rounded font-mono text-muted-foreground">
-                      {receipt.spk_number}
-                    </span>
-                  )}
-                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
-                    {STATUS_LABEL[receipt?.status ?? ""] ?? receipt?.status ?? "-"}
-                  </span>
-                </div>
-                {receiptId && <CalibrationLabelPicker salesOrderId={receiptId} />}
+            <div className="flex items-start justify-between px-6 pt-5 pb-0 flex-shrink-0 gap-3">
+              <div className="flex items-center gap-2">
+                <FlaskConical className="h-5 w-5 text-primary" />
+                <h2 className="font-semibold text-base leading-tight font-mono">
+                  {receipt?.receipt_number ?? "-"}
+                </h2>
               </div>
               <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={onClose}>
                 <X className="w-4 h-4" />
               </Button>
             </div>
 
+            {/* Labels section */}
+            <div className="flex flex-wrap items-center gap-1.5 px-6 py-2">
+              {receiptId && <CalibrationLabelPicker salesOrderId={receiptId} canManage={canToggle} />}
+            </div>
+
             {/* ── body ── */}
-            <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
+            <div className="flex flex-col md:flex-row flex-1 min-h-0 border-t overflow-y-auto md:overflow-hidden">
 
               {/* ── LEFT: main content ── */}
-              <div className="flex-1 overflow-y-auto p-5 space-y-5">
+              <ScrollArea className="md:flex-1 min-w-0 md:border-r !overflow-visible md:!overflow-hidden [&>div[data-radix-scroll-area-viewport]]:!overflow-visible md:[&>div[data-radix-scroll-area-viewport]]:!overflow-auto">
+                <div className="space-y-4 p-4">
 
-                {/* Customer */}
-                <div>
-                  <SectionTitle>Customer</SectionTitle>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    <Field label="Nama Customer" value={receipt?.customer?.name} />
-                    <Field label="Kode Customer" value={receipt?.customer?.code} />
-                    <Field label="No. PO Customer" value={receipt?.customer_po_number} />
-                    <Field label="Alamat" value={receipt?.customer?.address} />
+                  {/* Detail info */}
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <span className="text-muted-foreground text-xs">Customer</span>
+                      <p className="font-medium">{receipt?.customer?.name ?? "-"}</p>
+                      <p className="text-xs text-muted-foreground">{receipt?.customer?.code ?? "-"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-xs">Sales</span>
+                      <p className="font-medium">{receipt?.sales_name ?? "-"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-xs">No. PO Customer</span>
+                      <p className="font-medium">{receipt?.customer_po_number ?? "-"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-xs">Tipe Alokasi</span>
+                      <p className="font-medium">{receipt?.allocation_type ?? "-"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-xs">Project/Instansi</span>
+                      <p className="font-medium">{receipt?.project_instansi ?? "-"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-xs">Target Selesai</span>
+                      <p className="font-medium">{fmtDate(receipt?.target_completion_date ?? null)}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-xs block mb-1">Status Board</span>
+                      <Badge className={cn("text-white", getBoardColumn(checklists)?.color ?? "bg-blue-600")}>
+                        {getBoardColumn(checklists)?.label ?? "-"}
+                      </Badge>
+                    </div>
                   </div>
-                </div>
 
-                {/* PIC & Lokasi */}
-                <div>
-                  <SectionTitle>PIC & Lokasi</SectionTitle>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    <div className="flex items-start gap-1.5">
-                      <User className="w-3.5 h-3.5 text-muted-foreground mt-3" />
-                      <Field label="Nama PIC" value={receipt?.service_pic_name} />
+                  {receipt?.service_location && (
+                    <div className="text-sm">
+                      <span className="text-muted-foreground text-xs">Lokasi Kalibrasi</span>
+                      <p className="text-xs">{receipt.service_location}</p>
                     </div>
-                    <div className="flex items-start gap-1.5">
-                      <Phone className="w-3.5 h-3.5 text-muted-foreground mt-3" />
-                      <Field label="No. HP PIC" value={receipt?.service_pic_phone} />
-                    </div>
-                    <div className="flex items-start gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-muted-foreground mt-3" />
-                      <Field label="Lokasi Kalibrasi" value={receipt?.service_location} />
-                    </div>
-                  </div>
-                </div>
+                  )}
 
-                {/* Jadwal & SPK */}
+                  {/* PIC */}
+                  {(receipt?.service_pic_name || receipt?.service_pic_phone) && (
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      {receipt?.service_pic_name && (
+                        <div>
+                          <span className="text-muted-foreground text-xs">Nama PIC</span>
+                          <p className="font-medium">{receipt.service_pic_name}</p>
+                        </div>
+                      )}
+                      {receipt?.service_pic_phone && (
+                        <div>
+                          <span className="text-muted-foreground text-xs">No. HP PIC</span>
+                          <p className="font-medium">{receipt.service_pic_phone}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Jadwal & SPK */}
                 <div>
                   <SectionTitle>Jadwal & SPK</SectionTitle>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -846,19 +875,21 @@ export default function TrackerKalibrasiCardDetail({
                   </div>
                 </div>
 
-              </div>{/* end LEFT */}
+              </div>
+              </ScrollArea>{/* end LEFT */}
 
               {/* ── RIGHT: comments ── */}
               <div className="w-full md:w-72 flex flex-col border-t md:border-t-0 md:border-l flex-shrink-0 max-h-[45vh] md:max-h-none">
-                <div className="px-4 py-3 border-b flex-shrink-0">
+                <div className="px-4 py-3 border-b flex-shrink-0 flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-muted-foreground" />
                   <h3 className="text-sm font-semibold flex items-center gap-1.5">
                     Komentar & Aktivitas
-                    {comments.length > 0 && (
-                      <span className="text-xs bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full font-bold">
-                        {comments.length}
-                      </span>
-                    )}
                   </h3>
+                  {comments.length > 0 && (
+                    <span className="text-xs bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full font-bold">
+                      {comments.length}
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-3 space-y-3">
@@ -916,11 +947,6 @@ export default function TrackerKalibrasiCardDetail({
               </div>
 
             </div>{/* end body */}
-
-            {/* ── footer ── */}
-            <div className="border-t px-5 py-3 flex items-center justify-end flex-shrink-0">
-              <Button onClick={onClose}>Tutup</Button>
-            </div>
           </>
         )}
       </div>
