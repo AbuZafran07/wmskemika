@@ -193,6 +193,7 @@ export default function TrackerKalibrasiCardDetail({
             calibration_status, status, calibration_received_at,
             target_completion_date, service_location, service_pic_name,
             service_pic_phone, customer_request_notes, created_at, created_by,
+            sales_name, allocation_type, project_instansi,
             customer:customers(id, name, code, pic, phone, address)
           `)
           .eq("id", receiptId)
