@@ -90,7 +90,7 @@ function infoRow(doc: jsPDF, label: string, value: string, y: number, labelW = 4
 
 export async function generateSPKPdf(receiptId: string) {
   // 1. Fetch receipt + customer
-  const { data: receipt, error } = await supabase
+  const { data: receipt, error } = await (supabase as any)
     .from("calibration_receipts")
     .select(`
       id, receipt_number, spk_number, spk_issued_at, spk_signed_at,
@@ -105,7 +105,7 @@ export async function generateSPKPdf(receiptId: string) {
   if (error || !receipt) throw new Error("Data penerimaan tidak ditemukan");
 
   // 2. Fetch instruments
-  const { data: instruments } = await supabase
+  const { data: instruments } = await (supabase as any)
     .from("calibration_instruments")
     .select("item_number, instrument_name, brand_model, serial_number, measurement_range, calibration_method, sla_working_days, unit_price")
     .eq("calibration_receipt_id", receiptId)
@@ -264,14 +264,14 @@ export async function generateSPKPdf(receiptId: string) {
 
 export async function generateCertificatePdf(receiptId: string, instrumentId?: string) {
   // 1. Fetch receipt
-  const { data: receipt } = await supabase
+  const { data: receipt } = await (supabase as any)
     .from("calibration_receipts")
     .select("id, receipt_number, spk_number, customer:customers(name)")
     .eq("id", receiptId)
     .single();
 
   // 2. Fetch instruments
-  let q = supabase
+  let q = (supabase as any)
     .from("calibration_instruments")
     .select("*")
     .eq("calibration_receipt_id", receiptId)

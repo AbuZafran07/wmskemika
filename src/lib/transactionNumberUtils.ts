@@ -284,7 +284,7 @@ export async function generateUniqueDONumber(deliveryDate?: Date, maxRetries = 5
 
 export async function generateUniqueKALNumber(maxRetries = 5): Promise<string> {
   const prefix = `KAL-${getTodayDateStr()}.`;
-  const { data } = await supabase
+  const { data } = await (supabase as any)
     .from("calibration_receipts")
     .select("receipt_number")
     .like("receipt_number", `${prefix}%`)
@@ -296,7 +296,7 @@ export async function generateUniqueKALNumber(maxRetries = 5): Promise<string> {
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const number = `${prefix}${String(sequence + attempt).padStart(3, "0")}`;
-    const { data: dup } = await supabase
+    const { data: dup } = await (supabase as any)
       .from("calibration_receipts")
       .select("id").eq("receipt_number", number).maybeSingle();
     if (!dup) return number;
@@ -306,7 +306,7 @@ export async function generateUniqueKALNumber(maxRetries = 5): Promise<string> {
 
 export async function generateUniqueSPKNumber(maxRetries = 5): Promise<string> {
   const prefix = `LAB-SPK-${getTodayDateStr()}.`;
-  const { data } = await supabase
+  const { data } = await (supabase as any)
     .from("calibration_receipts")
     .select("spk_number")
     .like("spk_number", `${prefix}%`)
@@ -318,7 +318,7 @@ export async function generateUniqueSPKNumber(maxRetries = 5): Promise<string> {
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const number = `${prefix}${String(sequence + attempt).padStart(3, "0")}`;
-    const { data: dup } = await supabase
+    const { data: dup } = await (supabase as any)
       .from("calibration_receipts")
       .select("id").eq("spk_number", number).maybeSingle();
     if (!dup) return number;
@@ -328,7 +328,7 @@ export async function generateUniqueSPKNumber(maxRetries = 5): Promise<string> {
 
 export async function generateUniqueCertNumber(maxRetries = 5): Promise<string> {
   const prefix = `LAB-SK-${getTodayDateStr()}.`;
-  const { data } = await supabase
+  const { data } = await (supabase as any)
     .from("calibration_instruments")
     .select("certificate_number")
     .like("certificate_number", `${prefix}%`)
@@ -340,7 +340,7 @@ export async function generateUniqueCertNumber(maxRetries = 5): Promise<string> 
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const number = `${prefix}${String(sequence + attempt).padStart(3, "0")}`;
-    const { data: dup } = await supabase
+    const { data: dup } = await (supabase as any)
       .from("calibration_instruments")
       .select("id").eq("certificate_number", number).maybeSingle();
     if (!dup) return number;

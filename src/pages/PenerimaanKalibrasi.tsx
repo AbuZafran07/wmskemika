@@ -244,7 +244,7 @@ function WizardDialog({ open, onClose, onSaved, editReceipt }: WizardDialogProps
       setNotes(editReceipt.customer_request_notes ?? "");
       // fetch full instruments
       (async () => {
-        const { data } = await supabase
+        const { data } = await (supabase as any)
           .from("calibration_instruments")
           .select("*")
           .eq("calibration_receipt_id", editReceipt.id)
@@ -892,7 +892,7 @@ function ViewReceiptDialog({
   useEffect(() => {
     if (!receipt) return;
     setLoading(true);
-    supabase
+    (supabase as any)
       .from("calibration_instruments")
       .select("*")
       .eq("calibration_receipt_id", receipt.id)

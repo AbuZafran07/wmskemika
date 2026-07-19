@@ -179,7 +179,7 @@ export default function TrackerKalibrasiCardDetail({
 
     (async () => {
       const [{ data: rcpt }, { data: inst }] = await Promise.all([
-        supabase
+        (supabase as any)
           .from("calibration_receipts")
           .select(`
             id, receipt_number, spk_number, spk_issued_at, spk_signed_at,
@@ -190,7 +190,7 @@ export default function TrackerKalibrasiCardDetail({
           `)
           .eq("id", receiptId)
           .single(),
-        supabase
+        (supabase as any)
           .from("calibration_instruments")
           .select(`
             id, item_number, instrument_name, brand_model, serial_number,
@@ -238,10 +238,10 @@ export default function TrackerKalibrasiCardDetail({
   const fetchComments = useCallback(async () => {
     if (!receiptId) return;
     setLoadingComments(true);
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("calibration_tracker_comments")
       .select("*")
-      .eq("calibration_receipt_id", receiptId)
+      .eq("sales_order_id", receiptId)
       .order("created_at", { ascending: true });
 
     if (error) { toast.error("Gagal memuat komentar"); setLoadingComments(false); return; }
@@ -267,7 +267,7 @@ export default function TrackerKalibrasiCardDetail({
     if (!receiptId) return;
     const ch = supabase
       .channel(`kal-comments-${receiptId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "calibration_tracker_comments", filter: `calibration_receipt_id=eq.${receiptId}` }, fetchComments)
+      .on("postgres_changes", { event: "*", schema: "public", table: "calibration_tracker_comments", filter: `sales_order_id=eq.${receiptId}` }, fetchComments)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [receiptId, fetchComments]);
@@ -281,8 +281,8 @@ export default function TrackerKalibrasiCardDetail({
   const sendComment = async () => {
     if (!newComment.trim() || !user?.id || !receiptId) return;
     setSending(true);
-    const { error } = await supabase.from("calibration_tracker_comments").insert({
-      calibration_receipt_id: receiptId,
+    const { error } = await (supabase as any).from("calibration_tracker_comments").insert({
+      sales_order_id: receiptId,
       user_id: user.id,
       message: newComment.trim(),
       type: "comment",
