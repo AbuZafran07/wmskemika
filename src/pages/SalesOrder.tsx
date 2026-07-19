@@ -2040,9 +2040,9 @@ export default function SalesOrder() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3 flex-wrap">
                 <DialogTitle>{language === "en" ? "Sales Order Details" : "Detail Sales Order"}</DialogTitle>
-                {selectedOrder && (
-                  <Badge variant={selectedOrder.sales_pulse_reference_number ? "outline" : "destructive"} className="font-mono">
-                    Ref SalesPulse: {selectedOrder.sales_pulse_reference_number || (language === "en" ? "Not set" : "Belum diisi")}
+                {selectedOrder && !selectedOrder.sales_pulse_reference_number && (
+                  <Badge variant="destructive" className="font-mono">
+                    Ref SalesPulse: {language === "en" ? "Not set" : "Belum diisi"}
                   </Badge>
                 )}
               </div>
