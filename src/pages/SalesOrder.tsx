@@ -2459,11 +2459,26 @@ export default function SalesOrder() {
                     <div style={{ color: "#333" }}>TANGGAL</div>
                     <div style={{ fontWeight: 700 }}>{formatDateID(selectedOrder.order_date)}</div>
 
-                    <div style={{ color: "#333" }}>PO CUSTOMER</div>
-                    <div style={{ fontWeight: 700 }}>{selectedOrder.customer_po_number}</div>
+                    {(selectedOrder as any).order_type === "calibration" ? (
+                      <>
+                        <div style={{ color: "#333" }}>NO. SPK</div>
+                        <div style={{ fontWeight: 700 }}>{(selectedOrder as any).spk_number || "-"}</div>
 
-                    <div style={{ color: "#333" }}>BATAS PENGIRIMAN</div>
-                    <div style={{ fontWeight: 700 }}>{formatDateID(selectedOrder.delivery_deadline)}</div>
+                        <div style={{ color: "#333" }}>PO CUSTOMER</div>
+                        <div style={{ fontWeight: 700 }}>{selectedOrder.customer_po_number || "-"}</div>
+
+                        <div style={{ color: "#333" }}>TARGET SELESAI</div>
+                        <div style={{ fontWeight: 700 }}>{formatDateID((selectedOrder as any).target_completion_date)}</div>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ color: "#333" }}>PO CUSTOMER</div>
+                        <div style={{ fontWeight: 700 }}>{selectedOrder.customer_po_number}</div>
+
+                        <div style={{ color: "#333" }}>BATAS PENGIRIMAN</div>
+                        <div style={{ fontWeight: 700 }}>{formatDateID(selectedOrder.delivery_deadline)}</div>
+                      </>
+                    )}
 
                     <div style={{ color: "#333" }}>PAYMENT TERMS</div>
                     <div style={{ fontWeight: 700, color: "#b91c1c" }}>
@@ -2478,6 +2493,44 @@ export default function SalesOrder() {
 
               {/* ✅ Items table PDF includes discount */}
               <div data-pdf-section style={{ marginTop: "12px" }}>
+                {(selectedOrder as any).order_type === "calibration" ? (
+                  <table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #111" }}>
+                    <thead>
+                      <tr style={{ background: "#0b6b3a", color: "white" }}>
+                        {["No", "Nama Alat", "Merk / Model", "Serial Number", "Range", "Metode", "SLA (Hari)", "Harga", "Subtotal"].map((h) => (
+                          <th key={h} style={{
+                            background: "#0b6b3a", color: "white", border: "1px solid #111", padding: "8px", fontSize: "11px",
+                            textAlign: h === "Harga" || h === "Subtotal" ? "right" : h === "No" || h === "SLA (Hari)" ? "center" : "left",
+                            whiteSpace: "nowrap",
+                          }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(selectedOrderItems || []).filter((it: any) => (it.item_type ?? "calibration") === "calibration").map((it: any, idx: number) => {
+                        const qty = safeNumber(it.ordered_qty, 1) || 1;
+                        const price = safeNumber(it.unit_price, 0);
+                        const subtotal = qty * price;
+                        return (
+                          <tr key={it.id}>
+                            <td style={{ border: "1px solid #111", padding: "8px", textAlign: "center" }}>{idx + 1}</td>
+                            <td style={{ border: "1px solid #111", padding: "8px" }}>{it.instrument_name || it.description || "-"}</td>
+                            <td style={{ border: "1px solid #111", padding: "8px" }}>{it.instrument_brand_model || "-"}</td>
+                            <td style={{ border: "1px solid #111", padding: "8px" }}>{it.instrument_serial_number || "-"}</td>
+                            <td style={{ border: "1px solid #111", padding: "8px" }}>{it.measurement_range || "-"}</td>
+                            <td style={{ border: "1px solid #111", padding: "8px" }}>{it.calibration_method || "-"}</td>
+                            <td style={{ border: "1px solid #111", padding: "8px", textAlign: "center" }}>{it.sla_working_days ?? "-"}</td>
+                            <td style={{ border: "1px solid #111", padding: "8px", textAlign: "right" }}>{formatCurrency(price)}</td>
+                            <td style={{ border: "1px solid #111", padding: "8px", textAlign: "right" }}>{formatCurrency(subtotal)}</td>
+                          </tr>
+                        );
+                      })}
+                      {(selectedOrderItems || []).filter((it: any) => (it.item_type ?? "calibration") === "calibration").length === 0 && (
+                        <tr><td colSpan={9} style={{ border: "1px solid #111", padding: "12px", textAlign: "center", color: "#666" }}>Belum ada alat kalibrasi</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                ) : (
                 <table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #111" }}>
                   <thead>
                     <tr style={{ background: "#0b6b3a", color: "white" }}>
@@ -2550,6 +2603,7 @@ export default function SalesOrder() {
                     })}
                   </tbody>
                 </table>
+                )}
               </div>
 
               {/* Totals area PDF */}
