@@ -120,6 +120,7 @@ export function useTrackerKalibrasi() {
         id: r.id,
         receipt_number: r.sales_order_number ?? '-',
         spk_number: r.spk_number ?? null,
+        customer_po_number: r.customer_po_number ?? null,
         received_date:
           (r.calibration_received_at ? String(r.calibration_received_at).slice(0, 10) : null) ??
           r.order_date ?? '',
