@@ -108,7 +108,7 @@ export function EditCalibrationHeaderDialog({ open, onOpenChange, order, onSaved
       target_completion_date: targetDate,
       customer_request_notes: notes,
       sales_pulse_reference_number: salesPulseRef.trim(),
-    }, []);
+    });
     setSaving(false);
     if (!res.success) {
       toast.error(res.error || "Gagal memperbarui SO Kalibrasi");
