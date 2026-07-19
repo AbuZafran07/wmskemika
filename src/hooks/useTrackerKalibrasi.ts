@@ -18,6 +18,7 @@ export interface KalibrasiV2Card {
   id: string;
   receipt_number: string;
   spk_number: string | null;
+  customer_po_number: string | null;
   received_date: string;
   target_completion_date: string | null;
   status: string;
@@ -101,7 +102,7 @@ export function useTrackerKalibrasi() {
       const { data: rows, error: soError } = await (supabase as any)
         .from('sales_order_headers')
         .select(`
-          id, sales_order_number, spk_number, order_date, target_completion_date,
+          id, sales_order_number, spk_number, customer_po_number, order_date, target_completion_date,
           calibration_status, status, service_pic_name, service_location,
           service_pic_phone, calibration_received_at, sales_name, grand_total,
           notes, customer_request_notes,
@@ -119,6 +120,7 @@ export function useTrackerKalibrasi() {
         id: r.id,
         receipt_number: r.sales_order_number ?? '-',
         spk_number: r.spk_number ?? null,
+        customer_po_number: r.customer_po_number ?? null,
         received_date:
           (r.calibration_received_at ? String(r.calibration_received_at).slice(0, 10) : null) ??
           r.order_date ?? '',
