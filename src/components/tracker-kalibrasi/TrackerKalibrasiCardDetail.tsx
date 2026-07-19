@@ -880,15 +880,16 @@ export default function TrackerKalibrasiCardDetail({
 
               {/* ── RIGHT: comments ── */}
               <div className="w-full md:w-72 flex flex-col border-t md:border-t-0 md:border-l flex-shrink-0 max-h-[45vh] md:max-h-none">
-                <div className="px-4 py-3 border-b flex-shrink-0">
+                <div className="px-4 py-3 border-b flex-shrink-0 flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-muted-foreground" />
                   <h3 className="text-sm font-semibold flex items-center gap-1.5">
                     Komentar & Aktivitas
-                    {comments.length > 0 && (
-                      <span className="text-xs bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full font-bold">
-                        {comments.length}
-                      </span>
-                    )}
                   </h3>
+                  {comments.length > 0 && (
+                    <span className="text-xs bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full font-bold">
+                      {comments.length}
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-3 space-y-3">
