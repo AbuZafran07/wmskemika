@@ -55,7 +55,7 @@ export function CalibrationSPKPanel({ salesOrderId, salesOrderNumber, spkNumber,
     try {
       const number = await generateUniqueSPKNumber();
       const issuedAt = new Date().toISOString();
-      await patchHeader({ spk_number: number, spk_issued_at: issuedAt, calibration_status: "spk_issued" });
+      await patchHeader({ spk_number: number, spk_issued_at: issuedAt, calibration_status: "spk_issued", customer_po_number: number });
       setLocalSpk(number);
       setLocalIssuedAt(issuedAt);
       setLocalStatus("spk_issued");
