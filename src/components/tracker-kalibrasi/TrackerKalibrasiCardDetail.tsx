@@ -875,6 +875,7 @@ export default function TrackerKalibrasiCardDetail({
                   </div>
                 </div>
 
+              </div>
               </ScrollArea>{/* end LEFT */}
 
               {/* ── RIGHT: comments ── */}
