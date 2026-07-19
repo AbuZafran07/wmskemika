@@ -2554,6 +2554,10 @@ export type Database = {
         Args: { header_data: Json; items_data: Json; order_id: string }
         Returns: Json
       }
+      recompute_sales_order_totals: {
+        Args: { _order_id: string }
+        Returns: undefined
+      }
       sales_order_approve: {
         Args: { approve_reason?: string; order_id: string }
         Returns: Json
