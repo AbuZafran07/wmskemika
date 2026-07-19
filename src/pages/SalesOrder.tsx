@@ -2694,7 +2694,14 @@ export default function SalesOrder() {
                     const dppPengganti = Math.round(dpp * 11 / 12);
                     const tax = Math.round(dppPengganti * 12 / 100);
                     const ship = safeNumber(selectedOrder.shipping_cost, 0);
-                    const grandTotal = dpp + tax + ship;
+                    const isCal = (selectedOrder as any).order_type === "calibration";
+                    const sparePartsTotal = isCal
+                      ? calibrationSpareParts.reduce(
+                          (s: number, p: any) => s + safeNumber(p.qty_used, 0) * safeNumber(p.unit_price, 0),
+                          0,
+                        )
+                      : 0;
+                    const grandTotal = dpp + tax + ship + sparePartsTotal;
 
                     return (
                       <>
@@ -2711,9 +2718,16 @@ export default function SalesOrder() {
                           <b>{formatCurrency(tax)}</b>
                         </div>
 
+                        {isCal && sparePartsTotal > 0 && (
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                            <span>Sparepart</span>
+                            <b>{formatCurrency(sparePartsTotal)}</b>
+                          </div>
+                        )}
+
                         <div style={{ borderTop: "1px solid #888", marginTop: "4px", paddingTop: "6px", display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
                           <span style={{ fontWeight: 700 }}>Subtotal</span>
-                          <span style={{ fontWeight: 700 }}>{formatCurrency(dpp + tax)}</span>
+                          <span style={{ fontWeight: 700 }}>{formatCurrency(dpp + tax + sparePartsTotal)}</span>
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
                           <span>Biaya Pengantaran</span>
