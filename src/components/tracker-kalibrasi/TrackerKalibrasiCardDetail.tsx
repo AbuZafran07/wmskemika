@@ -248,6 +248,9 @@ export default function TrackerKalibrasiCardDetail({
             customer_request_notes: h.customer_request_notes ?? null,
             created_at: h.created_at,
             created_by: h.created_by ?? null,
+            sales_name: h.sales_name ?? null,
+            allocation_type: h.allocation_type ?? null,
+            project_instansi: h.project_instansi ?? null,
             customer: h.customer ?? null,
           }
         : null;
