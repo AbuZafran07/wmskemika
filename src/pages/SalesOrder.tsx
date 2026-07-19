@@ -2038,7 +2038,14 @@ export default function SalesOrder() {
         <DialogContent className={`${(selectedOrder as any)?.order_type === "calibration" ? "max-w-5xl" : "max-w-3xl"} max-h-[80vh] overflow-y-auto`}>
           <DialogHeader>
             <div className="flex items-center justify-between">
-              <DialogTitle>{language === "en" ? "Sales Order Details" : "Detail Sales Order"}</DialogTitle>
+              <div className="flex items-center gap-3 flex-wrap">
+                <DialogTitle>{language === "en" ? "Sales Order Details" : "Detail Sales Order"}</DialogTitle>
+                {selectedOrder && (
+                  <Badge variant={selectedOrder.sales_pulse_reference_number ? "outline" : "destructive"} className="font-mono">
+                    Ref SalesPulse: {selectedOrder.sales_pulse_reference_number || (language === "en" ? "Not set" : "Belum diisi")}
+                  </Badge>
+                )}
+              </div>
               <div className="flex gap-2">
                 {selectedOrder?.po_document_url && (
                   <Button
