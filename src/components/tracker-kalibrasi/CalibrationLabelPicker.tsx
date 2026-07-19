@@ -23,6 +23,7 @@ interface Props {
 
 export default function CalibrationLabelPicker({ salesOrderId, canManage = true }: Props) {
   const { user } = useAuth() as any;
+  const isSuperAdmin = user?.role === "super_admin";
 
   const [allLabels, setAllLabels] = useState<LabelRow[]>([]);
   const [cardLabelIds, setCardLabelIds] = useState<string[]>([]);
@@ -143,7 +144,7 @@ export default function CalibrationLabelPicker({ salesOrderId, canManage = true 
                           <span className="truncate">{label.name}</span>
                           {cardLabelIds.includes(label.id) && <span className="text-primary ml-auto text-[10px]">✓</span>}
                         </button>
-                        <>
+                        {isSuperAdmin && <>
                             <button onClick={() => { setEditId(label.id); setEditName(label.name); setEditColor(label.color); }}
                               className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground p-1">
                               <Pencil className="h-3 w-3" />
@@ -152,7 +153,7 @@ export default function CalibrationLabelPicker({ salesOrderId, canManage = true 
                               className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive/80 p-1">
                               <Trash2 className="h-3 w-3" />
                             </button>
-                        </>
+                        </>}
                       </>
                     )}
                   </div>
@@ -164,7 +165,7 @@ export default function CalibrationLabelPicker({ salesOrderId, canManage = true 
                 )}
               </div>
             </div>
-            <div className="border-t pt-2 space-y-2">
+            {isSuperAdmin && <div className="border-t pt-2 space-y-2">
                 <p className="text-[11px] font-medium text-muted-foreground">Buat Label Baru</p>
                 <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Nama label..."
                   className="h-7 text-xs" onKeyDown={e => e.key === "Enter" && createLabel()} />
@@ -178,7 +179,7 @@ export default function CalibrationLabelPicker({ salesOrderId, canManage = true 
                 <Button size="sm" className="w-full h-7 text-xs" onClick={createLabel} disabled={!newName.trim() || creating}>
                   <Plus className="h-3 w-3 mr-1" /> Buat Label
                 </Button>
-            </div>
+            </div>}
           </PopoverContent>
         </Popover>
       )}
