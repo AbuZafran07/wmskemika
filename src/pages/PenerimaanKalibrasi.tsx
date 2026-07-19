@@ -245,16 +245,17 @@ function WizardDialog({ open, onClose, onSaved, editReceipt }: WizardDialogProps
       // fetch full instruments
       (async () => {
         const { data } = await (supabase as any)
-          .from("calibration_instruments")
+          .from("sales_order_items")
           .select("*")
-          .eq("calibration_receipt_id", editReceipt.id)
-          .order("item_number", { ascending: true });
+          .eq("sales_order_id", editReceipt.id)
+          .eq("item_type", "calibration")
+          .order("created_at", { ascending: true });
         if (data && data.length > 0) {
           setInstruments(data.map((d: Record<string, unknown>) => ({
             _key: crypto.randomUUID(),
             instrument_name: (d.instrument_name as string) ?? "",
-            brand_model: (d.brand_model as string) ?? "",
-            serial_number: (d.serial_number as string) ?? "",
+            brand_model: (d.instrument_brand_model as string) ?? "",
+            serial_number: (d.instrument_serial_number as string) ?? "",
             measurement_range: (d.measurement_range as string) ?? "",
             calibration_method: (d.calibration_method as string) ?? "",
             unit_price: String(d.unit_price ?? 0),
@@ -893,10 +894,11 @@ function ViewReceiptDialog({
     if (!receipt) return;
     setLoading(true);
     (supabase as any)
-      .from("calibration_instruments")
+      .from("sales_order_items")
       .select("*")
-      .eq("calibration_receipt_id", receipt.id)
-      .order("item_number", { ascending: true })
+      .eq("sales_order_id", receipt.id)
+      .eq("item_type", "calibration")
+      .order("created_at", { ascending: true })
       .then(({ data }) => {
         setInstruments((data as Array<Record<string, unknown>>) ?? []);
         setLoading(false);
