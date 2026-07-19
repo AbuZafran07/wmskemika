@@ -90,6 +90,7 @@ import { useCustomers, useProducts } from "@/hooks/useMasterData";
 import { useSalesUsers } from "@/hooks/useSalesUsers";
 import { uploadFile, getSignedUrl } from "@/lib/storage";
 import { CreateCalibrationSODialog } from "@/components/sales-order/CreateCalibrationSODialog";
+import { EditCalibrationHeaderDialog } from "@/components/sales-order/EditCalibrationHeaderDialog";
 import { CalibrationInstrumentsPanel } from "@/components/sales-order/CalibrationInstrumentsPanel";
 import { CalibrationSPKPanel } from "@/components/sales-order/CalibrationSPKPanel";
 import { CalibrationSparepartsPanel } from "@/components/sales-order/CalibrationSparepartsPanel";
@@ -185,6 +186,7 @@ export default function SalesOrder() {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isCalibrationDialogOpen, setIsCalibrationDialogOpen] = useState(false);
+  const [editCalibrationOrder, setEditCalibrationOrder] = useState<any | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -1350,7 +1352,7 @@ export default function SalesOrder() {
                               )}
 
                               {showEdit && (
-                                <DropdownMenuItem onClick={() => (order as any).order_type === "calibration" ? handleViewDetail(order) : handleEdit(order)}>
+                                <DropdownMenuItem onClick={() => (order as any).order_type === "calibration" ? setEditCalibrationOrder(order) : handleEdit(order)}>
                                   <Edit className="w-4 h-4 mr-2" />
                                   {t("common.edit")}
                                 </DropdownMenuItem>
@@ -1444,6 +1446,14 @@ export default function SalesOrder() {
           refetch();
           setTypeFilter("calibration");
         }}
+      />
+
+      {/* Edit Calibration Header Dialog */}
+      <EditCalibrationHeaderDialog
+        open={!!editCalibrationOrder}
+        onOpenChange={(v) => { if (!v) setEditCalibrationOrder(null); }}
+        order={editCalibrationOrder}
+        onSaved={() => { refetch(); setEditCalibrationOrder(null); }}
       />
 
       {/* Create/Edit Dialog */}
@@ -2047,6 +2057,16 @@ export default function SalesOrder() {
                 )}
               </div>
               <div className="flex gap-2">
+                {(selectedOrder as any)?.order_type === "calibration" && canEdit('sales_order') && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditCalibrationOrder(selectedOrder)}
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    {language === "en" ? "Edit Info" : "Edit Info"}
+                  </Button>
+                )}
                 {selectedOrder?.po_document_url && (
                   <Button
                     variant="outline"

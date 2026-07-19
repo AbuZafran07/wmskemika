@@ -146,31 +146,37 @@ export async function updateCalibrationReceipt(
     customer_request_notes: string;
     sales_pulse_reference_number: string;
   },
-  instruments: CalibrationInstrumentInput[]
+  instruments?: CalibrationInstrumentInput[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
     if (!header.sales_pulse_reference_number || !header.sales_pulse_reference_number.trim()) {
       return { success: false, error: 'Nomor Referensi SalesPulse wajib diisi' };
     }
-    const grandTotal = instruments.reduce((s, i) => s + Number(i.unit_price || 0), 0);
+    const headerUpdate: Record<string, unknown> = {
+      customer_id: header.customer_id,
+      sales_pulse_reference_number: header.sales_pulse_reference_number.trim(),
+      service_pic_name: header.service_pic_name || null,
+      service_pic_phone: header.service_pic_phone || null,
+      service_location: header.service_location || DEFAULT_SERVICE_LOCATION,
+      calibration_received_at: toISODate(header.received_date),
+      target_completion_date: header.target_completion_date || null,
+      customer_request_notes: header.customer_request_notes || null,
+      delivery_deadline: header.target_completion_date || header.received_date,
+    };
+    if (instruments) {
+      const grandTotal = instruments.reduce((s, i) => s + Number(i.unit_price || 0), 0);
+      headerUpdate.total_amount = grandTotal;
+      headerUpdate.grand_total = grandTotal;
+    }
     const { error: updErr } = await (supabase as any)
       .from('sales_order_headers')
-      .update({
-        customer_id: header.customer_id,
-        sales_pulse_reference_number: header.sales_pulse_reference_number.trim(),
-        service_pic_name: header.service_pic_name || null,
-        service_pic_phone: header.service_pic_phone || null,
-        service_location: header.service_location || DEFAULT_SERVICE_LOCATION,
-        calibration_received_at: toISODate(header.received_date),
-        target_completion_date: header.target_completion_date || null,
-        customer_request_notes: header.customer_request_notes || null,
-        delivery_deadline:
-          header.target_completion_date || header.received_date,
-        total_amount: grandTotal,
-        grand_total: grandTotal,
-      })
+      .update(headerUpdate)
       .eq('id', id);
     if (updErr) throw updErr;
+
+    if (!instruments) {
+      return { success: true };
+    }
 
     const { error: delErr } = await (supabase as any)
       .from('sales_order_items')
