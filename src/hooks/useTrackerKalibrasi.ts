@@ -18,6 +18,7 @@ export interface KalibrasiV2Card {
   id: string;
   receipt_number: string;
   spk_number: string | null;
+  customer_po_number: string | null;
   received_date: string;
   target_completion_date: string | null;
   status: string;
