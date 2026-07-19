@@ -186,6 +186,7 @@ export default function SalesOrder() {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isCalibrationDialogOpen, setIsCalibrationDialogOpen] = useState(false);
+  const [editCalibrationOrder, setEditCalibrationOrder] = useState<any | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
