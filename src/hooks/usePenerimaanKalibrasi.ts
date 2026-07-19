@@ -38,7 +38,7 @@ export function useCalibrationReceipts() {
 
   const fetchReceipts = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('calibration_receipts')
       .select(`
         *,
@@ -71,7 +71,7 @@ export function useCalibrationReceipts() {
 }
 
 export async function updateReceiptStatus(id: string, status: string) {
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('calibration_receipts')
     .update({ status })
     .eq('id', id);
@@ -80,7 +80,7 @@ export async function updateReceiptStatus(id: string, status: string) {
 
 export async function deleteCalibrationReceipt(id: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const { error: instErr } = await supabase
+    const { error: instErr } = await (supabase as any)
       .from('calibration_instruments')
       .delete()
       .eq('calibration_receipt_id', id);
@@ -108,7 +108,7 @@ export async function updateCalibrationReceipt(
   instruments: CalibrationInstrumentInput[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { error: updErr } = await supabase
+    const { error: updErr } = await (supabase as any)
       .from('calibration_receipts')
       .update({
         customer_id: header.customer_id,
@@ -122,7 +122,7 @@ export async function updateCalibrationReceipt(
       .eq('id', id);
     if (updErr) throw updErr;
 
-    const { error: delErr } = await supabase
+    const { error: delErr } = await (supabase as any)
       .from('calibration_instruments')
       .delete()
       .eq('calibration_receipt_id', id);
@@ -167,7 +167,7 @@ export async function createCalibrationReceipt(
   try {
     const receipt_number = await generateUniqueKALNumber();
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('calibration_receipts')
       .insert({
         receipt_number,
