@@ -1212,6 +1212,17 @@ export default function SalesOrder() {
               </SelectContent>
             </Select>
 
+            <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder={language === "en" ? "All Types" : "Semua Tipe"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{language === "en" ? "All Types" : "Semua Tipe"}</SelectItem>
+                <SelectItem value="regular">{language === "en" ? "Regular" : "Reguler"}</SelectItem>
+                <SelectItem value="calibration">{language === "en" ? "Calibration" : "Kalibrasi"}</SelectItem>
+              </SelectContent>
+            </Select>
+
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="gap-2">
