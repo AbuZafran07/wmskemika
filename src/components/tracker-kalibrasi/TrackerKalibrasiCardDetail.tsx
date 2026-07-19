@@ -407,7 +407,7 @@ export default function TrackerKalibrasiCardDetail({
             </div>
 
             {/* ── body ── */}
-            <div className="flex flex-1 overflow-hidden">
+            <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
 
               {/* ── LEFT: main content ── */}
               <div className="flex-1 overflow-y-auto p-5 space-y-5">
@@ -415,7 +415,7 @@ export default function TrackerKalibrasiCardDetail({
                 {/* Customer */}
                 <div>
                   <SectionTitle>Customer</SectionTitle>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     <Field label="Nama Customer" value={receipt?.customer?.name} />
                     <Field label="Kode" value={receipt?.customer?.code} />
                     <Field label="Alamat" value={receipt?.customer?.address} />
@@ -425,7 +425,7 @@ export default function TrackerKalibrasiCardDetail({
                 {/* PIC & Lokasi */}
                 <div>
                   <SectionTitle>PIC & Lokasi</SectionTitle>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     <div className="flex items-start gap-1.5">
                       <User className="w-3.5 h-3.5 text-muted-foreground mt-3" />
                       <Field label="Nama PIC" value={receipt?.service_pic_name} />
@@ -444,7 +444,7 @@ export default function TrackerKalibrasiCardDetail({
                 {/* Jadwal & SPK */}
                 <div>
                   <SectionTitle>Jadwal & SPK</SectionTitle>
-                  <div className="grid grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <div className="flex items-start gap-1.5">
                       <CalendarDays className="w-3.5 h-3.5 text-muted-foreground mt-3" />
                       <Field label="Tgl Terima" value={fmtDate(receipt?.received_date ?? null)} />
@@ -790,7 +790,7 @@ export default function TrackerKalibrasiCardDetail({
               </div>{/* end LEFT */}
 
               {/* ── RIGHT: comments ── */}
-              <div className="w-72 flex flex-col border-l flex-shrink-0">
+              <div className="w-full md:w-72 flex flex-col border-t md:border-t-0 md:border-l flex-shrink-0 max-h-[45vh] md:max-h-none">
                 <div className="px-4 py-3 border-b flex-shrink-0">
                   <h3 className="text-sm font-semibold flex items-center gap-1.5">
                     Komentar & Aktivitas
