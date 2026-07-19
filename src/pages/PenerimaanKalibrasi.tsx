@@ -16,6 +16,12 @@ import {
   CalibrationReceiptRow,
 } from "@/hooks/usePenerimaanKalibrasi";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -76,11 +82,10 @@ function StatusEditCell({
   status: string;
   onUpdated: () => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const handleSelect = async (newStatus: string) => {
-    if (newStatus === status) { setOpen(false); return; }
+    if (newStatus === status) return;
     setSaving(true);
     try {
       await updateReceiptStatus(receiptId, newStatus);
@@ -90,7 +95,6 @@ function StatusEditCell({
       toast.error("Gagal update status");
     }
     setSaving(false);
-    setOpen(false);
   };
 
   if (status === "converted_to_so" || status === "cancelled") {
@@ -98,41 +102,34 @@ function StatusEditCell({
   }
 
   return (
-    <div className="relative inline-block">
-      <button
-        disabled={saving}
-        onClick={() => setOpen(!open)}
-        className={cn(
-          "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-opacity",
-          STATUS_CONFIG[status]?.className ?? "",
-          "hover:opacity-80 cursor-pointer",
-        )}
-      >
-        {saving ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : STATUS_CONFIG[status]?.label ?? status}
-        {!saving && <ChevronDown className="w-2.5 h-2.5 opacity-60" />}
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full mt-1 z-20 bg-background border rounded-lg shadow-lg py-1 min-w-[160px]">
-            {EDITABLE_STATUSES.map(([key, cfg]) => (
-              <button
-                key={key}
-                onClick={() => handleSelect(key)}
-                className={cn(
-                  "w-full text-left px-3 py-1.5 text-xs hover:bg-muted/50 flex items-center gap-2",
-                  key === status && "font-semibold",
-                )}
-              >
-                <span className={cn("w-2 h-2 rounded-full flex-shrink-0", cfg.className.split(" ")[0])} />
-                {cfg.label}
-                {key === status && <Check className="w-3 h-3 ml-auto" />}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          disabled={saving}
+          className={cn(
+            "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-opacity",
+            STATUS_CONFIG[status]?.className ?? "",
+            "hover:opacity-80 cursor-pointer",
+          )}
+        >
+          {saving ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : STATUS_CONFIG[status]?.label ?? status}
+          {!saving && <ChevronDown className="w-2.5 h-2.5 opacity-60" />}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-[180px]">
+        {EDITABLE_STATUSES.map(([key, cfg]) => (
+          <DropdownMenuItem
+            key={key}
+            onSelect={() => handleSelect(key)}
+            className={cn("text-xs gap-2", key === status && "font-semibold")}
+          >
+            <span className={cn("w-2 h-2 rounded-full flex-shrink-0", cfg.className.split(" ")[0])} />
+            <span className="flex-1">{cfg.label}</span>
+            {key === status && <Check className="w-3 h-3" />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
