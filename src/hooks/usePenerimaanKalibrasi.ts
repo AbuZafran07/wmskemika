@@ -85,7 +85,7 @@ export async function deleteCalibrationReceipt(id: string): Promise<{ success: b
       .delete()
       .eq('calibration_receipt_id', id);
     if (instErr) throw instErr;
-    const { error } = await supabase.from('calibration_receipts').delete().eq('id', id);
+    const { error } = await (supabase as any).from('calibration_receipts').delete().eq('id', id);
     if (error) throw error;
     return { success: true };
   } catch (err: unknown) {
@@ -140,7 +140,7 @@ export async function updateCalibrationReceipt(
         unit_price: inst.unit_price,
         sla_working_days: inst.sla_working_days || 5,
       }));
-      const { error: insErr } = await supabase.from('calibration_instruments').insert(rows);
+      const { error: insErr } = await (supabase as any).from('calibration_instruments').insert(rows);
       if (insErr) throw insErr;
     }
 
@@ -200,7 +200,7 @@ export async function createCalibrationReceipt(
         unit_price: inst.unit_price,
         sla_working_days: inst.sla_working_days || 5,
       }));
-      const { error: instError } = await supabase.from('calibration_instruments').insert(rows);
+      const { error: instError } = await (supabase as any).from('calibration_instruments').insert(rows);
       if (instError) throw instError;
     }
 
