@@ -89,6 +89,7 @@ import { useSettings } from "@/hooks/usePlanOrders";
 import { useCustomers, useProducts } from "@/hooks/useMasterData";
 import { useSalesUsers } from "@/hooks/useSalesUsers";
 import { uploadFile, getSignedUrl } from "@/lib/storage";
+import { CreateCalibrationSODialog } from "@/components/sales-order/CreateCalibrationSODialog";
 import { usePagination } from "@/hooks/usePagination";
 import { DataTablePagination } from "@/components/DataTablePagination";
 import { generateUniqueSalesOrderNumber } from "@/lib/transactionNumberUtils";
@@ -174,11 +175,13 @@ export default function SalesOrder() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "regular" | "calibration">("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [viewMode, setViewMode] = useState<"active" | "archived">("active");
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCalibrationDialogOpen, setIsCalibrationDialogOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
