@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { useCustomers } from "@/hooks/useMasterData";
@@ -19,6 +20,7 @@ interface Props {
 }
 
 const DEFAULT_LOCATION = "Lab Kemika, Tangerang";
+const ALLOCATION_OPTIONS = ["Internal", "Selling", "Sample", "Stock", "Project"] as const;
 
 export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Props) {
   const { user } = useAuth();
@@ -35,6 +37,7 @@ export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Pro
   const [targetDate, setTargetDate] = useState("");
   const [location, setLocation] = useState(DEFAULT_LOCATION);
   const [notes, setNotes] = useState("");
+  const [allocationType, setAllocationType] = useState<string>("Internal");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -49,6 +52,7 @@ export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Pro
       setTargetDate("");
       setLocation(DEFAULT_LOCATION);
       setNotes("");
+      setAllocationType("Internal");
       setSaving(false);
     }
   }, [open]);
@@ -129,6 +133,7 @@ export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Pro
         customer_request_notes: notes,
         created_by: user?.id ?? null,
         sales_pulse_reference_number: salesPulseRef.trim(),
+        allocation_type: allocationType,
       },
       [], // alat ditambahkan nanti di tab Penerimaan
     );
@@ -206,6 +211,21 @@ export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Pro
           <div className="space-y-2">
             <Label>Lokasi Kalibrasi</Label>
             <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder={DEFAULT_LOCATION} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Alokasi Alat & Sparepart</Label>
+            <Select value={allocationType} onValueChange={setAllocationType}>
+              <SelectTrigger>
+                <SelectValue placeholder="Pilih alokasi" />
+              </SelectTrigger>
+              <SelectContent>
+                {ALLOCATION_OPTIONS.map((opt) => (
+                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Menentukan sumber alokasi alat & sparepart yang dipakai untuk kalibrasi (default Internal).</p>
           </div>
 
           <div className="space-y-2">
