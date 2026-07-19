@@ -175,6 +175,60 @@ export type Database = {
           },
         ]
       }
+      calibration_spare_parts: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          instrument_id: string
+          issued_stock_out_id: string | null
+          notes: string | null
+          product_id: string
+          qty_used: number
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          instrument_id: string
+          issued_stock_out_id?: string | null
+          notes?: string | null
+          product_id: string
+          qty_used?: number
+          unit_price?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          instrument_id?: string
+          issued_stock_out_id?: string | null
+          notes?: string | null
+          product_id?: string
+          qty_used?: number
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calibration_spare_parts_instrument_id_fkey"
+            columns: ["instrument_id"]
+            isOneToOne: false
+            referencedRelation: "sales_order_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calibration_spare_parts_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calibration_tracker_checklists: {
         Row: {
           checked_at: string | null

@@ -92,6 +92,7 @@ import { uploadFile, getSignedUrl } from "@/lib/storage";
 import { CreateCalibrationSODialog } from "@/components/sales-order/CreateCalibrationSODialog";
 import { CalibrationInstrumentsPanel } from "@/components/sales-order/CalibrationInstrumentsPanel";
 import { CalibrationSPKPanel } from "@/components/sales-order/CalibrationSPKPanel";
+import { CalibrationSparepartsPanel } from "@/components/sales-order/CalibrationSparepartsPanel";
 import { usePagination } from "@/hooks/usePagination";
 import { DataTablePagination } from "@/components/DataTablePagination";
 import { generateUniqueSalesOrderNumber } from "@/lib/transactionNumberUtils";
@@ -2209,6 +2210,11 @@ export default function SalesOrder() {
                     salesOrderNumber={selectedOrder.sales_order_number}
                     spkNumber={(selectedOrder as any).spk_number ?? null}
                     spkIssuedAt={(selectedOrder as any).spk_issued_at ?? null}
+                    calibrationStatus={(selectedOrder as any).calibration_status ?? null}
+                    onChanged={() => refetch()}
+                  />
+                  <CalibrationSparepartsPanel
+                    salesOrderId={selectedOrder.id}
                     calibrationStatus={(selectedOrder as any).calibration_status ?? null}
                     onChanged={() => refetch()}
                   />
