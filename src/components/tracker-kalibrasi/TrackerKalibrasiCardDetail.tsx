@@ -178,31 +178,73 @@ export default function TrackerKalibrasiCardDetail({
     setLoadingReceipt(true);
 
     (async () => {
-      const [{ data: rcpt }, { data: inst }] = await Promise.all([
+      const [{ data: hdr }, { data: items }] = await Promise.all([
         (supabase as any)
-          .from("calibration_receipts")
+          .from("sales_order_headers")
           .select(`
-            id, receipt_number, spk_number, spk_issued_at, spk_signed_at,
-            status, archived, received_date, target_completion_date,
-            service_location, service_pic_name, service_pic_phone,
-            customer_request_notes, created_at, created_by,
+            id, sales_order_number, spk_number, spk_issued_at,
+            calibration_status, status, calibration_received_at,
+            target_completion_date, service_location, service_pic_name,
+            service_pic_phone, customer_request_notes, created_at, created_by,
             customer:customers(id, name, code, pic, phone, address)
           `)
           .eq("id", receiptId)
           .single(),
         (supabase as any)
-          .from("calibration_instruments")
+          .from("sales_order_items")
           .select(`
-            id, item_number, instrument_name, brand_model, serial_number,
-            measurement_range, calibration_method, unit_price, sla_working_days,
-            feasibility_status, calibration_conclusion, certificate_number
+            id, ordered_qty, unit_price, instrument_name,
+            instrument_brand_model, instrument_serial_number,
+            measurement_range, calibration_method, sla_working_days,
+            feasibility_status, feasibility_notes, certificate_number,
+            description, item_type, created_at
           `)
-          .eq("calibration_receipt_id", receiptId)
-          .order("item_number", { ascending: true }),
+          .eq("sales_order_id", receiptId)
+          .eq("item_type", "calibration")
+          .order("created_at", { ascending: true }),
       ]);
 
-      const instList = (inst || []) as unknown as InstrumentDetail[];
-      setReceipt((rcpt as unknown as ReceiptDetail) ?? null);
+      const rawItems = (items || []) as Record<string, any>[];
+      const instList: InstrumentDetail[] = rawItems.map((it, idx) => ({
+        id: it.id,
+        item_number: idx + 1,
+        instrument_name: it.instrument_name ?? it.description ?? "-",
+        brand_model: it.instrument_brand_model ?? null,
+        serial_number: it.instrument_serial_number ?? null,
+        measurement_range: it.measurement_range ?? null,
+        calibration_method: it.calibration_method ?? null,
+        unit_price: Number(it.unit_price ?? 0),
+        sla_working_days: it.sla_working_days ?? null,
+        feasibility_status: it.feasibility_status ?? null,
+        calibration_conclusion: null,
+        certificate_number: it.certificate_number ?? null,
+      }));
+
+      const h = (hdr as Record<string, any>) ?? null;
+      const mapped: ReceiptDetail | null = h
+        ? {
+            id: h.id,
+            receipt_number: h.sales_order_number ?? "-",
+            spk_number: h.spk_number ?? null,
+            spk_issued_at: h.spk_issued_at ?? null,
+            spk_signed_at: null,
+            status: h.calibration_status ?? h.status ?? "draft",
+            archived: false,
+            received_date: h.calibration_received_at
+              ? String(h.calibration_received_at).slice(0, 10)
+              : "",
+            target_completion_date: h.target_completion_date ?? null,
+            service_location: h.service_location ?? null,
+            service_pic_name: h.service_pic_name ?? null,
+            service_pic_phone: h.service_pic_phone ?? null,
+            customer_request_notes: h.customer_request_notes ?? null,
+            created_at: h.created_at,
+            created_by: h.created_by ?? null,
+            customer: h.customer ?? null,
+          }
+        : null;
+
+      setReceipt(mapped);
       setInstruments(instList);
 
       // auto-select instrument for spare parts if only one
