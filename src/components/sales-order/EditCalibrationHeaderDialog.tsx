@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Save, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { useCustomers } from "@/hooks/useMasterData";
@@ -12,6 +13,7 @@ import { updateCalibrationReceipt } from "@/hooks/usePenerimaanKalibrasi";
 import { listSalesPulseOpenReferences, type SalesPulseReference } from "@/lib/salesPulseSync";
 
 const DEFAULT_LOCATION = "Lab Kemika, Tangerang";
+const ALLOCATION_OPTIONS = ["Internal", "Selling", "Sample", "Stock", "Project"] as const;
 
 interface Props {
   open: boolean;
@@ -34,7 +36,11 @@ export function EditCalibrationHeaderDialog({ open, onOpenChange, order, onSaved
   const [targetDate, setTargetDate] = useState("");
   const [location, setLocation] = useState(DEFAULT_LOCATION);
   const [notes, setNotes] = useState("");
+  const [allocationType, setAllocationType] = useState<string>("Internal");
   const [saving, setSaving] = useState(false);
+
+  const isDraft = (order?.calibration_status ?? order?.status ?? "draft") === "draft"
+    || (order?.calibration_status ?? "") === "pending_receipt";
 
   useEffect(() => {
     if (!open || !order) return;
@@ -47,6 +53,7 @@ export function EditCalibrationHeaderDialog({ open, onOpenChange, order, onSaved
     setTargetDate(order.target_completion_date ? String(order.target_completion_date).slice(0, 10) : "");
     setLocation(order.service_location ?? DEFAULT_LOCATION);
     setNotes(order.customer_request_notes ?? "");
+    setAllocationType(order.allocation_type ?? "Internal");
     setSalesPulseSearch("");
   }, [open, order]);
 
@@ -108,6 +115,7 @@ export function EditCalibrationHeaderDialog({ open, onOpenChange, order, onSaved
       target_completion_date: targetDate,
       customer_request_notes: notes,
       sales_pulse_reference_number: salesPulseRef.trim(),
+      allocation_type: allocationType,
     });
     setSaving(false);
     if (!res.success) {
@@ -182,6 +190,25 @@ export function EditCalibrationHeaderDialog({ open, onOpenChange, order, onSaved
           <div className="space-y-2">
             <Label>Lokasi Kalibrasi</Label>
             <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder={DEFAULT_LOCATION} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Alokasi Alat & Sparepart</Label>
+            <Select value={allocationType} onValueChange={setAllocationType} disabled={!isDraft}>
+              <SelectTrigger>
+                <SelectValue placeholder="Pilih alokasi" />
+              </SelectTrigger>
+              <SelectContent>
+                {ALLOCATION_OPTIONS.map((opt) => (
+                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {isDraft
+                ? "Alokasi hanya bisa diubah saat status masih Draft."
+                : "Status sudah lewat Draft — alokasi terkunci."}
+            </p>
           </div>
 
           <div className="space-y-2">
