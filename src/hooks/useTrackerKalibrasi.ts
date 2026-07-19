@@ -7,7 +7,7 @@ export type KalibrasiV2Column = 'in_progress' | 'completed' | 'invoiced' | 'sele
 
 export interface KalibrasiV2Checklist {
   id: string;
-  calibration_receipt_id: string;
+  sales_order_id: string;
   checklist_key: string;
   is_checked: boolean;
   checked_by: string | null;
@@ -124,14 +124,14 @@ export function useTrackerKalibrasi() {
       const { data: chkData, error: chkError } = await (supabase as any)
         .from('calibration_tracker_checklists')
         .select('*')
-        .in('calibration_receipt_id', ids);
+        .in('sales_order_id', ids);
 
       if (chkError) throw chkError;
 
       const grouped: Record<string, KalibrasiV2Checklist[]> = {};
       for (const c of (chkData || []) as KalibrasiV2Checklist[]) {
-        if (!grouped[c.calibration_receipt_id]) grouped[c.calibration_receipt_id] = [];
-        grouped[c.calibration_receipt_id].push(c);
+        if (!grouped[c.sales_order_id]) grouped[c.sales_order_id] = [];
+        grouped[c.sales_order_id].push(c);
       }
       setChecklists(grouped);
     } catch (err) {
@@ -199,7 +199,7 @@ export function useTrackerKalibrasi() {
             ...current,
             {
               id: `temp-${checklistKey}`,
-              calibration_receipt_id: receiptId,
+              sales_order_id: receiptId,
               checklist_key: checklistKey,
               is_checked: true,
               checked_by: user.id,
@@ -221,7 +221,7 @@ export function useTrackerKalibrasi() {
             .eq('id', existing.id);
         } else {
           await (supabase as any).from('calibration_tracker_checklists').insert({
-            calibration_receipt_id: receiptId,
+            sales_order_id: receiptId,
             checklist_key: checklistKey,
             is_checked: true,
             checked_by: user.id,
