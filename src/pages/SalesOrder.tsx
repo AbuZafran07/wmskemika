@@ -2195,6 +2195,16 @@ export default function SalesOrder() {
                 );
               })()}
 
+              {(selectedOrder as any).order_type === "calibration" ? (
+                <CalibrationInstrumentsPanel
+                  salesOrderId={selectedOrder.id}
+                  salesOrderNumber={selectedOrder.sales_order_number}
+                  calibrationStatus={(selectedOrder as any).calibration_status ?? null}
+                  onChanged={() => {
+                    fetchOrders?.();
+                  }}
+                />
+              ) : (
               <div>
                 <h4 className="font-semibold mb-3">{language === "en" ? "Order Items" : "Item Pesanan"}</h4>
                 {itemsLoading ? (
@@ -2250,6 +2260,7 @@ export default function SalesOrder() {
                   </Table>
                 )}
               </div>
+              )}
 
               {(selectedOrder.status === "approved" ||
                 selectedOrder.status === "partially_delivered" ||
