@@ -90,6 +90,7 @@ import { useCustomers, useProducts } from "@/hooks/useMasterData";
 import { useSalesUsers } from "@/hooks/useSalesUsers";
 import { uploadFile, getSignedUrl } from "@/lib/storage";
 import { CreateCalibrationSODialog } from "@/components/sales-order/CreateCalibrationSODialog";
+import { CalibrationInstrumentsPanel } from "@/components/sales-order/CalibrationInstrumentsPanel";
 import { usePagination } from "@/hooks/usePagination";
 import { DataTablePagination } from "@/components/DataTablePagination";
 import { generateUniqueSalesOrderNumber } from "@/lib/transactionNumberUtils";
@@ -2032,7 +2033,7 @@ export default function SalesOrder() {
 
       {/* Detail Dialog */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className={`${(selectedOrder as any)?.order_type === "calibration" ? "max-w-5xl" : "max-w-3xl"} max-h-[80vh] overflow-y-auto`}>
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle>{language === "en" ? "Sales Order Details" : "Detail Sales Order"}</DialogTitle>
@@ -2194,6 +2195,16 @@ export default function SalesOrder() {
                 );
               })()}
 
+              {(selectedOrder as any).order_type === "calibration" ? (
+                <CalibrationInstrumentsPanel
+                  salesOrderId={selectedOrder.id}
+                  salesOrderNumber={selectedOrder.sales_order_number}
+                  calibrationStatus={(selectedOrder as any).calibration_status ?? null}
+                  onChanged={() => {
+                    refetch();
+                  }}
+                />
+              ) : (
               <div>
                 <h4 className="font-semibold mb-3">{language === "en" ? "Order Items" : "Item Pesanan"}</h4>
                 {itemsLoading ? (
@@ -2249,6 +2260,7 @@ export default function SalesOrder() {
                   </Table>
                 )}
               </div>
+              )}
 
               {(selectedOrder.status === "approved" ||
                 selectedOrder.status === "partially_delivered" ||
