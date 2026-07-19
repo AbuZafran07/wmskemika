@@ -207,10 +207,14 @@ export async function createCalibrationReceipt(
     target_completion_date: string;
     customer_request_notes: string;
     created_by: string | null;
+    sales_pulse_reference_number: string;
   },
   instruments: CalibrationInstrumentInput[]
 ): Promise<{ success: boolean; error?: string; id?: string; receipt_number?: string }> {
   try {
+    if (!header.sales_pulse_reference_number || !header.sales_pulse_reference_number.trim()) {
+      return { success: false, error: 'Nomor Referensi SalesPulse wajib diisi' };
+    }
     const receipt_number = await generateUniqueKALNumber();
     const grandTotal = instruments.reduce((s, i) => s + Number(i.unit_price || 0), 0);
 
@@ -235,6 +239,7 @@ export async function createCalibrationReceipt(
         customer_id: header.customer_id,
         sales_name: salesName,
         customer_po_number: receipt_number,
+        sales_pulse_reference_number: header.sales_pulse_reference_number.trim(),
         allocation_type: 'internal',
         project_instansi: 'Kalibrasi',
         order_date: header.received_date,
