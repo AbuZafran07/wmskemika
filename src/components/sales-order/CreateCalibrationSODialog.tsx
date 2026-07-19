@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useCustomers } from "@/hooks/useMasterData";
 import { useAuth } from "@/contexts/AuthContext";
 import { createCalibrationReceipt } from "@/hooks/usePenerimaanKalibrasi";
+import { listSalesPulseOpenReferences, type SalesPulseReference } from "@/lib/salesPulseSync";
 
 interface Props {
   open: boolean;
@@ -27,6 +28,9 @@ export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Pro
   const [picName, setPicName] = useState("");
   const [picPhone, setPicPhone] = useState("");
   const [salesPulseRef, setSalesPulseRef] = useState("");
+  const [salesPulseOptions, setSalesPulseOptions] = useState<SalesPulseReference[]>([]);
+  const [salesPulseSearch, setSalesPulseSearch] = useState("");
+  const [salesPulseLoading, setSalesPulseLoading] = useState(false);
   const [receivedDate, setReceivedDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [targetDate, setTargetDate] = useState("");
   const [location, setLocation] = useState(DEFAULT_LOCATION);
@@ -39,6 +43,8 @@ export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Pro
       setPicName("");
       setPicPhone("");
       setSalesPulseRef("");
+      setSalesPulseOptions([]);
+      setSalesPulseSearch("");
       setReceivedDate(new Date().toISOString().slice(0, 10));
       setTargetDate("");
       setLocation(DEFAULT_LOCATION);
@@ -47,10 +53,56 @@ export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Pro
     }
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    const t = window.setTimeout(async () => {
+      setSalesPulseLoading(true);
+      try {
+        const data = await listSalesPulseOpenReferences({
+          search: salesPulseSearch.trim() || undefined,
+          includeSelectedReference: salesPulseRef || undefined,
+        });
+        if (active) setSalesPulseOptions(data);
+      } catch (e) {
+        console.error("Failed to load Sales Pulse references:", e);
+        if (active) toast.error("Gagal memuat referensi SalesPulse");
+      } finally {
+        if (active) setSalesPulseLoading(false);
+      }
+    }, 300);
+    return () => {
+      active = false;
+      window.clearTimeout(t);
+    };
+  }, [open, salesPulseSearch, salesPulseRef]);
+
   const customerOptions = useMemo(
     () => customers.map((c: any) => ({ value: c.id, label: `${c.code ? c.code + " - " : ""}${c.name}` })),
     [customers],
   );
+
+  const salesPulseSelectOptions = useMemo(
+    () =>
+      salesPulseOptions.map((r) => ({
+        value: r.reference_number,
+        label: r.reference_number,
+        description: `${r.deal_name} • ${r.customer_name}${r.sales_name ? ` • ${r.sales_name}` : ""}`,
+      })),
+    [salesPulseOptions],
+  );
+
+  const handleSalesPulseChange = (ref: string) => {
+    setSalesPulseRef(ref);
+    const picked = salesPulseOptions.find((r) => r.reference_number === ref);
+    if (picked) {
+      const match = customers.find((c: any) =>
+        (picked.customer_code && c.code === picked.customer_code) ||
+        c.name?.toLowerCase() === picked.customer_name?.toLowerCase(),
+      ) as any;
+      if (match && !customerId) handleCustomerChange(match.id);
+    }
+  };
 
   const handleCustomerChange = (id: string) => {
     setCustomerId(id);
@@ -117,12 +169,16 @@ export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Pro
 
           <div className="space-y-2">
             <Label>No. Referensi SalesPulse <span className="text-destructive">*</span></Label>
-            <Input
+            <SearchableSelect
+              options={salesPulseSelectOptions}
               value={salesPulseRef}
-              onChange={(e) => setSalesPulseRef(e.target.value)}
-              placeholder="Contoh: SP-2026-0001"
+              onValueChange={handleSalesPulseChange}
+              onSearchChange={setSalesPulseSearch}
+              placeholder={salesPulseLoading ? "Memuat referensi..." : "Pilih No. Referensi SalesPulse"}
+              searchPlaceholder="Cari nomor / deal / customer..."
+              emptyMessage={salesPulseLoading ? "Memuat..." : "Tidak ada referensi terbuka"}
             />
-            <p className="text-xs text-muted-foreground">Wajib diisi. SO tidak dapat disimpan tanpa referensi ini.</p>
+            <p className="text-xs text-muted-foreground">Wajib diisi. Daftar diambil dari deal Sales Pulse yang masih terbuka.</p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
