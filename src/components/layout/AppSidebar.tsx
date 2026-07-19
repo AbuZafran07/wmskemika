@@ -58,7 +58,6 @@ const menuItems: { groupKey: string; items: MenuItem[] }[] = [
   {
     groupKey: "menu.kalibrasi",
     items: [
-      { key: "penerimaanKalibrasi", menuKey: "penerimaanKalibrasi", labelKey: "menu.penerimaanKalibrasi", subLabelKey: "menu.penerimaanKalibrasiSub", icon: ClipboardList, href: "/penerimaan-kalibrasi" },
       { key: "trackerKalibrasi", menuKey: "trackerKalibrasi", labelKey: "menu.trackerKalibrasi", subLabelKey: "menu.trackerKalibrasiSub", icon: FlaskConical, href: "/tracker-kalibrasi" },
     ],
   },
