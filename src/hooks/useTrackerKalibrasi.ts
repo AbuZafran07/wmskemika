@@ -3,7 +3,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
-export type KalibrasiV2Column = 'in_progress' | 'completed' | 'invoiced' | 'selesai';
+export type KalibrasiV2Column =
+  | 'scheduled'
+  | 'instrument_received'
+  | 'calibration_in_progress'
+  | 'completed'
+  | 'invoiced'
+  | 'rejected';
 
 export interface KalibrasiV2Checklist {
   id: string;
@@ -42,27 +48,34 @@ export const COLUMN_DEFS: {
   desc: string;
   color: string;
 }[] = [
-  { id: 'in_progress', label: 'In Progress',  desc: 'SPK aktif, sedang dikalibrasi',      color: 'bg-blue-600'   },
-  { id: 'completed',   label: 'Completed',    desc: 'Kalibrasi selesai, sertifikat terbit', color: 'bg-purple-600' },
-  { id: 'invoiced',    label: 'Invoiced',     desc: 'Invoice dikirim ke customer',          color: 'bg-orange-600' },
-  { id: 'selesai',     label: 'Selesai',      desc: 'Pembayaran lunas',                     color: 'bg-green-600'  },
+  { id: 'scheduled',              label: 'Scheduled',              desc: 'SPK diterbitkan, menunggu alat',       color: 'bg-slate-500'  },
+  { id: 'instrument_received',    label: 'Instrument Received',    desc: 'Alat diterima di lab',                 color: 'bg-cyan-600'   },
+  { id: 'calibration_in_progress',label: 'Calibration In Progress',desc: 'Cek fisik & proses kalibrasi',         color: 'bg-blue-600'   },
+  { id: 'completed',              label: 'Completed',              desc: 'Sertifikat terbit, invoice terkirim',  color: 'bg-purple-600' },
+  { id: 'invoiced',               label: 'Invoiced',               desc: 'Menunggu pembayaran & retur alat',     color: 'bg-orange-600' },
+  { id: 'rejected',               label: 'Rejected',               desc: 'Kalibrasi dibatalkan / ditolak',       color: 'bg-red-600'    },
 ];
 
 export const COLUMN_CHECKLISTS: Record<KalibrasiV2Column, { key: string; label: string }[]> = {
-  in_progress: [
-    { key: 'spk_issued',       label: 'SPK diterbitkan' },
-    { key: 'physical_check',   label: 'Cek fisik alat selesai' },
-    { key: 'calibration_done', label: 'Semua alat selesai dikalibrasi' },
+  scheduled: [
+    { key: 'spk_issued',           label: 'SPK diterbitkan' },
+  ],
+  instrument_received: [
+    { key: 'instrument_received',  label: 'Alat diterima di lab' },
+  ],
+  calibration_in_progress: [
+    { key: 'physical_check',       label: 'Cek fisik alat selesai' },
+    { key: 'calibration_done',     label: 'Semua alat selesai dikalibrasi' },
   ],
   completed: [
-    { key: 'certificate_issued', label: 'Sertifikat diterbitkan' },
-    { key: 'invoice_sent',       label: 'Invoice dikirim ke customer' },
+    { key: 'certificate_issued',   label: 'Sertifikat diterbitkan' },
+    { key: 'invoice_sent',         label: 'Invoice dikirim ke customer' },
   ],
   invoiced: [
-    { key: 'payment_received', label: 'Pembayaran diterima' },
-    { key: 'tools_returned',   label: 'Alat dikembalikan ke customer' },
+    { key: 'payment_received',     label: 'Pembayaran diterima' },
+    { key: 'tools_returned',       label: 'Alat dikembalikan ke customer' },
   ],
-  selesai: [],
+  rejected: [],
 };
 
 export const CHECKLIST_TOGGLE_ROLES = ['super_admin', 'admin', 'warehouse', 'purchasing'];
@@ -79,12 +92,18 @@ export const KALIBRASI_CHECKLIST_LABELS: Record<string, string> = Object.values(
   return acc;
 }, {} as Record<string, string>);
 
-function computeColumn(checklists: KalibrasiV2Checklist[]): KalibrasiV2Column {
+export function computeKalibrasiColumn(
+  checklists: KalibrasiV2Checklist[],
+  status?: string | null,
+): KalibrasiV2Column {
+  if (status === 'rejected' || status === 'cancelled') return 'rejected';
   const ok = (key: string) => checklists.some((c) => c.checklist_key === key && c.is_checked);
-  if (!ok('spk_issued') || !ok('physical_check') || !ok('calibration_done')) return 'in_progress';
+  if (!ok('spk_issued')) return 'scheduled';
+  if (!ok('instrument_received')) return 'instrument_received';
+  if (!ok('physical_check') || !ok('calibration_done')) return 'calibration_in_progress';
   if (!ok('certificate_issued') || !ok('invoice_sent')) return 'completed';
   if (!ok('payment_received') || !ok('tools_returned')) return 'invoiced';
-  return 'selesai';
+  return 'invoiced';
 }
 
 export function useTrackerKalibrasi() {
@@ -195,13 +214,16 @@ export function useTrackerKalibrasi() {
 
   const getColumnCards = useCallback(
     (col: KalibrasiV2Column): KalibrasiV2Card[] =>
-      cards.filter((card) => computeColumn(checklists[card.id] || []) === col),
+      cards.filter((card) => computeKalibrasiColumn(checklists[card.id] || [], card.status) === col),
     [cards, checklists],
   );
 
   const getCardColumn = useCallback(
-    (cardId: string): KalibrasiV2Column => computeColumn(checklists[cardId] || []),
-    [checklists],
+    (cardId: string): KalibrasiV2Column => {
+      const card = cards.find((c) => c.id === cardId);
+      return computeKalibrasiColumn(checklists[cardId] || [], card?.status);
+    },
+    [cards, checklists],
   );
 
   const toggleChecklist = useCallback(
