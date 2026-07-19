@@ -232,6 +232,9 @@ export default function SalesOrder() {
   const [stockOutHistory, setStockOutHistory] = useState<any[]>([]);
   const [stockOutHistoryLoading, setStockOutHistoryLoading] = useState(false);
 
+  // Calibration spare parts for selected calibration SO (used in detail + PDF)
+  const [calibrationSpareParts, setCalibrationSpareParts] = useState<any[]>([]);
+
   // Proforma Invoice (DP + Termin) info for the selected order
   const [piDpInfo, setPiDpInfo] = useState<{
     pi_number: string;
