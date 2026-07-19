@@ -24,7 +24,7 @@ export interface KalibrasiV2Card {
   status: string;
   archived: boolean;
   service_pic_name: string | null;
-  customer: { name: string } | null;
+  customer: { name: string; code: string } | null;
   instruments: { id: string; instrument_name: string; unit_price: number }[];
   // Optional legacy fields used by TrackerKalibrasiCardDetail
   sales_order_number?: string | null;
