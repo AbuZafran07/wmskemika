@@ -403,6 +403,16 @@ function WizardDialog({ open, onClose, onSaved, editReceipt }: WizardDialogProps
                 />
               </div>
 
+              <div className="md:col-span-2 space-y-1.5">
+                <Label>No. Referensi SalesPulse <span className="text-destructive">*</span></Label>
+                <Input
+                  value={salesPulseRef}
+                  onChange={(e) => setSalesPulseRef(e.target.value)}
+                  placeholder="Contoh: SP-2026-0001"
+                />
+                <p className="text-xs text-muted-foreground">Wajib diisi. SO tidak dapat disimpan tanpa referensi ini.</p>
+              </div>
+
               <div className="space-y-1.5">
                 <Label>PIC Customer</Label>
                 <Input
