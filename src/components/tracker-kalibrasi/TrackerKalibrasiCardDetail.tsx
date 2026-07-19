@@ -875,7 +875,7 @@ export default function TrackerKalibrasiCardDetail({
                   </div>
                 </div>
 
-              </div>{/* end LEFT */}
+              </ScrollArea>{/* end LEFT */}
 
               {/* ── RIGHT: comments ── */}
               <div className="w-full md:w-72 flex flex-col border-t md:border-t-0 md:border-l flex-shrink-0 max-h-[45vh] md:max-h-none">
