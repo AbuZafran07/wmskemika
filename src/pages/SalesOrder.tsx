@@ -232,6 +232,9 @@ export default function SalesOrder() {
   const [stockOutHistory, setStockOutHistory] = useState<any[]>([]);
   const [stockOutHistoryLoading, setStockOutHistoryLoading] = useState(false);
 
+  // Calibration spare parts for selected calibration SO (used in detail + PDF)
+  const [calibrationSpareParts, setCalibrationSpareParts] = useState<any[]>([]);
+
   // Proforma Invoice (DP + Termin) info for the selected order
   const [piDpInfo, setPiDpInfo] = useState<{
     pi_number: string;
@@ -1055,6 +1058,36 @@ export default function SalesOrder() {
       setStockOutHistory([]);
     } finally {
       setStockOutHistoryLoading(false);
+    }
+
+    // Fetch calibration spare parts (only for calibration orders)
+    try {
+      if ((order as any).order_type === "calibration") {
+        const { data: items } = await supabase
+          .from("sales_order_items")
+          .select("id, instrument_name, description")
+          .eq("sales_order_id", order.id)
+          .eq("item_type", "calibration");
+        const instIds = (items || []).map((i: any) => i.id);
+        if (instIds.length > 0) {
+          const { data: sp } = await (supabase as any)
+            .from("calibration_spare_parts")
+            .select("id, instrument_id, qty_used, unit_price, notes, product:products(name, sku)")
+            .in("instrument_id", instIds)
+            .order("created_at", { ascending: true });
+          const instMap = new Map((items || []).map((i: any) => [i.id, i.instrument_name || i.description || "-"]));
+          setCalibrationSpareParts(
+            (sp || []).map((p: any) => ({ ...p, instrument_name: instMap.get(p.instrument_id) || "-" })),
+          );
+        } else {
+          setCalibrationSpareParts([]);
+        }
+      } else {
+        setCalibrationSpareParts([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch calibration spare parts:", err);
+      setCalibrationSpareParts([]);
     }
   };
 
@@ -2605,6 +2638,45 @@ export default function SalesOrder() {
                 </table>
                 )}
               </div>
+
+              {/* Calibration spare parts (PDF) */}
+              {(selectedOrder as any).order_type === "calibration" && calibrationSpareParts.length > 0 && (
+                <div data-pdf-section style={{ marginTop: "12px" }}>
+                  <div style={{ fontWeight: 700, fontSize: "12px", marginBottom: "6px" }}>SPAREPART TERPAKAI</div>
+                  <table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #111" }}>
+                    <thead>
+                      <tr style={{ background: "#0b6b3a", color: "white" }}>
+                        {["No", "Alat", "Sparepart", "SKU", "Qty", "Harga", "Subtotal", "Catatan"].map((h) => (
+                          <th key={h} style={{
+                            background: "#0b6b3a", color: "white", border: "1px solid #111", padding: "8px", fontSize: "11px",
+                            textAlign: h === "Harga" || h === "Subtotal" ? "right" : h === "No" || h === "Qty" ? "center" : "left",
+                            whiteSpace: "nowrap",
+                          }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {calibrationSpareParts.map((p: any, idx: number) => {
+                        const qty = safeNumber(p.qty_used, 0);
+                        const price = safeNumber(p.unit_price, 0);
+                        const sub = qty * price;
+                        return (
+                          <tr key={p.id}>
+                            <td style={{ border: "1px solid #111", padding: "8px", textAlign: "center" }}>{idx + 1}</td>
+                            <td style={{ border: "1px solid #111", padding: "8px" }}>{p.instrument_name || "-"}</td>
+                            <td style={{ border: "1px solid #111", padding: "8px" }}>{p.product?.name || "-"}</td>
+                            <td style={{ border: "1px solid #111", padding: "8px" }}>{p.product?.sku || "-"}</td>
+                            <td style={{ border: "1px solid #111", padding: "8px", textAlign: "center" }}>{qty}</td>
+                            <td style={{ border: "1px solid #111", padding: "8px", textAlign: "right" }}>{formatCurrency(price)}</td>
+                            <td style={{ border: "1px solid #111", padding: "8px", textAlign: "right" }}>{formatCurrency(sub)}</td>
+                            <td style={{ border: "1px solid #111", padding: "8px" }}>{p.notes || "-"}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
 
               {/* Totals area PDF */}
               <div data-pdf-section style={{ marginTop: "12px", display: "grid", gridTemplateColumns: "1fr 260px", gap: "10px" }}>
