@@ -30,7 +30,7 @@ export function useCalibrationItems(receiptId: string | null | undefined) {
     let cancelled = false;
     setLoading(true);
     (async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('calibration_instruments')
         .select('*')
         .eq('calibration_receipt_id', receiptId)

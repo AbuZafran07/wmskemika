@@ -98,7 +98,7 @@ export function useTrackerKalibrasi() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: receipts, error: receiptsError } = await supabase
+      const { data: receipts, error: receiptsError } = await (supabase as any)
         .from('calibration_receipts')
         .select(`
           id, receipt_number, spk_number, received_date, target_completion_date,
@@ -121,7 +121,7 @@ export function useTrackerKalibrasi() {
       }
 
       const ids = list.map((c) => c.id);
-      const { data: chkData, error: chkError } = await supabase
+      const { data: chkData, error: chkError } = await (supabase as any)
         .from('calibration_tracker_checklists')
         .select('*')
         .in('calibration_receipt_id', ids);
@@ -211,7 +211,7 @@ export function useTrackerKalibrasi() {
 
       try {
         if (existing) {
-          await supabase
+          await (supabase as any)
             .from('calibration_tracker_checklists')
             .update({
               is_checked: newValue,
@@ -220,7 +220,7 @@ export function useTrackerKalibrasi() {
             })
             .eq('id', existing.id);
         } else {
-          await supabase.from('calibration_tracker_checklists').insert({
+          await (supabase as any).from('calibration_tracker_checklists').insert({
             calibration_receipt_id: receiptId,
             checklist_key: checklistKey,
             is_checked: true,
