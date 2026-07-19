@@ -1448,6 +1448,14 @@ export default function SalesOrder() {
         }}
       />
 
+      {/* Edit Calibration Header Dialog */}
+      <EditCalibrationHeaderDialog
+        open={!!editCalibrationOrder}
+        onOpenChange={(v) => { if (!v) setEditCalibrationOrder(null); }}
+        order={editCalibrationOrder}
+        onSaved={() => { refetch(); setEditCalibrationOrder(null); }}
+      />
+
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
