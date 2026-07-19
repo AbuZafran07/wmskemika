@@ -83,6 +83,12 @@ function KanbanCard({
           )}
         </div>
 
+        {card.customer_po_number && (
+          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+            PO: {card.customer_po_number}
+          </p>
+        )}
+
         <p className="text-sm font-medium mt-1 truncate">
           {card.customer?.name ?? "-"}
         </p>
