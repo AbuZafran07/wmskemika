@@ -98,20 +98,51 @@ export function useTrackerKalibrasi() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: receipts, error: receiptsError } = await (supabase as any)
-        .from('calibration_receipts')
+      const { data: rows, error: soError } = await (supabase as any)
+        .from('sales_order_headers')
         .select(`
-          id, receipt_number, spk_number, received_date, target_completion_date,
-          status, archived, service_pic_name,
+          id, sales_order_number, spk_number, order_date, target_completion_date,
+          calibration_status, status, service_pic_name, service_location,
+          service_pic_phone, calibration_received_at, sales_name, grand_total,
+          notes, customer_request_notes,
           customer:customers(name),
-          instruments:calibration_instruments(id, instrument_name, unit_price)
+          items:sales_order_items(id, item_type, instrument_name, description, unit_price)
         `)
+        .eq('order_type', 'calibration')
+        .eq('is_deleted', false)
         .neq('status', 'cancelled')
         .order('created_at', { ascending: false });
 
-      if (receiptsError) throw receiptsError;
+      if (soError) throw soError;
 
-      const list = (receipts || []) as unknown as KalibrasiV2Card[];
+      const list: KalibrasiV2Card[] = (rows || []).map((r: Record<string, any>) => ({
+        id: r.id,
+        receipt_number: r.sales_order_number ?? '-',
+        spk_number: r.spk_number ?? null,
+        received_date:
+          (r.calibration_received_at ? String(r.calibration_received_at).slice(0, 10) : null) ??
+          r.order_date ?? '',
+        target_completion_date: r.target_completion_date ?? null,
+        status: r.calibration_status ?? r.status ?? 'draft',
+        archived: false,
+        service_pic_name: r.service_pic_name ?? null,
+        customer: r.customer ? { name: r.customer.name } : null,
+        instruments: (r.items ?? [])
+          .filter((it: any) => it.item_type === 'calibration')
+          .map((it: any) => ({
+            id: it.id,
+            instrument_name: it.instrument_name ?? it.description ?? '-',
+            unit_price: Number(it.unit_price ?? 0),
+          })),
+        sales_order_number: r.sales_order_number ?? null,
+        order_date: r.order_date ?? null,
+        sales_name: r.sales_name ?? null,
+        service_location: r.service_location ?? null,
+        service_pic_phone: r.service_pic_phone ?? null,
+        grand_total: r.grand_total ?? null,
+        notes: r.notes ?? r.customer_request_notes ?? null,
+      }));
+
       setCards(list);
 
       if (list.length === 0) {
@@ -145,8 +176,8 @@ export function useTrackerKalibrasi() {
     fetchData();
 
     const ch1 = supabase
-      .channel('kal-v2-receipts')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'calibration_receipts' }, fetchData)
+      .channel('kal-v2-so-headers')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sales_order_headers' }, fetchData)
       .subscribe();
 
     const ch2 = supabase
