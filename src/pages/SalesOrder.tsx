@@ -90,6 +90,7 @@ import { useCustomers, useProducts } from "@/hooks/useMasterData";
 import { useSalesUsers } from "@/hooks/useSalesUsers";
 import { uploadFile, getSignedUrl } from "@/lib/storage";
 import { CreateCalibrationSODialog } from "@/components/sales-order/CreateCalibrationSODialog";
+import { CalibrationInstrumentsPanel } from "@/components/sales-order/CalibrationInstrumentsPanel";
 import { usePagination } from "@/hooks/usePagination";
 import { DataTablePagination } from "@/components/DataTablePagination";
 import { generateUniqueSalesOrderNumber } from "@/lib/transactionNumberUtils";
