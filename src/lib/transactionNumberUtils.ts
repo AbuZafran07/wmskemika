@@ -285,20 +285,21 @@ export async function generateUniqueDONumber(deliveryDate?: Date, maxRetries = 5
 export async function generateUniqueKALNumber(maxRetries = 5): Promise<string> {
   const prefix = `KAL-${getTodayDateStr()}.`;
   const { data } = await (supabase as any)
-    .from("calibration_receipts")
-    .select("receipt_number")
-    .like("receipt_number", `${prefix}%`)
-    .order("receipt_number", { ascending: false })
+    .from("sales_order_headers")
+    .select("sales_order_number")
+    .eq("order_type", "calibration")
+    .like("sales_order_number", `${prefix}%`)
+    .order("sales_order_number", { ascending: false })
     .limit(1);
   let sequence = data?.[0]
-    ? parseInt((data[0] as any).receipt_number.slice(prefix.length), 10) + 1
+    ? parseInt((data[0] as any).sales_order_number.slice(prefix.length), 10) + 1
     : 1;
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const number = `${prefix}${String(sequence + attempt).padStart(3, "0")}`;
     const { data: dup } = await (supabase as any)
-      .from("calibration_receipts")
-      .select("id").eq("receipt_number", number).maybeSingle();
+      .from("sales_order_headers")
+      .select("id").eq("sales_order_number", number).maybeSingle();
     if (!dup) return number;
   }
   return `${prefix}${Date.now().toString().slice(-4)}`;
@@ -307,8 +308,9 @@ export async function generateUniqueKALNumber(maxRetries = 5): Promise<string> {
 export async function generateUniqueSPKNumber(maxRetries = 5): Promise<string> {
   const prefix = `LAB-SPK-${getTodayDateStr()}.`;
   const { data } = await (supabase as any)
-    .from("calibration_receipts")
+    .from("sales_order_headers")
     .select("spk_number")
+    .eq("order_type", "calibration")
     .like("spk_number", `${prefix}%`)
     .order("spk_number", { ascending: false })
     .limit(1);
@@ -319,7 +321,7 @@ export async function generateUniqueSPKNumber(maxRetries = 5): Promise<string> {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const number = `${prefix}${String(sequence + attempt).padStart(3, "0")}`;
     const { data: dup } = await (supabase as any)
-      .from("calibration_receipts")
+      .from("sales_order_headers")
       .select("id").eq("spk_number", number).maybeSingle();
     if (!dup) return number;
   }
@@ -329,8 +331,9 @@ export async function generateUniqueSPKNumber(maxRetries = 5): Promise<string> {
 export async function generateUniqueCertNumber(maxRetries = 5): Promise<string> {
   const prefix = `LAB-SK-${getTodayDateStr()}.`;
   const { data } = await (supabase as any)
-    .from("calibration_instruments")
+    .from("sales_order_items")
     .select("certificate_number")
+    .eq("item_type", "calibration")
     .like("certificate_number", `${prefix}%`)
     .order("certificate_number", { ascending: false })
     .limit(1);
@@ -341,7 +344,7 @@ export async function generateUniqueCertNumber(maxRetries = 5): Promise<string> 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const number = `${prefix}${String(sequence + attempt).padStart(3, "0")}`;
     const { data: dup } = await (supabase as any)
-      .from("calibration_instruments")
+      .from("sales_order_items")
       .select("id").eq("certificate_number", number).maybeSingle();
     if (!dup) return number;
   }

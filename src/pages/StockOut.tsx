@@ -225,49 +225,9 @@ export default function StockOut() {
   // ── Kalibrasi helpers ────────────────────────────────────────────────────
 
   const fetchCalibrationParts = useCallback(async () => {
-    setLoadingCalParts(true);
-    const { data, error } = await (supabase as any)
-      .from("calibration_spare_parts")
-      .select(`
-        id, instrument_id, product_id, qty_used, unit_price, notes, created_at,
-        product:products(name, sku),
-        instrument:calibration_instruments(
-          instrument_name,
-          receipt:calibration_receipts(receipt_number, customer:customers(name))
-        )
-      `)
-      .eq("stock_issued", false)
-      .order("created_at", { ascending: true });
-
-    if (error) {
-      toast.error("Gagal memuat permintaan spare part kalibrasi");
-      setLoadingCalParts(false);
-      return;
-    }
-
-    setCalibrationParts(
-      (data || []).map((row: Record<string, unknown>) => {
-        const product = row.product as { name?: string; sku?: string } | null;
-        const instrument = row.instrument as {
-          instrument_name?: string;
-          receipt?: { receipt_number?: string; customer?: { name?: string } } | null;
-        } | null;
-        return {
-          id: row.id as string,
-          instrument_id: row.instrument_id as string,
-          product_id: row.product_id as string,
-          qty_used: row.qty_used as number,
-          unit_price: row.unit_price as number,
-          notes: row.notes as string | null,
-          created_at: row.created_at as string,
-          product_name: product?.name ?? "-",
-          product_sku: product?.sku ?? null,
-          instrument_name: instrument?.instrument_name ?? "-",
-          receipt_number: instrument?.receipt?.receipt_number ?? "-",
-          customer_name: instrument?.receipt?.customer?.name ?? "-",
-        };
-      })
-    );
+    // Spare-part kalibrasi sedang dipindahkan ke skema Sales Order baru.
+    // Sementara tampilkan daftar kosong sampai UI di halaman SO tersedia.
+    setCalibrationParts([]);
     setLoadingCalParts(false);
   }, []);
 
@@ -317,26 +277,9 @@ export default function StockOut() {
       return;
     }
 
-    setIsIssuingCal(true);
-    const { data: result, error } = await (supabase as any).rpc("calibration_spare_part_issue", {
-      p_spare_part_id: part.id,
-      p_batches: JSON.stringify(
-        batchesWithQty.map((b) => ({ batch_id: b.batch_id, qty_out: b.qty_out }))
-      ),
-      p_issued_by: (await supabase.auth.getUser()).data.user?.id ?? null,
-    });
-
+    toast.error("Fitur pengeluaran spare part kalibrasi sedang dipindahkan ke Sales Order. Sementara tidak tersedia.");
     setIsIssuingCal(false);
-
-    if (error || !(result as { success?: boolean })?.success) {
-      toast.error((result as { error?: string })?.error ?? error?.message ?? "Gagal memproses pengeluaran stok");
-      return;
-    }
-
-    toast.success(`Stok ${part.product_name} berhasil dikeluarkan (${totalOut} unit)`);
-    setProcessingPartId(null);
-    setCalBatches([]);
-    fetchCalibrationParts();
+    return;
   };
 
   const handleBatchQtyChange = (itemIndex: number, batchIndex: number, value: number) => {
