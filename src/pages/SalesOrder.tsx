@@ -1059,6 +1059,36 @@ export default function SalesOrder() {
     } finally {
       setStockOutHistoryLoading(false);
     }
+
+    // Fetch calibration spare parts (only for calibration orders)
+    try {
+      if ((order as any).order_type === "calibration") {
+        const { data: items } = await supabase
+          .from("sales_order_items")
+          .select("id, instrument_name, description")
+          .eq("sales_order_id", order.id)
+          .eq("item_type", "calibration");
+        const instIds = (items || []).map((i: any) => i.id);
+        if (instIds.length > 0) {
+          const { data: sp } = await (supabase as any)
+            .from("calibration_spare_parts")
+            .select("id, instrument_id, qty_used, unit_price, notes, product:products(name, sku)")
+            .in("instrument_id", instIds)
+            .order("created_at", { ascending: true });
+          const instMap = new Map((items || []).map((i: any) => [i.id, i.instrument_name || i.description || "-"]));
+          setCalibrationSpareParts(
+            (sp || []).map((p: any) => ({ ...p, instrument_name: instMap.get(p.instrument_id) || "-" })),
+          );
+        } else {
+          setCalibrationSpareParts([]);
+        }
+      } else {
+        setCalibrationSpareParts([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch calibration spare parts:", err);
+      setCalibrationSpareParts([]);
+    }
   };
 
   // Auto-open detail dialog from URL query param ?id=<salesOrderId>
