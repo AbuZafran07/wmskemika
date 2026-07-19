@@ -947,11 +947,6 @@ export default function TrackerKalibrasiCardDetail({
               </div>
 
             </div>{/* end body */}
-
-            {/* ── footer ── */}
-            <div className="border-t px-5 py-3 flex items-center justify-end flex-shrink-0">
-              <Button onClick={onClose}>Tutup</Button>
-            </div>
           </>
         )}
       </div>
