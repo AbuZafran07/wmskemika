@@ -2033,7 +2033,7 @@ export default function SalesOrder() {
 
       {/* Detail Dialog */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className={`${(selectedOrder as any)?.order_type === "calibration" ? "max-w-5xl" : "max-w-3xl"} max-h-[80vh] overflow-y-auto`}>
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle>{language === "en" ? "Sales Order Details" : "Detail Sales Order"}</DialogTitle>
