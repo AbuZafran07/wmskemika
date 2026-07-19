@@ -121,6 +121,14 @@ const FEASIBILITY_CFG: Record<string, { label: string; className: string }> = {
   not_feasible: { label: "Tidak Layak", className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" },
 };
 
+function getBoardColumn(checklists: KalibrasiV2Checklist[]) {
+  const ok = (key: string) => checklists.some((c) => c.checklist_key === key && c.is_checked);
+  if (!ok('spk_issued') || !ok('physical_check') || !ok('calibration_done')) return COLUMN_DEFS.find(c => c.id === 'in_progress');
+  if (!ok('certificate_issued') || !ok('invoice_sent')) return COLUMN_DEFS.find(c => c.id === 'completed');
+  if (!ok('payment_received') || !ok('tools_returned')) return COLUMN_DEFS.find(c => c.id === 'invoiced');
+  return COLUMN_DEFS.find(c => c.id === 'selesai');
+}
+
 function FeasibilityBadge({ status }: { status: string | null }) {
   const cfg = FEASIBILITY_CFG[status ?? "pending"] ?? FEASIBILITY_CFG.pending;
   return <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", cfg.className)}>{cfg.label}</span>;
