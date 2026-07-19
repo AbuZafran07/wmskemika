@@ -26,6 +26,7 @@ export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Pro
   const [customerId, setCustomerId] = useState("");
   const [picName, setPicName] = useState("");
   const [picPhone, setPicPhone] = useState("");
+  const [salesPulseRef, setSalesPulseRef] = useState("");
   const [receivedDate, setReceivedDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [targetDate, setTargetDate] = useState("");
   const [location, setLocation] = useState(DEFAULT_LOCATION);
@@ -37,6 +38,7 @@ export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Pro
       setCustomerId("");
       setPicName("");
       setPicPhone("");
+      setSalesPulseRef("");
       setReceivedDate(new Date().toISOString().slice(0, 10));
       setTargetDate("");
       setLocation(DEFAULT_LOCATION);
@@ -62,6 +64,7 @@ export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Pro
   const handleSubmit = async () => {
     if (!customerId) return toast.error("Pilih customer terlebih dahulu");
     if (!receivedDate) return toast.error("Tanggal terima wajib diisi");
+    if (!salesPulseRef.trim()) return toast.error("Nomor Referensi SalesPulse wajib diisi");
     setSaving(true);
     const res = await createCalibrationReceipt(
       {
@@ -73,6 +76,7 @@ export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Pro
         target_completion_date: targetDate,
         customer_request_notes: notes,
         created_by: user?.id ?? null,
+        sales_pulse_reference_number: salesPulseRef.trim(),
       },
       [], // alat ditambahkan nanti di tab Penerimaan
     );
@@ -109,6 +113,16 @@ export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Pro
               placeholder="Pilih customer"
               searchPlaceholder="Cari customer..."
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label>No. Referensi SalesPulse <span className="text-destructive">*</span></Label>
+            <Input
+              value={salesPulseRef}
+              onChange={(e) => setSalesPulseRef(e.target.value)}
+              placeholder="Contoh: SP-2026-0001"
+            />
+            <p className="text-xs text-muted-foreground">Wajib diisi. SO tidak dapat disimpan tanpa referensi ini.</p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
