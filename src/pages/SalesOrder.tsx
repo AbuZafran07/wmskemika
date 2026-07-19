@@ -1352,7 +1352,7 @@ export default function SalesOrder() {
                               )}
 
                               {showEdit && (
-                                <DropdownMenuItem onClick={() => (order as any).order_type === "calibration" ? handleViewDetail(order) : handleEdit(order)}>
+                                <DropdownMenuItem onClick={() => (order as any).order_type === "calibration" ? setEditCalibrationOrder(order) : handleEdit(order)}>
                                   <Edit className="w-4 h-4 mr-2" />
                                   {t("common.edit")}
                                 </DropdownMenuItem>
