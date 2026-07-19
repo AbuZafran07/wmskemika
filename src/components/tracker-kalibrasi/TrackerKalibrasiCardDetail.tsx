@@ -44,6 +44,9 @@ interface ReceiptDetail {
   customer_request_notes: string | null;
   created_at: string;
   created_by: string | null;
+  sales_name: string | null;
+  allocation_type: string | null;
+  project_instansi: string | null;
   customer: { id: string; name: string; code: string; pic: string | null; phone: string | null; address: string | null } | null;
 }
 
