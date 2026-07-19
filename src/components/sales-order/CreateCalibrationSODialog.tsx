@@ -208,24 +208,25 @@ export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Pro
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Lokasi Kalibrasi</Label>
-            <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder={DEFAULT_LOCATION} />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Alokasi Alat & Sparepart</Label>
-            <Select value={allocationType} onValueChange={setAllocationType}>
-              <SelectTrigger>
-                <SelectValue placeholder="Pilih alokasi" />
-              </SelectTrigger>
-              <SelectContent>
-                {ALLOCATION_OPTIONS.map((opt) => (
-                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">Menentukan sumber alokasi alat & sparepart yang dipakai untuk kalibrasi (default Internal).</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Lokasi Kalibrasi</Label>
+              <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder={DEFAULT_LOCATION} />
+            </div>
+            <div className="space-y-2">
+              <Label>Alokasi Alat & Sparepart</Label>
+              <Select value={allocationType} onValueChange={setAllocationType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih alokasi" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ALLOCATION_OPTIONS.map((opt) => (
+                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Sumber alokasi alat & sparepart (default Internal).</p>
+            </div>
           </div>
 
           <div className="space-y-2">

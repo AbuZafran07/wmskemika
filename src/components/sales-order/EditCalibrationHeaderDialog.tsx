@@ -187,28 +187,27 @@ export function EditCalibrationHeaderDialog({ open, onOpenChange, order, onSaved
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Lokasi Kalibrasi</Label>
-            <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder={DEFAULT_LOCATION} />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Alokasi Alat & Sparepart</Label>
-            <Select value={allocationType} onValueChange={setAllocationType} disabled={!isDraft}>
-              <SelectTrigger>
-                <SelectValue placeholder="Pilih alokasi" />
-              </SelectTrigger>
-              <SelectContent>
-                {ALLOCATION_OPTIONS.map((opt) => (
-                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              {isDraft
-                ? "Alokasi hanya bisa diubah saat status masih Draft."
-                : "Status sudah lewat Draft — alokasi terkunci."}
-            </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Lokasi Kalibrasi</Label>
+              <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder={DEFAULT_LOCATION} />
+            </div>
+            <div className="space-y-2">
+              <Label>Alokasi Alat & Sparepart</Label>
+              <Select value={allocationType} onValueChange={setAllocationType} disabled={!isDraft}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih alokasi" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ALLOCATION_OPTIONS.map((opt) => (
+                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {isDraft ? "Hanya bisa diubah saat Draft." : "Terkunci setelah lewat Draft."}
+              </p>
+            </div>
           </div>
 
           <div className="space-y-2">
