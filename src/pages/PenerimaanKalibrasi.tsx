@@ -1,6 +1,6 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
-  ClipboardList, Plus, Trash2, ChevronRight, Check, Loader2, Search, ChevronDown,
+  ClipboardList, Plus, Trash2, ChevronRight, Check, Loader2, Search, ChevronDown, Eye, Pencil,
 } from "lucide-react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
@@ -9,6 +9,8 @@ import { useCustomers } from "@/hooks/useMasterData";
 import {
   useCalibrationReceipts,
   createCalibrationReceipt,
+  updateCalibrationReceipt,
+  deleteCalibrationReceipt,
   updateReceiptStatus,
   CalibrationInstrumentInput,
   CalibrationReceiptRow,
@@ -18,12 +20,17 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -200,11 +207,13 @@ interface WizardDialogProps {
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
+  editReceipt?: CalibrationReceiptRow | null;
 }
 
-function WizardDialog({ open, onClose, onSaved }: WizardDialogProps) {
+function WizardDialog({ open, onClose, onSaved, editReceipt }: WizardDialogProps) {
   const { user } = useAuth();
   const { customers } = useCustomers();
+  const isEdit = !!editReceipt;
 
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -220,6 +229,43 @@ function WizardDialog({ open, onClose, onSaved }: WizardDialogProps) {
 
   // Step 2 state
   const [instruments, setInstruments] = useState<InstrumentRow[]>([emptyInstrument()]);
+
+  // Prefill on edit
+  useEffect(() => {
+    if (!open) return;
+    if (editReceipt) {
+      setStep(0);
+      setCustomerId(editReceipt.customer_id ?? "");
+      setPicName(editReceipt.service_pic_name ?? "");
+      setPicPhone(editReceipt.service_pic_phone ?? "");
+      setServiceLocation(editReceipt.service_location ?? "Lab Kemika, Tangerang");
+      setReceivedDate(editReceipt.received_date ?? todayISO());
+      setTargetDate(editReceipt.target_completion_date ?? "");
+      setNotes(editReceipt.customer_request_notes ?? "");
+      // fetch full instruments
+      (async () => {
+        const { data } = await supabase
+          .from("calibration_instruments")
+          .select("*")
+          .eq("calibration_receipt_id", editReceipt.id)
+          .order("item_number", { ascending: true });
+        if (data && data.length > 0) {
+          setInstruments(data.map((d: Record<string, unknown>) => ({
+            _key: crypto.randomUUID(),
+            instrument_name: (d.instrument_name as string) ?? "",
+            brand_model: (d.brand_model as string) ?? "",
+            serial_number: (d.serial_number as string) ?? "",
+            measurement_range: (d.measurement_range as string) ?? "",
+            calibration_method: (d.calibration_method as string) ?? "",
+            unit_price: String(d.unit_price ?? 0),
+            sla_working_days: String(d.sla_working_days ?? 5),
+          })));
+        } else {
+          setInstruments([emptyInstrument()]);
+        }
+      })();
+    }
+  }, [open, editReceipt]);
 
   const selectedCustomer = customers.find((c) => c.id === customerId) ?? null;
 
@@ -274,28 +320,39 @@ function WizardDialog({ open, onClose, onSaved }: WizardDialogProps) {
       sla_working_days: parseInt(i.sla_working_days) || 5,
     }));
 
-    const result = await createCalibrationReceipt(
-      {
-        customer_id: customerId,
-        service_pic_name: picName.trim(),
-        service_pic_phone: picPhone.trim(),
-        service_location: serviceLocation.trim() || "Lab Kemika, Tangerang",
-        received_date: receivedDate,
-        target_completion_date: targetDate,
-        customer_request_notes: notes.trim(),
-        created_by: user?.id ?? null,
-      },
-      instrumentInputs
-    );
+    const headerBase = {
+      customer_id: customerId,
+      service_pic_name: picName.trim(),
+      service_pic_phone: picPhone.trim(),
+      service_location: serviceLocation.trim() || "Lab Kemika, Tangerang",
+      received_date: receivedDate,
+      target_completion_date: targetDate,
+      customer_request_notes: notes.trim(),
+    };
 
-    setSaving(false);
-
-    if (result.success) {
-      toast.success(`Tanda terima ${result.receipt_number} berhasil disimpan`);
-      onSaved();
-      handleReset();
+    if (isEdit && editReceipt) {
+      const result = await updateCalibrationReceipt(editReceipt.id, headerBase, instrumentInputs);
+      setSaving(false);
+      if (result.success) {
+        toast.success(`Tanda terima ${editReceipt.receipt_number} diperbarui`);
+        onSaved();
+        handleReset();
+      } else {
+        toast.error(result.error ?? "Gagal memperbarui");
+      }
     } else {
-      toast.error(result.error ?? "Gagal menyimpan");
+      const result = await createCalibrationReceipt(
+        { ...headerBase, created_by: user?.id ?? null },
+        instrumentInputs
+      );
+      setSaving(false);
+      if (result.success) {
+        toast.success(`Tanda terima ${result.receipt_number} berhasil disimpan`);
+        onSaved();
+        handleReset();
+      } else {
+        toast.error(result.error ?? "Gagal menyimpan");
+      }
     }
   };
 
@@ -322,7 +379,7 @@ function WizardDialog({ open, onClose, onSaved }: WizardDialogProps) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ClipboardList className="w-5 h-5 text-primary" />
-            Terima Alat Kalibrasi
+            {isEdit ? `Edit ${editReceipt?.receipt_number ?? ""}` : "Terima Alat Kalibrasi"}
           </DialogTitle>
         </DialogHeader>
 
@@ -599,9 +656,31 @@ function WizardDialog({ open, onClose, onSaved }: WizardDialogProps) {
 // ─── main page ────────────────────────────────────────────────────────────────
 
 export default function PenerimaanKalibrasi() {
+  const { user } = useAuth();
   const { receipts, loading, refetch } = useCalibrationReceipts();
   const [wizardOpen, setWizardOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [editReceipt, setEditReceipt] = useState<CalibrationReceiptRow | null>(null);
+  const [viewReceipt, setViewReceipt] = useState<CalibrationReceiptRow | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<CalibrationReceiptRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const isSuperAdmin = user?.role === "super_admin";
+  const canModify = (r: CalibrationReceiptRow) => isSuperAdmin || r.status === "draft";
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const res = await deleteCalibrationReceipt(deleteTarget.id);
+    setDeleting(false);
+    if (res.success) {
+      toast.success(`${deleteTarget.receipt_number} dihapus`);
+      setDeleteTarget(null);
+      refetch();
+    } else {
+      toast.error(res.error ?? "Gagal menghapus");
+    }
+  };
 
   const filtered = receipts.filter((r) => {
     const q = search.toLowerCase();
@@ -652,18 +731,19 @@ export default function PenerimaanKalibrasi() {
                 <th className="px-4 py-3 text-right font-medium text-muted-foreground">Total</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Target Selesai</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
+                <th className="px-4 py-3 text-center font-medium text-muted-foreground">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-16 text-center">
+                  <td colSpan={8} className="py-16 text-center">
                     <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-16 text-center">
+                  <td colSpan={8} className="py-16 text-center">
                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                       <ClipboardList className="w-10 h-10 opacity-20" />
                       <p className="text-sm">
@@ -705,6 +785,41 @@ export default function PenerimaanKalibrasi() {
                         onUpdated={refetch}
                       />
                     </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Lihat detail"
+                          onClick={() => setViewReceipt(r)}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        {canModify(r) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
+                            title="Edit"
+                            onClick={() => setEditReceipt(r)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                        )}
+                        {canModify(r) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            title="Hapus"
+                            onClick={() => setDeleteTarget(r)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
@@ -725,6 +840,146 @@ export default function PenerimaanKalibrasi() {
         onClose={() => setWizardOpen(false)}
         onSaved={() => { setWizardOpen(false); refetch(); }}
       />
+
+      <WizardDialog
+        open={!!editReceipt}
+        editReceipt={editReceipt}
+        onClose={() => setEditReceipt(null)}
+        onSaved={() => { setEditReceipt(null); refetch(); }}
+      />
+
+      <ViewReceiptDialog
+        receipt={viewReceipt}
+        onClose={() => setViewReceipt(null)}
+      />
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Penerimaan Kalibrasi?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Nomor <span className="font-mono font-semibold">{deleteTarget?.receipt_number}</span> beserta seluruh daftar alatnya akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleDelete(); }}
+              disabled={deleting}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Hapus"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+  );
+}
+
+// ─── view-only detail dialog ─────────────────────────────────────────────────
+
+function ViewReceiptDialog({
+  receipt,
+  onClose,
+}: {
+  receipt: CalibrationReceiptRow | null;
+  onClose: () => void;
+}) {
+  const [instruments, setInstruments] = useState<Array<Record<string, unknown>>>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!receipt) return;
+    setLoading(true);
+    supabase
+      .from("calibration_instruments")
+      .select("*")
+      .eq("calibration_receipt_id", receipt.id)
+      .order("item_number", { ascending: true })
+      .then(({ data }) => {
+        setInstruments((data as Array<Record<string, unknown>>) ?? []);
+        setLoading(false);
+      });
+  }, [receipt]);
+
+  if (!receipt) return null;
+
+  const total = instruments.reduce((s, i) => s + (Number(i.unit_price) || 0), 0);
+
+  return (
+    <Dialog open={!!receipt} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ClipboardList className="w-5 h-5 text-primary" />
+            <span className="font-mono">{receipt.receipt_number}</span>
+            <StatusBadge status={receipt.status} />
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="rounded-lg border bg-muted/30 p-4 space-y-1.5 text-sm">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Customer</h3>
+            <div><span className="text-muted-foreground">Nama:</span> <span className="font-medium">{receipt.customer?.name ?? "-"}</span></div>
+            <div><span className="text-muted-foreground">PIC:</span> {receipt.service_pic_name || "-"}</div>
+            <div><span className="text-muted-foreground">No. HP:</span> {receipt.service_pic_phone || "-"}</div>
+            <div><span className="text-muted-foreground">Lokasi:</span> {receipt.service_location || "-"}</div>
+          </div>
+          <div className="rounded-lg border bg-muted/30 p-4 space-y-1.5 text-sm">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Jadwal</h3>
+            <div><span className="text-muted-foreground">Diterima:</span> {receipt.received_date ? format(new Date(receipt.received_date + "T00:00:00"), "dd MMMM yyyy", { locale: idLocale }) : "-"}</div>
+            <div><span className="text-muted-foreground">Target Selesai:</span> {receipt.target_completion_date ? format(new Date(receipt.target_completion_date + "T00:00:00"), "dd MMMM yyyy", { locale: idLocale }) : "-"}</div>
+            {receipt.customer_request_notes && (
+              <div className="pt-1"><span className="text-muted-foreground">Catatan:</span> <div className="text-muted-foreground/80 mt-0.5">{receipt.customer_request_notes}</div></div>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-lg border overflow-hidden mt-2">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">No.</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Nama Alat</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Merk/Model</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">No. Seri</th>
+                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Harga</th>
+                <th className="px-3 py-2 text-center font-medium text-muted-foreground">SLA</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {loading ? (
+                <tr><td colSpan={6} className="py-6 text-center"><Loader2 className="w-4 h-4 animate-spin mx-auto text-muted-foreground" /></td></tr>
+              ) : instruments.length === 0 ? (
+                <tr><td colSpan={6} className="py-6 text-center text-muted-foreground text-xs">Tidak ada alat.</td></tr>
+              ) : instruments.map((row, idx) => (
+                <tr key={idx} className="hover:bg-muted/20">
+                  <td className="px-3 py-2 text-muted-foreground">{idx + 1}</td>
+                  <td className="px-3 py-2 font-medium">{String(row.instrument_name ?? "-")}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{String(row.brand_model ?? "-")}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{String(row.serial_number ?? "-")}</td>
+                  <td className="px-3 py-2 text-right">{formatRupiah(Number(row.unit_price) || 0)}</td>
+                  <td className="px-3 py-2 text-center text-muted-foreground">{String(row.sla_working_days ?? "-")} hr</td>
+                </tr>
+              ))}
+            </tbody>
+            {instruments.length > 0 && (
+              <tfoot className="bg-muted/30">
+                <tr>
+                  <td colSpan={4} className="px-3 py-2 text-sm font-semibold text-right">Total</td>
+                  <td className="px-3 py-2 text-right font-semibold">{formatRupiah(total)}</td>
+                  <td />
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+
+        <div className="flex justify-end pt-4 border-t">
+          <Button variant="outline" onClick={onClose}>Tutup</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
