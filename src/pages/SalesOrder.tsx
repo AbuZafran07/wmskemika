@@ -283,6 +283,13 @@ export default function SalesOrder() {
 
       const matchesStatus = statusFilter === "all" || order.status === statusFilter;
 
+      const ot = (order as any).order_type;
+      const isCal = ot === "calibration";
+      const matchesType =
+        typeFilter === "all" ||
+        (typeFilter === "calibration" && isCal) ||
+        (typeFilter === "regular" && !isCal);
+
       const od = new Date(order.order_date);
       const matchesDateFrom = !dateFrom || od >= new Date(dateFrom);
       const matchesDateTo = !dateTo || od <= new Date(dateTo);
@@ -292,9 +299,9 @@ export default function SalesOrder() {
       const matchesViewMode =
         viewMode === "active" ? activeStatuses.includes(order.status) : archivedStatuses.includes(order.status);
 
-      return matchesSearch && matchesStatus && matchesDateFrom && matchesDateTo && matchesViewMode;
+      return matchesSearch && matchesStatus && matchesType && matchesDateFrom && matchesDateTo && matchesViewMode;
     });
-  }, [salesOrders, searchQuery, statusFilter, dateFrom, dateTo, viewMode]);
+  }, [salesOrders, searchQuery, statusFilter, typeFilter, dateFrom, dateTo, viewMode]);
 
   const hasActiveFilters = statusFilter !== "all" || !!dateFrom || !!dateTo;
 
