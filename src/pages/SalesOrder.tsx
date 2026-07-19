@@ -708,7 +708,7 @@ export default function SalesOrder() {
       toast.error(language === "en" ? "Please fill all required fields" : "Harap isi semua field wajib");
       return;
     }
-    if (allocationType !== "Sample" && !salesPulseReferenceNumber) {
+    if (!salesPulseReferenceNumber) {
       toast.error(
         language === "en"
           ? "SalesPulse Reference is required"
