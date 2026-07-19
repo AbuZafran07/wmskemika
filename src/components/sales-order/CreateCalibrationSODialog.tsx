@@ -95,7 +95,7 @@ export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Pro
             Buat Sales Order Kalibrasi
           </DialogTitle>
           <DialogDescription>
-            Nomor SO otomatis diterbitkan dengan format KAL/YYYYMMDD.NN. Daftar alat & harga bisa ditambahkan di tab Penerimaan Alat setelah SO tersimpan.
+            Nomor SO otomatis diterbitkan dengan format SO/YYYYMMDD.NN (seragam dengan Sales Order reguler). Daftar alat & harga bisa ditambahkan di tab Penerimaan Alat setelah SO tersimpan.
           </DialogDescription>
         </DialogHeader>
 
