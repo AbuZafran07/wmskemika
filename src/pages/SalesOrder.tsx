@@ -1433,6 +1433,16 @@ export default function SalesOrder() {
         </CardContent>
       </Card>
 
+      {/* Create Calibration SO Dialog */}
+      <CreateCalibrationSODialog
+        open={isCalibrationDialogOpen}
+        onOpenChange={setIsCalibrationDialogOpen}
+        onCreated={() => {
+          refetch();
+          setTypeFilter("calibration");
+        }}
+      />
+
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
