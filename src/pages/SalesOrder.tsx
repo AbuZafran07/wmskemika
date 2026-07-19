@@ -89,6 +89,7 @@ import { useSettings } from "@/hooks/usePlanOrders";
 import { useCustomers, useProducts } from "@/hooks/useMasterData";
 import { useSalesUsers } from "@/hooks/useSalesUsers";
 import { uploadFile, getSignedUrl } from "@/lib/storage";
+import { CreateCalibrationSODialog } from "@/components/sales-order/CreateCalibrationSODialog";
 import { usePagination } from "@/hooks/usePagination";
 import { DataTablePagination } from "@/components/DataTablePagination";
 import { generateUniqueSalesOrderNumber } from "@/lib/transactionNumberUtils";
@@ -174,11 +175,13 @@ export default function SalesOrder() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "regular" | "calibration">("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [viewMode, setViewMode] = useState<"active" | "archived">("active");
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCalibrationDialogOpen, setIsCalibrationDialogOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -280,6 +283,13 @@ export default function SalesOrder() {
 
       const matchesStatus = statusFilter === "all" || order.status === statusFilter;
 
+      const ot = (order as any).order_type;
+      const isCal = ot === "calibration";
+      const matchesType =
+        typeFilter === "all" ||
+        (typeFilter === "calibration" && isCal) ||
+        (typeFilter === "regular" && !isCal);
+
       const od = new Date(order.order_date);
       const matchesDateFrom = !dateFrom || od >= new Date(dateFrom);
       const matchesDateTo = !dateTo || od <= new Date(dateTo);
@@ -289,9 +299,9 @@ export default function SalesOrder() {
       const matchesViewMode =
         viewMode === "active" ? activeStatuses.includes(order.status) : archivedStatuses.includes(order.status);
 
-      return matchesSearch && matchesStatus && matchesDateFrom && matchesDateTo && matchesViewMode;
+      return matchesSearch && matchesStatus && matchesType && matchesDateFrom && matchesDateTo && matchesViewMode;
     });
-  }, [salesOrders, searchQuery, statusFilter, dateFrom, dateTo, viewMode]);
+  }, [salesOrders, searchQuery, statusFilter, typeFilter, dateFrom, dateTo, viewMode]);
 
   const hasActiveFilters = statusFilter !== "all" || !!dateFrom || !!dateTo;
 
@@ -1146,6 +1156,12 @@ export default function SalesOrder() {
               {language === "en" ? "Create Sales Order" : "Buat Sales Order"}
             </Button>
           )}
+          {canCreate("sales_order") && (
+            <Button variant="secondary" onClick={() => setIsCalibrationDialogOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              {language === "en" ? "Create Calibration SO" : "Buat SO Kalibrasi"}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1193,6 +1209,17 @@ export default function SalesOrder() {
                 </SelectItem>
                 <SelectItem value="delivered">{language === "en" ? "Delivered" : "Terkirim"}</SelectItem>
                 <SelectItem value="cancelled">{language === "en" ? "Cancelled" : "Dibatalkan"}</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder={language === "en" ? "All Types" : "Semua Tipe"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{language === "en" ? "All Types" : "Semua Tipe"}</SelectItem>
+                <SelectItem value="regular">{language === "en" ? "Regular" : "Reguler"}</SelectItem>
+                <SelectItem value="calibration">{language === "en" ? "Calibration" : "Kalibrasi"}</SelectItem>
               </SelectContent>
             </Select>
 
@@ -1275,7 +1302,14 @@ export default function SalesOrder() {
                         className="cursor-pointer hover:bg-muted/50"
                         onClick={() => handleViewDetail(order)}
                       >
-                        <TableCell className="font-medium">{order.sales_order_number}</TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <span>{order.sales_order_number}</span>
+                            {(order as any).order_type === "calibration" && (
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">KAL</Badge>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>{formatDateID(order.order_date)}</TableCell>
                         <TableCell>
                           <div>
@@ -1398,6 +1432,16 @@ export default function SalesOrder() {
           />
         </CardContent>
       </Card>
+
+      {/* Create Calibration SO Dialog */}
+      <CreateCalibrationSODialog
+        open={isCalibrationDialogOpen}
+        onOpenChange={setIsCalibrationDialogOpen}
+        onCreated={() => {
+          refetch();
+          setTypeFilter("calibration");
+        }}
+      />
 
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
