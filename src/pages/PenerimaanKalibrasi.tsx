@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   ClipboardList, Plus, Trash2, ChevronRight, Check, Loader2, Search, ChevronDown, Eye, Pencil,
 } from "lucide-react";
@@ -207,11 +207,13 @@ interface WizardDialogProps {
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
+  editReceipt?: CalibrationReceiptRow | null;
 }
 
-function WizardDialog({ open, onClose, onSaved }: WizardDialogProps) {
+function WizardDialog({ open, onClose, onSaved, editReceipt }: WizardDialogProps) {
   const { user } = useAuth();
   const { customers } = useCustomers();
+  const isEdit = !!editReceipt;
 
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -227,6 +229,43 @@ function WizardDialog({ open, onClose, onSaved }: WizardDialogProps) {
 
   // Step 2 state
   const [instruments, setInstruments] = useState<InstrumentRow[]>([emptyInstrument()]);
+
+  // Prefill on edit
+  useEffect(() => {
+    if (!open) return;
+    if (editReceipt) {
+      setStep(0);
+      setCustomerId(editReceipt.customer_id ?? "");
+      setPicName(editReceipt.service_pic_name ?? "");
+      setPicPhone(editReceipt.service_pic_phone ?? "");
+      setServiceLocation(editReceipt.service_location ?? "Lab Kemika, Tangerang");
+      setReceivedDate(editReceipt.received_date ?? todayISO());
+      setTargetDate(editReceipt.target_completion_date ?? "");
+      setNotes(editReceipt.customer_request_notes ?? "");
+      // fetch full instruments
+      (async () => {
+        const { data } = await supabase
+          .from("calibration_instruments")
+          .select("*")
+          .eq("calibration_receipt_id", editReceipt.id)
+          .order("item_number", { ascending: true });
+        if (data && data.length > 0) {
+          setInstruments(data.map((d: Record<string, unknown>) => ({
+            _key: crypto.randomUUID(),
+            instrument_name: (d.instrument_name as string) ?? "",
+            brand_model: (d.brand_model as string) ?? "",
+            serial_number: (d.serial_number as string) ?? "",
+            measurement_range: (d.measurement_range as string) ?? "",
+            calibration_method: (d.calibration_method as string) ?? "",
+            unit_price: String(d.unit_price ?? 0),
+            sla_working_days: String(d.sla_working_days ?? 5),
+          })));
+        } else {
+          setInstruments([emptyInstrument()]);
+        }
+      })();
+    }
+  }, [open, editReceipt]);
 
   const selectedCustomer = customers.find((c) => c.id === customerId) ?? null;
 
@@ -281,28 +320,39 @@ function WizardDialog({ open, onClose, onSaved }: WizardDialogProps) {
       sla_working_days: parseInt(i.sla_working_days) || 5,
     }));
 
-    const result = await createCalibrationReceipt(
-      {
-        customer_id: customerId,
-        service_pic_name: picName.trim(),
-        service_pic_phone: picPhone.trim(),
-        service_location: serviceLocation.trim() || "Lab Kemika, Tangerang",
-        received_date: receivedDate,
-        target_completion_date: targetDate,
-        customer_request_notes: notes.trim(),
-        created_by: user?.id ?? null,
-      },
-      instrumentInputs
-    );
+    const headerBase = {
+      customer_id: customerId,
+      service_pic_name: picName.trim(),
+      service_pic_phone: picPhone.trim(),
+      service_location: serviceLocation.trim() || "Lab Kemika, Tangerang",
+      received_date: receivedDate,
+      target_completion_date: targetDate,
+      customer_request_notes: notes.trim(),
+    };
 
-    setSaving(false);
-
-    if (result.success) {
-      toast.success(`Tanda terima ${result.receipt_number} berhasil disimpan`);
-      onSaved();
-      handleReset();
+    if (isEdit && editReceipt) {
+      const result = await updateCalibrationReceipt(editReceipt.id, headerBase, instrumentInputs);
+      setSaving(false);
+      if (result.success) {
+        toast.success(`Tanda terima ${editReceipt.receipt_number} diperbarui`);
+        onSaved();
+        handleReset();
+      } else {
+        toast.error(result.error ?? "Gagal memperbarui");
+      }
     } else {
-      toast.error(result.error ?? "Gagal menyimpan");
+      const result = await createCalibrationReceipt(
+        { ...headerBase, created_by: user?.id ?? null },
+        instrumentInputs
+      );
+      setSaving(false);
+      if (result.success) {
+        toast.success(`Tanda terima ${result.receipt_number} berhasil disimpan`);
+        onSaved();
+        handleReset();
+      } else {
+        toast.error(result.error ?? "Gagal menyimpan");
+      }
     }
   };
 
@@ -329,7 +379,7 @@ function WizardDialog({ open, onClose, onSaved }: WizardDialogProps) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ClipboardList className="w-5 h-5 text-primary" />
-            Terima Alat Kalibrasi
+            {isEdit ? `Edit ${editReceipt?.receipt_number ?? ""}` : "Terima Alat Kalibrasi"}
           </DialogTitle>
         </DialogHeader>
 
