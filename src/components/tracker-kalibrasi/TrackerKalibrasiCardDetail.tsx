@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   FlaskConical, X, Send, Loader2, CheckSquare, Square,
   MapPin, Phone, User, CalendarDays, FileText, Download,
-  Plus, Trash2, Package,
+  Plus, Trash2, Package, MessageSquare,
 } from "lucide-react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
@@ -11,8 +11,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   COLUMN_DEFS,
