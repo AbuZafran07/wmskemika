@@ -104,6 +104,45 @@ export type Database = {
         }
         Relationships: []
       }
+      calibration_card_labels: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          label_id: string
+          sales_order_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label_id: string
+          sales_order_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label_id?: string
+          sales_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calibration_card_labels_label_id_fkey"
+            columns: ["label_id"]
+            isOneToOne: false
+            referencedRelation: "calibration_labels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calibration_card_labels_sales_order_id_fkey"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_order_headers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calibration_items: {
         Row: {
           brand_model: string | null
@@ -174,6 +213,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      calibration_labels: {
+        Row: {
+          color: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
       }
       calibration_spare_parts: {
         Row: {
