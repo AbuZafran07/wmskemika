@@ -431,11 +431,13 @@ export default function TrackerKalibrasiCardDetail({
   if (!receiptId) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-stretch justify-center sm:items-center sm:p-4"
+      onClick={onClose}
+    >
       <div className="absolute inset-0 bg-black/50" />
       <div
-        className="relative w-full max-w-5xl bg-background rounded-xl shadow-2xl border flex flex-col overflow-hidden"
-        style={{ height: "88vh" }}
+        className="relative w-full h-[100dvh] sm:h-[92vh] sm:max-w-6xl bg-background sm:rounded-xl shadow-2xl border flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {loadingReceipt ? (
