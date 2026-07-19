@@ -2057,6 +2057,16 @@ export default function SalesOrder() {
                 )}
               </div>
               <div className="flex gap-2">
+                {(selectedOrder as any)?.order_type === "calibration" && canEdit('sales_order') && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditCalibrationOrder(selectedOrder)}
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    {language === "en" ? "Edit Info" : "Edit Info"}
+                  </Button>
+                )}
                 {selectedOrder?.po_document_url && (
                   <Button
                     variant="outline"
