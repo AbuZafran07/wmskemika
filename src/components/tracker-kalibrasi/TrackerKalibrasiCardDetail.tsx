@@ -431,11 +431,13 @@ export default function TrackerKalibrasiCardDetail({
   if (!receiptId) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-stretch justify-center sm:items-center sm:p-4"
+      onClick={onClose}
+    >
       <div className="absolute inset-0 bg-black/50" />
       <div
-        className="relative w-full max-w-5xl bg-background rounded-xl shadow-2xl border flex flex-col overflow-hidden"
-        style={{ height: "88vh" }}
+        className="relative w-full h-[100dvh] sm:h-[92vh] sm:max-w-6xl bg-background sm:rounded-xl shadow-2xl border flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {loadingReceipt ? (
@@ -470,7 +472,7 @@ export default function TrackerKalibrasiCardDetail({
                 <div className="space-y-4 p-4">
 
                   {/* Detail info */}
-                  <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                     <div>
                       <span className="text-muted-foreground text-xs">Customer</span>
                       <p className="font-medium">{receipt?.customer?.name ?? "-"}</p>
@@ -513,7 +515,7 @@ export default function TrackerKalibrasiCardDetail({
 
                   {/* PIC */}
                   {(receipt?.service_pic_name || receipt?.service_pic_phone) && (
-                    <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                       {receipt?.service_pic_name && (
                         <div>
                           <span className="text-muted-foreground text-xs">Nama PIC</span>
@@ -558,8 +560,8 @@ export default function TrackerKalibrasiCardDetail({
                     <SectionTitle>Alat ({instruments.length})</SectionTitle>
                     <span className="text-sm font-semibold text-primary">{formatRupiah(totalValue)}</span>
                   </div>
-                  <div className="rounded-lg border overflow-hidden">
-                    <table className="w-full text-sm">
+                  <div className="rounded-lg border overflow-x-auto">
+                    <table className="w-full min-w-[640px] text-sm">
                       <thead className="bg-muted/50">
                         <tr>
                           <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground w-8">#</th>
@@ -722,8 +724,8 @@ export default function TrackerKalibrasiCardDetail({
                   {spareParts.length === 0 && !addingPart ? (
                     <p className="text-xs text-muted-foreground py-2">Belum ada spare part tercatat</p>
                   ) : spareParts.length > 0 && (
-                    <div className="rounded-lg border overflow-hidden">
-                      <table className="w-full text-sm">
+                    <div className="rounded-lg border overflow-x-auto">
+                      <table className="w-full min-w-[560px] text-sm">
                         <thead className="bg-muted/50">
                           <tr>
                             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Produk</th>
@@ -879,7 +881,7 @@ export default function TrackerKalibrasiCardDetail({
               </ScrollArea>{/* end LEFT */}
 
               {/* ── RIGHT: comments ── */}
-              <div className="w-full md:w-72 flex flex-col border-t md:border-t-0 md:border-l flex-shrink-0 max-h-[45vh] md:max-h-none">
+              <div className="w-full md:w-80 lg:w-96 flex flex-col border-t md:border-t-0 md:border-l flex-shrink-0 max-h-[55vh] md:max-h-none">
                 <div className="px-4 py-3 border-b flex-shrink-0 flex items-center gap-2">
                   <MessageSquare className="w-4 h-4 text-muted-foreground" />
                   <h3 className="text-sm font-semibold flex items-center gap-1.5">
