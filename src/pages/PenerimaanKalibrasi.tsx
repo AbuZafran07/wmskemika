@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from "react";
 import {
-  ClipboardList, Plus, Trash2, ChevronRight, Check, Loader2, Search, ChevronDown,
+  ClipboardList, Plus, Trash2, ChevronRight, Check, Loader2, Search, ChevronDown, Eye, Pencil,
 } from "lucide-react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
@@ -9,6 +9,8 @@ import { useCustomers } from "@/hooks/useMasterData";
 import {
   useCalibrationReceipts,
   createCalibrationReceipt,
+  updateCalibrationReceipt,
+  deleteCalibrationReceipt,
   updateReceiptStatus,
   CalibrationInstrumentInput,
   CalibrationReceiptRow,
@@ -18,12 +20,17 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
