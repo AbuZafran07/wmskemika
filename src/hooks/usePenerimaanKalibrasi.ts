@@ -25,6 +25,7 @@ export interface CalibrationReceiptRow {
   id: string;
   receipt_number: string;
   spk_number: string | null;
+  sales_pulse_reference_number: string | null;
   status: 'draft' | 'spk_issued' | 'spk_signed' | 'converted_to_so' | 'cancelled';
   customer_id: string;
   customer: { id: string; name: string; pic: string | null; phone: string | null } | null;
@@ -50,6 +51,7 @@ export function useCalibrationReceipts() {
       .from('sales_order_headers')
       .select(`
         id, sales_order_number, spk_number, status, calibration_status,
+        sales_pulse_reference_number,
         customer_id, service_pic_name, service_pic_phone, service_location,
         calibration_received_at, order_date, target_completion_date,
         customer_request_notes, created_at,
@@ -67,6 +69,7 @@ export function useCalibrationReceipts() {
         id: r.id,
         receipt_number: r.sales_order_number ?? '-',
         spk_number: r.spk_number ?? null,
+        sales_pulse_reference_number: r.sales_pulse_reference_number ?? null,
         status: (r.calibration_status ?? r.status ?? 'draft') as CalibrationReceiptRow['status'],
         customer_id: r.customer_id,
         customer: r.customer ?? null,
@@ -141,15 +144,20 @@ export async function updateCalibrationReceipt(
     received_date: string;
     target_completion_date: string;
     customer_request_notes: string;
+    sales_pulse_reference_number: string;
   },
   instruments: CalibrationInstrumentInput[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    if (!header.sales_pulse_reference_number || !header.sales_pulse_reference_number.trim()) {
+      return { success: false, error: 'Nomor Referensi SalesPulse wajib diisi' };
+    }
     const grandTotal = instruments.reduce((s, i) => s + Number(i.unit_price || 0), 0);
     const { error: updErr } = await (supabase as any)
       .from('sales_order_headers')
       .update({
         customer_id: header.customer_id,
+        sales_pulse_reference_number: header.sales_pulse_reference_number.trim(),
         service_pic_name: header.service_pic_name || null,
         service_pic_phone: header.service_pic_phone || null,
         service_location: header.service_location || DEFAULT_SERVICE_LOCATION,
@@ -207,10 +215,14 @@ export async function createCalibrationReceipt(
     target_completion_date: string;
     customer_request_notes: string;
     created_by: string | null;
+    sales_pulse_reference_number: string;
   },
   instruments: CalibrationInstrumentInput[]
 ): Promise<{ success: boolean; error?: string; id?: string; receipt_number?: string }> {
   try {
+    if (!header.sales_pulse_reference_number || !header.sales_pulse_reference_number.trim()) {
+      return { success: false, error: 'Nomor Referensi SalesPulse wajib diisi' };
+    }
     const receipt_number = await generateUniqueKALNumber();
     const grandTotal = instruments.reduce((s, i) => s + Number(i.unit_price || 0), 0);
 
@@ -235,6 +247,7 @@ export async function createCalibrationReceipt(
         customer_id: header.customer_id,
         sales_name: salesName,
         customer_po_number: receipt_number,
+        sales_pulse_reference_number: header.sales_pulse_reference_number.trim(),
         allocation_type: 'internal',
         project_instansi: 'Kalibrasi',
         order_date: header.received_date,

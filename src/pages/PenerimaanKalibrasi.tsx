@@ -223,6 +223,7 @@ function WizardDialog({ open, onClose, onSaved, editReceipt }: WizardDialogProps
   const [receivedDate, setReceivedDate] = useState(todayISO());
   const [targetDate, setTargetDate] = useState("");
   const [notes, setNotes] = useState("");
+  const [salesPulseRef, setSalesPulseRef] = useState("");
 
   // Step 2 state
   const [instruments, setInstruments] = useState<InstrumentRow[]>([emptyInstrument()]);
@@ -239,6 +240,7 @@ function WizardDialog({ open, onClose, onSaved, editReceipt }: WizardDialogProps
       setReceivedDate(editReceipt.received_date ?? todayISO());
       setTargetDate(editReceipt.target_completion_date ?? "");
       setNotes(editReceipt.customer_request_notes ?? "");
+      setSalesPulseRef((editReceipt as any).sales_pulse_reference_number ?? "");
       // fetch full instruments
       (async () => {
         const { data } = await (supabase as any)
@@ -287,7 +289,7 @@ function WizardDialog({ open, onClose, onSaved, editReceipt }: WizardDialogProps
     );
 
   // Validation
-  const step1Valid = customerId !== "" && receivedDate !== "";
+  const step1Valid = customerId !== "" && receivedDate !== "" && salesPulseRef.trim() !== "";
   const step2Valid = instruments.length > 0 && instruments.every((i) => i.instrument_name.trim() !== "");
 
   const totalValue = instruments.reduce((sum, i) => sum + (parseFloat(i.unit_price) || 0), 0);
@@ -326,6 +328,7 @@ function WizardDialog({ open, onClose, onSaved, editReceipt }: WizardDialogProps
       received_date: receivedDate,
       target_completion_date: targetDate,
       customer_request_notes: notes.trim(),
+      sales_pulse_reference_number: salesPulseRef.trim(),
     };
 
     if (isEdit && editReceipt) {
@@ -358,6 +361,7 @@ function WizardDialog({ open, onClose, onSaved, editReceipt }: WizardDialogProps
     setStep(0);
     setCustomerId("");
     setPicName("");
+    setSalesPulseRef("");
     setPicPhone("");
     setServiceLocation("Lab Kemika, Tangerang");
     setReceivedDate(todayISO());
@@ -397,6 +401,16 @@ function WizardDialog({ open, onClose, onSaved, editReceipt }: WizardDialogProps
                   onValueChange={handleCustomerChange}
                   placeholder="Cari customer..."
                 />
+              </div>
+
+              <div className="md:col-span-2 space-y-1.5">
+                <Label>No. Referensi SalesPulse <span className="text-destructive">*</span></Label>
+                <Input
+                  value={salesPulseRef}
+                  onChange={(e) => setSalesPulseRef(e.target.value)}
+                  placeholder="Contoh: SP-2026-0001"
+                />
+                <p className="text-xs text-muted-foreground">Wajib diisi. SO tidak dapat disimpan tanpa referensi ini.</p>
               </div>
 
               <div className="space-y-1.5">
