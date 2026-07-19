@@ -2201,7 +2201,7 @@ export default function SalesOrder() {
                   salesOrderNumber={selectedOrder.sales_order_number}
                   calibrationStatus={(selectedOrder as any).calibration_status ?? null}
                   onChanged={() => {
-                    fetchOrders?.();
+                    refetch();
                   }}
                 />
               ) : (
