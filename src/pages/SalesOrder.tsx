@@ -91,6 +91,7 @@ import { useSalesUsers } from "@/hooks/useSalesUsers";
 import { uploadFile, getSignedUrl } from "@/lib/storage";
 import { CreateCalibrationSODialog } from "@/components/sales-order/CreateCalibrationSODialog";
 import { CalibrationInstrumentsPanel } from "@/components/sales-order/CalibrationInstrumentsPanel";
+import { CalibrationSPKPanel } from "@/components/sales-order/CalibrationSPKPanel";
 import { usePagination } from "@/hooks/usePagination";
 import { DataTablePagination } from "@/components/DataTablePagination";
 import { generateUniqueSalesOrderNumber } from "@/lib/transactionNumberUtils";
@@ -2196,14 +2197,22 @@ export default function SalesOrder() {
               })()}
 
               {(selectedOrder as any).order_type === "calibration" ? (
-                <CalibrationInstrumentsPanel
-                  salesOrderId={selectedOrder.id}
-                  salesOrderNumber={selectedOrder.sales_order_number}
-                  calibrationStatus={(selectedOrder as any).calibration_status ?? null}
-                  onChanged={() => {
-                    refetch();
-                  }}
-                />
+                <div className="space-y-4">
+                  <CalibrationInstrumentsPanel
+                    salesOrderId={selectedOrder.id}
+                    salesOrderNumber={selectedOrder.sales_order_number}
+                    calibrationStatus={(selectedOrder as any).calibration_status ?? null}
+                    onChanged={() => refetch()}
+                  />
+                  <CalibrationSPKPanel
+                    salesOrderId={selectedOrder.id}
+                    salesOrderNumber={selectedOrder.sales_order_number}
+                    spkNumber={(selectedOrder as any).spk_number ?? null}
+                    spkIssuedAt={(selectedOrder as any).spk_issued_at ?? null}
+                    calibrationStatus={(selectedOrder as any).calibration_status ?? null}
+                    onChanged={() => refetch()}
+                  />
+                </div>
               ) : (
               <div>
                 <h4 className="font-semibold mb-3">{language === "en" ? "Order Items" : "Item Pesanan"}</h4>
