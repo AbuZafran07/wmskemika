@@ -145,6 +145,7 @@ export async function updateCalibrationReceipt(
     target_completion_date: string;
     customer_request_notes: string;
     sales_pulse_reference_number: string;
+    allocation_type?: string;
   },
   instruments?: CalibrationInstrumentInput[]
 ): Promise<{ success: boolean; error?: string }> {
@@ -163,6 +164,9 @@ export async function updateCalibrationReceipt(
       customer_request_notes: header.customer_request_notes || null,
       delivery_deadline: header.target_completion_date || header.received_date,
     };
+    if (header.allocation_type) {
+      headerUpdate.allocation_type = header.allocation_type;
+    }
     if (instruments) {
       const grandTotal = instruments.reduce((s, i) => s + Number(i.unit_price || 0), 0);
       headerUpdate.total_amount = grandTotal;
@@ -222,6 +226,7 @@ export async function createCalibrationReceipt(
     customer_request_notes: string;
     created_by: string | null;
     sales_pulse_reference_number: string;
+    allocation_type?: string;
   },
   instruments: CalibrationInstrumentInput[]
 ): Promise<{ success: boolean; error?: string; id?: string; receipt_number?: string }> {
@@ -254,7 +259,7 @@ export async function createCalibrationReceipt(
         sales_name: salesName,
         customer_po_number: receipt_number,
         sales_pulse_reference_number: header.sales_pulse_reference_number.trim(),
-        allocation_type: 'internal',
+        allocation_type: header.allocation_type || 'Internal',
         project_instansi: 'Kalibrasi',
         order_date: header.received_date,
         delivery_deadline: header.target_completion_date || header.received_date,
