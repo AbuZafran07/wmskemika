@@ -21,6 +21,7 @@ import {
 } from "@/hooks/useTrackerKalibrasi";
 import { useProducts } from "@/hooks/useMasterData";
 import { generateSPKPdf, generateCertificatePdf } from "@/lib/calibrationPdf";
+import CalibrationLabelPicker from "./CalibrationLabelPicker";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -425,8 +426,9 @@ export default function TrackerKalibrasiCardDetail({
         ) : (
           <>
             {/* ── header ── */}
-            <div className="flex items-center justify-between px-5 py-3.5 border-b flex-shrink-0">
-              <div className="flex items-center gap-3">
+            <div className="flex items-start justify-between px-5 py-3.5 border-b flex-shrink-0 gap-3">
+              <div className="flex-1 min-w-0 flex flex-col gap-2">
+                <div className="flex items-center gap-3 flex-wrap">
                 <FlaskConical className="w-5 h-5 text-primary" />
                 <div>
                   <h2 className="font-semibold text-base leading-tight font-mono">
@@ -442,6 +444,8 @@ export default function TrackerKalibrasiCardDetail({
                 <span className="text-xs px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
                   {STATUS_LABEL[receipt?.status ?? ""] ?? receipt?.status ?? "-"}
                 </span>
+                </div>
+                {receiptId && <CalibrationLabelPicker salesOrderId={receiptId} />}
               </div>
               <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={onClose}>
                 <X className="w-4 h-4" />
