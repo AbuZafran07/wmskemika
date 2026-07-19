@@ -104,7 +104,7 @@ function KanbanCard({
             {instCount} alat · {formatRupiah(totalValue(card))}
           </span>
           {card.target_completion_date && (
-            <span className={cn(isOverdue && columnId !== "selesai" && "text-destructive font-medium")}>
+            <span className={cn(isOverdue && columnId !== "invoiced" && columnId !== "rejected" && "text-destructive font-medium")}>
               {format(new Date(card.target_completion_date + "T00:00:00"), "d MMM", { locale: idLocale })}
             </span>
           )}
@@ -164,7 +164,7 @@ function KanbanCard({
       )}
 
       {/* "Siap pindah" badge */}
-      {allDone && columnId !== "selesai" && (
+      {allDone && columnId !== "invoiced" && columnId !== "rejected" && (
         <div className="px-3 pb-2 pt-1 bg-primary/5">
           <span className="text-[10px] text-primary font-medium">
             ✓ Siap pindah ke kolom berikutnya
