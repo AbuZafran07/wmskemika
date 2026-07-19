@@ -85,13 +85,19 @@ function KanbanCard({
 
         {card.customer_po_number && (
           <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
-            PO: {card.customer_po_number}
+            PO: <span className="font-medium text-foreground/80">{card.customer_po_number}</span>
           </p>
         )}
 
         <p className="text-sm font-medium mt-1 truncate">
           {card.customer?.name ?? "-"}
         </p>
+
+        {card.customer?.code && card.customer.code !== "-" && (
+          <p className="text-[10px] text-muted-foreground truncate">
+            Kode: <span className="font-medium text-foreground/80">{card.customer.code}</span>
+          </p>
+        )}
 
         <div className="flex items-center justify-between mt-1.5 text-xs text-muted-foreground">
           <span>

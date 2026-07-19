@@ -24,7 +24,7 @@ export interface KalibrasiV2Card {
   status: string;
   archived: boolean;
   service_pic_name: string | null;
-  customer: { name: string } | null;
+  customer: { name: string; code: string } | null;
   instruments: { id: string; instrument_name: string; unit_price: number }[];
   // Optional legacy fields used by TrackerKalibrasiCardDetail
   sales_order_number?: string | null;
@@ -128,7 +128,7 @@ export function useTrackerKalibrasi() {
         status: r.calibration_status ?? r.status ?? 'draft',
         archived: false,
         service_pic_name: r.service_pic_name ?? null,
-        customer: r.customer ? { name: r.customer.name } : null,
+        customer: r.customer ? { name: r.customer.name, code: r.customer.code } : null,
         instruments: (r.items ?? [])
           .filter((it: any) => it.item_type === 'calibration')
           .map((it: any) => ({
