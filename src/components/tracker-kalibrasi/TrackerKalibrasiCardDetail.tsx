@@ -36,6 +36,7 @@ interface ReceiptDetail {
   spk_number: string | null;
   spk_issued_at: string | null;
   spk_signed_at: string | null;
+  spk_confirmed_at: string | null;
   status: string;
   archived: boolean;
   received_date: string;
@@ -156,6 +157,7 @@ interface Props {
   canToggle: boolean;
   onToggle: (receiptId: string, key: string) => void;
   onSetReceivedDate?: (receiptId: string, dateISO: string | null) => void;
+  onSetSpkConfirmedDate?: (receiptId: string, dateISO: string | null) => void;
   onSetDecision?: (receiptId: string, decision: 'accepted' | 'rejected') => void;
   onClose: () => void;
 }
@@ -166,6 +168,7 @@ export default function TrackerKalibrasiCardDetail({
   canToggle,
   onToggle,
   onSetReceivedDate,
+  onSetSpkConfirmedDate,
   onSetDecision,
   onClose,
 }: Props) {
@@ -203,7 +206,7 @@ export default function TrackerKalibrasiCardDetail({
             id, sales_order_number, customer_po_number, spk_number, spk_issued_at,
             calibration_status, status, calibration_received_at,
             target_completion_date, service_location, service_pic_name,
-            service_pic_phone, customer_request_notes, created_at, created_by,
+            service_pic_phone, customer_request_notes, created_at, created_by, spk_confirmed_at,
             sales_name, allocation_type, project_instansi,
             customer:customers(id, name, code, pic, phone, address)
           `)
@@ -248,6 +251,7 @@ export default function TrackerKalibrasiCardDetail({
             spk_number: h.spk_number ?? null,
             spk_issued_at: h.spk_issued_at ?? null,
             spk_signed_at: null,
+            spk_confirmed_at: h.spk_confirmed_at ?? null,
             status: h.calibration_status ?? h.status ?? "draft",
             archived: false,
             received_date: h.calibration_received_at
@@ -858,7 +862,20 @@ export default function TrackerKalibrasiCardDetail({
                                   <button
                                     key={item.key}
                                     disabled={!canToggle || !receiptId}
-                                    onClick={() => receiptId && onToggle(receiptId, item.key)}
+                                    onClick={() => {
+                                      if (!receiptId) return;
+                                      // Block SPK Confirmed toggle unless date is filled & valid
+                                      if (item.key === 'spk_confirmed' && !checked) {
+                                        const d = receipt?.spk_confirmed_at
+                                          ? String(receipt.spk_confirmed_at).slice(0, 10)
+                                          : '';
+                                        if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+                                          toast.error('Isi "Tgl SPK Confirmed" terlebih dahulu (format YYYY-MM-DD).');
+                                          return;
+                                        }
+                                      }
+                                      onToggle(receiptId, item.key);
+                                    }}
                                     className={cn(
                                       "flex items-start gap-2.5 w-full text-left rounded-lg p-1.5 transition-colors",
                                       canToggle ? "hover:bg-muted/40 cursor-pointer" : "cursor-default",
@@ -878,6 +895,30 @@ export default function TrackerKalibrasiCardDetail({
                                   </button>
                                 );
                               })}
+
+                              {/* Instrument Received: input Tgl SPK Confirmed di bawah checklist */}
+                              {col.id === 'instrument_received' && canToggle && receiptId && (
+                                <div className="rounded-lg border border-dashed p-2.5 bg-muted/20 mt-2">
+                                  <label className="text-[11px] text-muted-foreground block mb-1">
+                                    Tgl SPK Confirmed
+                                  </label>
+                                  <Input
+                                    type="date"
+                                    className="h-8 text-sm"
+                                    value={
+                                      receipt?.spk_confirmed_at
+                                        ? String(receipt.spk_confirmed_at).slice(0, 10)
+                                        : ''
+                                    }
+                                    onChange={(e) =>
+                                      onSetSpkConfirmedDate?.(receiptId, e.target.value || null)
+                                    }
+                                  />
+                                  <p className="text-[10px] text-muted-foreground mt-1">
+                                    Wajib diisi sebelum mencentang "SPK Confirmed" untuk pindah ke Calibration In Progress.
+                                  </p>
+                                </div>
+                              )}
 
                               {/* Scheduled: tanggal terima di bawah checklist */}
                               {col.id === 'scheduled' && canToggle && receiptId && (

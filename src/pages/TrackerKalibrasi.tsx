@@ -381,6 +381,7 @@ export default function TrackerKalibrasi() {
           canToggle={canToggle}
           onToggle={toggleChecklist}
           onSetReceivedDate={setReceivedDate}
+          onSetSpkConfirmedDate={setSpkConfirmedDate}
           onSetDecision={setDecision}
           onClose={() => setSelectedId(null)}
         />
