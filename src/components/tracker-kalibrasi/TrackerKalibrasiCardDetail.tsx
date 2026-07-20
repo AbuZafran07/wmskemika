@@ -825,7 +825,16 @@ export default function TrackerKalibrasiCardDetail({
                                   </label>
                                   <select
                                     className="w-full h-8 rounded-md border text-sm px-2 bg-background"
-                                    value={receipt?.status === 'rejected' ? 'rejected' : ''}
+                                    value={
+                                      receipt?.status === 'rejected'
+                                        ? 'rejected'
+                                        : receipt?.status === 'received' ||
+                                          receipt?.status === 'accepted' ||
+                                          isChecked('spk_issued') ||
+                                          isChecked('spk_confirmed')
+                                        ? 'accepted'
+                                        : ''
+                                    }
                                     onChange={(e) => {
                                       const v = e.target.value as '' | 'accepted' | 'rejected';
                                       if (!v || !receiptId) return;
