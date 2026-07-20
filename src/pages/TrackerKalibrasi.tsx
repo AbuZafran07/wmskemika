@@ -1,16 +1,15 @@
 import React, { useState } from "react";
-import { FlaskConical, Loader2, RefreshCw, CheckSquare, Square } from "lucide-react";
+import { FlaskConical, Loader2, RefreshCw, Building2, Package, Calendar as CalendarIcon, User } from "lucide-react";
 import { format, isPast } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   useTrackerKalibrasi,
   COLUMN_DEFS,
-  COLUMN_CHECKLISTS,
   KalibrasiV2Card,
   KalibrasiV2Column,
-  KalibrasiV2Checklist,
 } from "@/hooks/useTrackerKalibrasi";
 import TrackerKalibrasiCardDetail from "@/components/tracker-kalibrasi/TrackerKalibrasiCardDetail";
 
@@ -28,156 +27,125 @@ function totalValue(card: KalibrasiV2Card): number {
   return (card.instruments ?? []).reduce((sum, i) => sum + (i.unit_price ?? 0), 0);
 }
 
+function statusBadgeColor(status: string): string {
+  const s = (status || "").toLowerCase();
+  if (s === "approved" || s === "completed" || s === "invoiced") return "bg-emerald-100 text-emerald-700 border-emerald-200";
+  if (s === "rejected" || s === "cancelled") return "bg-red-100 text-red-700 border-red-200";
+  if (s === "received" || s === "in_progress") return "bg-blue-100 text-blue-700 border-blue-200";
+  return "bg-slate-100 text-slate-700 border-slate-200";
+}
+
 // ─── kanban card ─────────────────────────────────────────────────────────────
 
 interface KanbanCardProps {
   card: KalibrasiV2Card;
   columnId: KalibrasiV2Column;
-  checklists: KalibrasiV2Checklist[];
-  canToggle: boolean;
-  onToggle: (receiptId: string, key: string) => void;
-  onSetReceivedDate: (receiptId: string, dateISO: string | null) => void;
-  onSetSpkConfirmedDate: (receiptId: string, dateISO: string | null) => void;
-  onSetDecision: (receiptId: string, decision: 'accepted' | 'rejected') => void;
   onClickCard: (id: string) => void;
 }
 
-function KanbanCard({
-  card,
-  columnId,
-  checklists,
-  canToggle,
-  onToggle,
-  onSetReceivedDate,
-  onSetSpkConfirmedDate,
-  onSetDecision,
-  onClickCard,
-}: KanbanCardProps) {
-  const items = COLUMN_CHECKLISTS[columnId] ?? [];
-  const checkedCount = items.filter((item) =>
-    checklists.some((c) => c.checklist_key === item.key && c.is_checked),
-  ).length;
-  const allDone = items.length > 0 && checkedCount === items.length;
-
+function KanbanCard({ card, columnId, onClickCard }: KanbanCardProps) {
   const isOverdue =
     card.target_completion_date &&
-    isPast(new Date(card.target_completion_date + "T23:59:59"));
+    isPast(new Date(card.target_completion_date + "T23:59:59")) &&
+    columnId !== "invoiced" && columnId !== "rejected";
 
   const instCount = card.instruments?.length ?? 0;
+  const firstInstrument = card.instruments?.[0];
 
   return (
-    <div
+    <button
+      onClick={() => onClickCard(card.id)}
       className={cn(
-        "rounded-xl border bg-card shadow-sm flex flex-col gap-0 overflow-hidden",
-        "hover:shadow-md transition-shadow",
-        allDone && "ring-2 ring-primary/40",
+        "text-left rounded-xl border bg-card shadow-sm p-3 flex flex-col gap-1.5",
+        "hover:shadow-md hover:border-primary/40 transition-all cursor-pointer",
       )}
     >
-      {/* Card header — clickable */}
-      <button
-        className="text-left px-3 pt-3 pb-2 hover:bg-muted/30 transition-colors"
-        onClick={() => onClickCard(card.id)}
-      >
-        <div className="flex items-start justify-between gap-2">
-          <span className="font-mono text-xs font-semibold text-primary">
-            {card.receipt_number}
-          </span>
-          {card.spk_number && (
-            <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-mono">
-              {card.spk_number}
-            </span>
-          )}
-        </div>
+      {/* SO number + status */}
+      <div className="flex items-start justify-between gap-2">
+        <span className="font-bold text-primary text-[13px] truncate">
+          {card.receipt_number}
+        </span>
+        <Badge variant="outline" className={cn("text-[9px] h-4 px-1.5 py-0 font-medium capitalize", statusBadgeColor(card.status))}>
+          {card.status}
+        </Badge>
+      </div>
 
-        {card.customer_po_number && (
-          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
-            PO: <span className="font-medium text-foreground/80">{card.customer_po_number}</span>
-          </p>
-        )}
-
-        <p className="text-sm font-medium mt-1 truncate">
-          {card.customer?.name ?? "-"}
+      {/* Dibuat */}
+      {card.created_at && (
+        <p className="text-[10px] text-muted-foreground">
+          Dibuat: {format(new Date(card.created_at), "d MMM yy, HH:mm", { locale: idLocale })}
         </p>
+      )}
 
-        {card.customer?.code && card.customer.code !== "-" && (
-          <p className="text-[10px] text-muted-foreground truncate">
-            Kode: <span className="font-medium text-foreground/80">{card.customer.code}</span>
-          </p>
+      {/* Labels: allocation + KAL */}
+      <div className="flex flex-wrap gap-1">
+        <span className="text-[9px] font-semibold text-white bg-amber-500 px-1.5 py-0.5 rounded">
+          KAL
+        </span>
+        {card.allocation_type && (
+          <span className="text-[9px] font-semibold text-white bg-blue-600 px-1.5 py-0.5 rounded capitalize">
+            {card.allocation_type.replace(/_/g, " ")}
+          </span>
         )}
-
-        <div className="flex items-center justify-between mt-1.5 text-xs text-muted-foreground">
-          <span>
-            {instCount} alat · {formatRupiah(totalValue(card))}
+        {card.spk_number && (
+          <span className="text-[9px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+            {card.spk_number}
           </span>
-          {card.target_completion_date && (
-            <span className={cn(isOverdue && columnId !== "invoiced" && columnId !== "rejected" && "text-destructive font-medium")}>
-              {format(new Date(card.target_completion_date + "T00:00:00"), "d MMM", { locale: idLocale })}
+        )}
+      </div>
+
+      {/* Customer */}
+      <div className="flex items-center gap-1 mt-0.5">
+        <Building2 className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+        <span className="text-[12px] font-medium truncate">{card.customer?.name ?? "-"}</span>
+      </div>
+
+      {/* PO */}
+      {card.customer_po_number && (
+        <p className="text-[10px] text-muted-foreground truncate">
+          PO: <span className="font-medium text-foreground/80">{card.customer_po_number}</span>
+        </p>
+      )}
+
+      {/* Lokasi service */}
+      {card.service_location && (
+        <p className="text-[10px] text-muted-foreground truncate">
+          {card.service_location}
+        </p>
+      )}
+
+      {/* Instrumen preview */}
+      {instCount > 0 && (
+        <div className="flex items-center gap-1">
+          <Package className="h-2.5 w-2.5 text-muted-foreground flex-shrink-0" />
+          <span className="text-[10px] text-muted-foreground truncate">
+            {firstInstrument?.instrument_name}
+            {instCount > 1 && ` +${instCount - 1} lainnya`} · {formatRupiah(totalValue(card))}
+          </span>
+        </div>
+      )}
+
+      {/* Footer: deadline + sales */}
+      <div className="flex items-center justify-between border-t border-border/40 pt-1.5 mt-1">
+        <div className="flex items-center gap-1">
+          <CalendarIcon className="h-3 w-3 text-destructive" />
+          <div className="flex flex-col leading-tight">
+            <span className="text-[8px] text-destructive font-semibold">Deadline Pengiriman</span>
+            <span className={cn("text-[10px] font-bold text-destructive", isOverdue && "underline")}>
+              {card.target_completion_date
+                ? format(new Date(card.target_completion_date + "T00:00:00"), "d MMM yy", { locale: idLocale })
+                : "-"}
             </span>
-          )}
+          </div>
         </div>
-      </button>
-
-      {/* Checklists */}
-      {items.length > 0 && (
-        <div className="border-t px-3 py-2 space-y-1.5 bg-muted/20">
-          {items.map((item) => {
-            const checked = checklists.some(
-              (c) => c.checklist_key === item.key && c.is_checked,
-            );
-            return (
-              <button
-                key={item.key}
-                disabled={!canToggle}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggle(card.id, item.key);
-                }}
-                className={cn(
-                  "flex items-center gap-2 w-full text-left text-xs rounded transition-colors",
-                  canToggle
-                    ? "hover:text-foreground cursor-pointer"
-                    : "cursor-default",
-                  checked ? "text-foreground" : "text-muted-foreground",
-                )}
-              >
-                {checked ? (
-                  <CheckSquare className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                ) : (
-                  <Square className="w-3.5 h-3.5 flex-shrink-0" />
-                )}
-                <span className={cn(checked && "line-through opacity-60")}>
-                  {item.label}
-                </span>
-              </button>
-            );
-          })}
-
-          {/* Progress bar */}
-          {items.length > 0 && (
-            <div className="mt-2">
-              <div className="h-1 rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full bg-primary transition-all"
-                  style={{ width: `${(checkedCount / items.length) * 100}%` }}
-                />
-              </div>
-              <p className="text-[10px] text-muted-foreground mt-0.5 text-right">
-                {checkedCount}/{items.length}
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* "Siap pindah" badge */}
-      {allDone && columnId !== "invoiced" && columnId !== "rejected" && (
-        <div className="px-3 pb-2 pt-1 bg-primary/5">
-          <span className="text-[10px] text-primary font-medium">
-            ✓ Siap pindah ke kolom berikutnya
-          </span>
-        </div>
-      )}
-    </div>
+        {card.sales_name && (
+          <div className="flex items-center gap-1">
+            <User className="h-3 w-3 text-muted-foreground" />
+            <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">{card.sales_name}</span>
+          </div>
+        )}
+      </div>
+    </button>
   );
 }
 
@@ -186,26 +154,10 @@ function KanbanCard({
 interface ColumnProps {
   colDef: (typeof COLUMN_DEFS)[number];
   cards: KalibrasiV2Card[];
-  checklists: Record<string, KalibrasiV2Checklist[]>;
-  canToggle: boolean;
-  onToggle: (receiptId: string, key: string) => void;
-  onSetReceivedDate: (receiptId: string, dateISO: string | null) => void;
-  onSetSpkConfirmedDate: (receiptId: string, dateISO: string | null) => void;
-  onSetDecision: (receiptId: string, decision: 'accepted' | 'rejected') => void;
   onClickCard: (id: string) => void;
 }
 
-function KanbanColumn({
-  colDef,
-  cards,
-  checklists,
-  canToggle,
-  onToggle,
-  onSetReceivedDate,
-  onSetSpkConfirmedDate,
-  onSetDecision,
-  onClickCard,
-}: ColumnProps) {
+function KanbanColumn({ colDef, cards, onClickCard }: ColumnProps) {
   return (
     <div className="flex flex-col w-72 flex-none">
       {/* Column header */}
@@ -234,12 +186,6 @@ function KanbanColumn({
               key={card.id}
               card={card}
               columnId={colDef.id}
-              checklists={checklists[card.id] || []}
-              canToggle={canToggle}
-              onToggle={onToggle}
-              onSetReceivedDate={onSetReceivedDate}
-              onSetSpkConfirmedDate={onSetSpkConfirmedDate}
-              onSetDecision={onSetDecision}
               onClickCard={onClickCard}
             />
           ))
@@ -308,12 +254,6 @@ export default function TrackerKalibrasi() {
               key={col.id}
               colDef={col}
               cards={getColumnCards(col.id)}
-              checklists={checklists}
-              canToggle={canToggle}
-              onToggle={toggleChecklist}
-              onSetReceivedDate={setReceivedDate}
-              onSetSpkConfirmedDate={setSpkConfirmedDate}
-              onSetDecision={setDecision}
               onClickCard={setSelectedId}
             />
           ))}

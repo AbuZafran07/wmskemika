@@ -41,6 +41,8 @@ export interface KalibrasiV2Card {
   grand_total?: number | null;
   notes?: string | null;
   spk_confirmed_at?: string | null;
+  created_at?: string | null;
+  allocation_type?: string | null;
 }
 
 export const COLUMN_DEFS: {
@@ -126,7 +128,7 @@ export function useTrackerKalibrasi() {
           id, sales_order_number, spk_number, customer_po_number, order_date, target_completion_date,
           calibration_status, status, service_pic_name, service_location,
           service_pic_phone, calibration_received_at, sales_name, grand_total,
-          notes, customer_request_notes, spk_confirmed_at,
+          notes, customer_request_notes, spk_confirmed_at, created_at, allocation_type,
           customer:customers(name),
           items:sales_order_items(id, item_type, instrument_name, description, unit_price)
         `)
@@ -165,6 +167,8 @@ export function useTrackerKalibrasi() {
         grand_total: r.grand_total ?? null,
         notes: r.notes ?? r.customer_request_notes ?? null,
         spk_confirmed_at: r.spk_confirmed_at ?? null,
+        created_at: r.created_at ?? null,
+        allocation_type: r.allocation_type ?? null,
       }));
 
       setCards(list);
