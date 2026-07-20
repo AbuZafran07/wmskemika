@@ -293,29 +293,18 @@ export function useTrackerKalibrasi() {
 
         // Side-effects on header
         if (checklistKey === 'instrument_received') {
-          const card = cards.find((c) => c.id === receiptId);
-          const patch: Record<string, any> = {
-            calibration_received_at: newValue ? new Date().toISOString() : null,
-          };
-          // Auto-confirm penerimaan di SO saat checklist dicentang, revert saat uncheck
-          if (newValue) {
-            // Selalu pastikan status = 'received' agar Konfirmasi Penerimaan di halaman SO ter-sinkron
-            if (!card?.status || ['draft', 'pending_receipt', 'rejected', 'cancelled'].includes(card.status)) {
-              patch.calibration_status = 'received';
-            }
-          } else {
-            // Uncheck → kembalikan ke pending_receipt hanya jika status masih 'received' (belum lanjut ke SPK)
-            if (card?.status === 'received') {
-              patch.calibration_status = 'pending_receipt';
-            }
-          }
-          await (supabase as any).from('sales_order_headers').update(patch).eq('id', receiptId);
+          const { error: rpcErr } = await (supabase as any).rpc('sync_calibration_receipt_status', {
+            p_so_id: receiptId,
+            p_received: newValue,
+          });
+          if (rpcErr) throw rpcErr;
         }
         if (checklistKey === 'spk_confirmed') {
-          await (supabase as any)
-            .from('sales_order_headers')
-            .update({ spk_confirmed_at: newValue ? new Date().toISOString() : null })
-            .eq('id', receiptId);
+          const { error: rpcErr } = await (supabase as any).rpc('sync_calibration_spk_confirmed', {
+            p_so_id: receiptId,
+            p_confirmed: newValue,
+          });
+          if (rpcErr) throw rpcErr;
         }
       } catch (err) {
         console.error('toggleChecklist error:', err);
