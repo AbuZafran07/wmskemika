@@ -549,56 +549,6 @@ export default function TrackerKalibrasiCardDetail({
                     <Field label="Nomor SPK" value={receipt?.spk_number} />
                     <Field label="SPK Diterbitkan" value={fmtDate(receipt?.spk_issued_at ?? null)} />
                   </div>
-                  {/* Action zone berdasarkan kolom aktif */}
-                  {(() => {
-                    const currentCol = getBoardColumn(checklists, receipt?.status)?.id;
-                    if (currentCol === 'scheduled' && canToggle) {
-                      return (
-                        <div className="mt-3 rounded-lg border p-3 bg-muted/20 flex flex-col sm:flex-row sm:items-end gap-3">
-                          <div className="flex-1 space-y-1">
-                            <span className="text-xs text-muted-foreground">Tanggal Terima Alat</span>
-                            <Input
-                              type="date"
-                              className="h-9 text-sm"
-                              value={receipt?.received_date ?? ''}
-                              onChange={(e) =>
-                                receiptId && onSetReceivedDate?.(receiptId, e.target.value || null)
-                              }
-                            />
-                            <p className="text-[11px] text-muted-foreground">
-                              Setelah tanggal diisi & checklist "Receive Instrument" dicentang, card berpindah ke kolom Instrument Received.
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    }
-                    if (currentCol === 'instrument_received' && canToggle) {
-                      return (
-                        <div className="mt-3 rounded-lg border p-3 bg-muted/20 flex flex-col sm:flex-row sm:items-end gap-3">
-                          <div className="flex-1 space-y-1">
-                            <span className="text-xs text-muted-foreground">Keputusan Kalibrasi</span>
-                            <select
-                              className="w-full h-9 rounded-md border text-sm px-2 bg-background"
-                              value={receipt?.status === 'rejected' ? 'rejected' : ''}
-                              onChange={(e) => {
-                                const v = e.target.value as '' | 'accepted' | 'rejected';
-                                if (!v || !receiptId) return;
-                                onSetDecision?.(receiptId, v);
-                              }}
-                            >
-                              <option value="">-- Pilih keputusan --</option>
-                              <option value="accepted">Accepted for Calibration</option>
-                              <option value="rejected">Rejected for Calibration</option>
-                            </select>
-                            <p className="text-[11px] text-muted-foreground">
-                              Pilih "Accepted" untuk melanjutkan proses & terbitkan SPK, atau "Rejected" untuk memindahkan card ke kolom Rejected.
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
                   {receipt?.customer_request_notes && (
                     <div className="mt-3 p-3 rounded-lg bg-muted/40 text-sm text-muted-foreground">
                       <span className="font-medium text-foreground">Catatan: </span>
@@ -846,7 +796,7 @@ export default function TrackerKalibrasiCardDetail({
                 <div>
                   <SectionTitle>Checklist</SectionTitle>
                   <div className="space-y-3">
-                     {COLUMN_DEFS.filter((col) => col.id === (getBoardColumn(checklists)?.id ?? "scheduled")).map((col) => {
+                    {COLUMN_DEFS.filter((col) => col.id === (getBoardColumn(checklists, receipt?.status)?.id ?? "scheduled")).map((col) => {
                       const items = COLUMN_CHECKLISTS[col.id] ?? [];
                       const doneCount = items.filter((item) => isChecked(item.key)).length;
                       const allDone = items.length > 0 && doneCount === items.length;
@@ -867,6 +817,31 @@ export default function TrackerKalibrasiCardDetail({
                               </span>
                             </div>
                             <div className="space-y-1.5">
+                              {/* Instrument Received: keputusan di atas checklist SPK */}
+                              {col.id === 'instrument_received' && canToggle && receiptId && (
+                                <div className="rounded-lg border border-dashed p-2.5 bg-muted/20 mb-2">
+                                  <label className="text-[11px] text-muted-foreground block mb-1">
+                                    Keputusan Kalibrasi
+                                  </label>
+                                  <select
+                                    className="w-full h-8 rounded-md border text-sm px-2 bg-background"
+                                    value={receipt?.status === 'rejected' ? 'rejected' : ''}
+                                    onChange={(e) => {
+                                      const v = e.target.value as '' | 'accepted' | 'rejected';
+                                      if (!v || !receiptId) return;
+                                      onSetDecision?.(receiptId, v);
+                                    }}
+                                  >
+                                    <option value="">-- Pilih keputusan --</option>
+                                    <option value="accepted">Accepted for Calibration</option>
+                                    <option value="rejected">Rejected for Calibration</option>
+                                  </select>
+                                  <p className="text-[10px] text-muted-foreground mt-1">
+                                    Pilih Accepted untuk lanjut proses, Rejected untuk pindah ke kolom Rejected.
+                                  </p>
+                                </div>
+                              )}
+
                               {items.map((item) => {
                                 const checked = isChecked(item.key);
                                 const ts = checkedAt(item.key);
@@ -894,6 +869,26 @@ export default function TrackerKalibrasiCardDetail({
                                   </button>
                                 );
                               })}
+
+                              {/* Scheduled: tanggal terima di bawah checklist */}
+                              {col.id === 'scheduled' && canToggle && receiptId && (
+                                <div className="rounded-lg border border-dashed p-2.5 bg-muted/20 mt-2">
+                                  <label className="text-[11px] text-muted-foreground block mb-1">
+                                    Tanggal Terima Alat
+                                  </label>
+                                  <Input
+                                    type="date"
+                                    className="h-8 text-sm"
+                                    value={receipt?.received_date ?? ''}
+                                    onChange={(e) =>
+                                      onSetReceivedDate?.(receiptId, e.target.value || null)
+                                    }
+                                  />
+                                  <p className="text-[10px] text-muted-foreground mt-1">
+                                    Isi tanggal & centang "Receive Instrument" untuk pindah kolom.
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
