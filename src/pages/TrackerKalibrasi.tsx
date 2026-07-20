@@ -409,6 +409,19 @@ export default function TrackerKalibrasi() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div className="space-y-1.5 pt-2 border-t">
+                  <p className="text-xs font-medium text-muted-foreground">Urutkan</p>
+                  <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="deadline_asc">Deadline terdekat</SelectItem>
+                      <SelectItem value="deadline_desc">Deadline terjauh</SelectItem>
+                      <SelectItem value="created_desc">Terbaru dibuat</SelectItem>
+                      <SelectItem value="created_asc">Terlama dibuat</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </PopoverContent>
           </Popover>
