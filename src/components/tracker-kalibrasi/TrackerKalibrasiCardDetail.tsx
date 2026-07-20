@@ -611,12 +611,24 @@ export default function TrackerKalibrasiCardDetail({
                       <Package className="w-3.5 h-3.5 text-muted-foreground" />
                       <SectionTitle>Spare Parts ({spareParts.length})</SectionTitle>
                     </div>
-                    {canToggle && !addingPart && (
-                      <Button variant="outline" size="sm" className="h-7 gap-1 text-xs"
-                        onClick={() => setAddingPart(true)}>
-                        <Plus className="w-3 h-3" /> Tambah
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {spareParts.length > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 gap-1 text-xs"
+                          onClick={() => printCalibrationSparepartRequest(receiptId!)}
+                        >
+                          <Printer className="w-3 h-3" /> Cetak
+                        </Button>
+                      )}
+                      {canToggle && !addingPart && (
+                        <Button variant="outline" size="sm" className="h-7 gap-1 text-xs"
+                          onClick={() => setAddingPart(true)}>
+                          <Plus className="w-3 h-3" /> Tambah
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
                   {addingPart && (
