@@ -1586,6 +1586,7 @@ export type Database = {
           service_pic_phone: string | null
           ship_to_address: string | null
           shipping_cost: number | null
+          spk_confirmed_at: string | null
           spk_issued_at: string | null
           spk_number: string | null
           status: string
@@ -1625,6 +1626,7 @@ export type Database = {
           service_pic_phone?: string | null
           ship_to_address?: string | null
           shipping_cost?: number | null
+          spk_confirmed_at?: string | null
           spk_issued_at?: string | null
           spk_number?: string | null
           status?: string
@@ -1664,6 +1666,7 @@ export type Database = {
           service_pic_phone?: string | null
           ship_to_address?: string | null
           shipping_cost?: number | null
+          spk_confirmed_at?: string | null
           spk_issued_at?: string | null
           spk_number?: string | null
           status?: string
