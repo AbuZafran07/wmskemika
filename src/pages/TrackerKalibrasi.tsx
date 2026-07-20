@@ -10,7 +10,6 @@ import {
   COLUMN_DEFS,
   KalibrasiV2Card,
   KalibrasiV2Column,
-  KalibrasiV2Checklist,
 } from "@/hooks/useTrackerKalibrasi";
 import TrackerKalibrasiCardDetail from "@/components/tracker-kalibrasi/TrackerKalibrasiCardDetail";
 
