@@ -792,7 +792,7 @@ export default function TrackerKalibrasiCardDetail({
                 <div>
                   <SectionTitle>Checklist</SectionTitle>
                   <div className="space-y-3">
-                    {COLUMN_DEFS.filter((col) => col.id !== "rejected").map((col) => {
+                     {COLUMN_DEFS.filter((col) => col.id === (getBoardColumn(checklists)?.id ?? "scheduled")).map((col) => {
                       const items = COLUMN_CHECKLISTS[col.id] ?? [];
                       const doneCount = items.filter((item) => isChecked(item.key)).length;
                       const allDone = items.length > 0 && doneCount === items.length;
