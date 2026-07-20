@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { generateUniqueSPKNumber } from '@/lib/transactionNumberUtils';
 
 export type KalibrasiV2Column =
   | 'scheduled'
@@ -305,6 +306,32 @@ export function useTrackerKalibrasi() {
             p_confirmed: newValue,
           });
           if (rpcErr) throw rpcErr;
+        }
+
+        // Auto-issue SPK number when "SPK Issued" is checked (if not already issued)
+        if (checklistKey === 'spk_issued' && newValue) {
+          const card = cards.find((c) => c.id === receiptId);
+          if (!card?.spk_number) {
+            try {
+              const number = await generateUniqueSPKNumber();
+              const issuedAt = new Date().toISOString();
+              const { error: updErr } = await (supabase as any)
+                .from('sales_order_headers')
+                .update({
+                  spk_number: number,
+                  spk_issued_at: issuedAt,
+                  calibration_status: 'spk_issued',
+                  customer_po_number: number,
+                })
+                .eq('id', receiptId);
+              if (updErr) throw updErr;
+              toast.success(`SPK ${number} diterbitkan`);
+            } catch (e: any) {
+              console.error('auto-issue SPK error:', e);
+              toast.error(e?.message || 'Gagal menerbitkan nomor SPK');
+            }
+          }
+          fetchData();
         }
       } catch (err) {
         console.error('toggleChecklist error:', err);
