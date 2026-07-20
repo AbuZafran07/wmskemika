@@ -371,6 +371,8 @@ export default function TrackerKalibrasi() {
           checklists={checklists[selectedId] ?? []}
           canToggle={canToggle}
           onToggle={toggleChecklist}
+          onSetReceivedDate={setReceivedDate}
+          onSetDecision={setDecision}
           onClose={() => setSelectedId(null)}
         />
       )}
