@@ -190,6 +190,19 @@ export default function TrackerKalibrasiCardDetail({
   const [newPart, setNewPart] = useState({ instrument_id: "", product_id: "", qty_used: "1", unit_price: "0", notes: "" });
   const [selectedProductStock, setSelectedProductStock] = useState<number | null>(null);
 
+  // instrument add form (inline)
+  const [addingInstrument, setAddingInstrument] = useState(false);
+  const [newInstrument, setNewInstrument] = useState({
+    instrument_name: "",
+    brand_model: "",
+    serial_number: "",
+    measurement_range: "",
+    calibration_method: "",
+    unit_price: "0",
+    sla_working_days: "5",
+  });
+  const [savingInstrument, setSavingInstrument] = useState(false);
+
   const commentEndRef = useRef<HTMLDivElement>(null);
 
   // ── fetch receipt + instruments ─────────────────────────────────────────
@@ -423,6 +436,78 @@ export default function TrackerKalibrasiCardDetail({
     const { error } = await (supabase as any).from("calibration_spare_parts").delete().eq("id", id);
     if (error) { toast.error("Gagal hapus spare part"); return; }
     setSpareParts(prev => prev.filter(p => p.id !== id));
+  };
+
+  // ── instrument CRUD (inline) ────────────────────────────────────────────
+
+  const addInstrument = async () => {
+    if (!receiptId) return;
+    if (!newInstrument.instrument_name.trim()) {
+      toast.error("Nama alat wajib diisi");
+      return;
+    }
+    setSavingInstrument(true);
+    try {
+      const { data, error } = await (supabase as any)
+        .from("sales_order_items")
+        .insert({
+          sales_order_id: receiptId,
+          item_type: "calibration",
+          product_id: null,
+          ordered_qty: 1,
+          unit_price: parseFloat(newInstrument.unit_price) || 0,
+          instrument_name: newInstrument.instrument_name.trim(),
+          instrument_brand_model: newInstrument.brand_model.trim() || null,
+          instrument_serial_number: newInstrument.serial_number.trim() || null,
+          measurement_range: newInstrument.measurement_range.trim() || null,
+          calibration_method: newInstrument.calibration_method.trim() || null,
+          sla_working_days: parseInt(newInstrument.sla_working_days) || 5,
+          description: newInstrument.instrument_name.trim(),
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      const it = data as Record<string, any>;
+      setInstruments((prev) => [
+        ...prev,
+        {
+          id: it.id,
+          item_number: prev.length + 1,
+          instrument_name: it.instrument_name ?? "-",
+          brand_model: it.instrument_brand_model ?? null,
+          serial_number: it.instrument_serial_number ?? null,
+          measurement_range: it.measurement_range ?? null,
+          calibration_method: it.calibration_method ?? null,
+          unit_price: Number(it.unit_price ?? 0),
+          sla_working_days: it.sla_working_days ?? null,
+          feasibility_status: it.feasibility_status ?? null,
+          calibration_conclusion: null,
+          certificate_number: it.certificate_number ?? null,
+        },
+      ]);
+      setNewInstrument({
+        instrument_name: "", brand_model: "", serial_number: "",
+        measurement_range: "", calibration_method: "",
+        unit_price: "0", sla_working_days: "5",
+      });
+      setAddingInstrument(false);
+      toast.success("Alat ditambahkan");
+    } catch (err: any) {
+      toast.error(err?.message || "Gagal tambah alat");
+    } finally {
+      setSavingInstrument(false);
+    }
+  };
+
+  const deleteInstrument = async (id: string) => {
+    if (!confirm("Hapus alat ini dari SO?")) return;
+    const { error } = await (supabase as any)
+      .from("sales_order_items")
+      .delete()
+      .eq("id", id);
+    if (error) { toast.error(error.message || "Gagal hapus alat"); return; }
+    setInstruments((prev) => prev.filter((i) => i.id !== id).map((i, idx) => ({ ...i, item_number: idx + 1 })));
+    toast.success("Alat dihapus");
   };
 
   // ── checklist helpers ───────────────────────────────────────────────────
