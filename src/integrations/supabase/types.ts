@@ -2631,6 +2631,14 @@ export type Database = {
         }
         Returns: Json
       }
+      sync_calibration_receipt_status: {
+        Args: { p_received: boolean; p_so_id: string }
+        Returns: undefined
+      }
+      sync_calibration_spk_confirmed: {
+        Args: { p_confirmed: boolean; p_so_id: string }
+        Returns: undefined
+      }
       validate_adjustment_quantity: { Args: { qty: number }; Returns: boolean }
       validate_date_range: {
         Args: { end_date: string; start_date: string }
