@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FlaskConical, Loader2, RefreshCw, CheckSquare, Square } from "lucide-react";
+import { FlaskConical, Loader2, RefreshCw, CheckSquare, Square, Printer } from "lucide-react";
 import { format, isPast } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,7 @@ import {
   KalibrasiV2Checklist,
 } from "@/hooks/useTrackerKalibrasi";
 import TrackerKalibrasiCardDetail from "@/components/tracker-kalibrasi/TrackerKalibrasiCardDetail";
+import { printCalibrationSparepartRequest } from "@/lib/calibrationSparepartRequestPdf";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -110,6 +111,20 @@ function KanbanCard({
           )}
         </div>
       </button>
+
+      {/* Quick actions */}
+      <div className="px-3 pb-2 -mt-1 flex justify-end">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            printCalibrationSparepartRequest(card.id);
+          }}
+          className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary hover:underline"
+          title="Cetak Form Permintaan Sparepart"
+        >
+          <Printer className="w-3 h-3" /> Form Sparepart
+        </button>
+      </div>
 
       {/* Checklists */}
       {items.length > 0 && (
