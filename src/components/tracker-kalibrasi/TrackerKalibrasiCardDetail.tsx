@@ -800,7 +800,16 @@ export default function TrackerKalibrasiCardDetail({
                 <div>
                   <SectionTitle>Checklist</SectionTitle>
                   <div className="space-y-3">
-                    {COLUMN_DEFS.filter((col) => col.id === (getBoardColumn(checklists, receipt?.status)?.id ?? "scheduled")).map((col) => {
+                    {(() => {
+                      const currentId = getBoardColumn(checklists, receipt?.status)?.id ?? "scheduled";
+                      const currentIdx = COLUMN_DEFS.findIndex((c) => c.id === currentId);
+                      // Tampilkan semua kolom yang sudah dilewati + kolom aktif (skip rejected kecuali memang aktif)
+                      // agar checklist di kolom sebelumnya tetap tampil sebagai history dengan tanggal.
+                      return COLUMN_DEFS.filter((col, idx) => {
+                        if (col.id === 'rejected') return currentId === 'rejected';
+                        return idx <= currentIdx;
+                      });
+                    })().map((col) => {
                       const items = COLUMN_CHECKLISTS[col.id] ?? [];
                       const doneCount = items.filter((item) => isChecked(item.key)).length;
                       const allDone = items.length > 0 && doneCount === items.length;
@@ -864,6 +873,14 @@ export default function TrackerKalibrasiCardDetail({
                                     disabled={!canToggle || !receiptId}
                                     onClick={() => {
                                       if (!receiptId) return;
+                                      // Block "Receive Instrument" toggle unless received date is filled & valid
+                                      if (item.key === 'instrument_received' && !checked) {
+                                        const d = receipt?.received_date ?? '';
+                                        if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+                                          toast.error('Isi "Tanggal Terima Alat" terlebih dahulu (format YYYY-MM-DD).');
+                                          return;
+                                        }
+                                      }
                                       // Block SPK Confirmed toggle unless date is filled & valid
                                       if (item.key === 'spk_confirmed' && !checked) {
                                         const d = receipt?.spk_confirmed_at
