@@ -857,7 +857,8 @@ export default function TrackerKalibrasiCardDetail({
                   <div className="flex flex-wrap gap-2">
                     <Button
                       variant="outline" size="sm"
-                      disabled={!receiptId || pdfLoading !== null}
+                      disabled={!receiptId || pdfLoading !== null || !isChecked('spk_issued')}
+                      title={!isChecked('spk_issued') ? 'Centang "SPK Issued" dulu untuk mengaktifkan preview & download SPK' : undefined}
                       onClick={async () => {
                         if (!receiptId) return;
                         setPdfLoading("spk");
