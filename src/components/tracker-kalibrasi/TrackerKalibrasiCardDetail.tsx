@@ -110,6 +110,18 @@ function fmtDateTime(d: string | null) {
   try { return format(new Date(d), "dd MMM yyyy, HH:mm", { locale: idLocale }); } catch { return d; }
 }
 
+function toDateInputValue(value?: string | null) {
+  if (!value) return "";
+  const raw = String(value).slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : "";
+}
+
+function isValidDateInputValue(value?: string | null) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00`);
+  return !Number.isNaN(date.getTime()) && value === date.toISOString().slice(0, 10);
+}
+
 const STATUS_LABEL: Record<string, string> = {
   draft: "Draft",
   spk_issued: "SPK Diterbitkan",
@@ -519,6 +531,19 @@ export default function TrackerKalibrasiCardDetail({
   };
 
   const totalValue = instruments.reduce((s, i) => s + (i.unit_price ?? 0), 0);
+
+  const receivedDateInputValue = toDateInputValue(receipt?.received_date);
+  const spkConfirmedDateInputValue = toDateInputValue(receipt?.spk_confirmed_at);
+
+  const handleSetReceivedDate = (value: string | null) => {
+    setReceipt((prev) => prev ? { ...prev, received_date: value ?? "" } : prev);
+    if (receiptId) onSetReceivedDate?.(receiptId, value);
+  };
+
+  const handleSetSpkConfirmedDate = (value: string | null) => {
+    setReceipt((prev) => prev ? { ...prev, spk_confirmed_at: value } : prev);
+    if (receiptId) onSetSpkConfirmedDate?.(receiptId, value);
+  };
 
   if (!receiptId) return null;
 
@@ -1039,18 +1064,14 @@ export default function TrackerKalibrasiCardDetail({
                                       if (!receiptId) return;
                                       // Block "Receive Instrument" toggle unless received date is filled & valid
                                       if (item.key === 'instrument_received' && !checked) {
-                                        const d = receipt?.received_date ?? '';
-                                        if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+                                        if (!isValidDateInputValue(receivedDateInputValue)) {
                                           toast.error('Isi "Tanggal Terima Alat" terlebih dahulu (format YYYY-MM-DD).');
                                           return;
                                         }
                                       }
                                       // Block SPK Confirmed toggle unless date is filled & valid
                                       if (item.key === 'spk_confirmed' && !checked) {
-                                        const d = receipt?.spk_confirmed_at
-                                          ? String(receipt.spk_confirmed_at).slice(0, 10)
-                                          : '';
-                                        if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+                                        if (!isValidDateInputValue(spkConfirmedDateInputValue)) {
                                           toast.error('Isi "Tgl SPK Confirmed" terlebih dahulu (format YYYY-MM-DD).');
                                           return;
                                         }
@@ -1087,12 +1108,10 @@ export default function TrackerKalibrasiCardDetail({
                                     type="date"
                                     className="h-8 text-sm"
                                     value={
-                                      receipt?.spk_confirmed_at
-                                        ? String(receipt.spk_confirmed_at).slice(0, 10)
-                                        : ''
+                                      spkConfirmedDateInputValue
                                     }
                                     onChange={(e) =>
-                                      onSetSpkConfirmedDate?.(receiptId, e.target.value || null)
+                                      handleSetSpkConfirmedDate(e.target.value || null)
                                     }
                                   />
                                   <p className="text-[10px] text-muted-foreground mt-1">
@@ -1110,9 +1129,9 @@ export default function TrackerKalibrasiCardDetail({
                                   <Input
                                     type="date"
                                     className="h-8 text-sm"
-                                    value={receipt?.received_date ?? ''}
+                                    value={receivedDateInputValue}
                                     onChange={(e) =>
-                                      onSetReceivedDate?.(receiptId, e.target.value || null)
+                                      handleSetReceivedDate(e.target.value || null)
                                     }
                                   />
                                   <p className="text-[10px] text-muted-foreground mt-1">
