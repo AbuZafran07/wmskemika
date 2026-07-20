@@ -40,6 +40,7 @@ export interface KalibrasiV2Card {
   service_pic_phone?: string | null;
   grand_total?: number | null;
   notes?: string | null;
+  spk_confirmed_at?: string | null;
 }
 
 export const COLUMN_DEFS: {
@@ -125,7 +126,7 @@ export function useTrackerKalibrasi() {
           id, sales_order_number, spk_number, customer_po_number, order_date, target_completion_date,
           calibration_status, status, service_pic_name, service_location,
           service_pic_phone, calibration_received_at, sales_name, grand_total,
-          notes, customer_request_notes,
+          notes, customer_request_notes, spk_confirmed_at,
           customer:customers(name),
           items:sales_order_items(id, item_type, instrument_name, description, unit_price)
         `)
@@ -163,6 +164,7 @@ export function useTrackerKalibrasi() {
         service_pic_phone: r.service_pic_phone ?? null,
         grand_total: r.grand_total ?? null,
         notes: r.notes ?? r.customer_request_notes ?? null,
+        spk_confirmed_at: r.spk_confirmed_at ?? null,
       }));
 
       setCards(list);
@@ -297,6 +299,12 @@ export function useTrackerKalibrasi() {
           }
           await (supabase as any).from('sales_order_headers').update(patch).eq('id', receiptId);
         }
+        if (checklistKey === 'spk_confirmed') {
+          await (supabase as any)
+            .from('sales_order_headers')
+            .update({ spk_confirmed_at: newValue ? new Date().toISOString() : null })
+            .eq('id', receiptId);
+        }
       } catch (err) {
         console.error('toggleChecklist error:', err);
         toast.error('Gagal update checklist');
@@ -320,6 +328,25 @@ export function useTrackerKalibrasi() {
       } catch (err) {
         console.error('setReceivedDate error:', err);
         toast.error('Gagal update tanggal terima');
+      }
+    },
+    [canToggle, fetchData],
+  );
+
+  const setSpkConfirmedDate = useCallback(
+    async (receiptId: string, dateISO: string | null) => {
+      if (!canToggle) return;
+      try {
+        const value = dateISO ? new Date(dateISO + 'T00:00:00').toISOString() : null;
+        const { error } = await (supabase as any)
+          .from('sales_order_headers')
+          .update({ spk_confirmed_at: value })
+          .eq('id', receiptId);
+        if (error) throw error;
+        fetchData();
+      } catch (err) {
+        console.error('setSpkConfirmedDate error:', err);
+        toast.error('Gagal update tanggal SPK confirmed');
       }
     },
     [canToggle, fetchData],
@@ -357,6 +384,7 @@ export function useTrackerKalibrasi() {
     getCardColumn,
     toggleChecklist,
     setReceivedDate,
+    setSpkConfirmedDate,
     setDecision,
     refetch: fetchData,
   };
