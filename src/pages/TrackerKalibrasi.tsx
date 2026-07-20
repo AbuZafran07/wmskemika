@@ -222,6 +222,9 @@ export default function TrackerKalibrasi() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [customerFilter, setCustomerFilter] = useState<string>("all");
   const [salesFilter, setSalesFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<
+    "deadline_asc" | "deadline_desc" | "created_desc" | "created_asc"
+  >("deadline_asc");
 
   // Unique lists for dropdowns
   const customerOptions = useMemo(() => {
@@ -261,8 +264,30 @@ export default function TrackerKalibrasi() {
     return true;
   };
 
+  const sortCards = (list: KalibrasiV2Card[]) => {
+    const arr = [...list];
+    const ts = (v: string | null | undefined) => (v ? new Date(v).getTime() : NaN);
+    arr.sort((a, b) => {
+      if (sortBy === "deadline_asc" || sortBy === "deadline_desc") {
+        const da = ts(a.target_completion_date);
+        const db = ts(b.target_completion_date);
+        // Push null deadlines to the end regardless of direction
+        const aEmpty = Number.isNaN(da);
+        const bEmpty = Number.isNaN(db);
+        if (aEmpty && bEmpty) return 0;
+        if (aEmpty) return 1;
+        if (bEmpty) return -1;
+        return sortBy === "deadline_asc" ? da - db : db - da;
+      }
+      const ca = ts(a.created_at) || 0;
+      const cb = ts(b.created_at) || 0;
+      return sortBy === "created_asc" ? ca - cb : cb - ca;
+    });
+    return arr;
+  };
+
   const filteredColumnCards = (col: KalibrasiV2Column) =>
-    getColumnCards(col).filter(matches);
+    sortCards(getColumnCards(col).filter(matches));
 
   const totalCards = COLUMN_DEFS.reduce(
     (sum, col) => sum + filteredColumnCards(col.id).length,
