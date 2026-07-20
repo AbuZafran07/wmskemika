@@ -297,9 +297,17 @@ export function useTrackerKalibrasi() {
           const patch: Record<string, any> = {
             calibration_received_at: newValue ? new Date().toISOString() : null,
           };
-          // Reset any prior rejection when re-opening flow
-          if (newValue && (card?.status === 'rejected' || card?.status === 'cancelled')) {
-            patch.calibration_status = 'received';
+          // Auto-confirm penerimaan di SO saat checklist dicentang, revert saat uncheck
+          if (newValue) {
+            // Selalu pastikan status = 'received' agar Konfirmasi Penerimaan di halaman SO ter-sinkron
+            if (!card?.status || ['draft', 'pending_receipt', 'rejected', 'cancelled'].includes(card.status)) {
+              patch.calibration_status = 'received';
+            }
+          } else {
+            // Uncheck → kembalikan ke pending_receipt hanya jika status masih 'received' (belum lanjut ke SPK)
+            if (card?.status === 'received') {
+              patch.calibration_status = 'pending_receipt';
+            }
           }
           await (supabase as any).from('sales_order_headers').update(patch).eq('id', receiptId);
         }
