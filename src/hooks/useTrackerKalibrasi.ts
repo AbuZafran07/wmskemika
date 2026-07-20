@@ -62,6 +62,7 @@ export const COLUMN_CHECKLISTS: Record<KalibrasiV2Column, { key: string; label: 
   ],
   instrument_received: [
     { key: 'spk_issued',           label: 'SPK Issued' },
+    { key: 'spk_confirmed',        label: 'SPK Confirmed' },
   ],
   calibration_in_progress: [
     { key: 'physical_check',       label: 'Cek fisik alat selesai' },
@@ -99,7 +100,7 @@ export function computeKalibrasiColumn(
   if (status === 'rejected' || status === 'cancelled') return 'rejected';
   const ok = (key: string) => checklists.some((c) => c.checklist_key === key && c.is_checked);
   if (!ok('instrument_received')) return 'scheduled';
-  if (!ok('spk_issued')) return 'instrument_received';
+  if (!ok('spk_issued') || !ok('spk_confirmed')) return 'instrument_received';
   if (!ok('physical_check') || !ok('calibration_done')) return 'calibration_in_progress';
   if (!ok('certificate_issued') || !ok('invoice_sent')) return 'completed';
   if (!ok('payment_received') || !ok('tools_returned')) return 'invoiced';
