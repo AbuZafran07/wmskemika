@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FlaskConical, Loader2, RefreshCw, CheckSquare, Square, Printer } from "lucide-react";
+import { FlaskConical, Loader2, RefreshCw, CheckSquare, Square } from "lucide-react";
 import { format, isPast } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -13,7 +13,6 @@ import {
   KalibrasiV2Checklist,
 } from "@/hooks/useTrackerKalibrasi";
 import TrackerKalibrasiCardDetail from "@/components/tracker-kalibrasi/TrackerKalibrasiCardDetail";
-import { printCalibrationSparepartRequest } from "@/lib/calibrationSparepartRequestPdf";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -38,6 +37,7 @@ interface KanbanCardProps {
   canToggle: boolean;
   onToggle: (receiptId: string, key: string) => void;
   onSetReceivedDate: (receiptId: string, dateISO: string | null) => void;
+  onSetSpkConfirmedDate: (receiptId: string, dateISO: string | null) => void;
   onSetDecision: (receiptId: string, decision: 'accepted' | 'rejected') => void;
   onClickCard: (id: string) => void;
 }
@@ -49,6 +49,7 @@ function KanbanCard({
   canToggle,
   onToggle,
   onSetReceivedDate,
+  onSetSpkConfirmedDate,
   onSetDecision,
   onClickCard,
 }: KanbanCardProps) {
@@ -115,20 +116,6 @@ function KanbanCard({
           )}
         </div>
       </button>
-
-      {/* Quick actions */}
-      <div className="px-3 pb-2 -mt-1 flex justify-end">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            printCalibrationSparepartRequest(card.id);
-          }}
-          className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary hover:underline"
-          title="Cetak Form Permintaan Sparepart"
-        >
-          <Printer className="w-3 h-3" /> Form Sparepart
-        </button>
-      </div>
 
       {/* Checklists */}
       {items.length > 0 && (
@@ -201,6 +188,23 @@ function KanbanCard({
             );
           })}
 
+          {/* SPK confirmed date input in instrument_received column */}
+          {columnId === 'instrument_received' && (
+            <div className="pt-1.5 mt-1 border-t border-dashed">
+              <label className="text-[10px] text-muted-foreground block mb-0.5">
+                Tgl SPK Confirmed
+              </label>
+              <input
+                type="date"
+                disabled={!canToggle}
+                value={card.spk_confirmed_at ? String(card.spk_confirmed_at).slice(0, 10) : ''}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => onSetSpkConfirmedDate(card.id, e.target.value || null)}
+                className="w-full h-7 rounded border bg-background text-xs px-1.5"
+              />
+            </div>
+          )}
+
           {/* Progress bar */}
           {items.length > 0 && (
             <div className="mt-2">
@@ -239,6 +243,7 @@ interface ColumnProps {
   canToggle: boolean;
   onToggle: (receiptId: string, key: string) => void;
   onSetReceivedDate: (receiptId: string, dateISO: string | null) => void;
+  onSetSpkConfirmedDate: (receiptId: string, dateISO: string | null) => void;
   onSetDecision: (receiptId: string, decision: 'accepted' | 'rejected') => void;
   onClickCard: (id: string) => void;
 }
@@ -250,6 +255,7 @@ function KanbanColumn({
   canToggle,
   onToggle,
   onSetReceivedDate,
+  onSetSpkConfirmedDate,
   onSetDecision,
   onClickCard,
 }: ColumnProps) {
@@ -285,6 +291,7 @@ function KanbanColumn({
               canToggle={canToggle}
               onToggle={onToggle}
               onSetReceivedDate={onSetReceivedDate}
+              onSetSpkConfirmedDate={onSetSpkConfirmedDate}
               onSetDecision={onSetDecision}
               onClickCard={onClickCard}
             />
@@ -305,6 +312,7 @@ export default function TrackerKalibrasi() {
     getColumnCards,
     toggleChecklist,
     setReceivedDate,
+    setSpkConfirmedDate,
     setDecision,
     refetch,
   } = useTrackerKalibrasi();
@@ -357,6 +365,7 @@ export default function TrackerKalibrasi() {
               canToggle={canToggle}
               onToggle={toggleChecklist}
               onSetReceivedDate={setReceivedDate}
+              onSetSpkConfirmedDate={setSpkConfirmedDate}
               onSetDecision={setDecision}
               onClickCard={setSelectedId}
             />
