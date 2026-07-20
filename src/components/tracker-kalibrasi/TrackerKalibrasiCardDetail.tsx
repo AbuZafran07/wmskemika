@@ -155,6 +155,8 @@ interface Props {
   checklists: KalibrasiV2Checklist[];
   canToggle: boolean;
   onToggle: (receiptId: string, key: string) => void;
+  onSetReceivedDate?: (receiptId: string, dateISO: string | null) => void;
+  onSetDecision?: (receiptId: string, decision: 'accepted' | 'rejected') => void;
   onClose: () => void;
 }
 
@@ -163,6 +165,8 @@ export default function TrackerKalibrasiCardDetail({
   checklists,
   canToggle,
   onToggle,
+  onSetReceivedDate,
+  onSetDecision,
   onClose,
 }: Props) {
   const { user } = useAuth();
