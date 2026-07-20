@@ -36,6 +36,7 @@ interface ReceiptDetail {
   spk_number: string | null;
   spk_issued_at: string | null;
   spk_signed_at: string | null;
+  spk_confirmed_at: string | null;
   status: string;
   archived: boolean;
   received_date: string;
@@ -156,6 +157,7 @@ interface Props {
   canToggle: boolean;
   onToggle: (receiptId: string, key: string) => void;
   onSetReceivedDate?: (receiptId: string, dateISO: string | null) => void;
+  onSetSpkConfirmedDate?: (receiptId: string, dateISO: string | null) => void;
   onSetDecision?: (receiptId: string, decision: 'accepted' | 'rejected') => void;
   onClose: () => void;
 }
@@ -166,6 +168,7 @@ export default function TrackerKalibrasiCardDetail({
   canToggle,
   onToggle,
   onSetReceivedDate,
+  onSetSpkConfirmedDate,
   onSetDecision,
   onClose,
 }: Props) {
