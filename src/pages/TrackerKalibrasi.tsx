@@ -37,6 +37,8 @@ interface KanbanCardProps {
   checklists: KalibrasiV2Checklist[];
   canToggle: boolean;
   onToggle: (receiptId: string, key: string) => void;
+  onSetReceivedDate: (receiptId: string, dateISO: string | null) => void;
+  onSetDecision: (receiptId: string, decision: 'accepted' | 'rejected') => void;
   onClickCard: (id: string) => void;
 }
 
@@ -46,6 +48,8 @@ function KanbanCard({
   checklists,
   canToggle,
   onToggle,
+  onSetReceivedDate,
+  onSetDecision,
   onClickCard,
 }: KanbanCardProps) {
   const items = COLUMN_CHECKLISTS[columnId] ?? [];
@@ -129,6 +133,42 @@ function KanbanCard({
       {/* Checklists */}
       {items.length > 0 && (
         <div className="border-t px-3 py-2 space-y-1.5 bg-muted/20">
+          {/* Received date input in scheduled column */}
+          {columnId === 'scheduled' && (
+            <div className="pb-1.5 mb-1 border-b border-dashed">
+              <label className="text-[10px] text-muted-foreground block mb-0.5">
+                Tgl Terima Alat
+              </label>
+              <input
+                type="date"
+                disabled={!canToggle}
+                value={card.received_date ? String(card.received_date).slice(0, 10) : ''}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => onSetReceivedDate(card.id, e.target.value || null)}
+                className="w-full h-7 rounded border bg-background text-xs px-1.5"
+              />
+            </div>
+          )}
+
+          {/* Decision dropdown once instrument received */}
+          {columnId === 'instrument_received' && (
+            <div className="pb-1.5 mb-1 border-b border-dashed">
+              <label className="text-[10px] text-muted-foreground block mb-0.5">
+                Keputusan Kalibrasi
+              </label>
+              <select
+                disabled={!canToggle}
+                value={card.status === 'rejected' ? 'rejected' : 'accepted'}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => onSetDecision(card.id, e.target.value as 'accepted' | 'rejected')}
+                className="w-full h-7 rounded border bg-background text-xs px-1.5"
+              >
+                <option value="accepted">Accepted for Calibration</option>
+                <option value="rejected">Rejected for Calibration</option>
+              </select>
+            </div>
+          )}
+
           {items.map((item) => {
             const checked = checklists.some(
               (c) => c.checklist_key === item.key && c.is_checked,
@@ -198,6 +238,8 @@ interface ColumnProps {
   checklists: Record<string, KalibrasiV2Checklist[]>;
   canToggle: boolean;
   onToggle: (receiptId: string, key: string) => void;
+  onSetReceivedDate: (receiptId: string, dateISO: string | null) => void;
+  onSetDecision: (receiptId: string, decision: 'accepted' | 'rejected') => void;
   onClickCard: (id: string) => void;
 }
 
@@ -207,6 +249,8 @@ function KanbanColumn({
   checklists,
   canToggle,
   onToggle,
+  onSetReceivedDate,
+  onSetDecision,
   onClickCard,
 }: ColumnProps) {
   return (
@@ -240,6 +284,8 @@ function KanbanColumn({
               checklists={checklists[card.id] || []}
               canToggle={canToggle}
               onToggle={onToggle}
+              onSetReceivedDate={onSetReceivedDate}
+              onSetDecision={onSetDecision}
               onClickCard={onClickCard}
             />
           ))
@@ -258,6 +304,8 @@ export default function TrackerKalibrasi() {
     canToggle,
     getColumnCards,
     toggleChecklist,
+    setReceivedDate,
+    setDecision,
     refetch,
   } = useTrackerKalibrasi();
 
@@ -308,6 +356,8 @@ export default function TrackerKalibrasi() {
               checklists={checklists}
               canToggle={canToggle}
               onToggle={toggleChecklist}
+              onSetReceivedDate={setReceivedDate}
+              onSetDecision={setDecision}
               onClickCard={setSelectedId}
             />
           ))}
