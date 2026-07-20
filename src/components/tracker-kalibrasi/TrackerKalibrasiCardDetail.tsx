@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   FlaskConical, X, Send, Loader2, CheckSquare, Square,
   MapPin, Phone, User, CalendarDays, FileText, Download,
-  Plus, Trash2, Package, MessageSquare,
+  Plus, Trash2, Package, MessageSquare, Printer,
 } from "lucide-react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
@@ -24,6 +24,7 @@ import {
 } from "@/hooks/useTrackerKalibrasi";
 import { useProducts } from "@/hooks/useMasterData";
 import { generateSPKPdf, generateCertificatePdf } from "@/lib/calibrationPdf";
+import { printCalibrationSparepartRequest } from "@/lib/calibrationSparepartRequestPdf";
 import CalibrationLabelPicker from "./CalibrationLabelPicker";
 
 // ─── types ────────────────────────────────────────────────────────────────────
@@ -611,12 +612,24 @@ export default function TrackerKalibrasiCardDetail({
                       <Package className="w-3.5 h-3.5 text-muted-foreground" />
                       <SectionTitle>Spare Parts ({spareParts.length})</SectionTitle>
                     </div>
-                    {canToggle && !addingPart && (
-                      <Button variant="outline" size="sm" className="h-7 gap-1 text-xs"
-                        onClick={() => setAddingPart(true)}>
-                        <Plus className="w-3 h-3" /> Tambah
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {spareParts.length > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 gap-1 text-xs"
+                          onClick={() => printCalibrationSparepartRequest(receiptId!)}
+                        >
+                          <Printer className="w-3 h-3" /> Cetak
+                        </Button>
+                      )}
+                      {canToggle && !addingPart && (
+                        <Button variant="outline" size="sm" className="h-7 gap-1 text-xs"
+                          onClick={() => setAddingPart(true)}>
+                          <Plus className="w-3 h-3" /> Tambah
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
                   {addingPart && (
