@@ -206,7 +206,7 @@ export default function TrackerKalibrasiCardDetail({
             id, sales_order_number, customer_po_number, spk_number, spk_issued_at,
             calibration_status, status, calibration_received_at,
             target_completion_date, service_location, service_pic_name,
-            service_pic_phone, customer_request_notes, created_at, created_by,
+            service_pic_phone, customer_request_notes, created_at, created_by, spk_confirmed_at,
             sales_name, allocation_type, project_instansi,
             customer:customers(id, name, code, pic, phone, address)
           `)
@@ -251,6 +251,7 @@ export default function TrackerKalibrasiCardDetail({
             spk_number: h.spk_number ?? null,
             spk_issued_at: h.spk_issued_at ?? null,
             spk_signed_at: null,
+            spk_confirmed_at: h.spk_confirmed_at ?? null,
             status: h.calibration_status ?? h.status ?? "draft",
             archived: false,
             received_date: h.calibration_received_at
