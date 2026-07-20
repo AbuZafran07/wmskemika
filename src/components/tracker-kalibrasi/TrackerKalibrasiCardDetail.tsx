@@ -650,8 +650,75 @@ export default function TrackerKalibrasiCardDetail({
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <SectionTitle>Alat ({instruments.length})</SectionTitle>
-                    <span className="text-sm font-semibold text-primary">{formatRupiah(totalValue)}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-primary">{formatRupiah(totalValue)}</span>
+                      {canToggle && !addingInstrument && (
+                        <Button variant="outline" size="sm" className="h-7 gap-1 text-xs"
+                          onClick={() => setAddingInstrument(true)}>
+                          <Plus className="w-3 h-3" /> Tambah
+                        </Button>
+                      )}
+                    </div>
                   </div>
+
+                  {addingInstrument && (
+                    <div className="rounded-lg border p-3 mb-2 bg-muted/20 space-y-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground">Nama Alat *</span>
+                          <Input className="h-8 text-sm" placeholder="cth. Timbangan Analitik"
+                            value={newInstrument.instrument_name}
+                            onChange={e => setNewInstrument(p => ({ ...p, instrument_name: e.target.value }))} />
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground">Merk / Model</span>
+                          <Input className="h-8 text-sm"
+                            value={newInstrument.brand_model}
+                            onChange={e => setNewInstrument(p => ({ ...p, brand_model: e.target.value }))} />
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground">No. Seri</span>
+                          <Input className="h-8 text-sm"
+                            value={newInstrument.serial_number}
+                            onChange={e => setNewInstrument(p => ({ ...p, serial_number: e.target.value }))} />
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground">Range</span>
+                          <Input className="h-8 text-sm"
+                            value={newInstrument.measurement_range}
+                            onChange={e => setNewInstrument(p => ({ ...p, measurement_range: e.target.value }))} />
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground">Metode</span>
+                          <Input className="h-8 text-sm"
+                            value={newInstrument.calibration_method}
+                            onChange={e => setNewInstrument(p => ({ ...p, calibration_method: e.target.value }))} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <span className="text-xs text-muted-foreground">Harga (Rp)</span>
+                            <Input className="h-8 text-sm" type="number" min="0"
+                              value={newInstrument.unit_price}
+                              onChange={e => setNewInstrument(p => ({ ...p, unit_price: e.target.value }))} />
+                          </div>
+                          <div className="space-y-1">
+                            <span className="text-xs text-muted-foreground">SLA (hari)</span>
+                            <Input className="h-8 text-sm" type="number" min="1"
+                              value={newInstrument.sla_working_days}
+                              onChange={e => setNewInstrument(p => ({ ...p, sla_working_days: e.target.value }))} />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                        <Button variant="ghost" size="sm" className="h-7 text-xs"
+                          onClick={() => setAddingInstrument(false)} disabled={savingInstrument}>Batal</Button>
+                        <Button size="sm" className="h-7 text-xs" onClick={addInstrument} disabled={savingInstrument}>
+                          {savingInstrument ? <Loader2 className="w-3 h-3 animate-spin" /> : "Simpan"}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="rounded-lg border overflow-x-auto">
                     <table className="w-full min-w-[640px] text-sm">
                       <thead className="bg-muted/50">
@@ -663,11 +730,12 @@ export default function TrackerKalibrasiCardDetail({
                           <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Harga</th>
                           <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">Kelayakan</th>
                           <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">Kesimpulan</th>
+                          {canToggle && <th className="px-3 py-2 w-8" />}
                         </tr>
                       </thead>
                       <tbody className="divide-y">
                         {instruments.length === 0 ? (
-                          <tr><td colSpan={7} className="px-3 py-6 text-center text-sm text-muted-foreground">Belum ada data alat</td></tr>
+                          <tr><td colSpan={canToggle ? 8 : 7} className="px-3 py-6 text-center text-sm text-muted-foreground">Belum ada data alat</td></tr>
                         ) : instruments.map((inst) => (
                           <tr key={inst.id} className="hover:bg-muted/20">
                             <td className="px-3 py-2 text-center text-muted-foreground text-xs">{inst.item_number}</td>
@@ -691,6 +759,17 @@ export default function TrackerKalibrasiCardDetail({
                                 </span>
                               ) : <span className="text-xs text-muted-foreground">-</span>}
                             </td>
+                            {canToggle && (
+                              <td className="px-3 py-2">
+                                <button
+                                  className="text-muted-foreground hover:text-destructive transition-colors"
+                                  onClick={() => deleteInstrument(inst.id)}
+                                  title="Hapus alat"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
