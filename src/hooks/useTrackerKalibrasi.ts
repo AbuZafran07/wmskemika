@@ -283,13 +283,68 @@ export function useTrackerKalibrasi() {
             checked_at: new Date().toISOString(),
           });
         }
+
+        // Side-effects on header
+        if (checklistKey === 'instrument_received') {
+          const card = cards.find((c) => c.id === receiptId);
+          const patch: Record<string, any> = {
+            calibration_received_at: newValue ? new Date().toISOString() : null,
+          };
+          // Reset any prior rejection when re-opening flow
+          if (newValue && (card?.status === 'rejected' || card?.status === 'cancelled')) {
+            patch.calibration_status = 'received';
+          }
+          await (supabase as any).from('sales_order_headers').update(patch).eq('id', receiptId);
+        }
       } catch (err) {
         console.error('toggleChecklist error:', err);
         toast.error('Gagal update checklist');
         fetchData();
       }
     },
-    [user, canToggle, checklists, fetchData],
+    [user, canToggle, checklists, cards, fetchData],
+  );
+
+  const setReceivedDate = useCallback(
+    async (receiptId: string, dateISO: string | null) => {
+      if (!canToggle) return;
+      try {
+        const value = dateISO ? new Date(dateISO + 'T00:00:00').toISOString() : null;
+        const { error } = await (supabase as any)
+          .from('sales_order_headers')
+          .update({ calibration_received_at: value })
+          .eq('id', receiptId);
+        if (error) throw error;
+        fetchData();
+      } catch (err) {
+        console.error('setReceivedDate error:', err);
+        toast.error('Gagal update tanggal terima');
+      }
+    },
+    [canToggle, fetchData],
+  );
+
+  const setDecision = useCallback(
+    async (receiptId: string, decision: 'accepted' | 'rejected') => {
+      if (!canToggle) return;
+      try {
+        const patch: Record<string, any> =
+          decision === 'rejected'
+            ? { calibration_status: 'rejected' }
+            : { calibration_status: 'received' };
+        const { error } = await (supabase as any)
+          .from('sales_order_headers')
+          .update(patch)
+          .eq('id', receiptId);
+        if (error) throw error;
+        toast.success(decision === 'rejected' ? 'Ditandai Rejected' : 'Ditandai Accepted');
+        fetchData();
+      } catch (err: any) {
+        console.error('setDecision error:', err);
+        toast.error(err?.message || 'Gagal update keputusan');
+      }
+    },
+    [canToggle, fetchData],
   );
 
   return {
@@ -300,6 +355,8 @@ export function useTrackerKalibrasi() {
     getColumnCards,
     getCardColumn,
     toggleChecklist,
+    setReceivedDate,
+    setDecision,
     refetch: fetchData,
   };
 }
