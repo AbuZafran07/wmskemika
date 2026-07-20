@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { FlaskConical, Loader2, RefreshCw, Building2, Package, Calendar as CalendarIcon, User, Search, X } from "lucide-react";
+import { FlaskConical, Loader2, RefreshCw, Building2, Package, Calendar as CalendarIcon, User, Search, X, Filter, CheckCircle2 } from "lucide-react";
 import { format, isPast } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   useTrackerKalibrasi,
   COLUMN_DEFS,
@@ -270,11 +272,18 @@ export default function TrackerKalibrasi() {
   const hasActiveFilters =
     !!search.trim() || statusFilter !== "all" || customerFilter !== "all" || salesFilter !== "all";
 
+  const activeCount =
+    (search.trim() ? 1 : 0) +
+    (statusFilter !== "all" ? 1 : 0) +
+    (customerFilter !== "all" ? 1 : 0) +
+    (salesFilter !== "all" ? 1 : 0);
+
   const clearFilters = () => {
     setSearch(""); setStatusFilter("all"); setCustomerFilter("all"); setSalesFilter("all");
   };
 
   return (
+    <TooltipProvider>
     <div className="flex flex-col h-full gap-3 p-3 sm:p-4 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between flex-shrink-0 gap-2">
@@ -287,76 +296,114 @@ export default function TrackerKalibrasi() {
             </span>
           )}
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={refetch}
-          disabled={loading}
-          className="gap-1.5"
-        >
-          <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
-          <span className="hidden sm:inline">Refresh</span>
-        </Button>
-      </div>
 
-      {/* Filter bar */}
-      <div className="flex-shrink-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
-        <div className="relative sm:col-span-2 lg:col-span-2">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            placeholder="Cari No SO, PO, SPK, customer, lokasi…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 pr-8 h-9 text-sm"
-          />
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              aria-label="Clear search"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
+        <div className="flex items-center gap-2">
+          {/* Filter & Search popover */}
+          <Popover>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className={cn("h-8 w-8 relative", hasActiveFilters && "border-primary text-primary")}
+                  >
+                    <Filter className="h-4 w-4" />
+                    {activeCount > 0 && (
+                      <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[9px] flex items-center justify-center font-bold">
+                        {activeCount}
+                      </span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+              </TooltipTrigger>
+              <TooltipContent><p>Filter & Cari</p></TooltipContent>
+            </Tooltip>
+            <PopoverContent className="w-72" align="end">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">Filter & Cari Card</p>
+                  {hasActiveFilters && (
+                    <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={clearFilters}>
+                      Reset
+                    </Button>
+                  )}
+                </div>
+
+                {/* Search input */}
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Cari SO, PO, SPK, customer..."
+                    className="pl-7 h-8 text-xs"
+                  />
+                  {search && (
+                    <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2">
+                      <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">Status</p>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua Status</SelectItem>
+                      {statusOptions.map((s) => (
+                        <SelectItem key={s} value={s} className="capitalize">{s.replace(/_/g, " ")}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">Customer</p>
+                  <Select value={customerFilter} onValueChange={setCustomerFilter}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua Customer</SelectItem>
+                      {customerOptions.map((c) => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">Sales</p>
+                  <Select value={salesFilter} onValueChange={setSalesFilter}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua Sales</SelectItem>
+                      {salesOptions.map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Refresh */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={refetch}
+                disabled={loading}
+              >
+                <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent><p>Refresh</p></TooltipContent>
+          </Tooltip>
         </div>
-
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Status" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Semua Status</SelectItem>
-            {statusOptions.map((s) => (
-              <SelectItem key={s} value={s} className="capitalize">{s.replace(/_/g, " ")}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={customerFilter} onValueChange={setCustomerFilter}>
-          <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Customer" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Semua Customer</SelectItem>
-            {customerOptions.map((c) => (
-              <SelectItem key={c} value={c}>{c}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={salesFilter} onValueChange={setSalesFilter}>
-          <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Sales" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Semua Sales</SelectItem>
-            {salesOptions.map((s) => (
-              <SelectItem key={s} value={s}>{s}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {hasActiveFilters && (
-          <div className="sm:col-span-2 lg:col-span-5 flex justify-end">
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 text-xs gap-1">
-              <X className="h-3 w-3" /> Reset filter
-            </Button>
-          </div>
-        )}
       </div>
 
       {loading ? (
@@ -392,5 +439,6 @@ export default function TrackerKalibrasi() {
         />
       )}
     </div>
+    </TooltipProvider>
   );
 }
