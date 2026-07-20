@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   FlaskConical, X, Send, Loader2, CheckSquare, Square,
   MapPin, Phone, User, CalendarDays, FileText, Download,
-  Plus, Trash2, Package, MessageSquare,
+  Plus, Trash2, Package, MessageSquare, Printer,
 } from "lucide-react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
@@ -24,6 +24,7 @@ import {
 } from "@/hooks/useTrackerKalibrasi";
 import { useProducts } from "@/hooks/useMasterData";
 import { generateSPKPdf, generateCertificatePdf } from "@/lib/calibrationPdf";
+import { printCalibrationSparepartRequest } from "@/lib/calibrationSparepartRequestPdf";
 import CalibrationLabelPicker from "./CalibrationLabelPicker";
 
 // ─── types ────────────────────────────────────────────────────────────────────
