@@ -104,6 +104,281 @@ export type Database = {
         }
         Relationships: []
       }
+      calibration_card_labels: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          label_id: string
+          sales_order_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label_id: string
+          sales_order_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label_id?: string
+          sales_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calibration_card_labels_label_id_fkey"
+            columns: ["label_id"]
+            isOneToOne: false
+            referencedRelation: "calibration_labels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calibration_card_labels_sales_order_id_fkey"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_order_headers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calibration_items: {
+        Row: {
+          brand_model: string | null
+          calibration_method: string | null
+          certificate_issued_at: string | null
+          certificate_number: string | null
+          condition_notes: string | null
+          created_at: string
+          feasibility_notes: string | null
+          feasibility_status: string
+          id: string
+          instrument_name: string
+          item_number: number
+          measurement_range: string | null
+          received_date: string | null
+          sales_order_id: string
+          serial_number: string | null
+          sla_working_days: number
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          brand_model?: string | null
+          calibration_method?: string | null
+          certificate_issued_at?: string | null
+          certificate_number?: string | null
+          condition_notes?: string | null
+          created_at?: string
+          feasibility_notes?: string | null
+          feasibility_status?: string
+          id?: string
+          instrument_name: string
+          item_number: number
+          measurement_range?: string | null
+          received_date?: string | null
+          sales_order_id: string
+          serial_number?: string | null
+          sla_working_days?: number
+          unit_price?: number
+          updated_at?: string
+        }
+        Update: {
+          brand_model?: string | null
+          calibration_method?: string | null
+          certificate_issued_at?: string | null
+          certificate_number?: string | null
+          condition_notes?: string | null
+          created_at?: string
+          feasibility_notes?: string | null
+          feasibility_status?: string
+          id?: string
+          instrument_name?: string
+          item_number?: number
+          measurement_range?: string | null
+          received_date?: string | null
+          sales_order_id?: string
+          serial_number?: string | null
+          sla_working_days?: number
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calibration_items_sales_order_id_fkey"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_order_headers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calibration_labels: {
+        Row: {
+          color: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      calibration_spare_parts: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          instrument_id: string
+          issued_stock_out_id: string | null
+          notes: string | null
+          product_id: string
+          qty_used: number
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          instrument_id: string
+          issued_stock_out_id?: string | null
+          notes?: string | null
+          product_id: string
+          qty_used?: number
+          unit_price?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          instrument_id?: string
+          issued_stock_out_id?: string | null
+          notes?: string | null
+          product_id?: string
+          qty_used?: number
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calibration_spare_parts_instrument_id_fkey"
+            columns: ["instrument_id"]
+            isOneToOne: false
+            referencedRelation: "sales_order_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calibration_spare_parts_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calibration_tracker_checklists: {
+        Row: {
+          checked_at: string | null
+          checked_by: string | null
+          checklist_key: string
+          created_at: string
+          id: string
+          is_checked: boolean
+          sales_order_id: string
+        }
+        Insert: {
+          checked_at?: string | null
+          checked_by?: string | null
+          checklist_key: string
+          created_at?: string
+          id?: string
+          is_checked?: boolean
+          sales_order_id: string
+        }
+        Update: {
+          checked_at?: string | null
+          checked_by?: string | null
+          checklist_key?: string
+          created_at?: string
+          id?: string
+          is_checked?: boolean
+          sales_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calibration_tracker_checklists_sales_order_fk"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_order_headers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calibration_tracker_checklists_sales_order_id_fkey"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_order_headers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calibration_tracker_comments: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          sales_order_id: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          sales_order_id: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          sales_order_id?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calibration_tracker_comments_sales_order_fk"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_order_headers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calibration_tracker_comments_sales_order_id_fkey"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_order_headers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           code: string
@@ -615,6 +890,9 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          cancel_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           created_at: string | null
           created_by: string | null
           deleted_at: string | null
@@ -639,6 +917,9 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           created_at?: string | null
           created_by?: string | null
           deleted_at?: string | null
@@ -663,6 +944,9 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           created_at?: string | null
           created_by?: string | null
           deleted_at?: string | null
@@ -754,6 +1038,194 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      po_tracker_archived: {
+        Row: {
+          archived_at: string
+          archived_by: string | null
+          plan_order_id: string
+        }
+        Insert: {
+          archived_at?: string
+          archived_by?: string | null
+          plan_order_id: string
+        }
+        Update: {
+          archived_at?: string
+          archived_by?: string | null
+          plan_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_tracker_archived_plan_order_id_fkey"
+            columns: ["plan_order_id"]
+            isOneToOne: true
+            referencedRelation: "plan_order_headers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      po_tracker_card_labels: {
+        Row: {
+          created_at: string
+          id: string
+          label_id: string
+          plan_order_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label_id: string
+          plan_order_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label_id?: string
+          plan_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_tracker_card_labels_label_id_fkey"
+            columns: ["label_id"]
+            isOneToOne: false
+            referencedRelation: "po_tracker_labels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_tracker_card_labels_plan_order_id_fkey"
+            columns: ["plan_order_id"]
+            isOneToOne: false
+            referencedRelation: "plan_order_headers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      po_tracker_checklists: {
+        Row: {
+          checked_at: string | null
+          checked_by: string | null
+          checklist_date: string | null
+          checklist_key: string
+          id: string
+          is_checked: boolean
+          plan_order_id: string
+        }
+        Insert: {
+          checked_at?: string | null
+          checked_by?: string | null
+          checklist_date?: string | null
+          checklist_key: string
+          id?: string
+          is_checked?: boolean
+          plan_order_id: string
+        }
+        Update: {
+          checked_at?: string | null
+          checked_by?: string | null
+          checklist_date?: string | null
+          checklist_key?: string
+          id?: string
+          is_checked?: boolean
+          plan_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_tracker_checklists_plan_order_id_fkey"
+            columns: ["plan_order_id"]
+            isOneToOne: false
+            referencedRelation: "plan_order_headers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      po_tracker_comment_reads: {
+        Row: {
+          id: string
+          last_read_at: string
+          plan_order_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          last_read_at?: string
+          plan_order_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          last_read_at?: string
+          plan_order_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_tracker_comment_reads_plan_order_id_fkey"
+            columns: ["plan_order_id"]
+            isOneToOne: false
+            referencedRelation: "plan_order_headers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      po_tracker_comments: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          plan_order_id: string
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          plan_order_id: string
+          type?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          plan_order_id?: string
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_tracker_comments_plan_order_id_fkey"
+            columns: ["plan_order_id"]
+            isOneToOne: false
+            referencedRelation: "plan_order_headers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      po_tracker_labels: {
+        Row: {
+          color: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
       }
       products: {
         Row: {
@@ -1087,10 +1559,13 @@ export type Database = {
           allocation_type: string
           approved_at: string | null
           approved_by: string | null
+          calibration_received_at: string | null
+          calibration_status: string | null
           created_at: string | null
           created_by: string | null
           customer_id: string
           customer_po_number: string
+          customer_request_notes: string | null
           deleted_at: string | null
           deleted_by: string | null
           delivery_deadline: string
@@ -1100,14 +1575,22 @@ export type Database = {
           is_deleted: boolean | null
           notes: string | null
           order_date: string
+          order_type: string
           po_document_url: string | null
           project_instansi: string
           sales_name: string
           sales_order_number: string
           sales_pulse_reference_number: string | null
+          service_location: string | null
+          service_pic_name: string | null
+          service_pic_phone: string | null
           ship_to_address: string | null
           shipping_cost: number | null
+          spk_confirmed_at: string | null
+          spk_issued_at: string | null
+          spk_number: string | null
           status: string
+          target_completion_date: string | null
           tax_rate: number | null
           total_amount: number | null
           updated_at: string | null
@@ -1116,10 +1599,13 @@ export type Database = {
           allocation_type: string
           approved_at?: string | null
           approved_by?: string | null
+          calibration_received_at?: string | null
+          calibration_status?: string | null
           created_at?: string | null
           created_by?: string | null
           customer_id: string
           customer_po_number: string
+          customer_request_notes?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
           delivery_deadline: string
@@ -1129,14 +1615,22 @@ export type Database = {
           is_deleted?: boolean | null
           notes?: string | null
           order_date?: string
+          order_type?: string
           po_document_url?: string | null
           project_instansi: string
           sales_name: string
           sales_order_number: string
           sales_pulse_reference_number?: string | null
+          service_location?: string | null
+          service_pic_name?: string | null
+          service_pic_phone?: string | null
           ship_to_address?: string | null
           shipping_cost?: number | null
+          spk_confirmed_at?: string | null
+          spk_issued_at?: string | null
+          spk_number?: string | null
           status?: string
+          target_completion_date?: string | null
           tax_rate?: number | null
           total_amount?: number | null
           updated_at?: string | null
@@ -1145,10 +1639,13 @@ export type Database = {
           allocation_type?: string
           approved_at?: string | null
           approved_by?: string | null
+          calibration_received_at?: string | null
+          calibration_status?: string | null
           created_at?: string | null
           created_by?: string | null
           customer_id?: string
           customer_po_number?: string
+          customer_request_notes?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
           delivery_deadline?: string
@@ -1158,14 +1655,22 @@ export type Database = {
           is_deleted?: boolean | null
           notes?: string | null
           order_date?: string
+          order_type?: string
           po_document_url?: string | null
           project_instansi?: string
           sales_name?: string
           sales_order_number?: string
           sales_pulse_reference_number?: string | null
+          service_location?: string | null
+          service_pic_name?: string | null
+          service_pic_phone?: string | null
           ship_to_address?: string | null
           shipping_cost?: number | null
+          spk_confirmed_at?: string | null
+          spk_issued_at?: string | null
+          spk_number?: string | null
           status?: string
+          target_completion_date?: string | null
           tax_rate?: number | null
           total_amount?: number | null
           updated_at?: string | null
@@ -1182,43 +1687,82 @@ export type Database = {
       }
       sales_order_items: {
         Row: {
+          calibration_method: string | null
+          certificate_issued_at: string | null
+          certificate_number: string | null
+          condition_notes: string | null
           created_at: string | null
+          description: string | null
           discount: number | null
+          feasibility_notes: string | null
+          feasibility_status: string | null
           id: string
+          instrument_brand_model: string | null
+          instrument_name: string | null
+          instrument_serial_number: string | null
+          item_type: string
+          measurement_range: string | null
           notes: string | null
           ordered_qty: number
-          product_id: string
+          product_id: string | null
           qty_delivered: number | null
           qty_remaining: number | null
           sales_order_id: string
+          sla_working_days: number | null
           subtotal: number | null
           tax_rate: number | null
           unit_price: number
         }
         Insert: {
+          calibration_method?: string | null
+          certificate_issued_at?: string | null
+          certificate_number?: string | null
+          condition_notes?: string | null
           created_at?: string | null
+          description?: string | null
           discount?: number | null
+          feasibility_notes?: string | null
+          feasibility_status?: string | null
           id?: string
+          instrument_brand_model?: string | null
+          instrument_name?: string | null
+          instrument_serial_number?: string | null
+          item_type?: string
+          measurement_range?: string | null
           notes?: string | null
           ordered_qty: number
-          product_id: string
+          product_id?: string | null
           qty_delivered?: number | null
           qty_remaining?: number | null
           sales_order_id: string
+          sla_working_days?: number | null
           subtotal?: number | null
           tax_rate?: number | null
           unit_price: number
         }
         Update: {
+          calibration_method?: string | null
+          certificate_issued_at?: string | null
+          certificate_number?: string | null
+          condition_notes?: string | null
           created_at?: string | null
+          description?: string | null
           discount?: number | null
+          feasibility_notes?: string | null
+          feasibility_status?: string | null
           id?: string
+          instrument_brand_model?: string | null
+          instrument_name?: string | null
+          instrument_serial_number?: string | null
+          item_type?: string
+          measurement_range?: string | null
           notes?: string | null
           ordered_qty?: number
-          product_id?: string
+          product_id?: string | null
           qty_delivered?: number | null
           qty_remaining?: number | null
           sales_order_id?: string
+          sla_working_days?: number | null
           subtotal?: number | null
           tax_rate?: number | null
           unit_price?: number
@@ -1607,7 +2151,7 @@ export type Database = {
           id: string
           product_id: string
           qty_out: number
-          sales_order_item_id: string
+          sales_order_item_id: string | null
           stock_out_id: string
         }
         Insert: {
@@ -1616,7 +2160,7 @@ export type Database = {
           id?: string
           product_id: string
           qty_out: number
-          sales_order_item_id: string
+          sales_order_item_id?: string | null
           stock_out_id: string
         }
         Update: {
@@ -1625,7 +2169,7 @@ export type Database = {
           id?: string
           product_id?: string
           qty_out?: number
-          sales_order_item_id?: string
+          sales_order_item_id?: string | null
           stock_out_id?: string
         }
         Relationships: [
@@ -1972,6 +2516,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      guard_role_write: {
+        Args: { _allowed: Database["public"]["Enums"]["app_role"][] }
+        Returns: undefined
+      }
       has_any_role: {
         Args: {
           _roles: Database["public"]["Enums"]["app_role"][]
@@ -2008,6 +2556,10 @@ export type Database = {
       plan_order_update: {
         Args: { header_data: Json; items_data: Json; order_id: string }
         Returns: Json
+      }
+      recompute_sales_order_totals: {
+        Args: { _order_id: string }
+        Returns: undefined
       }
       sales_order_approve: {
         Args: { approve_reason?: string; order_id: string }
@@ -2070,6 +2622,22 @@ export type Database = {
       stock_out_release_booking: {
         Args: { p_reason: string; p_stock_out_id: string }
         Returns: Json
+      }
+      stock_out_undo_delivery: {
+        Args: {
+          p_delivery_request_id?: string
+          p_reason: string
+          p_stock_out_id: string
+        }
+        Returns: Json
+      }
+      sync_calibration_receipt_status: {
+        Args: { p_received: boolean; p_so_id: string }
+        Returns: undefined
+      }
+      sync_calibration_spk_confirmed: {
+        Args: { p_confirmed: boolean; p_so_id: string }
+        Returns: undefined
       }
       validate_adjustment_quantity: { Args: { qty: number }; Returns: boolean }
       validate_date_range: {
