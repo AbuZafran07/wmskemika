@@ -1,0 +1,1 @@
+UPDATE public.sales_order_headers SET is_deleted = false, deleted_at = NULL, deleted_by = NULL WHERE order_type = 'calibration' AND is_deleted = true;
