@@ -44,6 +44,9 @@ export interface KalibrasiV2Card {
   spk_confirmed_at?: string | null;
   created_at?: string | null;
   allocation_type?: string | null;
+  so_status?: string | null;
+  spk_confirmed_file_url?: string | null;
+  spk_confirmed_file_name?: string | null;
 }
 
 export const COLUMN_DEFS: {
@@ -130,6 +133,7 @@ export function useTrackerKalibrasi() {
           calibration_status, status, service_pic_name, service_location,
           service_pic_phone, calibration_received_at, sales_name, grand_total,
           notes, customer_request_notes, spk_confirmed_at, created_at, allocation_type,
+          spk_confirmed_file_url, spk_confirmed_file_name,
           customer:customers(name),
           items:sales_order_items(id, item_type, instrument_name, description, unit_price)
         `)
@@ -170,6 +174,9 @@ export function useTrackerKalibrasi() {
         spk_confirmed_at: r.spk_confirmed_at ?? null,
         created_at: r.created_at ?? null,
         allocation_type: r.allocation_type ?? null,
+        so_status: r.status ?? null,
+        spk_confirmed_file_url: r.spk_confirmed_file_url ?? null,
+        spk_confirmed_file_name: r.spk_confirmed_file_name ?? null,
       }));
 
       setCards(list);
@@ -242,6 +249,21 @@ export function useTrackerKalibrasi() {
         (c) => c.checklist_key === checklistKey,
       );
       const newValue = existing ? !existing.is_checked : true;
+
+      // Client-side guards (RPC also re-validates server-side)
+      if (newValue) {
+        const card = cards.find((c) => c.id === receiptId);
+        if (checklistKey === 'spk_confirmed') {
+          if (card?.so_status !== 'approved') {
+            toast.error('Approve Sales Order terlebih dahulu sebelum menandai SPK Confirmed.');
+            return;
+          }
+          if (!card?.spk_confirmed_file_url) {
+            toast.error('Upload bukti SPK yang telah dikonfirmasi customer terlebih dahulu.');
+            return;
+          }
+        }
+      }
 
       // Optimistic update
       setChecklists((prev) => {

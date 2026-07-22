@@ -38,6 +38,9 @@ interface ReceiptDetail {
   spk_signed_at: string | null;
   spk_confirmed_at: string | null;
   status: string;
+  so_status: string | null;
+  spk_confirmed_file_url: string | null;
+  spk_confirmed_file_name: string | null;
   archived: boolean;
   received_date: string;
   target_completion_date: string | null;
@@ -262,6 +265,7 @@ export default function TrackerKalibrasiCardDetail({
             target_completion_date, service_location, service_pic_name,
             service_pic_phone, customer_request_notes, created_at, created_by, spk_confirmed_at,
             sales_name, allocation_type, project_instansi,
+            spk_confirmed_file_url, spk_confirmed_file_name,
             customer:customers(id, name, code, pic, phone, address)
           `)
           .eq("id", receiptId)
@@ -307,6 +311,9 @@ export default function TrackerKalibrasiCardDetail({
             spk_signed_at: null,
             spk_confirmed_at: h.spk_confirmed_at ?? null,
             status: h.calibration_status ?? h.status ?? "draft",
+            so_status: h.status ?? null,
+            spk_confirmed_file_url: h.spk_confirmed_file_url ?? null,
+            spk_confirmed_file_name: h.spk_confirmed_file_name ?? null,
             archived: false,
             received_date: h.calibration_received_at
               ? String(h.calibration_received_at).slice(0, 10)
@@ -574,6 +581,39 @@ export default function TrackerKalibrasiCardDetail({
     const nextValue = value ? toDateInputValue(value) : null;
     setReceipt((prev) => prev ? { ...prev, spk_confirmed_at: nextValue } : prev);
     if (receiptId) onSetSpkConfirmedDate?.(receiptId, nextValue);
+  };
+
+  // ── upload bukti SPK Confirmed ──────────────────────────────────────────
+  const [uploadingSpkFile, setUploadingSpkFile] = useState(false);
+
+  const handleUploadSpkConfirmedFile = async (file: File) => {
+    if (!receiptId || !file) return;
+    setUploadingSpkFile(true);
+    try {
+      const ext = file.name.split(".").pop() || "bin";
+      const path = `calibration-spk-confirmed/${receiptId}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("documents")
+        .upload(path, file, { upsert: true, contentType: file.type || undefined });
+      if (upErr) throw upErr;
+      const { data: signed, error: signErr } = await supabase.storage
+        .from("documents")
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
+      if (signErr) throw signErr;
+      const url = signed?.signedUrl || path;
+      const { error: updErr } = await (supabase as any)
+        .from("sales_order_headers")
+        .update({ spk_confirmed_file_url: url, spk_confirmed_file_name: file.name })
+        .eq("id", receiptId);
+      if (updErr) throw updErr;
+      setReceipt((prev) => prev ? { ...prev, spk_confirmed_file_url: url, spk_confirmed_file_name: file.name } : prev);
+      toast.success("Bukti SPK Confirmed berhasil diupload");
+    } catch (err: any) {
+      console.error("upload SPK confirmed error:", err);
+      toast.error(err?.message || "Gagal upload bukti SPK Confirmed");
+    } finally {
+      setUploadingSpkFile(false);
+    }
   };
 
   if (!receiptId) return null;
@@ -1104,6 +1144,14 @@ export default function TrackerKalibrasiCardDetail({
                                       }
                                       // Block SPK Confirmed toggle unless date is filled & valid
                                       if (item.key === 'spk_confirmed' && !checked) {
+                                        if (receipt?.so_status !== 'approved') {
+                                          toast.error('Approve Sales Order terlebih dahulu sebelum menandai SPK Confirmed.');
+                                          return;
+                                        }
+                                        if (!receipt?.spk_confirmed_file_url) {
+                                          toast.error('Upload bukti SPK yang telah dikonfirmasi customer terlebih dahulu.');
+                                          return;
+                                        }
                                         const currentSpkConfirmedDate = toDateInputValue(spkConfirmedDateInputRef.current?.value || spkConfirmedDateInputValue || receipt?.spk_confirmed_at);
                                         if (!isValidDateInputValue(currentSpkConfirmedDate)) {
                                           toast.error('Isi "Tgl SPK Confirmed" terlebih dahulu dengan tanggal yang valid.');
@@ -1153,6 +1201,69 @@ export default function TrackerKalibrasiCardDetail({
                                   <p className="text-[10px] text-muted-foreground mt-1">
                                     Wajib diisi sebelum mencentang "SPK Confirmed" untuk pindah ke Calibration In Progress.
                                   </p>
+                                  {/* Status SO */}
+                                  <div className="mt-2 flex items-center gap-2">
+                                    <span className="text-[11px] text-muted-foreground">Status SO:</span>
+                                    {receipt?.so_status === 'approved' ? (
+                                      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 h-5 px-1.5 text-[10px]">Approved</Badge>
+                                    ) : (
+                                      <Badge className="bg-amber-100 text-amber-700 border-amber-200 h-5 px-1.5 text-[10px] capitalize">
+                                        {receipt?.so_status || 'draft'} — approve SO dulu
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  {/* Upload bukti SPK Confirmed */}
+                                  <div className="mt-2">
+                                    <label className="text-[11px] text-muted-foreground block mb-1">
+                                      Bukti SPK Dikonfirmasi Customer <span className="text-red-500">*</span>
+                                    </label>
+                                    {receipt?.spk_confirmed_file_url ? (
+                                      <div className="flex items-center gap-2 text-xs">
+                                        <a
+                                          href={receipt.spk_confirmed_file_url}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="text-primary underline truncate max-w-[180px]"
+                                          title={receipt.spk_confirmed_file_name || 'Lihat bukti SPK'}
+                                        >
+                                          {receipt.spk_confirmed_file_name || 'Lihat bukti SPK'}
+                                        </a>
+                                        <label className="inline-flex items-center gap-1 text-[11px] text-primary cursor-pointer hover:underline">
+                                          Ganti
+                                          <input
+                                            type="file"
+                                            accept="application/pdf,image/*"
+                                            className="hidden"
+                                            disabled={uploadingSpkFile}
+                                            onChange={(e) => {
+                                              const f = e.target.files?.[0];
+                                              if (f) handleUploadSpkConfirmedFile(f);
+                                              e.target.value = '';
+                                            }}
+                                          />
+                                        </label>
+                                      </div>
+                                    ) : (
+                                      <label className="inline-flex items-center gap-1 text-xs border rounded-md px-2 py-1 cursor-pointer hover:bg-muted/40">
+                                        {uploadingSpkFile ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
+                                        {uploadingSpkFile ? 'Mengupload...' : 'Upload file'}
+                                        <input
+                                          type="file"
+                                          accept="application/pdf,image/*"
+                                          className="hidden"
+                                          disabled={uploadingSpkFile}
+                                          onChange={(e) => {
+                                            const f = e.target.files?.[0];
+                                            if (f) handleUploadSpkConfirmedFile(f);
+                                            e.target.value = '';
+                                          }}
+                                        />
+                                      </label>
+                                    )}
+                                    <p className="text-[10px] text-muted-foreground mt-1">
+                                      PDF / gambar SPK yang sudah ditandatangani/dikonfirmasi customer. Wajib sebelum "SPK Confirmed".
+                                    </p>
+                                  </div>
                                 </div>
                               )}
 
