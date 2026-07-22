@@ -2540,6 +2540,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      issue_calibration_spk: {
+        Args: { p_so_id: string }
+        Returns: {
+          spk_issued_at: string
+          spk_number: string
+        }[]
+      }
       plan_order_approve: {
         Args: { approve_reason?: string; order_id: string }
         Returns: Json
