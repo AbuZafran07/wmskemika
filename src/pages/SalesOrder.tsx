@@ -2474,6 +2474,71 @@ export default function SalesOrder() {
 
               {/* ✅ Items table PDF includes discount */}
               <div data-pdf-section style={{ marginTop: "12px" }}>
+                {(selectedOrder as any).order_type === "calibration" ? (
+                  <>
+                    <div style={{ fontWeight: 700, fontSize: "12px", marginBottom: "6px" }}>DAFTAR ALAT</div>
+                    <table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #111" }}>
+                      <thead>
+                        <tr style={{ background: "#0b6b3a", color: "white" }}>
+                          {["No", "Nama Alat", "Merk/Model", "Serial No.", "Range", "Metode", "SLA (hari)", "Harga", "Subtotal"].map((h) => (
+                            <th key={h} style={{ background: "#0b6b3a", color: "white", border: "1px solid #111", padding: "6px", fontSize: "10px", textAlign: h === "Harga" || h === "Subtotal" ? "right" : h === "No" || h === "SLA (hari)" ? "center" : "left", whiteSpace: "nowrap" }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(selectedOrderItems || []).map((it: any, idx: number) => {
+                          const price = safeNumber(it.unit_price, 0);
+                          const qty = safeNumber(it.ordered_qty, 1) || 1;
+                          return (
+                            <tr key={it.id}>
+                              <td style={{ border: "1px solid #111", padding: "6px", textAlign: "center", fontSize: "10px" }}>{idx + 1}</td>
+                              <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px" }}>{it.instrument_name || it.product?.name || "-"}</td>
+                              <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px" }}>{it.instrument_brand_model || "-"}</td>
+                              <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px" }}>{it.instrument_serial_number || "-"}</td>
+                              <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px" }}>{it.measurement_range || "-"}</td>
+                              <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px" }}>{it.calibration_method || "-"}</td>
+                              <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px", textAlign: "center" }}>{it.sla_working_days ?? "-"}</td>
+                              <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px", textAlign: "right" }}>{formatCurrency(price)}</td>
+                              <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px", textAlign: "right" }}>{formatCurrency(price * qty)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+
+                    {calibSpareparts.length > 0 && (
+                      <>
+                        <div style={{ fontWeight: 700, fontSize: "12px", margin: "12px 0 6px" }}>SPAREPART TERPAKAI</div>
+                        <table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #111" }}>
+                          <thead>
+                            <tr style={{ background: "#0b6b3a", color: "white" }}>
+                              {["No", "SKU", "Nama Sparepart", "Qty", "Harga", "Subtotal", "Catatan"].map((h) => (
+                                <th key={h} style={{ background: "#0b6b3a", color: "white", border: "1px solid #111", padding: "6px", fontSize: "10px", textAlign: h === "Harga" || h === "Subtotal" ? "right" : h === "No" || h === "Qty" ? "center" : "left", whiteSpace: "nowrap" }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {calibSpareparts.map((sp: any, idx: number) => {
+                              const qty = safeNumber(sp.qty_used, 0);
+                              const price = safeNumber(sp.unit_price, 0);
+                              return (
+                                <tr key={sp.id}>
+                                  <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px", textAlign: "center" }}>{idx + 1}</td>
+                                  <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px" }}>{sp.product?.sku || "-"}</td>
+                                  <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px" }}>{sp.product?.name || "-"}</td>
+                                  <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px", textAlign: "center" }}>{qty}</td>
+                                  <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px", textAlign: "right" }}>{formatCurrency(price)}</td>
+                                  <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px", textAlign: "right" }}>{formatCurrency(qty * price)}</td>
+                                  <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px" }}>{sp.notes || "-"}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </>
+                    )}
+                  </>
+                ) : (
                 <table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #111" }}>
                   <thead>
                     <tr style={{ background: "#0b6b3a", color: "white" }}>
@@ -2546,6 +2611,7 @@ export default function SalesOrder() {
                     })}
                   </tbody>
                 </table>
+                )}
               </div>
 
               {/* Totals area PDF */}
