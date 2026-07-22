@@ -306,3 +306,57 @@ export function getColumnDeliveryDate(boardStatus: string): Date {
 
   return now; // fallback for delivered/delivered_sample
 }
+
+// ─── Calibration Number Generators ───────────────────────────────────────────
+// KAL-YYYYMMDD.001 / LAB-SPK-YYYYMMDD.001 / LAB-SK-YYYYMMDD.001
+
+export async function generateUniqueKALNumber(maxRetries = 5): Promise<string> {
+  // Unified format with regular Sales Order (SO/YYYYMMDD.NN) — no separate KAL prefix.
+  return generateUniqueSalesOrderNumber(maxRetries);
+}
+
+export async function generateUniqueSPKNumber(maxRetries = 5): Promise<string> {
+  const prefix = `LAB-SPK-${getTodayDateStr()}.`;
+  const { data } = await (supabase as any)
+    .from("sales_order_headers")
+    .select("spk_number")
+    .eq("order_type", "calibration")
+    .like("spk_number", `${prefix}%`)
+    .order("spk_number", { ascending: false })
+    .limit(1);
+  let sequence = data?.[0]
+    ? parseInt((data[0] as any).spk_number.slice(prefix.length), 10) + 1
+    : 1;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const number = `${prefix}${String(sequence + attempt).padStart(3, "0")}`;
+    const { data: dup } = await (supabase as any)
+      .from("sales_order_headers")
+      .select("id").eq("spk_number", number).maybeSingle();
+    if (!dup) return number;
+  }
+  return `${prefix}${Date.now().toString().slice(-4)}`;
+}
+
+export async function generateUniqueCertNumber(maxRetries = 5): Promise<string> {
+  const prefix = `LAB-SK-${getTodayDateStr()}.`;
+  const { data } = await (supabase as any)
+    .from("sales_order_items")
+    .select("certificate_number")
+    .eq("item_type", "calibration")
+    .like("certificate_number", `${prefix}%`)
+    .order("certificate_number", { ascending: false })
+    .limit(1);
+  let sequence = data?.[0]
+    ? parseInt((data[0] as any).certificate_number.slice(prefix.length), 10) + 1
+    : 1;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const number = `${prefix}${String(sequence + attempt).padStart(3, "0")}`;
+    const { data: dup } = await (supabase as any)
+      .from("sales_order_items")
+      .select("id").eq("certificate_number", number).maybeSingle();
+    if (!dup) return number;
+  }
+  return `${prefix}${Date.now().toString().slice(-4)}`;
+}
