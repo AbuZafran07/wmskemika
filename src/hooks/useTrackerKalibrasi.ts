@@ -346,7 +346,7 @@ export function useTrackerKalibrasi() {
     async (receiptId: string, dateISO: string | null) => {
       if (!canToggle) return;
       try {
-        const value = dateISO ? new Date(dateISO + 'T00:00:00').toISOString() : null;
+        const value = dateISO || null;
         const { error } = await (supabase as any)
           .from('sales_order_headers')
           .update({ calibration_received_at: value })
@@ -365,7 +365,7 @@ export function useTrackerKalibrasi() {
     async (receiptId: string, dateISO: string | null) => {
       if (!canToggle) return;
       try {
-        const value = dateISO ? new Date(dateISO + 'T00:00:00').toISOString() : null;
+        const value = dateISO || null;
         const { error } = await (supabase as any)
           .from('sales_order_headers')
           .update({ spk_confirmed_at: value })
