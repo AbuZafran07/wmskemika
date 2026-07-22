@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   FlaskConical, X, Send, Loader2, CheckSquare, Square,
   MapPin, Phone, User, CalendarDays, FileText, Download,
-  Plus, Trash2, Package, MessageSquare, Printer,
+  Plus, Trash2, Package, MessageSquare, Printer, AtSign,
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -1366,71 +1366,89 @@ export default function TrackerKalibrasiCardDetail({
               </ScrollArea>{/* end LEFT */}
 
               {/* ── RIGHT: comments ── */}
-              <div className="w-full md:w-80 lg:w-96 flex flex-col border-t md:border-t-0 md:border-l flex-shrink-0 max-h-[55vh] md:max-h-none">
-                <div className="px-4 py-3 border-b flex-shrink-0 flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-muted-foreground" />
-                  <h3 className="text-sm font-semibold flex items-center gap-1.5">
-                    Komentar & Aktivitas
-                  </h3>
+              <div className="w-full md:w-[340px] flex-shrink-0 flex flex-col md:min-h-0 border-t md:border-t-0 md:border-l">
+                <div className="flex items-center gap-2 px-4 py-3 border-b">
+                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-xs font-semibold">Comments & Activity</span>
                   {comments.length > 0 && (
-                    <span className="text-xs bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full font-bold">
-                      {comments.length}
-                    </span>
+                    <Badge variant="secondary" className="h-4 text-[10px] px-1.5">{comments.length}</Badge>
                   )}
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                  {loadingComments ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                {/* Comment input */}
+                <div className="px-4 py-3 border-b">
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Textarea
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        placeholder="Tulis komentar... (ketik @ untuk mention)"
+                        className="text-xs min-h-[50px] resize-none"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendComment(); }
+                        }}
+                      />
                     </div>
-                  ) : comments.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-8">Belum ada komentar</p>
-                  ) : (
-                    comments.map((c) => (
-                      <div key={c.id} className={cn("flex gap-2", c.user_id === user?.id && "flex-row-reverse")}>
-                        <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center flex-shrink-0 text-[10px] font-semibold text-muted-foreground">
-                          {(c.user_name ?? "?")[0].toUpperCase()}
-                        </div>
-                        <div className={cn(
-                          "max-w-[80%] rounded-xl px-3 py-2 text-xs",
-                          c.user_id === user?.id
-                            ? "bg-primary text-primary-foreground rounded-tr-sm"
-                            : "bg-muted rounded-tl-sm",
-                        )}>
-                          {c.user_id !== user?.id && (
-                            <p className="font-semibold mb-0.5 opacity-70 text-[10px]">{c.user_name ?? "Pengguna"}</p>
-                          )}
-                          <p className="whitespace-pre-wrap break-words leading-relaxed">{c.message}</p>
-                          <p className={cn("text-[9px] mt-1 opacity-60", c.user_id === user?.id && "text-right")}>
-                            {fmtDateTime(c.created_at)}
-                          </p>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                  <div ref={commentEndRef} />
+                    <div className="flex flex-col gap-1 self-end">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => setNewComment((prev) => prev + "@")}
+                      >
+                        <AtSign className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={sendComment}
+                        disabled={!newComment.trim() || sending}
+                        className="h-8"
+                      >
+                        {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="border-t p-3 flex gap-2 flex-shrink-0">
-                  <Textarea
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Tulis komentar..."
-                    className="min-h-[38px] max-h-[90px] resize-none text-xs"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendComment(); }
-                    }}
-                  />
-                  <Button
-                    size="icon"
-                    onClick={sendComment}
-                    disabled={!newComment.trim() || sending}
-                    className="flex-shrink-0 h-9 w-9"
-                  >
-                    {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                  </Button>
-                </div>
+                {/* Comments list */}
+                <ScrollArea className="md:flex-1 !overflow-visible md:!overflow-hidden [&>div[data-radix-scroll-area-viewport]]:!overflow-visible md:[&>div[data-radix-scroll-area-viewport]]:!overflow-auto">
+                  <div className="px-4 py-3">
+                    {loadingComments ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : comments.length === 0 ? (
+                      <div className="text-center py-4 text-muted-foreground">
+                        <p className="text-xs">Belum ada komentar</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {comments.map((c) => (
+                          <div key={c.id} className={cn("flex gap-2 group", c.type === "activity" && "opacity-70")}>
+                            <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 text-[10px] font-bold text-primary">
+                              {(c.user_name ?? "?")[0].toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-semibold">{c.user_name ?? "Pengguna"}</span>
+                                <span className="text-[10px] text-muted-foreground">
+                                  {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: idLocale })}
+                                </span>
+                              </div>
+                              <p className={cn(
+                                "text-xs mt-0.5 whitespace-pre-wrap break-words",
+                                c.type === "activity" && "text-muted-foreground italic",
+                              )}>
+                                {c.message}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                        <div ref={commentEndRef} />
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
               </div>
 
             </div>{/* end body */}

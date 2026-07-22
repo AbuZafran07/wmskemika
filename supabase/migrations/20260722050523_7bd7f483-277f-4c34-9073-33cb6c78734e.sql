@@ -1,0 +1,1 @@
+ALTER TABLE public.sales_order_headers ALTER COLUMN customer_po_number DROP NOT NULL;
