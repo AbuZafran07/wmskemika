@@ -1125,11 +1125,6 @@ export default function TrackerKalibrasiCardDetail({
                                     value={
                                       receipt?.status === 'rejected'
                                         ? 'rejected'
-                                        : receipt?.status === 'received' ||
-                                          receipt?.status === 'accepted' ||
-                                          isChecked('spk_issued') ||
-                                          isChecked('spk_confirmed')
-                                        ? 'accepted'
                                         : ''
                                     }
                                     onChange={(e) => {
