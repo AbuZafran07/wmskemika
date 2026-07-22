@@ -1144,6 +1144,14 @@ export default function TrackerKalibrasiCardDetail({
                                       }
                                       // Block SPK Confirmed toggle unless date is filled & valid
                                       if (item.key === 'spk_confirmed' && !checked) {
+                                        if (receipt?.so_status !== 'approved') {
+                                          toast.error('Approve Sales Order terlebih dahulu sebelum menandai SPK Confirmed.');
+                                          return;
+                                        }
+                                        if (!receipt?.spk_confirmed_file_url) {
+                                          toast.error('Upload bukti SPK yang telah dikonfirmasi customer terlebih dahulu.');
+                                          return;
+                                        }
                                         const currentSpkConfirmedDate = toDateInputValue(spkConfirmedDateInputRef.current?.value || spkConfirmedDateInputValue || receipt?.spk_confirmed_at);
                                         if (!isValidDateInputValue(currentSpkConfirmedDate)) {
                                           toast.error('Isi "Tgl SPK Confirmed" terlebih dahulu dengan tanggal yang valid.');
