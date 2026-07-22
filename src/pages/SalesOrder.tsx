@@ -22,9 +22,11 @@ import {
   Package,
   FileDown,
   RotateCcw,
+  Wrench,
 } from "lucide-react";
 
 import { exportSectionBasedPdf } from "@/lib/pdfSectionExport";
+import { CreateCalibrationSODialog } from "@/components/sales-order/CreateCalibrationSODialog";
 
 import { usePermissions } from "@/hooks/usePermissions";
 import { securePrint, printStyles, sanitizeHtml } from "@/lib/printUtils";
@@ -176,6 +178,7 @@ export default function SalesOrder() {
   const [viewMode, setViewMode] = useState<"active" | "archived">("active");
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCalibDialogOpen, setIsCalibDialogOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -1120,12 +1123,24 @@ export default function SalesOrder() {
           </p>
         </div>
         {canCreate("sales_order") && (
-          <Button onClick={handleOpenDialog}>
-            <Plus className="w-4 h-4 mr-2" />
-            {language === "en" ? "Create Sales Order" : "Buat Sales Order"}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={handleOpenDialog}>
+              <Plus className="w-4 h-4 mr-2" />
+              {language === "en" ? "Create Sales Order" : "Buat Sales Order"}
+            </Button>
+            <Button variant="outline" onClick={() => setIsCalibDialogOpen(true)}>
+              <Wrench className="w-4 h-4 mr-2" />
+              {language === "en" ? "Create Calibration SO" : "Buat SO Kalibrasi"}
+            </Button>
+          </div>
         )}
       </div>
+
+      <CreateCalibrationSODialog
+        open={isCalibDialogOpen}
+        onOpenChange={setIsCalibDialogOpen}
+        onCreated={() => refetch()}
+      />
 
       {/* Tabs */}
       <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)}>
