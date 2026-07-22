@@ -163,6 +163,7 @@ export async function updateCalibrationReceipt(
       calibration_received_at: toISODate(header.received_date),
       target_completion_date: header.target_completion_date || null,
       customer_request_notes: header.customer_request_notes || null,
+      customer_po_number: header.customer_po_number || null,
       delivery_deadline: header.target_completion_date || header.received_date,
     };
     if (header.allocation_type) {
