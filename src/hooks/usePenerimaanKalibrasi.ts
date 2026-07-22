@@ -146,6 +146,7 @@ export async function updateCalibrationReceipt(
     customer_request_notes: string;
     sales_pulse_reference_number: string;
     allocation_type?: string;
+    customer_po_number?: string | null;
   },
   instruments?: CalibrationInstrumentInput[]
 ): Promise<{ success: boolean; error?: string }> {
@@ -257,7 +258,7 @@ export async function createCalibrationReceipt(
         calibration_status: 'pending_receipt',
         customer_id: header.customer_id,
         sales_name: salesName,
-        customer_po_number: receipt_number,
+        customer_po_number: header.customer_po_number ?? null,
         sales_pulse_reference_number: header.sales_pulse_reference_number.trim(),
         allocation_type: header.allocation_type || 'Internal',
         project_instansi: 'Kalibrasi',
