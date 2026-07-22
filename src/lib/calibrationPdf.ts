@@ -89,33 +89,50 @@ function infoRow(doc: jsPDF, label: string, value: string, y: number, labelW = 4
 // ── SPK PDF — F-KAL-02 ───────────────────────────────────────────────────────
 
 export async function generateSPKPdf(receiptId: string) {
-  // 1. Fetch receipt + customer
-  const { data: receipt, error } = await (supabase as any)
-    .from("calibration_receipts")
+  // 1. Fetch SO header + customer
+  const { data: header, error } = await (supabase as any)
+    .from("sales_order_headers")
     .select(`
-      id, receipt_number, spk_number, spk_issued_at, spk_signed_at,
-      received_date, target_completion_date, service_location,
+      id, sales_order_number, spk_number, spk_issued_at,
+      calibration_received_at, target_completion_date, service_location,
       service_pic_name, service_pic_phone, customer_request_notes,
-      lab_manager_user_id,
       customer:customers(name, address, phone)
     `)
     .eq("id", receiptId)
     .single();
 
-  if (error || !receipt) throw new Error("Data penerimaan tidak ditemukan");
+  if (error || !header) throw new Error("Data SO kalibrasi tidak ditemukan");
 
-  // 2. Fetch instruments
-  const { data: instruments } = await (supabase as any)
-    .from("calibration_instruments")
-    .select("item_number, instrument_name, brand_model, serial_number, measurement_range, calibration_method, sla_working_days, unit_price")
-    .eq("calibration_receipt_id", receiptId)
-    .order("item_number");
+  const receipt: any = {
+    ...header,
+    receipt_number: header.sales_order_number,
+    received_date: header.calibration_received_at,
+  };
+
+  // 2. Fetch instruments from sales_order_items
+  const { data: rawItems } = await (supabase as any)
+    .from("sales_order_items")
+    .select(
+      "instrument_name, instrument_brand_model, instrument_serial_number, measurement_range, calibration_method, sla_working_days, unit_price, description, created_at",
+    )
+    .eq("sales_order_id", receiptId)
+    .eq("item_type", "calibration")
+    .order("created_at", { ascending: true });
+
+  const instruments = (rawItems || []).map((it: any, idx: number) => ({
+    item_number: idx + 1,
+    instrument_name: it.instrument_name ?? it.description ?? "-",
+    brand_model: it.instrument_brand_model ?? null,
+    serial_number: it.instrument_serial_number ?? null,
+    measurement_range: it.measurement_range ?? null,
+    calibration_method: it.calibration_method ?? null,
+    sla_working_days: it.sla_working_days ?? null,
+    unit_price: Number(it.unit_price ?? 0),
+  }));
 
   // 3. Assets
-  const [bgData, mgrSig] = await Promise.all([
-    imgToBase64("/kop-surat-bg.jpg"),
-    getSignatureBase64((receipt as any).lab_manager_user_id),
-  ]);
+  const bgData = await imgToBase64("/kop-surat-bg.jpg");
+  const mgrSig: string | null = null;
 
   // 4. Build PDF
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -263,23 +280,33 @@ export async function generateSPKPdf(receiptId: string) {
 // ── Certificate PDF — F-KAL-05 ────────────────────────────────────────────────
 
 export async function generateCertificatePdf(receiptId: string, instrumentId?: string) {
-  // 1. Fetch receipt
-  const { data: receipt } = await (supabase as any)
-    .from("calibration_receipts")
-    .select("id, receipt_number, spk_number, customer:customers(name)")
+  // 1. Fetch SO header
+  const { data: hdr } = await (supabase as any)
+    .from("sales_order_headers")
+    .select("id, sales_order_number, spk_number, customer:customers(name)")
     .eq("id", receiptId)
     .single();
 
-  // 2. Fetch instruments
+  const receipt: any = hdr ? { ...hdr, receipt_number: hdr.sales_order_number } : null;
+
+  // 2. Fetch instruments from sales_order_items
   let q = (supabase as any)
-    .from("calibration_instruments")
+    .from("sales_order_items")
     .select("*")
-    .eq("calibration_receipt_id", receiptId)
-    .order("item_number");
+    .eq("sales_order_id", receiptId)
+    .eq("item_type", "calibration")
+    .order("created_at", { ascending: true });
 
   if (instrumentId) q = (q as any).eq("id", instrumentId);
 
-  const { data: instruments } = await q;
+  const { data: rawItems } = await q;
+  const instruments = (rawItems || []).map((it: any, idx: number) => ({
+    ...it,
+    item_number: idx + 1,
+    brand_model: it.instrument_brand_model ?? null,
+    serial_number: it.instrument_serial_number ?? null,
+    instrument_name: it.instrument_name ?? it.description ?? "-",
+  }));
   if (!instruments || instruments.length === 0) throw new Error("Tidak ada data alat kalibrasi");
 
   // 3. Background

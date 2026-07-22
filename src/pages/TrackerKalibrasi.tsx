@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { FlaskConical, Loader2, RefreshCw, Building2, Package, Calendar as CalendarIcon, User, Search, X, Filter, CheckCircle2 } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { FlaskConical, Loader2, RefreshCw, Building2, Package, Calendar as CalendarIcon, User, Search, X, Filter, CheckCircle2, Maximize2, Minimize2, ZoomIn, ZoomOut, Image as ImageIcon } from "lucide-react";
 import { format, isPast } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -11,6 +12,9 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 import {
   useTrackerKalibrasi,
   COLUMN_DEFS,
@@ -204,6 +208,8 @@ function KanbanColumn({ colDef, cards, onClickCard }: ColumnProps) {
 // ─── main page ────────────────────────────────────────────────────────────────
 
 export default function TrackerKalibrasi() {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'super_admin';
   const {
     loading,
     checklists,
@@ -225,6 +231,87 @@ export default function TrackerKalibrasi() {
   const [sortBy, setSortBy] = useState<
     "deadline_asc" | "deadline_desc" | "created_desc" | "created_asc"
   >("deadline_asc");
+
+  // Full-view + background (parity with Request Delivery)
+  const [isFullView, setIsFullView] = useState(() => localStorage.getItem('calibration_full_view') === 'true');
+  const [zoomLevel, setZoomLevel] = useState(() => {
+    const saved = localStorage.getItem('calibration_zoom_level');
+    return saved ? Number(saved) : 90;
+  });
+  const [boardBgUrl, setBoardBgUrl] = useState<string>("");
+  const [bgInput, setBgInput] = useState("");
+
+  const handleSetFullView = (v: boolean) => {
+    setIsFullView(v);
+    localStorage.setItem('calibration_full_view', String(v));
+  };
+  const handleSetZoom = (v: number) => {
+    setZoomLevel(v);
+    localStorage.setItem('calibration_zoom_level', String(v));
+  };
+
+  const extractBgUrl = (value: unknown): string => {
+    if (!value) return "";
+    if (typeof value === "string") {
+      const raw = value.trim();
+      if (!raw) return "";
+      if (raw.startsWith("{")) {
+        try { const p = JSON.parse(raw) as { url?: unknown }; return typeof p.url === "string" ? p.url : ""; }
+        catch { return ""; }
+      }
+      return raw;
+    }
+    if (typeof value === "object") {
+      const url = (value as { url?: unknown }).url;
+      return typeof url === "string" ? url : "";
+    }
+    return "";
+  };
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("settings")
+        .select("id, value")
+        .eq("key", "calibration_board_bg")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      setBoardBgUrl(extractBgUrl(data?.value));
+    })();
+  }, []);
+
+  const handleSetBg = async (url: string) => {
+    setBoardBgUrl(url);
+    const payload = url ? { url } : null;
+    const { data: existing } = await supabase
+      .from("settings")
+      .select("id")
+      .eq("key", "calibration_board_bg")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const res = existing?.id
+      ? await supabase.from("settings").update({ value: payload, updated_at: new Date().toISOString() }).eq("id", existing.id)
+      : await supabase.from("settings").insert({ key: "calibration_board_bg", value: payload });
+    if (res.error) toast.error(`Gagal simpan background: ${res.error.message}`);
+    else toast.success(url ? "Background disimpan" : "Background dihapus");
+  };
+
+  const handleBgFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const ext = file.name.split(".").pop();
+      const key = `board-bg/calibration-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("documents").upload(key, file);
+      if (error) throw error;
+      const { data: signed } = await supabase.storage.from("documents").createSignedUrl(key, 60 * 60 * 24 * 365);
+      await handleSetBg(signed?.signedUrl || key);
+    } catch (err: any) {
+      toast.error("Gagal upload background: " + err.message);
+    }
+  };
 
   // Unique lists for dropdowns
   const customerOptions = useMemo(() => {
@@ -309,9 +396,18 @@ export default function TrackerKalibrasi() {
 
   return (
     <TooltipProvider>
-    <div className="flex flex-col h-full gap-3 p-3 sm:p-4 overflow-hidden">
+    <div
+      className="flex flex-col h-full gap-3 p-3 sm:p-4 overflow-hidden relative"
+      style={boardBgUrl ? {
+        backgroundImage: `url(${boardBgUrl})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      } : undefined}
+    >
+      {boardBgUrl && <div className="absolute inset-0 bg-background/70 dark:bg-background/80 pointer-events-none z-0" />}
       {/* Header */}
-      <div className="flex items-center justify-between flex-shrink-0 gap-2">
+      <div className="flex items-center justify-between flex-shrink-0 gap-2 relative z-10">
         <div className="flex items-center gap-2">
           <FlaskConical className="w-5 h-5 text-primary flex-shrink-0" />
           <h1 className="text-base sm:text-xl font-semibold">Tracker Kalibrasi</h1>
@@ -323,6 +419,94 @@ export default function TrackerKalibrasi() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Background changer (super_admin only) */}
+          {isSuperAdmin && (
+            <Popover>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="icon" className="h-8 w-8">
+                      <ImageIcon className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent><p>Background</p></TooltipContent>
+              </Tooltip>
+              <PopoverContent className="w-80" align="end">
+                <div className="space-y-3">
+                  <p className="text-sm font-medium">Ganti Background Board</p>
+                  <div className="space-y-2">
+                    <label className="text-xs text-muted-foreground font-medium">Preset:</label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[
+                        { label: "Default", value: "", preview: "bg-muted" },
+                        { label: "Lab", value: "https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?w=1920&q=80", preview: "bg-cyan-700" },
+                        { label: "Warehouse", value: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=1920&q=80", preview: "bg-amber-800" },
+                        { label: "Ocean", value: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920&q=80", preview: "bg-cyan-600" },
+                        { label: "Forest", value: "https://images.unsplash.com/photo-1448375240586-882707db888b?w=1920&q=80", preview: "bg-emerald-800" },
+                        { label: "Sunset", value: "https://images.unsplash.com/photo-1495616811223-4d98c6e9c869?w=1920&q=80", preview: "bg-orange-600" },
+                        { label: "Night", value: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1920&q=80", preview: "bg-indigo-900" },
+                        { label: "Abstract", value: "https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=1920&q=80", preview: "bg-purple-700" },
+                      ].map((preset) => (
+                        <button
+                          key={preset.label}
+                          onClick={() => handleSetBg(preset.value)}
+                          className={cn(
+                            "flex flex-col items-center gap-1 p-1.5 rounded-lg border transition-all hover:scale-105",
+                            boardBgUrl === preset.value ? "border-primary ring-2 ring-primary/30" : "border-border hover:border-primary/50",
+                          )}
+                        >
+                          <div className={cn("w-full h-8 rounded", preset.preview)}
+                            style={preset.value ? { backgroundImage: `url(${preset.value})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
+                          />
+                          <span className="text-[10px] text-muted-foreground truncate w-full text-center">{preset.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="border-t pt-3 space-y-2">
+                    <label className="text-xs text-muted-foreground font-medium">Upload gambar:</label>
+                    <input type="file" accept="image/*" onChange={handleBgFile}
+                      className="block w-full text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:bg-primary file:text-primary-foreground cursor-pointer" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs text-muted-foreground font-medium">Atau URL gambar:</label>
+                    <div className="flex gap-1">
+                      <Input value={bgInput} onChange={(e) => setBgInput(e.target.value)} placeholder="https://..." className="text-xs h-8" />
+                      <Button size="sm" className="h-8" onClick={() => { handleSetBg(bgInput); setBgInput(""); }}>Set</Button>
+                    </div>
+                  </div>
+                  {boardBgUrl && (
+                    <Button variant="destructive" size="sm" className="w-full" onClick={() => handleSetBg("")}>
+                      <X className="h-3 w-3 mr-1" /> Hapus Background
+                    </Button>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+
+          {/* Full View Toggle */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleSetFullView(!isFullView)}>
+                {isFullView ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent><p>{isFullView ? "Normal View" : "Full View"}</p></TooltipContent>
+          </Tooltip>
+
+          {isFullView && (
+            <div className="flex items-center gap-2 bg-muted/50 rounded-md px-2 py-1">
+              <ZoomOut className="h-3.5 w-3.5 text-muted-foreground" />
+              <input type="range" min={50} max={130} step={5} value={zoomLevel}
+                onChange={(e) => handleSetZoom(Number(e.target.value))}
+                className="w-20 h-1.5 accent-primary cursor-pointer" title={`Zoom: ${zoomLevel}%`} />
+              <ZoomIn className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-[10px] text-muted-foreground font-medium w-8">{zoomLevel}%</span>
+            </div>
+          )}
+
           {/* Filter & Search popover */}
           <Popover>
             <Tooltip>
@@ -445,21 +629,29 @@ export default function TrackerKalibrasi() {
       </div>
 
       {loading ? (
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 flex items-center justify-center relative z-10">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
         </div>
       ) : (
         /* Kanban board */
-        <div className="flex gap-3 sm:gap-4 flex-1 overflow-x-auto overflow-y-hidden pb-2 snap-x snap-mandatory sm:snap-none -mx-3 px-3 sm:mx-0 sm:px-0">
-          {COLUMN_DEFS.map((col) => (
-            <div key={col.id} className="snap-start sm:snap-align-none">
-              <KanbanColumn
-                colDef={col}
-                cards={filteredColumnCards(col.id)}
-                onClickCard={setSelectedId}
-              />
-            </div>
-          ))}
+        <div className={cn("flex-1 relative z-10", isFullView ? "overflow-auto" : "overflow-x-auto overflow-y-hidden")}>
+          <div
+            className={cn(
+              "flex gap-3 sm:gap-4 pb-2 snap-x snap-mandatory sm:snap-none -mx-3 px-3 sm:mx-0 sm:px-0",
+              isFullView ? "w-full h-full" : "",
+            )}
+            style={isFullView ? { transform: `scale(${zoomLevel / 100})`, transformOrigin: "top left", width: `${10000 / zoomLevel}%`, height: `${10000 / zoomLevel}%` } : undefined}
+          >
+            {COLUMN_DEFS.map((col) => (
+              <div key={col.id} className="snap-start sm:snap-align-none">
+                <KanbanColumn
+                  colDef={col}
+                  cards={filteredColumnCards(col.id)}
+                  onClickCard={setSelectedId}
+                />
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
