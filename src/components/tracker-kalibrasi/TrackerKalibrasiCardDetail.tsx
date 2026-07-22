@@ -1223,8 +1223,8 @@ export default function TrackerKalibrasiCardDetail({
                                     {receipt?.so_status === 'approved' ? (
                                       <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 h-5 px-1.5 text-[10px]">Approved</Badge>
                                     ) : (
-                                      <Badge className="bg-amber-100 text-amber-700 border-amber-200 h-5 px-1.5 text-[10px] capitalize">
-                                        {receipt?.so_status || 'draft'} — approve SO dulu
+                                      <Badge className="bg-amber-100 text-amber-700 border-amber-200 h-5 px-1.5 text-[10px]">
+                                        Please Approve SO First
                                       </Badge>
                                     )}
                                   </div>
