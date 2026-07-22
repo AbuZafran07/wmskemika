@@ -605,6 +605,11 @@ export default function SalesOrder() {
 
   // === CRUD ===
   const handleEdit = async (order: SalesOrderHeader) => {
+    if ((order as any).order_type === "calibration") {
+      setEditingCalibOrder(order);
+      setIsEditCalibOpen(true);
+      return;
+    }
     setIsEditMode(true);
     setEditingOrderId(order.id);
 
