@@ -72,7 +72,7 @@ export const MENU_ACCESS: Record<MenuKey, UserRole[]> = {
   
   // Request Delivery - All roles can view
   requestDelivery: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales', 'viewer'],
-  trackerPO: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'viewer'],
+  trackerPO: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales', 'viewer'],
   trackerKalibrasi: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales', 'viewer'],
 
   // Transactions
