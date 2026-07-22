@@ -14,6 +14,7 @@ import { listSalesPulseOpenReferences, type SalesPulseReference } from "@/lib/sa
 
 const DEFAULT_LOCATION = "Lab Kemika, Tangerang";
 const ALLOCATION_OPTIONS = ["Internal", "Selling", "Sample", "Stock", "Project"] as const;
+const CUSTOMER_PO_REGEX = /^[A-Za-z0-9/_.\-]+$/;
 
 interface Props {
   open: boolean;
@@ -29,6 +30,8 @@ export function EditCalibrationHeaderDialog({ open, onOpenChange, order, onSaved
   const [picName, setPicName] = useState("");
   const [picPhone, setPicPhone] = useState("");
   const [salesPulseRef, setSalesPulseRef] = useState("");
+  const [customerPO, setCustomerPO] = useState("");
+  const [customerPOError, setCustomerPOError] = useState<string | null>(null);
   const [salesPulseOptions, setSalesPulseOptions] = useState<SalesPulseReference[]>([]);
   const [salesPulseSearch, setSalesPulseSearch] = useState("");
   const [salesPulseLoading, setSalesPulseLoading] = useState(false);
@@ -48,6 +51,8 @@ export function EditCalibrationHeaderDialog({ open, onOpenChange, order, onSaved
     setPicName(order.service_pic_name ?? "");
     setPicPhone(order.service_pic_phone ?? "");
     setSalesPulseRef(order.sales_pulse_reference_number ?? "");
+    setCustomerPO(order.customer_po_number ?? "");
+    setCustomerPOError(null);
     const rec = order.calibration_received_at ?? order.order_date ?? "";
     setReceivedDate(rec ? String(rec).slice(0, 10) : "");
     setTargetDate(order.target_completion_date ? String(order.target_completion_date).slice(0, 10) : "");
@@ -105,6 +110,18 @@ export function EditCalibrationHeaderDialog({ open, onOpenChange, order, onSaved
     if (!customerId) return toast.error("Pilih customer terlebih dahulu");
     if (!receivedDate) return toast.error("Tanggal terima wajib diisi");
     if (!salesPulseRef.trim()) return toast.error("No. Referensi SalesPulse wajib diisi");
+    const trimmedPO = customerPO.trim();
+    if (trimmedPO) {
+      if (trimmedPO.length < 3 || trimmedPO.length > 50) {
+        setCustomerPOError("No. PO Customer harus 3–50 karakter");
+        return toast.error("Format No. PO Customer tidak valid");
+      }
+      if (!CUSTOMER_PO_REGEX.test(trimmedPO)) {
+        setCustomerPOError("Hanya huruf, angka, dan karakter / _ . -");
+        return toast.error("Format No. PO Customer tidak valid");
+      }
+    }
+    setCustomerPOError(null);
     setSaving(true);
     const res = await updateCalibrationReceipt(order.id, {
       customer_id: customerId,
@@ -115,6 +132,7 @@ export function EditCalibrationHeaderDialog({ open, onOpenChange, order, onSaved
       target_completion_date: targetDate,
       customer_request_notes: notes,
       sales_pulse_reference_number: salesPulseRef.trim(),
+      customer_po_number: trimmedPO || null,
       allocation_type: allocationType,
     });
     setSaving(false);
@@ -152,17 +170,41 @@ export function EditCalibrationHeaderDialog({ open, onOpenChange, order, onSaved
             />
           </div>
 
-          <div className="space-y-2">
-            <Label>No. Referensi SalesPulse <span className="text-destructive">*</span></Label>
-            <SearchableSelect
-              options={salesPulseSelectOptions}
-              value={salesPulseRef}
-              onValueChange={setSalesPulseRef}
-              onSearchChange={setSalesPulseSearch}
-              placeholder={salesPulseLoading ? "Memuat referensi..." : "Pilih No. Referensi SalesPulse"}
-              searchPlaceholder="Cari nomor / deal / customer..."
-              emptyMessage={salesPulseLoading ? "Memuat..." : "Tidak ada referensi terbuka"}
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>No. Referensi SalesPulse <span className="text-destructive">*</span></Label>
+              <SearchableSelect
+                options={salesPulseSelectOptions}
+                value={salesPulseRef}
+                onValueChange={setSalesPulseRef}
+                onSearchChange={setSalesPulseSearch}
+                placeholder={salesPulseLoading ? "Memuat referensi..." : "Pilih No. Referensi SalesPulse"}
+                searchPlaceholder="Cari nomor / deal / customer..."
+                emptyMessage={salesPulseLoading ? "Memuat..." : "Tidak ada referensi terbuka"}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>No. PO Customer</Label>
+              <Input
+                value={customerPO}
+                onChange={(e) => {
+                  setCustomerPO(e.target.value);
+                  if (customerPOError) setCustomerPOError(null);
+                }}
+                placeholder="Contoh: PO/2026/001"
+                maxLength={50}
+                aria-invalid={!!customerPOError}
+                className={customerPOError ? "border-destructive focus-visible:ring-destructive" : ""}
+              />
+              {customerPOError ? (
+                <p className="text-xs text-destructive">{customerPOError}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Opsional (3–50 karakter, huruf/angka/<code>/ _ . -</code>).
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
