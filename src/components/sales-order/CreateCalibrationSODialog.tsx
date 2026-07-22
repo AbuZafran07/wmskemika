@@ -30,6 +30,7 @@ export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Pro
   const [picName, setPicName] = useState("");
   const [picPhone, setPicPhone] = useState("");
   const [salesPulseRef, setSalesPulseRef] = useState("");
+  const [customerPO, setCustomerPO] = useState("");
   const [salesPulseOptions, setSalesPulseOptions] = useState<SalesPulseReference[]>([]);
   const [salesPulseSearch, setSalesPulseSearch] = useState("");
   const [salesPulseLoading, setSalesPulseLoading] = useState(false);
@@ -46,6 +47,7 @@ export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Pro
       setPicName("");
       setPicPhone("");
       setSalesPulseRef("");
+      setCustomerPO("");
       setSalesPulseOptions([]);
       setSalesPulseSearch("");
       setReceivedDate(new Date().toISOString().slice(0, 10));
@@ -134,6 +136,7 @@ export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Pro
         created_by: user?.id ?? null,
         sales_pulse_reference_number: salesPulseRef.trim(),
         allocation_type: allocationType,
+        customer_po_number: customerPO.trim() || null,
       },
       [], // alat ditambahkan nanti di tab Penerimaan
     );
@@ -184,6 +187,16 @@ export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Pro
               emptyMessage={salesPulseLoading ? "Memuat..." : "Tidak ada referensi terbuka"}
             />
             <p className="text-xs text-muted-foreground">Wajib diisi. Daftar diambil dari deal Sales Pulse yang masih terbuka.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>No. PO Customer</Label>
+            <Input
+              value={customerPO}
+              onChange={(e) => setCustomerPO(e.target.value)}
+              placeholder="Kosongkan jika belum ada PO customer"
+            />
+            <p className="text-xs text-muted-foreground">Opsional. Isi setelah customer mengirim PO resmi.</p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
