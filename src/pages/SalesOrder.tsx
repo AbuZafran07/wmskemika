@@ -183,6 +183,10 @@ export default function SalesOrder() {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isCalibDialogOpen, setIsCalibDialogOpen] = useState(false);
+  const [isCalibDetailOpen, setIsCalibDetailOpen] = useState(false);
+  const [isEditCalibOpen, setIsEditCalibOpen] = useState(false);
+  const [editingCalibOrder, setEditingCalibOrder] = useState<any | null>(null);
+  const [calibSpareparts, setCalibSpareparts] = useState<any[]>([]);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
