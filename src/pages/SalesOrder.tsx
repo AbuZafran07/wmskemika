@@ -27,6 +27,10 @@ import {
 
 import { exportSectionBasedPdf } from "@/lib/pdfSectionExport";
 import { CreateCalibrationSODialog } from "@/components/sales-order/CreateCalibrationSODialog";
+import { EditCalibrationHeaderDialog } from "@/components/sales-order/EditCalibrationHeaderDialog";
+import { CalibrationInstrumentsPanel } from "@/components/sales-order/CalibrationInstrumentsPanel";
+import { CalibrationSPKPanel } from "@/components/sales-order/CalibrationSPKPanel";
+import { CalibrationSparepartsPanel } from "@/components/sales-order/CalibrationSparepartsPanel";
 
 import { usePermissions } from "@/hooks/usePermissions";
 import { securePrint, printStyles, sanitizeHtml } from "@/lib/printUtils";
@@ -179,6 +183,10 @@ export default function SalesOrder() {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isCalibDialogOpen, setIsCalibDialogOpen] = useState(false);
+  const [isCalibDetailOpen, setIsCalibDetailOpen] = useState(false);
+  const [isEditCalibOpen, setIsEditCalibOpen] = useState(false);
+  const [editingCalibOrder, setEditingCalibOrder] = useState<any | null>(null);
+  const [calibSpareparts, setCalibSpareparts] = useState<any[]>([]);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -597,6 +605,11 @@ export default function SalesOrder() {
 
   // === CRUD ===
   const handleEdit = async (order: SalesOrderHeader) => {
+    if ((order as any).order_type === "calibration") {
+      setEditingCalibOrder(order);
+      setIsEditCalibOpen(true);
+      return;
+    }
     setIsEditMode(true);
     setEditingOrderId(order.id);
 
@@ -920,7 +933,32 @@ export default function SalesOrder() {
 
   const handleViewDetail = async (order: SalesOrderHeader) => {
     setSelectedOrder(order);
-    setIsDetailDialogOpen(true);
+    if ((order as any).order_type === "calibration") {
+      setIsCalibDetailOpen(true);
+      // Fetch spareparts for PDF template
+      try {
+        const { data: instrs } = await (supabase as any)
+          .from("sales_order_items")
+          .select("id")
+          .eq("sales_order_id", order.id)
+          .eq("item_type", "calibration");
+        const ids = (instrs || []).map((r: any) => r.id);
+        if (ids.length) {
+          const { data: sp } = await (supabase as any)
+            .from("calibration_spare_parts")
+            .select("id, instrument_id, qty_used, unit_price, notes, product:products(name, sku)")
+            .in("instrument_id", ids);
+          setCalibSpareparts(sp || []);
+        } else {
+          setCalibSpareparts([]);
+        }
+      } catch (e) {
+        console.error("Failed to load calibration spareparts:", e);
+        setCalibSpareparts([]);
+      }
+    } else {
+      setIsDetailDialogOpen(true);
+    }
     setRevisionReasonDisplay(null);
     setApproveReasonDisplay(null);
     setPiDpInfo(null);
@@ -1141,6 +1179,82 @@ export default function SalesOrder() {
         onOpenChange={setIsCalibDialogOpen}
         onCreated={() => refetch()}
       />
+
+      <EditCalibrationHeaderDialog
+        open={isEditCalibOpen}
+        onOpenChange={setIsEditCalibOpen}
+        order={editingCalibOrder}
+        onSaved={() => refetch()}
+      />
+
+      {/* Calibration Detail Dialog */}
+      <Dialog open={isCalibDetailOpen} onOpenChange={setIsCalibDetailOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wrench className="w-5 h-5 text-primary" />
+              {language === "en" ? "Calibration Sales Order Detail" : "Detail SO Kalibrasi"}
+              {selectedOrder && (
+                <span className="text-sm font-normal text-muted-foreground">
+                  — {selectedOrder.sales_order_number}
+                </span>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {language === "en"
+                ? "Manage instruments, SPK, and spareparts for this calibration SO."
+                : "Kelola alat, SPK, dan sparepart untuk SO Kalibrasi ini."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedOrder && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                <div><span className="text-muted-foreground">Customer:</span> <b>{selectedOrder.customer?.name || "-"}</b></div>
+                <div><span className="text-muted-foreground">Sales:</span> <b>{selectedOrder.sales_name || "-"}</b></div>
+                <div><span className="text-muted-foreground">PO Customer:</span> <b>{selectedOrder.customer_po_number || "-"}</b></div>
+                <div><span className="text-muted-foreground">Ref SalesPulse:</span> <b>{(selectedOrder as any).sales_pulse_reference_number || "-"}</b></div>
+                <div><span className="text-muted-foreground">Tgl Order:</span> <b>{formatDateID(selectedOrder.order_date)}</b></div>
+                <div><span className="text-muted-foreground">Target Selesai:</span> <b>{(selectedOrder as any).target_completion_date ? formatDateID((selectedOrder as any).target_completion_date) : "-"}</b></div>
+                <div><span className="text-muted-foreground">Status:</span> <b>{selectedOrder.status}</b></div>
+                <div><span className="text-muted-foreground">Calibration Status:</span> <b>{(selectedOrder as any).calibration_status || "-"}</b></div>
+              </div>
+
+              <CalibrationInstrumentsPanel
+                salesOrderId={selectedOrder.id}
+                salesOrderNumber={selectedOrder.sales_order_number}
+                calibrationStatus={(selectedOrder as any).calibration_status || null}
+                onChanged={() => refetch()}
+              />
+
+              <CalibrationSPKPanel
+                salesOrderId={selectedOrder.id}
+                salesOrderNumber={selectedOrder.sales_order_number}
+                spkNumber={(selectedOrder as any).spk_number || null}
+                spkIssuedAt={(selectedOrder as any).spk_issued_at || null}
+                calibrationStatus={(selectedOrder as any).calibration_status || null}
+                onChanged={() => refetch()}
+              />
+
+              <CalibrationSparepartsPanel
+                salesOrderId={selectedOrder.id}
+                calibrationStatus={(selectedOrder as any).calibration_status || null}
+                onChanged={() => refetch()}
+              />
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 flex-wrap">
+            <Button variant="outline" onClick={() => setIsCalibDetailOpen(false)}>
+              {language === "en" ? "Close" : "Tutup"}
+            </Button>
+            <Button variant="outline" onClick={() => setIsPdfPreviewOpen(true)} disabled={itemsLoading}>
+              <FileText className="w-4 h-4 mr-2" />
+              {language === "en" ? "Preview PDF" : "Preview PDF"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Tabs */}
       <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)}>
@@ -2360,6 +2474,71 @@ export default function SalesOrder() {
 
               {/* ✅ Items table PDF includes discount */}
               <div data-pdf-section style={{ marginTop: "12px" }}>
+                {(selectedOrder as any).order_type === "calibration" ? (
+                  <>
+                    <div style={{ fontWeight: 700, fontSize: "12px", marginBottom: "6px" }}>DAFTAR ALAT</div>
+                    <table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #111" }}>
+                      <thead>
+                        <tr style={{ background: "#0b6b3a", color: "white" }}>
+                          {["No", "Nama Alat", "Merk/Model", "Serial No.", "Range", "Metode", "SLA (hari)", "Harga", "Subtotal"].map((h) => (
+                            <th key={h} style={{ background: "#0b6b3a", color: "white", border: "1px solid #111", padding: "6px", fontSize: "10px", textAlign: h === "Harga" || h === "Subtotal" ? "right" : h === "No" || h === "SLA (hari)" ? "center" : "left", whiteSpace: "nowrap" }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(selectedOrderItems || []).map((it: any, idx: number) => {
+                          const price = safeNumber(it.unit_price, 0);
+                          const qty = safeNumber(it.ordered_qty, 1) || 1;
+                          return (
+                            <tr key={it.id}>
+                              <td style={{ border: "1px solid #111", padding: "6px", textAlign: "center", fontSize: "10px" }}>{idx + 1}</td>
+                              <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px" }}>{it.instrument_name || it.product?.name || "-"}</td>
+                              <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px" }}>{it.instrument_brand_model || "-"}</td>
+                              <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px" }}>{it.instrument_serial_number || "-"}</td>
+                              <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px" }}>{it.measurement_range || "-"}</td>
+                              <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px" }}>{it.calibration_method || "-"}</td>
+                              <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px", textAlign: "center" }}>{it.sla_working_days ?? "-"}</td>
+                              <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px", textAlign: "right" }}>{formatCurrency(price)}</td>
+                              <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px", textAlign: "right" }}>{formatCurrency(price * qty)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+
+                    {calibSpareparts.length > 0 && (
+                      <>
+                        <div style={{ fontWeight: 700, fontSize: "12px", margin: "12px 0 6px" }}>SPAREPART TERPAKAI</div>
+                        <table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #111" }}>
+                          <thead>
+                            <tr style={{ background: "#0b6b3a", color: "white" }}>
+                              {["No", "SKU", "Nama Sparepart", "Qty", "Harga", "Subtotal", "Catatan"].map((h) => (
+                                <th key={h} style={{ background: "#0b6b3a", color: "white", border: "1px solid #111", padding: "6px", fontSize: "10px", textAlign: h === "Harga" || h === "Subtotal" ? "right" : h === "No" || h === "Qty" ? "center" : "left", whiteSpace: "nowrap" }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {calibSpareparts.map((sp: any, idx: number) => {
+                              const qty = safeNumber(sp.qty_used, 0);
+                              const price = safeNumber(sp.unit_price, 0);
+                              return (
+                                <tr key={sp.id}>
+                                  <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px", textAlign: "center" }}>{idx + 1}</td>
+                                  <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px" }}>{sp.product?.sku || "-"}</td>
+                                  <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px" }}>{sp.product?.name || "-"}</td>
+                                  <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px", textAlign: "center" }}>{qty}</td>
+                                  <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px", textAlign: "right" }}>{formatCurrency(price)}</td>
+                                  <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px", textAlign: "right" }}>{formatCurrency(qty * price)}</td>
+                                  <td style={{ border: "1px solid #111", padding: "6px", fontSize: "10px" }}>{sp.notes || "-"}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </>
+                    )}
+                  </>
+                ) : (
                 <table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #111" }}>
                   <thead>
                     <tr style={{ background: "#0b6b3a", color: "white" }}>
@@ -2432,6 +2611,7 @@ export default function SalesOrder() {
                     })}
                   </tbody>
                 </table>
+                )}
               </div>
 
               {/* Totals area PDF */}
