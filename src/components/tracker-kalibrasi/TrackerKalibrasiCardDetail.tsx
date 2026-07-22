@@ -1334,6 +1334,7 @@ export default function TrackerKalibrasiCardDetail({
                       {pdfLoading === "spk" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
                       SPK (F-KAL-02)
                     </Button>
+                    {getBoardColumn(checklists, receipt?.status)?.id === 'invoiced' && (
                     <Button
                       variant="outline" size="sm"
                       disabled={!receiptId || pdfLoading !== null || instruments.length === 0}
@@ -1349,6 +1350,7 @@ export default function TrackerKalibrasiCardDetail({
                       {pdfLoading === "cert" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
                       Sertifikat (F-KAL-05)
                     </Button>
+                    )}
                   </div>
                 </div>
 
