@@ -243,6 +243,8 @@ export default function TrackerKalibrasiCardDetail({
   const [savingInstrument, setSavingInstrument] = useState(false);
 
   const commentEndRef = useRef<HTMLDivElement>(null);
+  const receivedDateInputRef = useRef<HTMLInputElement>(null);
+  const spkConfirmedDateInputRef = useRef<HTMLInputElement>(null);
 
   // ── fetch receipt + instruments ─────────────────────────────────────────
 
@@ -563,13 +565,15 @@ export default function TrackerKalibrasiCardDetail({
   const spkConfirmedDateInputValue = toDateInputValue(receipt?.spk_confirmed_at);
 
   const handleSetReceivedDate = (value: string | null) => {
-    setReceipt((prev) => prev ? { ...prev, received_date: value ?? "" } : prev);
-    if (receiptId) onSetReceivedDate?.(receiptId, value);
+    const nextValue = value ? toDateInputValue(value) : null;
+    setReceipt((prev) => prev ? { ...prev, received_date: nextValue ?? "" } : prev);
+    if (receiptId) onSetReceivedDate?.(receiptId, nextValue);
   };
 
   const handleSetSpkConfirmedDate = (value: string | null) => {
-    setReceipt((prev) => prev ? { ...prev, spk_confirmed_at: value } : prev);
-    if (receiptId) onSetSpkConfirmedDate?.(receiptId, value);
+    const nextValue = value ? toDateInputValue(value) : null;
+    setReceipt((prev) => prev ? { ...prev, spk_confirmed_at: nextValue } : prev);
+    if (receiptId) onSetSpkConfirmedDate?.(receiptId, nextValue);
   };
 
   if (!receiptId) return null;
@@ -1091,17 +1095,21 @@ export default function TrackerKalibrasiCardDetail({
                                       if (!receiptId) return;
                                       // Block "Receive Instrument" toggle unless received date is filled & valid
                                       if (item.key === 'instrument_received' && !checked) {
-                                        if (!isValidDateInputValue(receivedDateInputValue)) {
-                                          toast.error('Isi "Tanggal Terima Alat" terlebih dahulu (format YYYY-MM-DD).');
+                                        const currentReceivedDate = toDateInputValue(receivedDateInputRef.current?.value || receivedDateInputValue || receipt?.received_date);
+                                        if (!isValidDateInputValue(currentReceivedDate)) {
+                                          toast.error('Isi "Tanggal Terima Alat" terlebih dahulu dengan tanggal yang valid.');
                                           return;
                                         }
+                                        if (currentReceivedDate !== receivedDateInputValue) handleSetReceivedDate(currentReceivedDate);
                                       }
                                       // Block SPK Confirmed toggle unless date is filled & valid
                                       if (item.key === 'spk_confirmed' && !checked) {
-                                        if (!isValidDateInputValue(spkConfirmedDateInputValue)) {
-                                          toast.error('Isi "Tgl SPK Confirmed" terlebih dahulu (format YYYY-MM-DD).');
+                                        const currentSpkConfirmedDate = toDateInputValue(spkConfirmedDateInputRef.current?.value || spkConfirmedDateInputValue || receipt?.spk_confirmed_at);
+                                        if (!isValidDateInputValue(currentSpkConfirmedDate)) {
+                                          toast.error('Isi "Tgl SPK Confirmed" terlebih dahulu dengan tanggal yang valid.');
                                           return;
                                         }
+                                        if (currentSpkConfirmedDate !== spkConfirmedDateInputValue) handleSetSpkConfirmedDate(currentSpkConfirmedDate);
                                       }
                                       onToggle(receiptId, item.key);
                                     }}
@@ -1132,6 +1140,7 @@ export default function TrackerKalibrasiCardDetail({
                                     Tgl SPK Confirmed
                                   </label>
                                   <Input
+                                    ref={spkConfirmedDateInputRef}
                                     type="date"
                                     className="h-8 text-sm"
                                     value={
@@ -1154,6 +1163,7 @@ export default function TrackerKalibrasiCardDetail({
                                     Tanggal Terima Alat
                                   </label>
                                   <Input
+                                    ref={receivedDateInputRef}
                                     type="date"
                                     className="h-8 text-sm"
                                     value={receivedDateInputValue}
