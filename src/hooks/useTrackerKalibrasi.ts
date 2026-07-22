@@ -332,26 +332,19 @@ export function useTrackerKalibrasi() {
 
         // Auto-issue SPK number when "SPK Issued" is checked (if not already issued)
         if (checklistKey === 'spk_issued' && newValue) {
-          const card = cards.find((c) => c.id === receiptId);
-          if (!card?.spk_number) {
-            try {
-              const number = await generateUniqueSPKNumber();
-              const issuedAt = new Date().toISOString();
-              const { error: updErr } = await (supabase as any)
-                .from('sales_order_headers')
-                .update({
-                  spk_number: number,
-                  spk_issued_at: issuedAt,
-                  calibration_status: 'spk_issued',
-                  customer_po_number: number,
-                })
-                .eq('id', receiptId);
-              if (updErr) throw updErr;
-              toast.success(`SPK ${number} diterbitkan`);
-            } catch (e: any) {
-              console.error('auto-issue SPK error:', e);
-              toast.error(e?.message || 'Gagal menerbitkan nomor SPK');
+          try {
+            const { data: spkData, error: rpcErr } = await (supabase as any).rpc(
+              'issue_calibration_spk',
+              { p_so_id: receiptId },
+            );
+            if (rpcErr) throw rpcErr;
+            const issued = Array.isArray(spkData) ? spkData[0] : spkData;
+            if (issued?.spk_number) {
+              toast.success(`SPK ${issued.spk_number} diterbitkan`);
             }
+          } catch (e: any) {
+            console.error('auto-issue SPK error:', e);
+            toast.error(e?.message || 'Gagal menerbitkan nomor SPK');
           }
           fetchData();
         }
