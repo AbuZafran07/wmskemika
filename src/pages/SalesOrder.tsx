@@ -1139,7 +1139,7 @@ export default function SalesOrder() {
       <CreateCalibrationSODialog
         open={isCalibDialogOpen}
         onOpenChange={setIsCalibDialogOpen}
-        onCreated={() => { try { (loadSalesOrders as any)?.(); } catch {} }}
+        onCreated={() => refetch()}
       />
 
       {/* Tabs */}
