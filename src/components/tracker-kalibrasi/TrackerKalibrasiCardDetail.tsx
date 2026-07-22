@@ -251,11 +251,9 @@ export default function TrackerKalibrasiCardDetail({
 
   // ── fetch receipt + instruments ─────────────────────────────────────────
 
-  useEffect(() => {
+  const fetchReceipt = useCallback(async () => {
     if (!receiptId) { setReceipt(null); setInstruments([]); setSpareParts([]); return; }
     setLoadingReceipt(true);
-
-    (async () => {
       const [{ data: hdr }, { data: items }] = await Promise.all([
         (supabase as any)
           .from("sales_order_headers")
@@ -360,8 +358,26 @@ export default function TrackerKalibrasiCardDetail({
       }
 
       setLoadingReceipt(false);
-    })();
   }, [receiptId]);
+
+  useEffect(() => { fetchReceipt(); }, [fetchReceipt]);
+
+  // refetch header when checklists change (e.g. spk_issued auto-issues SPK number)
+  const spkIssuedChecked = checklists.some((c) => c.checklist_key === 'spk_issued' && c.is_checked);
+  useEffect(() => {
+    if (receiptId) fetchReceipt();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spkIssuedChecked]);
+
+  // realtime: update local receipt when header row changes
+  useEffect(() => {
+    if (!receiptId) return;
+    const ch = supabase
+      .channel(`kal-header-${receiptId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'sales_order_headers', filter: `id=eq.${receiptId}` }, () => fetchReceipt())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [receiptId, fetchReceipt]);
 
   // ── fetch comments ──────────────────────────────────────────────────────
 
@@ -1207,8 +1223,8 @@ export default function TrackerKalibrasiCardDetail({
                                     {receipt?.so_status === 'approved' ? (
                                       <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 h-5 px-1.5 text-[10px]">Approved</Badge>
                                     ) : (
-                                      <Badge className="bg-amber-100 text-amber-700 border-amber-200 h-5 px-1.5 text-[10px] capitalize">
-                                        {receipt?.so_status || 'draft'} — approve SO dulu
+                                      <Badge className="bg-amber-100 text-amber-700 border-amber-200 h-5 px-1.5 text-[10px]">
+                                        Please Approve SO First
                                       </Badge>
                                     )}
                                   </div>
@@ -1318,6 +1334,7 @@ export default function TrackerKalibrasiCardDetail({
                       {pdfLoading === "spk" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
                       SPK (F-KAL-02)
                     </Button>
+                    {getBoardColumn(checklists, receipt?.status)?.id === 'invoiced' && (
                     <Button
                       variant="outline" size="sm"
                       disabled={!receiptId || pdfLoading !== null || instruments.length === 0}
@@ -1333,6 +1350,7 @@ export default function TrackerKalibrasiCardDetail({
                       {pdfLoading === "cert" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
                       Sertifikat (F-KAL-05)
                     </Button>
+                    )}
                   </div>
                 </div>
 
