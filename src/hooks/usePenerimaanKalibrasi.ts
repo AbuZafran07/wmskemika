@@ -228,6 +228,7 @@ export async function createCalibrationReceipt(
     created_by: string | null;
     sales_pulse_reference_number: string;
     allocation_type?: string;
+    customer_po_number?: string | null;
   },
   instruments: CalibrationInstrumentInput[]
 ): Promise<{ success: boolean; error?: string; id?: string; receipt_number?: string }> {
