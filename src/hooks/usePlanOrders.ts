@@ -31,6 +31,7 @@ export interface PlanOrderHeader {
   is_deleted?: boolean;
   deleted_at?: string | null;
   deleted_by?: string | null;
+  cancel_reason?: string | null;
   supplier?: {
     id: string;
     name: string;
