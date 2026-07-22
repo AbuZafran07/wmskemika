@@ -27,6 +27,10 @@ import {
 
 import { exportSectionBasedPdf } from "@/lib/pdfSectionExport";
 import { CreateCalibrationSODialog } from "@/components/sales-order/CreateCalibrationSODialog";
+import { EditCalibrationHeaderDialog } from "@/components/sales-order/EditCalibrationHeaderDialog";
+import { CalibrationInstrumentsPanel } from "@/components/sales-order/CalibrationInstrumentsPanel";
+import { CalibrationSPKPanel } from "@/components/sales-order/CalibrationSPKPanel";
+import { CalibrationSparepartsPanel } from "@/components/sales-order/CalibrationSparepartsPanel";
 
 import { usePermissions } from "@/hooks/usePermissions";
 import { securePrint, printStyles, sanitizeHtml } from "@/lib/printUtils";
