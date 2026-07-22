@@ -583,6 +583,39 @@ export default function TrackerKalibrasiCardDetail({
     if (receiptId) onSetSpkConfirmedDate?.(receiptId, nextValue);
   };
 
+  // ── upload bukti SPK Confirmed ──────────────────────────────────────────
+  const [uploadingSpkFile, setUploadingSpkFile] = useState(false);
+
+  const handleUploadSpkConfirmedFile = async (file: File) => {
+    if (!receiptId || !file) return;
+    setUploadingSpkFile(true);
+    try {
+      const ext = file.name.split(".").pop() || "bin";
+      const path = `calibration-spk-confirmed/${receiptId}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("documents")
+        .upload(path, file, { upsert: true, contentType: file.type || undefined });
+      if (upErr) throw upErr;
+      const { data: signed, error: signErr } = await supabase.storage
+        .from("documents")
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
+      if (signErr) throw signErr;
+      const url = signed?.signedUrl || path;
+      const { error: updErr } = await (supabase as any)
+        .from("sales_order_headers")
+        .update({ spk_confirmed_file_url: url, spk_confirmed_file_name: file.name })
+        .eq("id", receiptId);
+      if (updErr) throw updErr;
+      setReceipt((prev) => prev ? { ...prev, spk_confirmed_file_url: url, spk_confirmed_file_name: file.name } : prev);
+      toast.success("Bukti SPK Confirmed berhasil diupload");
+    } catch (err: any) {
+      console.error("upload SPK confirmed error:", err);
+      toast.error(err?.message || "Gagal upload bukti SPK Confirmed");
+    } finally {
+      setUploadingSpkFile(false);
+    }
+  };
+
   if (!receiptId) return null;
 
   return (
