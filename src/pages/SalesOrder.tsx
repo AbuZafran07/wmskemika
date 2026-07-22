@@ -1180,6 +1180,82 @@ export default function SalesOrder() {
         onCreated={() => refetch()}
       />
 
+      <EditCalibrationHeaderDialog
+        open={isEditCalibOpen}
+        onOpenChange={setIsEditCalibOpen}
+        order={editingCalibOrder}
+        onSaved={() => refetch()}
+      />
+
+      {/* Calibration Detail Dialog */}
+      <Dialog open={isCalibDetailOpen} onOpenChange={setIsCalibDetailOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wrench className="w-5 h-5 text-primary" />
+              {language === "en" ? "Calibration Sales Order Detail" : "Detail SO Kalibrasi"}
+              {selectedOrder && (
+                <span className="text-sm font-normal text-muted-foreground">
+                  — {selectedOrder.sales_order_number}
+                </span>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {language === "en"
+                ? "Manage instruments, SPK, and spareparts for this calibration SO."
+                : "Kelola alat, SPK, dan sparepart untuk SO Kalibrasi ini."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedOrder && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                <div><span className="text-muted-foreground">Customer:</span> <b>{selectedOrder.customer?.name || "-"}</b></div>
+                <div><span className="text-muted-foreground">Sales:</span> <b>{selectedOrder.sales_name || "-"}</b></div>
+                <div><span className="text-muted-foreground">PO Customer:</span> <b>{selectedOrder.customer_po_number || "-"}</b></div>
+                <div><span className="text-muted-foreground">Ref SalesPulse:</span> <b>{(selectedOrder as any).sales_pulse_reference_number || "-"}</b></div>
+                <div><span className="text-muted-foreground">Tgl Order:</span> <b>{formatDateID(selectedOrder.order_date)}</b></div>
+                <div><span className="text-muted-foreground">Target Selesai:</span> <b>{(selectedOrder as any).target_completion_date ? formatDateID((selectedOrder as any).target_completion_date) : "-"}</b></div>
+                <div><span className="text-muted-foreground">Status:</span> <b>{selectedOrder.status}</b></div>
+                <div><span className="text-muted-foreground">Calibration Status:</span> <b>{(selectedOrder as any).calibration_status || "-"}</b></div>
+              </div>
+
+              <CalibrationInstrumentsPanel
+                salesOrderId={selectedOrder.id}
+                salesOrderNumber={selectedOrder.sales_order_number}
+                calibrationStatus={(selectedOrder as any).calibration_status || null}
+                onChanged={() => refetch()}
+              />
+
+              <CalibrationSPKPanel
+                salesOrderId={selectedOrder.id}
+                salesOrderNumber={selectedOrder.sales_order_number}
+                spkNumber={(selectedOrder as any).spk_number || null}
+                spkIssuedAt={(selectedOrder as any).spk_issued_at || null}
+                calibrationStatus={(selectedOrder as any).calibration_status || null}
+                onChanged={() => refetch()}
+              />
+
+              <CalibrationSparepartsPanel
+                salesOrderId={selectedOrder.id}
+                calibrationStatus={(selectedOrder as any).calibration_status || null}
+                onChanged={() => refetch()}
+              />
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 flex-wrap">
+            <Button variant="outline" onClick={() => setIsCalibDetailOpen(false)}>
+              {language === "en" ? "Close" : "Tutup"}
+            </Button>
+            <Button variant="outline" onClick={() => setIsPdfPreviewOpen(true)} disabled={itemsLoading}>
+              <FileText className="w-4 h-4 mr-2" />
+              {language === "en" ? "Preview PDF" : "Preview PDF"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Tabs */}
       <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)}>
         <TabsList>
