@@ -110,16 +110,43 @@ function fmtDateTime(d: string | null) {
   try { return format(new Date(d), "dd MMM yyyy, HH:mm", { locale: idLocale }); } catch { return d; }
 }
 
+function isValidDateParts(year: number, month: number, day: number) {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
 function toDateInputValue(value?: string | null) {
   if (!value) return "";
-  const raw = String(value).slice(0, 10);
-  return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : "";
+  const text = String(value).trim();
+
+  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const [, y, m, d] = isoMatch;
+    const year = Number(y);
+    const month = Number(m);
+    const day = Number(d);
+    return isValidDateParts(year, month, day) ? `${y}-${m}-${d}` : "";
+  }
+
+  const idMatch = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (idMatch) {
+    const [, d, m, y] = idMatch;
+    const year = Number(y);
+    const month = Number(m);
+    const day = Number(d);
+    if (!isValidDateParts(year, month, day)) return "";
+    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+
+  return "";
 }
 
 function isValidDateInputValue(value?: string | null) {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(`${value}T00:00:00`);
-  return !Number.isNaN(date.getTime()) && value === date.toISOString().slice(0, 10);
+  return toDateInputValue(value) !== "";
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -216,6 +243,8 @@ export default function TrackerKalibrasiCardDetail({
   const [savingInstrument, setSavingInstrument] = useState(false);
 
   const commentEndRef = useRef<HTMLDivElement>(null);
+  const receivedDateInputRef = useRef<HTMLInputElement>(null);
+  const spkConfirmedDateInputRef = useRef<HTMLInputElement>(null);
 
   // ── fetch receipt + instruments ─────────────────────────────────────────
 
@@ -536,13 +565,15 @@ export default function TrackerKalibrasiCardDetail({
   const spkConfirmedDateInputValue = toDateInputValue(receipt?.spk_confirmed_at);
 
   const handleSetReceivedDate = (value: string | null) => {
-    setReceipt((prev) => prev ? { ...prev, received_date: value ?? "" } : prev);
-    if (receiptId) onSetReceivedDate?.(receiptId, value);
+    const nextValue = value ? toDateInputValue(value) : null;
+    setReceipt((prev) => prev ? { ...prev, received_date: nextValue ?? "" } : prev);
+    if (receiptId) onSetReceivedDate?.(receiptId, nextValue);
   };
 
   const handleSetSpkConfirmedDate = (value: string | null) => {
-    setReceipt((prev) => prev ? { ...prev, spk_confirmed_at: value } : prev);
-    if (receiptId) onSetSpkConfirmedDate?.(receiptId, value);
+    const nextValue = value ? toDateInputValue(value) : null;
+    setReceipt((prev) => prev ? { ...prev, spk_confirmed_at: nextValue } : prev);
+    if (receiptId) onSetSpkConfirmedDate?.(receiptId, nextValue);
   };
 
   if (!receiptId) return null;
@@ -1064,17 +1095,21 @@ export default function TrackerKalibrasiCardDetail({
                                       if (!receiptId) return;
                                       // Block "Receive Instrument" toggle unless received date is filled & valid
                                       if (item.key === 'instrument_received' && !checked) {
-                                        if (!isValidDateInputValue(receivedDateInputValue)) {
-                                          toast.error('Isi "Tanggal Terima Alat" terlebih dahulu (format YYYY-MM-DD).');
+                                        const currentReceivedDate = toDateInputValue(receivedDateInputRef.current?.value || receivedDateInputValue || receipt?.received_date);
+                                        if (!isValidDateInputValue(currentReceivedDate)) {
+                                          toast.error('Isi "Tanggal Terima Alat" terlebih dahulu dengan tanggal yang valid.');
                                           return;
                                         }
+                                        if (currentReceivedDate !== receivedDateInputValue) handleSetReceivedDate(currentReceivedDate);
                                       }
                                       // Block SPK Confirmed toggle unless date is filled & valid
                                       if (item.key === 'spk_confirmed' && !checked) {
-                                        if (!isValidDateInputValue(spkConfirmedDateInputValue)) {
-                                          toast.error('Isi "Tgl SPK Confirmed" terlebih dahulu (format YYYY-MM-DD).');
+                                        const currentSpkConfirmedDate = toDateInputValue(spkConfirmedDateInputRef.current?.value || spkConfirmedDateInputValue || receipt?.spk_confirmed_at);
+                                        if (!isValidDateInputValue(currentSpkConfirmedDate)) {
+                                          toast.error('Isi "Tgl SPK Confirmed" terlebih dahulu dengan tanggal yang valid.');
                                           return;
                                         }
+                                        if (currentSpkConfirmedDate !== spkConfirmedDateInputValue) handleSetSpkConfirmedDate(currentSpkConfirmedDate);
                                       }
                                       onToggle(receiptId, item.key);
                                     }}
@@ -1105,6 +1140,7 @@ export default function TrackerKalibrasiCardDetail({
                                     Tgl SPK Confirmed
                                   </label>
                                   <Input
+                                    ref={spkConfirmedDateInputRef}
                                     type="date"
                                     className="h-8 text-sm"
                                     value={
@@ -1127,6 +1163,7 @@ export default function TrackerKalibrasiCardDetail({
                                     Tanggal Terima Alat
                                   </label>
                                   <Input
+                                    ref={receivedDateInputRef}
                                     type="date"
                                     className="h-8 text-sm"
                                     value={receivedDateInputValue}
