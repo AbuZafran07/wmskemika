@@ -21,6 +21,7 @@ interface Props {
 
 const DEFAULT_LOCATION = "Lab Kemika, Tangerang";
 const ALLOCATION_OPTIONS = ["Internal", "Selling", "Sample", "Stock", "Project"] as const;
+const CUSTOMER_PO_REGEX = /^[A-Za-z0-9/_.\-]+$/;
 
 export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Props) {
   const { user } = useAuth();
@@ -31,6 +32,7 @@ export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Pro
   const [picPhone, setPicPhone] = useState("");
   const [salesPulseRef, setSalesPulseRef] = useState("");
   const [customerPO, setCustomerPO] = useState("");
+  const [customerPOError, setCustomerPOError] = useState<string | null>(null);
   const [salesPulseOptions, setSalesPulseOptions] = useState<SalesPulseReference[]>([]);
   const [salesPulseSearch, setSalesPulseSearch] = useState("");
   const [salesPulseLoading, setSalesPulseLoading] = useState(false);
@@ -48,6 +50,7 @@ export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Pro
       setPicPhone("");
       setSalesPulseRef("");
       setCustomerPO("");
+      setCustomerPOError(null);
       setSalesPulseOptions([]);
       setSalesPulseSearch("");
       setReceivedDate(new Date().toISOString().slice(0, 10));
@@ -123,6 +126,18 @@ export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Pro
     if (!customerId) return toast.error("Pilih customer terlebih dahulu");
     if (!receivedDate) return toast.error("Tanggal terima wajib diisi");
     if (!salesPulseRef.trim()) return toast.error("Nomor Referensi SalesPulse wajib diisi");
+    const trimmedPO = customerPO.trim();
+    if (trimmedPO) {
+      if (trimmedPO.length < 3 || trimmedPO.length > 50) {
+        setCustomerPOError("No. PO Customer harus 3–50 karakter");
+        return toast.error("Format No. PO Customer tidak valid");
+      }
+      if (!CUSTOMER_PO_REGEX.test(trimmedPO)) {
+        setCustomerPOError("Hanya huruf, angka, dan karakter / _ . -");
+        return toast.error("Format No. PO Customer tidak valid");
+      }
+    }
+    setCustomerPOError(null);
     setSaving(true);
     const res = await createCalibrationReceipt(
       {
@@ -136,7 +151,7 @@ export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Pro
         created_by: user?.id ?? null,
         sales_pulse_reference_number: salesPulseRef.trim(),
         allocation_type: allocationType,
-        customer_po_number: customerPO.trim() || null,
+        customer_po_number: trimmedPO || null,
       },
       [], // alat ditambahkan nanti di tab Penerimaan
     );
@@ -193,10 +208,22 @@ export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Pro
             <Label>No. PO Customer</Label>
             <Input
               value={customerPO}
-              onChange={(e) => setCustomerPO(e.target.value)}
-              placeholder="Kosongkan jika belum ada PO customer"
+              onChange={(e) => {
+                setCustomerPO(e.target.value);
+                if (customerPOError) setCustomerPOError(null);
+              }}
+              placeholder="Contoh: PO/2026/001 — kosongkan jika belum ada"
+              maxLength={50}
+              aria-invalid={!!customerPOError}
+              className={customerPOError ? "border-destructive focus-visible:ring-destructive" : ""}
             />
-            <p className="text-xs text-muted-foreground">Opsional. Isi setelah customer mengirim PO resmi.</p>
+            {customerPOError ? (
+              <p className="text-xs text-destructive">{customerPOError}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Opsional (3–50 karakter, huruf/angka/<code>/ _ . -</code>). Isi setelah customer mengirim PO resmi.
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
