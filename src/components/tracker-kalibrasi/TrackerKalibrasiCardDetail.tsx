@@ -110,16 +110,43 @@ function fmtDateTime(d: string | null) {
   try { return format(new Date(d), "dd MMM yyyy, HH:mm", { locale: idLocale }); } catch { return d; }
 }
 
+function isValidDateParts(year: number, month: number, day: number) {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
 function toDateInputValue(value?: string | null) {
   if (!value) return "";
-  const raw = String(value).slice(0, 10);
-  return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : "";
+  const text = String(value).trim();
+
+  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const [, y, m, d] = isoMatch;
+    const year = Number(y);
+    const month = Number(m);
+    const day = Number(d);
+    return isValidDateParts(year, month, day) ? `${y}-${m}-${d}` : "";
+  }
+
+  const idMatch = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (idMatch) {
+    const [, d, m, y] = idMatch;
+    const year = Number(y);
+    const month = Number(m);
+    const day = Number(d);
+    if (!isValidDateParts(year, month, day)) return "";
+    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+
+  return "";
 }
 
 function isValidDateInputValue(value?: string | null) {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(`${value}T00:00:00`);
-  return !Number.isNaN(date.getTime()) && value === date.toISOString().slice(0, 10);
+  return toDateInputValue(value) !== "";
 }
 
 const STATUS_LABEL: Record<string, string> = {
