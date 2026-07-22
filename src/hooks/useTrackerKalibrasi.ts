@@ -250,6 +250,21 @@ export function useTrackerKalibrasi() {
       );
       const newValue = existing ? !existing.is_checked : true;
 
+      // Client-side guards (RPC also re-validates server-side)
+      if (newValue) {
+        const card = cards.find((c) => c.id === receiptId);
+        if (checklistKey === 'spk_confirmed') {
+          if (card?.so_status !== 'approved') {
+            toast.error('Approve Sales Order terlebih dahulu sebelum menandai SPK Confirmed.');
+            return;
+          }
+          if (!card?.spk_confirmed_file_url) {
+            toast.error('Upload bukti SPK yang telah dikonfirmasi customer terlebih dahulu.');
+            return;
+          }
+        }
+      }
+
       // Optimistic update
       setChecklists((prev) => {
         const current = prev[receiptId] || [];
