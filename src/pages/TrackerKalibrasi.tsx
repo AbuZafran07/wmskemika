@@ -396,7 +396,7 @@ export default function TrackerKalibrasi() {
   return (
     <TooltipProvider>
     <div
-      className="flex flex-col min-h-[calc(100vh-8rem)] h-full gap-3 p-3 sm:p-4 overflow-hidden relative"
+      className="flex flex-col h-[calc(100vh-4rem)] gap-3 p-3 sm:p-4 overflow-hidden relative"
       style={boardBgUrl ? {
         backgroundImage: `url(${boardBgUrl})`,
         backgroundSize: "cover",
