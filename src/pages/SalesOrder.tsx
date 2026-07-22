@@ -1123,12 +1123,24 @@ export default function SalesOrder() {
           </p>
         </div>
         {canCreate("sales_order") && (
-          <Button onClick={handleOpenDialog}>
-            <Plus className="w-4 h-4 mr-2" />
-            {language === "en" ? "Create Sales Order" : "Buat Sales Order"}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={handleOpenDialog}>
+              <Plus className="w-4 h-4 mr-2" />
+              {language === "en" ? "Create Sales Order" : "Buat Sales Order"}
+            </Button>
+            <Button variant="outline" onClick={() => setIsCalibDialogOpen(true)}>
+              <Wrench className="w-4 h-4 mr-2" />
+              {language === "en" ? "Create Calibration SO" : "Buat SO Kalibrasi"}
+            </Button>
+          </div>
         )}
       </div>
+
+      <CreateCalibrationSODialog
+        open={isCalibDialogOpen}
+        onOpenChange={setIsCalibDialogOpen}
+        onCreated={() => { try { (loadSalesOrders as any)?.(); } catch {} }}
+      />
 
       {/* Tabs */}
       <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)}>
