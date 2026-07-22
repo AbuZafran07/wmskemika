@@ -265,6 +265,7 @@ export default function TrackerKalibrasiCardDetail({
             target_completion_date, service_location, service_pic_name,
             service_pic_phone, customer_request_notes, created_at, created_by, spk_confirmed_at,
             sales_name, allocation_type, project_instansi,
+            spk_confirmed_file_url, spk_confirmed_file_name,
             customer:customers(id, name, code, pic, phone, address)
           `)
           .eq("id", receiptId)
@@ -310,6 +311,9 @@ export default function TrackerKalibrasiCardDetail({
             spk_signed_at: null,
             spk_confirmed_at: h.spk_confirmed_at ?? null,
             status: h.calibration_status ?? h.status ?? "draft",
+            so_status: h.status ?? null,
+            spk_confirmed_file_url: h.spk_confirmed_file_url ?? null,
+            spk_confirmed_file_name: h.spk_confirmed_file_name ?? null,
             archived: false,
             received_date: h.calibration_received_at
               ? String(h.calibration_received_at).slice(0, 10)
