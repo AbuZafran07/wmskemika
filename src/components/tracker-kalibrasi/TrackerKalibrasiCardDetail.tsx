@@ -38,6 +38,9 @@ interface ReceiptDetail {
   spk_signed_at: string | null;
   spk_confirmed_at: string | null;
   status: string;
+  so_status: string | null;
+  spk_confirmed_file_url: string | null;
+  spk_confirmed_file_name: string | null;
   archived: boolean;
   received_date: string;
   target_completion_date: string | null;
