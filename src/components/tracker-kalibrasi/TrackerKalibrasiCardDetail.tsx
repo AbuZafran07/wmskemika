@@ -251,11 +251,9 @@ export default function TrackerKalibrasiCardDetail({
 
   // ── fetch receipt + instruments ─────────────────────────────────────────
 
-  useEffect(() => {
+  const fetchReceipt = useCallback(async () => {
     if (!receiptId) { setReceipt(null); setInstruments([]); setSpareParts([]); return; }
     setLoadingReceipt(true);
-
-    (async () => {
       const [{ data: hdr }, { data: items }] = await Promise.all([
         (supabase as any)
           .from("sales_order_headers")
@@ -360,8 +358,26 @@ export default function TrackerKalibrasiCardDetail({
       }
 
       setLoadingReceipt(false);
-    })();
   }, [receiptId]);
+
+  useEffect(() => { fetchReceipt(); }, [fetchReceipt]);
+
+  // refetch header when checklists change (e.g. spk_issued auto-issues SPK number)
+  const spkIssuedChecked = checklists.some((c) => c.checklist_key === 'spk_issued' && c.is_checked);
+  useEffect(() => {
+    if (receiptId) fetchReceipt();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spkIssuedChecked]);
+
+  // realtime: update local receipt when header row changes
+  useEffect(() => {
+    if (!receiptId) return;
+    const ch = supabase
+      .channel(`kal-header-${receiptId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'sales_order_headers', filter: `id=eq.${receiptId}` }, () => fetchReceipt())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [receiptId, fetchReceipt]);
 
   // ── fetch comments ──────────────────────────────────────────────────────
 
