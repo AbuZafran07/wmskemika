@@ -250,6 +250,12 @@ export function useTrackerKalibrasi() {
       );
       const newValue = existing ? !existing.is_checked : true;
 
+      // Only super_admin can uncheck a completed checklist item.
+      if (existing?.is_checked && !newValue && role !== 'super_admin') {
+        toast.error('Hanya Super Admin yang dapat membatalkan checklist yang sudah dicentang.');
+        return;
+      }
+
       // Client-side guards (RPC also re-validates server-side)
       if (newValue) {
         const card = cards.find((c) => c.id === receiptId);
