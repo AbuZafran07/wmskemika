@@ -190,40 +190,42 @@ export function CreateCalibrationSODialog({ open, onOpenChange, onCreated }: Pro
             />
           </div>
 
-          <div className="space-y-2">
-            <Label>No. Referensi SalesPulse <span className="text-destructive">*</span></Label>
-            <SearchableSelect
-              options={salesPulseSelectOptions}
-              value={salesPulseRef}
-              onValueChange={handleSalesPulseChange}
-              onSearchChange={setSalesPulseSearch}
-              placeholder={salesPulseLoading ? "Memuat referensi..." : "Pilih No. Referensi SalesPulse"}
-              searchPlaceholder="Cari nomor / deal / customer..."
-              emptyMessage={salesPulseLoading ? "Memuat..." : "Tidak ada referensi terbuka"}
-            />
-            <p className="text-xs text-muted-foreground">Wajib diisi. Daftar diambil dari deal Sales Pulse yang masih terbuka.</p>
-          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>No. Referensi SalesPulse <span className="text-destructive">*</span></Label>
+              <SearchableSelect
+                options={salesPulseSelectOptions}
+                value={salesPulseRef}
+                onValueChange={handleSalesPulseChange}
+                onSearchChange={setSalesPulseSearch}
+                placeholder={salesPulseLoading ? "Memuat referensi..." : "Pilih No. Referensi SalesPulse"}
+                searchPlaceholder="Cari nomor / deal / customer..."
+                emptyMessage={salesPulseLoading ? "Memuat..." : "Tidak ada referensi terbuka"}
+              />
+              <p className="text-xs text-muted-foreground">Wajib. Diambil dari deal Sales Pulse yang masih terbuka.</p>
+            </div>
 
-          <div className="space-y-2">
-            <Label>No. PO Customer</Label>
-            <Input
-              value={customerPO}
-              onChange={(e) => {
-                setCustomerPO(e.target.value);
-                if (customerPOError) setCustomerPOError(null);
-              }}
-              placeholder="Contoh: PO/2026/001 — kosongkan jika belum ada"
-              maxLength={50}
-              aria-invalid={!!customerPOError}
-              className={customerPOError ? "border-destructive focus-visible:ring-destructive" : ""}
-            />
-            {customerPOError ? (
-              <p className="text-xs text-destructive">{customerPOError}</p>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Opsional (3–50 karakter, huruf/angka/<code>/ _ . -</code>). Isi setelah customer mengirim PO resmi.
-              </p>
-            )}
+            <div className="space-y-2">
+              <Label>No. PO Customer</Label>
+              <Input
+                value={customerPO}
+                onChange={(e) => {
+                  setCustomerPO(e.target.value);
+                  if (customerPOError) setCustomerPOError(null);
+                }}
+                placeholder="Contoh: PO/2026/001"
+                maxLength={50}
+                aria-invalid={!!customerPOError}
+                className={customerPOError ? "border-destructive focus-visible:ring-destructive" : ""}
+              />
+              {customerPOError ? (
+                <p className="text-xs text-destructive">{customerPOError}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Opsional (3–50 karakter, huruf/angka/<code>/ _ . -</code>).
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
