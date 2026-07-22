@@ -37,6 +37,8 @@ export const ROLES = {
 export type MenuKey = 
   | 'dashboard'
   | 'requestDelivery'
+  | 'trackerPO'
+  | 'trackerKalibrasi'
   | 'planOrder'
   | 'stockIn'
   | 'salesOrder'
@@ -70,7 +72,9 @@ export const MENU_ACCESS: Record<MenuKey, UserRole[]> = {
   
   // Request Delivery - All roles can view
   requestDelivery: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales', 'viewer'],
-  
+  trackerPO: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'viewer'],
+  trackerKalibrasi: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales', 'viewer'],
+
   // Transactions
   planOrder: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'viewer'],
   stockIn: ['super_admin', 'admin', 'warehouse'],
@@ -390,6 +394,8 @@ export function canViewSupplier(role: UserRole | undefined): boolean {
 export const ROUTE_TO_MENU: Record<string, MenuKey> = {
   '/dashboard': 'dashboard',
   '/request-delivery': 'requestDelivery',
+  '/tracker-po': 'trackerPO',
+  '/tracker-kalibrasi': 'trackerKalibrasi',
   '/plan-order': 'planOrder',
   '/stock-in': 'stockIn',
   '/sales-order': 'salesOrder',
