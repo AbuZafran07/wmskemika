@@ -55,12 +55,12 @@ export const COLUMN_DEFS: {
   desc: string;
   color: string;
 }[] = [
-  { id: 'scheduled',              label: 'Scheduled',              desc: 'SPK diterbitkan, menunggu alat',       color: 'bg-slate-500'  },
-  { id: 'instrument_received',    label: 'Instrument Received',    desc: 'Alat diterima di lab',                 color: 'bg-cyan-600'   },
-  { id: 'calibration_in_progress',label: 'Calibration In Progress',desc: 'Cek fisik & proses kalibrasi',         color: 'bg-blue-600'   },
-  { id: 'completed',              label: 'Completed',              desc: 'Sertifikat terbit, invoice terkirim',  color: 'bg-purple-600' },
-  { id: 'invoiced',               label: 'Invoiced',               desc: 'Menunggu pembayaran & retur alat',     color: 'bg-orange-600' },
-  { id: 'rejected',               label: 'Rejected',               desc: 'Calibration Cannot Proceed',           color: 'bg-red-600'    },
+  { id: 'scheduled',              label: 'Scheduled',              desc: 'Waiting for Instrument',                 color: 'bg-slate-500'  },
+  { id: 'instrument_received',    label: 'Instrument Received',    desc: 'Received & Verified',                    color: 'bg-cyan-600'   },
+  { id: 'calibration_in_progress',label: 'Calibration In Progress',desc: 'Service & Calibration',                  color: 'bg-blue-600'   },
+  { id: 'completed',              label: 'Completed',              desc: 'Calibration Completed',                  color: 'bg-purple-600' },
+  { id: 'invoiced',               label: 'Invoiced',               desc: 'Payment Verified & Certificate Issued',  color: 'bg-orange-600' },
+  { id: 'rejected',               label: 'Rejected',               desc: 'Calibration Cannot Proceed',             color: 'bg-red-600'    },
 ];
 
 export const COLUMN_CHECKLISTS: Record<KalibrasiV2Column, { key: string; label: string }[]> = {
