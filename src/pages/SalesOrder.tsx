@@ -178,6 +178,7 @@ export default function SalesOrder() {
   const [viewMode, setViewMode] = useState<"active" | "archived">("active");
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCalibDialogOpen, setIsCalibDialogOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
