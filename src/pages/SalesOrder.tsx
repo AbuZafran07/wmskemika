@@ -933,7 +933,32 @@ export default function SalesOrder() {
 
   const handleViewDetail = async (order: SalesOrderHeader) => {
     setSelectedOrder(order);
-    setIsDetailDialogOpen(true);
+    if ((order as any).order_type === "calibration") {
+      setIsCalibDetailOpen(true);
+      // Fetch spareparts for PDF template
+      try {
+        const { data: instrs } = await (supabase as any)
+          .from("sales_order_items")
+          .select("id")
+          .eq("sales_order_id", order.id)
+          .eq("item_type", "calibration");
+        const ids = (instrs || []).map((r: any) => r.id);
+        if (ids.length) {
+          const { data: sp } = await (supabase as any)
+            .from("calibration_spare_parts")
+            .select("id, instrument_id, qty_used, unit_price, notes, product:products(name, sku)")
+            .in("instrument_id", ids);
+          setCalibSpareparts(sp || []);
+        } else {
+          setCalibSpareparts([]);
+        }
+      } catch (e) {
+        console.error("Failed to load calibration spareparts:", e);
+        setCalibSpareparts([]);
+      }
+    } else {
+      setIsDetailDialogOpen(true);
+    }
     setRevisionReasonDisplay(null);
     setApproveReasonDisplay(null);
     setPiDpInfo(null);
