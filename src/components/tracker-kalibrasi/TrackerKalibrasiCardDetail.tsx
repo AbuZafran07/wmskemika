@@ -365,7 +365,15 @@ export default function TrackerKalibrasiCardDetail({
   // refetch header when checklists change (e.g. spk_issued auto-issues SPK number)
   const spkIssuedChecked = checklists.some((c) => c.checklist_key === 'spk_issued' && c.is_checked);
   useEffect(() => {
-    if (receiptId) fetchReceipt();
+    if (!receiptId) return;
+    // Refetch immediately and again shortly after, in case the auto-issue
+    // header update lands after the checklist row is written.
+    fetchReceipt();
+    if (spkIssuedChecked) {
+      const t1 = setTimeout(() => fetchReceipt(), 400);
+      const t2 = setTimeout(() => fetchReceipt(), 1500);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spkIssuedChecked]);
 
