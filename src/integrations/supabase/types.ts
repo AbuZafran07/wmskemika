@@ -1564,7 +1564,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           customer_id: string
-          customer_po_number: string
+          customer_po_number: string | null
           customer_request_notes: string | null
           deleted_at: string | null
           deleted_by: string | null
@@ -1606,7 +1606,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           customer_id: string
-          customer_po_number: string
+          customer_po_number?: string | null
           customer_request_notes?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
@@ -1648,7 +1648,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           customer_id?: string
-          customer_po_number?: string
+          customer_po_number?: string | null
           customer_request_notes?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
