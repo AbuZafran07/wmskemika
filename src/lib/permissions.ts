@@ -72,9 +72,9 @@ export const MENU_ACCESS: Record<MenuKey, UserRole[]> = {
   requestDelivery: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales', 'viewer'],
   
   // Transactions
-  planOrder: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse'],
+  planOrder: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'viewer'],
   stockIn: ['super_admin', 'admin', 'warehouse'],
-  salesOrder: ['super_admin', 'admin', 'finance', 'purchasing', 'sales', 'warehouse'],
+  salesOrder: ['super_admin', 'admin', 'finance', 'purchasing', 'sales', 'warehouse', 'viewer'],
   proformaInvoice: ['super_admin', 'admin', 'finance', 'purchasing', 'sales'],
   stockOut: ['super_admin', 'admin', 'warehouse'],
   stockAdjustment: ['super_admin', 'admin', 'finance'], // Hide from warehouse
@@ -138,14 +138,14 @@ export type ModuleType =
  */
 export const ACTION_PERMISSIONS: Record<ModuleType, Record<ActionType, UserRole[]>> = {
   plan_order: {
-    view: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse'],
+    view: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'viewer'],
     create: ['super_admin', 'admin', 'purchasing'],
     edit: ['super_admin', 'admin', 'purchasing'],
     delete: ['super_admin', 'admin'],
     cancel: ['super_admin', 'admin'],
     approve: ['super_admin', 'admin'], // Admin needs allowAdminApprove setting
     upload: ['super_admin', 'admin', 'purchasing'],
-    print: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse'],
+    print: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'viewer'],
   },
   stock_in: {
     view: ['super_admin', 'admin', 'warehouse'],
@@ -158,14 +158,14 @@ export const ACTION_PERMISSIONS: Record<ModuleType, Record<ActionType, UserRole[
     print: ['super_admin', 'admin', 'warehouse'],
   },
   sales_order: {
-    view: ['super_admin', 'admin', 'finance', 'purchasing', 'sales', 'warehouse'],
+    view: ['super_admin', 'admin', 'finance', 'purchasing', 'sales', 'warehouse', 'viewer'],
     create: ['super_admin', 'admin', 'sales'],
     edit: ['super_admin', 'admin', 'sales'],
     delete: ['super_admin', 'admin'],
     cancel: ['super_admin', 'admin'],
     approve: ['super_admin', 'admin'], // Admin needs allowAdminApprove setting
     upload: ['super_admin', 'admin', 'sales'],
-    print: ['super_admin', 'admin', 'finance', 'purchasing', 'sales', 'warehouse'],
+    print: ['super_admin', 'admin', 'finance', 'purchasing', 'sales', 'warehouse', 'viewer'],
   },
   proforma_invoice: {
     view: ['super_admin', 'admin', 'finance', 'purchasing', 'sales'],
