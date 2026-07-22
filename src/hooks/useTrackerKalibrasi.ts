@@ -60,7 +60,7 @@ export const COLUMN_DEFS: {
   { id: 'calibration_in_progress',label: 'Calibration In Progress',desc: 'Cek fisik & proses kalibrasi',         color: 'bg-blue-600'   },
   { id: 'completed',              label: 'Completed',              desc: 'Sertifikat terbit, invoice terkirim',  color: 'bg-purple-600' },
   { id: 'invoiced',               label: 'Invoiced',               desc: 'Menunggu pembayaran & retur alat',     color: 'bg-orange-600' },
-  { id: 'rejected',               label: 'Rejected',               desc: 'Kalibrasi dibatalkan / ditolak',       color: 'bg-red-600'    },
+  { id: 'rejected',               label: 'Rejected',               desc: 'Calibration Cannot Proceed',           color: 'bg-red-600'    },
 ];
 
 export const COLUMN_CHECKLISTS: Record<KalibrasiV2Column, { key: string; label: string }[]> = {
