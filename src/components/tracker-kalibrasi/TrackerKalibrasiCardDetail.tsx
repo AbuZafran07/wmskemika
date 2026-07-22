@@ -1201,6 +1201,69 @@ export default function TrackerKalibrasiCardDetail({
                                   <p className="text-[10px] text-muted-foreground mt-1">
                                     Wajib diisi sebelum mencentang "SPK Confirmed" untuk pindah ke Calibration In Progress.
                                   </p>
+                                  {/* Status SO */}
+                                  <div className="mt-2 flex items-center gap-2">
+                                    <span className="text-[11px] text-muted-foreground">Status SO:</span>
+                                    {receipt?.so_status === 'approved' ? (
+                                      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 h-5 px-1.5 text-[10px]">Approved</Badge>
+                                    ) : (
+                                      <Badge className="bg-amber-100 text-amber-700 border-amber-200 h-5 px-1.5 text-[10px] capitalize">
+                                        {receipt?.so_status || 'draft'} — approve SO dulu
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  {/* Upload bukti SPK Confirmed */}
+                                  <div className="mt-2">
+                                    <label className="text-[11px] text-muted-foreground block mb-1">
+                                      Bukti SPK Dikonfirmasi Customer <span className="text-red-500">*</span>
+                                    </label>
+                                    {receipt?.spk_confirmed_file_url ? (
+                                      <div className="flex items-center gap-2 text-xs">
+                                        <a
+                                          href={receipt.spk_confirmed_file_url}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="text-primary underline truncate max-w-[180px]"
+                                          title={receipt.spk_confirmed_file_name || 'Lihat bukti SPK'}
+                                        >
+                                          {receipt.spk_confirmed_file_name || 'Lihat bukti SPK'}
+                                        </a>
+                                        <label className="inline-flex items-center gap-1 text-[11px] text-primary cursor-pointer hover:underline">
+                                          Ganti
+                                          <input
+                                            type="file"
+                                            accept="application/pdf,image/*"
+                                            className="hidden"
+                                            disabled={uploadingSpkFile}
+                                            onChange={(e) => {
+                                              const f = e.target.files?.[0];
+                                              if (f) handleUploadSpkConfirmedFile(f);
+                                              e.target.value = '';
+                                            }}
+                                          />
+                                        </label>
+                                      </div>
+                                    ) : (
+                                      <label className="inline-flex items-center gap-1 text-xs border rounded-md px-2 py-1 cursor-pointer hover:bg-muted/40">
+                                        {uploadingSpkFile ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
+                                        {uploadingSpkFile ? 'Mengupload...' : 'Upload file'}
+                                        <input
+                                          type="file"
+                                          accept="application/pdf,image/*"
+                                          className="hidden"
+                                          disabled={uploadingSpkFile}
+                                          onChange={(e) => {
+                                            const f = e.target.files?.[0];
+                                            if (f) handleUploadSpkConfirmedFile(f);
+                                            e.target.value = '';
+                                          }}
+                                        />
+                                      </label>
+                                    )}
+                                    <p className="text-[10px] text-muted-foreground mt-1">
+                                      PDF / gambar SPK yang sudah ditandatangani/dikonfirmasi customer. Wajib sebelum "SPK Confirmed".
+                                    </p>
+                                  </div>
                                 </div>
                               )}
 
