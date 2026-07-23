@@ -12,6 +12,7 @@ const M_LEFT = 14;
 const M_RIGHT = 14;
 const CONTENT_W = A4_W - M_LEFT - M_RIGHT;
 const M_TOP = 47;
+const M_BOTTOM = 24; // reserve room for footer meta table
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
