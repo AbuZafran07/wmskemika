@@ -96,6 +96,7 @@ export async function generateSPKPdf(receiptId: string) {
       id, sales_order_number, spk_number, spk_issued_at,
       calibration_received_at, target_completion_date, service_location,
       service_pic_name, service_pic_phone, customer_request_notes,
+      customer_po_number, tax_rate, total_amount,
       customer:customers(name, address, phone)
     `)
     .eq("id", receiptId)
@@ -132,147 +133,180 @@ export async function generateSPKPdf(receiptId: string) {
 
   // 3. Assets
   const bgData = await imgToBase64("/kop-surat-bg.jpg");
-  const mgrSig: string | null = null;
 
   // 4. Build PDF
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   addBg(doc, bgData);
 
-  let y = M_TOP;
-  const LABEL_W = 46;
-
-  // Form number
-  doc.setFontSize(7);
-  doc.setTextColor(110, 110, 110);
-  doc.text("F-KAL-02", A4_W - M_RIGHT, 10, { align: "right" });
-  doc.setTextColor(0, 0, 0);
-
-  // Title
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(13);
-  doc.text("SURAT PERINTAH KERJA (SPK)", A4_W / 2, y, { align: "center" });
-  y += 7;
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.text(`No. SPK : ${(receipt as any).spk_number || "-"}`, A4_W / 2, y, { align: "center" });
-  y += 4.5;
-  doc.text(
-    `Tanggal : ${fmtDate((receipt as any).spk_issued_at || (receipt as any).received_date)}`,
-    A4_W / 2, y, { align: "center" },
-  );
-  y += 7;
-
-  doc.setDrawColor(140, 140, 140);
-  doc.setLineWidth(0.3);
-  doc.line(M_LEFT, y, A4_W - M_RIGHT, y);
-  y += 6;
-
-  // Info rows
   const customer = (receipt as any).customer;
-  const infoItems: [string, string][] = [
-    ["Customer",              customer?.name || "-"],
-    ["Alamat",                customer?.address || "-"],
-    ["PIC Customer",          (receipt as any).service_pic_name || "-"],
-    ["Telepon PIC",           (receipt as any).service_pic_phone || "-"],
-    ["No. Tanda Terima",      (receipt as any).receipt_number],
-    ["Lokasi Kalibrasi",      (receipt as any).service_location || "-"],
-    ["Target Penyelesaian",   fmtDate((receipt as any).target_completion_date)],
-  ];
+  const taxRate = Number((receipt as any).tax_rate ?? 11);
+  const subtotal = (instruments || []).reduce((s, i) => s + Number(i.unit_price || 0), 0);
+  const taxAmount = subtotal * (taxRate / 100);
+  const grandTotal = Number((receipt as any).total_amount) > 0
+    ? Number((receipt as any).total_amount)
+    : subtotal + taxAmount;
 
-  for (const [label, value] of infoItems) {
-    y = infoRow(doc, label, value, y, LABEL_W);
-    y += 0.5;
-  }
+  // ── Header block: No. SPK / Ref / Tanggal / Target ──
+  autoTable(doc, {
+    startY: M_TOP,
+    body: [
+      [
+        { content: "No. SPK", styles: { fontStyle: "bold", fillColor: [245, 247, 252] } },
+        (receipt as any).spk_number || "-",
+        { content: "No. Permohonan Ref.", styles: { fontStyle: "bold", fillColor: [245, 247, 252] } },
+        (receipt as any).customer_po_number || (receipt as any).receipt_number || "-",
+      ],
+      [
+        { content: "Tanggal SPK", styles: { fontStyle: "bold", fillColor: [245, 247, 252] } },
+        fmtDate((receipt as any).spk_issued_at || (receipt as any).received_date),
+        { content: "Target Selesai", styles: { fontStyle: "bold", fillColor: [245, 247, 252] } },
+        fmtDate((receipt as any).target_completion_date),
+      ],
+    ],
+    theme: "grid",
+    margin: { left: M_LEFT, right: M_RIGHT },
+    styles: { fontSize: 9, cellPadding: 2, lineColor: [180, 180, 180], lineWidth: 0.2 },
+    columnStyles: {
+      0: { cellWidth: 32 },
+      1: { cellWidth: (CONTENT_W - 64) / 2 },
+      2: { cellWidth: 32 },
+      3: { cellWidth: (CONTENT_W - 64) / 2 },
+    },
+    didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
+  });
+  let y = (doc as any).lastAutoTable.finalY + 4;
 
-  y += 4;
-
-  // Instrument table
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.text("Daftar Alat Kalibrasi", M_LEFT, y);
-  y += 2;
-
-  const grandTotal = (instruments || []).reduce((s, i) => s + Number(i.unit_price || 0), 0);
-
-  const tableBody = (instruments || []).map((item) => [
-    item.item_number,
-    item.instrument_name,
-    item.brand_model || "-",
-    item.serial_number || "-",
-    item.measurement_range || "-",
-    item.calibration_method || "-",
-    item.sla_working_days != null ? `${item.sla_working_days} hr` : "-",
-    fmt(Number(item.unit_price)),
-  ]);
-
+  // ── A. PARA PIHAK ──
   autoTable(doc, {
     startY: y,
-    head: [["#", "Nama Alat", "Merk/Model", "No. Seri", "Range", "Metode", "SLA", "Harga"]],
-    body: tableBody,
+    head: [[{ content: "A.  PARA PIHAK", colSpan: 2, styles: { halign: "left", fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold" } }]],
+    body: [[
+      {
+        content:
+          "PIHAK I — Laboratorium Kalibrasi\nPT Kemika Karya Pratama\n\nManajer Laboratorium: Haris Pratama Putra",
+      },
+      {
+        content:
+          `PIHAK II — Pelanggan\nNama / Instansi : ${customer?.name || "-"}\nAlamat          : ${customer?.address || "-"}\nPIC / Kontak    : ${(receipt as any).service_pic_name || "-"}${(receipt as any).service_pic_phone ? " / " + (receipt as any).service_pic_phone : ""}`,
+      },
+    ]],
+    theme: "grid",
     margin: { left: M_LEFT, right: M_RIGHT },
-    styles: { fontSize: 7.5, cellPadding: [1.5, 2] },
-    headStyles: { fillColor: [30, 80, 160], textColor: 255, fontStyle: "bold", fontSize: 8 },
-    columnStyles: {
-      0: { cellWidth: 8, halign: "center" },
-      6: { cellWidth: 14, halign: "center" },
-      7: { halign: "right", cellWidth: 26 },
-    },
-    didDrawPage: (data) => {
-      if (data.pageNumber > 1) addBg(doc, bgData);
-    },
+    styles: { fontSize: 9, cellPadding: 2.5, lineColor: [180, 180, 180], lineWidth: 0.2, valign: "top" },
+    columnStyles: { 0: { cellWidth: CONTENT_W / 2 }, 1: { cellWidth: CONTENT_W / 2 } },
+    didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
   });
-
   y = (doc as any).lastAutoTable.finalY + 4;
 
-  // Total
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.text(`Total : ${fmt(grandTotal)}`, A4_W - M_RIGHT, y, { align: "right" });
-  y += 8;
+  // ── B. LINGKUP PEKERJAAN KALIBRASI ──
+  autoTable(doc, {
+    startY: y,
+    head: [
+      [{ content: "B.  LINGKUP PEKERJAAN KALIBRASI", colSpan: 7, styles: { halign: "left", fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold" } }],
+      ["No.", "Nama / Jenis Alat", "Merk / Model", "No. Seri", "Metode Kalibrasi", "SLA (HK)", "Harga (Rp)"],
+    ],
+    body: [
+      ...(instruments || []).map((item) => [
+        String(item.item_number),
+        item.instrument_name,
+        item.brand_model || "-",
+        item.serial_number || "-",
+        item.calibration_method || "-",
+        item.sla_working_days != null ? String(item.sla_working_days) : "-",
+        fmt(Number(item.unit_price)),
+      ]),
+      [{ content: "Sub-Total", colSpan: 6, styles: { halign: "right", fontStyle: "bold" } }, { content: fmt(subtotal), styles: { halign: "right" } }],
+      [{ content: `PPN ${taxRate}%`, colSpan: 6, styles: { halign: "right", fontStyle: "bold" } }, { content: fmt(taxAmount), styles: { halign: "right" } }],
+      [{ content: "TOTAL", colSpan: 6, styles: { halign: "right", fontStyle: "bold", fillColor: [245, 247, 252] } }, { content: fmt(grandTotal), styles: { halign: "right", fontStyle: "bold", fillColor: [245, 247, 252] } }],
+    ],
+    theme: "grid",
+    margin: { left: M_LEFT, right: M_RIGHT },
+    styles: { fontSize: 8.5, cellPadding: 2, lineColor: [180, 180, 180], lineWidth: 0.2, valign: "middle" },
+    headStyles: { fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold", halign: "center" },
+    columnStyles: {
+      0: { cellWidth: 10, halign: "center" },
+      5: { cellWidth: 16, halign: "center" },
+      6: { cellWidth: 30, halign: "right" },
+    },
+    didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
+  });
+  y = (doc as any).lastAutoTable.finalY + 4;
 
-  // Catatan
-  const notes = (receipt as any).customer_request_notes;
-  if (notes) {
+  // ── C. SYARAT DAN KETENTUAN ──
+  const terms = [
+    "Pembayaran 100% di muka sebelum alat diserahkan, kecuali disepakati lain.",
+    "Sertifikat kalibrasi diterbitkan setelah pembayaran lunas.",
+    "Jika alat tidak layak dikalibrasi, biaya administrasi tetap dikenakan sesuai kesepakatan.",
+    "Kerahasiaan data dijamin sesuai klausul 4.2 SNI ISO/IEC 17025:2017.",
+    "Keluhan disampaikan dalam 7 hari kalender setelah sertifikat diterima.",
+    "Laboratorium berhak menolak kalibrasi jika alat tidak layak atau berpotensi merusak standar.",
+  ];
+  autoTable(doc, {
+    startY: y,
+    head: [[{ content: "C.  SYARAT DAN KETENTUAN", styles: { halign: "left", fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold" } }]],
+    body: [[terms.map((t, i) => `${i + 1}. ${t}`).join("\n")]],
+    theme: "grid",
+    margin: { left: M_LEFT, right: M_RIGHT },
+    styles: { fontSize: 8.5, cellPadding: 2.5, lineColor: [180, 180, 180], lineWidth: 0.2 },
+    didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
+  });
+  y = (doc as any).lastAutoTable.finalY + 6;
+
+  // ── Signatures: 3 columns ──
+  const sigY = Math.min(Math.max(y, A4_H - 55), A4_H - 40);
+  const colW = CONTENT_W / 3;
+  const sigLabels: [string, string][] = [
+    ["Dibuat oleh", "Koordinator Administrasi"],
+    ["Disetujui oleh", "Manajer Laboratorium"],
+    ["Disetujui oleh", "(Pihak II — Pelanggan)"],
+  ];
+  doc.setDrawColor(180, 180, 180);
+  doc.setLineWidth(0.2);
+  // outer frame
+  doc.rect(M_LEFT, sigY - 4, CONTENT_W, 40);
+  for (let i = 0; i < 3; i++) {
+    const x = M_LEFT + colW * i;
+    if (i > 0) doc.line(x, sigY - 4, x, sigY + 36);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8.5);
-    doc.text("Catatan:", M_LEFT, y);
+    doc.setFontSize(9);
+    doc.text(sigLabels[i][0], x + colW / 2, sigY, { align: "center" });
     doc.setFont("helvetica", "normal");
-    const noteLines = doc.splitTextToSize(notes, CONTENT_W);
-    doc.text(noteLines, M_LEFT, y + 4.5);
-    y += 4.5 + noteLines.length * 4.5 + 4;
+    doc.setFontSize(8.5);
+    doc.text(sigLabels[i][1], x + colW / 2, sigY + 33, { align: "center" });
+    // signature line
+    doc.line(x + 8, sigY + 28, x + colW - 8, sigY + 28);
   }
 
-  // Signatures
-  const sigY = Math.max(y + 6, A4_H - 58);
-  const colW = CONTENT_W / 2;
-
-  doc.setFontSize(8.5);
-  doc.setFont("helvetica", "normal");
-
-  // Left: PIC Customer
-  doc.text("Mengetahui,", M_LEFT, sigY);
-  doc.text("PIC Customer", M_LEFT, sigY + 4.5);
-  doc.line(M_LEFT, sigY + 26, M_LEFT + 44, sigY + 26);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  doc.text((receipt as any).service_pic_name || "_____________________", M_LEFT, sigY + 30);
-
-  // Right: Lab Manager
-  const rX = M_LEFT + colW;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
-  doc.text("Menyetujui,", rX, sigY);
-  doc.text("Lab Manager — PT. Kemika Karya Pratama", rX, sigY + 4.5);
-
-  if (mgrSig) {
-    try { doc.addImage(mgrSig, "PNG", rX, sigY + 6.5, 36, 18); } catch {}
-  } else {
-    doc.line(rX, sigY + 26, rX + 44, sigY + 26);
-  }
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  doc.text("(                                    )", rX, sigY + 30);
+  // ── Footer meta table ──
+  const footY = A4_H - 18;
+  autoTable(doc, {
+    startY: footY,
+    body: [
+      [
+        { content: "No. Dokumen", styles: { fontStyle: "bold", fillColor: [230, 235, 245] } },
+        "KEMIKA-F-KAL-02",
+        { content: "Dokumen ini milik PT KEMIKA KARYA PRATAMA", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+        { content: "Revisi", styles: { fontStyle: "bold", fillColor: [230, 235, 245] } },
+        "00",
+      ],
+      [
+        { content: "Terbit", styles: { fontStyle: "bold", fillColor: [230, 235, 245] } },
+        "01 Juni 2026",
+        { content: "Halaman", styles: { fontStyle: "bold", fillColor: [230, 235, 245] } },
+        "1 dari 1",
+      ],
+    ],
+    theme: "grid",
+    margin: { left: M_LEFT, right: M_RIGHT },
+    styles: { fontSize: 7.5, cellPadding: 1.5, lineColor: [180, 180, 180], lineWidth: 0.2 },
+    columnStyles: {
+      0: { cellWidth: 26 },
+      1: { cellWidth: 40 },
+      2: { cellWidth: CONTENT_W - 26 - 40 - 20 - 20 },
+      3: { cellWidth: 20 },
+      4: { cellWidth: 20 },
+    },
+  });
 
   doc.save(`SPK-${(receipt as any).spk_number || (receipt as any).receipt_number}.pdf`);
 }
