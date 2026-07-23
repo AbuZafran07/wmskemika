@@ -14,6 +14,28 @@ const CONTENT_W = A4_W - M_LEFT - M_RIGHT;
 const M_TOP = 47;
 const M_BOTTOM = 24; // reserve room for footer meta table
 
+// ── typography scale (locked so layout is identical across devices) ───────────
+const FONT = "helvetica" as const;
+const FS = {
+  sectionHead: 9,      // "A. PARA PIHAK" etc
+  headerInfo: 9,       // top info box
+  bodyTable: 8.5,      // scope table body
+  terms: 8.5,          // terms & conditions
+  parties: 9,          // parties block
+  sigTitle: 9,         // "Dibuat oleh" / "Disetujui oleh"
+  sigRole: 8.5,        // role line
+  footerMeta: 7.5,     // bottom meta
+  formCode: 7,         // "F-KAL-05"
+  certTitle: 13,
+  certMeta: 9,
+  infoRow: 8.5,
+} as const;
+
+function setFont(doc: jsPDF, weight: "normal" | "bold", size: number) {
+  doc.setFont(FONT, weight);
+  doc.setFontSize(size);
+}
+
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 function fmt(v: number): string {
@@ -457,8 +479,7 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
     const withinLimits = !item.calibration_conclusion || item.calibration_conclusion === "within_limits";
     const conclusionText = withinLimits ? "DALAM BATAS  (Within Limits)" : "DI LUAR BATAS  (Out of Limits)";
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8.5);
+    setFont(doc, "bold", FS.infoRow);
     doc.text("Kesimpulan", M_LEFT, y);
     doc.text(":", M_LEFT + LABEL_W, y);
     doc.setTextColor(withinLimits ? 20 : 180, withinLimits ? 120 : 30, withinLimits ? 40 : 30);
