@@ -479,8 +479,7 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
     const withinLimits = !item.calibration_conclusion || item.calibration_conclusion === "within_limits";
     const conclusionText = withinLimits ? "DALAM BATAS  (Within Limits)" : "DI LUAR BATAS  (Out of Limits)";
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8.5);
+    setFont(doc, "bold", FS.infoRow);
     doc.text("Kesimpulan", M_LEFT, y);
     doc.text(":", M_LEFT + LABEL_W, y);
     doc.setTextColor(withinLimits ? 20 : 180, withinLimits ? 120 : 30, withinLimits ? 40 : 30);
