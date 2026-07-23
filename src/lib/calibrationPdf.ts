@@ -89,6 +89,38 @@ function infoRow(doc: jsPDF, label: string, value: string, y: number, labelW = 4
 
 // ── SPK PDF — F-KAL-02 ───────────────────────────────────────────────────────
 
+function drawSpkFooter(doc: jsPDF, pageNo: number, pageCount: number) {
+  const footY = A4_H - 18;
+  autoTable(doc, {
+    startY: footY,
+    body: [
+      [
+        { content: "No. Dokumen", styles: { fontStyle: "bold", fillColor: [230, 235, 245] } },
+        "KEMIKA-F-KAL-02",
+        { content: "Dokumen ini milik PT KEMIKA KARYA PRATAMA", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+        { content: "Revisi", styles: { fontStyle: "bold", fillColor: [230, 235, 245] } },
+        "00",
+      ],
+      [
+        { content: "Terbit", styles: { fontStyle: "bold", fillColor: [230, 235, 245] } },
+        "01 Juni 2026",
+        { content: "Halaman", styles: { fontStyle: "bold", fillColor: [230, 235, 245] } },
+        `${pageNo} dari ${pageCount}`,
+      ],
+    ],
+    theme: "grid",
+    margin: { left: M_LEFT, right: M_RIGHT },
+    styles: { fontSize: 7.5, cellPadding: 1.5, lineColor: [180, 180, 180], lineWidth: 0.2 },
+    columnStyles: {
+      0: { cellWidth: 26 },
+      1: { cellWidth: 40 },
+      2: { cellWidth: CONTENT_W - 26 - 40 - 20 - 20 },
+      3: { cellWidth: 20 },
+      4: { cellWidth: 20 },
+    },
+  });
+}
+
 export async function generateSPKPdf(receiptId: string) {
   // 1. Fetch SO header + customer
   const { data: header, error } = await (supabase as any)
@@ -147,9 +179,27 @@ export async function generateSPKPdf(receiptId: string) {
     ? Number((receipt as any).total_amount)
     : subtotal + taxAmount;
 
+  const pageHook = (data: any) => {
+    if (data.pageNumber > 1 || data.cursor?.y === data.settings.startY) {
+      // ensure background exists on any newly created page
+    }
+    // draw background on every page (safe: idempotent per page render)
+    if (data.cursor && data.cursor.y === data.settings.margin.top) {
+      // no-op; bg already added at page creation via addPage hook below
+    }
+  };
+
+  // Ensure any auto-added page gets bg painted BEFORE table draws.
+  const willDrawPageHook = (_data: any) => {
+    // Best-effort: if current page is blank (no bg), add it.
+    // Detecting is non-trivial; simplest: always draw bg — jsPDF layers images correctly.
+    // But adding bg mid-table would repaint over content; instead we handle in addPage below.
+  };
+
   // ── Header block: No. SPK / Ref / Tanggal / Target ──
   autoTable(doc, {
     startY: M_TOP,
+    margin: { left: M_LEFT, right: M_RIGHT, top: M_TOP, bottom: M_BOTTOM },
     body: [
       [
         { content: "No. SPK", styles: { fontStyle: "bold", fillColor: [245, 247, 252] } },
@@ -165,7 +215,6 @@ export async function generateSPKPdf(receiptId: string) {
       ],
     ],
     theme: "grid",
-    margin: { left: M_LEFT, right: M_RIGHT },
     styles: { fontSize: 9, cellPadding: 2, lineColor: [180, 180, 180], lineWidth: 0.2 },
     columnStyles: {
       0: { cellWidth: 32 },
@@ -180,6 +229,7 @@ export async function generateSPKPdf(receiptId: string) {
   // ── A. PARA PIHAK ──
   autoTable(doc, {
     startY: y,
+    margin: { left: M_LEFT, right: M_RIGHT, top: M_TOP, bottom: M_BOTTOM },
     head: [[{ content: "A.  PARA PIHAK", colSpan: 2, styles: { halign: "left", fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold" } }]],
     body: [[
       {
@@ -192,7 +242,6 @@ export async function generateSPKPdf(receiptId: string) {
       },
     ]],
     theme: "grid",
-    margin: { left: M_LEFT, right: M_RIGHT },
     styles: { fontSize: 9, cellPadding: 2.5, lineColor: [180, 180, 180], lineWidth: 0.2, valign: "top" },
     columnStyles: { 0: { cellWidth: CONTENT_W / 2 }, 1: { cellWidth: CONTENT_W / 2 } },
     didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
@@ -202,6 +251,7 @@ export async function generateSPKPdf(receiptId: string) {
   // ── B. LINGKUP PEKERJAAN KALIBRASI ──
   autoTable(doc, {
     startY: y,
+    margin: { left: M_LEFT, right: M_RIGHT, top: M_TOP, bottom: M_BOTTOM },
     head: [
       [{ content: "B.  LINGKUP PEKERJAAN KALIBRASI", colSpan: 7, styles: { halign: "left", fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold" } }],
       ["No.", "Nama / Jenis Alat", "Merk / Model", "No. Seri", "Metode Kalibrasi", "SLA (HK)", "Harga (Rp)"],
@@ -221,7 +271,6 @@ export async function generateSPKPdf(receiptId: string) {
       [{ content: "TOTAL", colSpan: 6, styles: { halign: "right", fontStyle: "bold", fillColor: [245, 247, 252] } }, { content: fmt(grandTotal), styles: { halign: "right", fontStyle: "bold", fillColor: [245, 247, 252] } }],
     ],
     theme: "grid",
-    margin: { left: M_LEFT, right: M_RIGHT },
     styles: { fontSize: 8.5, cellPadding: 2, lineColor: [180, 180, 180], lineWidth: 0.2, valign: "middle" },
     headStyles: { fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold", halign: "center" },
     columnStyles: {
@@ -244,17 +293,23 @@ export async function generateSPKPdf(receiptId: string) {
   ];
   autoTable(doc, {
     startY: y,
+    margin: { left: M_LEFT, right: M_RIGHT, top: M_TOP, bottom: M_BOTTOM },
     head: [[{ content: "C.  SYARAT DAN KETENTUAN", styles: { halign: "left", fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold" } }]],
     body: [[terms.map((t, i) => `${i + 1}. ${t}`).join("\n")]],
     theme: "grid",
-    margin: { left: M_LEFT, right: M_RIGHT },
     styles: { fontSize: 8.5, cellPadding: 2.5, lineColor: [180, 180, 180], lineWidth: 0.2 },
     didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
   });
   y = (doc as any).lastAutoTable.finalY + 6;
 
-  // ── Signatures: 3 columns ──
-  const sigY = Math.min(Math.max(y, A4_H - 55), A4_H - 40);
+  // ── Signatures: 3 columns — add new page if not enough room ──
+  const SIG_BLOCK_H = 44;
+  if (y + SIG_BLOCK_H > A4_H - M_BOTTOM) {
+    doc.addPage();
+    addBg(doc, bgData);
+    y = M_TOP;
+  }
+  const sigY = Math.max(y, A4_H - M_BOTTOM - SIG_BLOCK_H);
   const colW = CONTENT_W / 3;
   const sigLabels: [string, string][] = [
     ["Dibuat oleh", "Koordinator Administrasi"],
@@ -278,38 +333,24 @@ export async function generateSPKPdf(receiptId: string) {
     doc.line(x + 8, sigY + 28, x + colW - 8, sigY + 28);
   }
 
-  // ── Footer meta table ──
-  const footY = A4_H - 18;
-  autoTable(doc, {
-    startY: footY,
-    body: [
-      [
-        { content: "No. Dokumen", styles: { fontStyle: "bold", fillColor: [230, 235, 245] } },
-        "KEMIKA-F-KAL-02",
-        { content: "Dokumen ini milik PT KEMIKA KARYA PRATAMA", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
-        { content: "Revisi", styles: { fontStyle: "bold", fillColor: [230, 235, 245] } },
-        "00",
-      ],
-      [
-        { content: "Terbit", styles: { fontStyle: "bold", fillColor: [230, 235, 245] } },
-        "01 Juni 2026",
-        { content: "Halaman", styles: { fontStyle: "bold", fillColor: [230, 235, 245] } },
-        "1 dari 1",
-      ],
-    ],
-    theme: "grid",
-    margin: { left: M_LEFT, right: M_RIGHT },
-    styles: { fontSize: 7.5, cellPadding: 1.5, lineColor: [180, 180, 180], lineWidth: 0.2 },
-    columnStyles: {
-      0: { cellWidth: 26 },
-      1: { cellWidth: 40 },
-      2: { cellWidth: CONTENT_W - 26 - 40 - 20 - 20 },
-      3: { cellWidth: 20 },
-      4: { cellWidth: 20 },
-    },
-  });
+  // ── Footer meta table on every page ──
+  const pageCount = (doc as any).internal.getNumberOfPages();
+  for (let p = 1; p <= pageCount; p++) {
+    doc.setPage(p);
+    drawSpkFooter(doc, p, pageCount);
+  }
 
-  doc.save(`SPK-${(receipt as any).spk_number || (receipt as any).receipt_number}.pdf`);
+  // ── Open preview in a new tab (user can download from viewer) ──
+  const filename = `SPK-${(receipt as any).spk_number || (receipt as any).receipt_number}.pdf`;
+  const blob = doc.output("blob");
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, "_blank");
+  if (!win) {
+    // Popup blocked — fallback to direct download
+    doc.save(filename);
+  }
+  // Also expose filename via document title of preview when possible
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 // ── Certificate PDF — F-KAL-05 ────────────────────────────────────────────────
