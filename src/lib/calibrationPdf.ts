@@ -179,23 +179,6 @@ export async function generateSPKPdf(receiptId: string) {
     ? Number((receipt as any).total_amount)
     : subtotal + taxAmount;
 
-  const pageHook = (data: any) => {
-    if (data.pageNumber > 1 || data.cursor?.y === data.settings.startY) {
-      // ensure background exists on any newly created page
-    }
-    // draw background on every page (safe: idempotent per page render)
-    if (data.cursor && data.cursor.y === data.settings.margin.top) {
-      // no-op; bg already added at page creation via addPage hook below
-    }
-  };
-
-  // Ensure any auto-added page gets bg painted BEFORE table draws.
-  const willDrawPageHook = (_data: any) => {
-    // Best-effort: if current page is blank (no bg), add it.
-    // Detecting is non-trivial; simplest: always draw bg — jsPDF layers images correctly.
-    // But adding bg mid-table would repaint over content; instead we handle in addPage below.
-  };
-
   // ── Header block: No. SPK / Ref / Tanggal / Target ──
   autoTable(doc, {
     startY: M_TOP,
