@@ -165,19 +165,26 @@ export default function ArsipSertifikat() {
         <Badge variant="secondary">{filtered.length} sertifikat</Badge>
       </div>
 
-      <Card className="p-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Cari nomor sertifikat, alat, no. seri, pelanggan…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-      </Card>
+      <Tabs defaultValue="archive">
+        <TabsList>
+          <TabsTrigger value="archive">Arsip Sertifikat</TabsTrigger>
+          {canViewLogs && <TabsTrigger value="logs">Riwayat Scan</TabsTrigger>}
+        </TabsList>
 
-      <Card>
+        <TabsContent value="archive" className="space-y-4">
+          <Card className="p-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Cari nomor sertifikat, alat, no. seri, pelanggan…"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </Card>
+
+          <Card>
         <Table>
           <TableHeader>
             <TableRow>
@@ -256,7 +263,89 @@ export default function ArsipSertifikat() {
             )}
           </TableBody>
         </Table>
-      </Card>
+          </Card>
+        </TabsContent>
+
+        {canViewLogs && (
+          <TabsContent value="logs" className="space-y-4">
+            <Card className="p-3">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                <Input
+                  placeholder="Filter nomor sertifikat…"
+                  value={logQ}
+                  onChange={(e) => setLogQ(e.target.value)}
+                />
+                <Input type="date" value={logFrom} onChange={(e) => setLogFrom(e.target.value)} />
+                <Input type="date" value={logTo} onChange={(e) => setLogTo(e.target.value)} />
+                <Button onClick={fetchLogs} disabled={logsLoading}>
+                  {logsLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Search className="w-4 h-4 mr-2" />}
+                  Terapkan Filter
+                </Button>
+              </div>
+            </Card>
+
+            <Card>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Waktu Scan</TableHead>
+                    <TableHead>No. Sertifikat</TableHead>
+                    <TableHead>Hasil</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {logsLoading ? (
+                    <TableRow><TableCell colSpan={3} className="text-center py-10"><Loader2 className="w-5 h-5 animate-spin inline text-muted-foreground" /></TableCell></TableRow>
+                  ) : logs.length === 0 ? (
+                    <TableRow><TableCell colSpan={3} className="text-center py-10 text-muted-foreground">Belum ada aktivitas scan.</TableCell></TableRow>
+                  ) : (
+                    logs.map((l) => (
+                      <TableRow key={l.id}>
+                        <TableCell className="whitespace-nowrap">{format(new Date(l.scanned_at), "dd MMM yyyy HH:mm:ss", { locale: idLocale })}</TableCell>
+                        <TableCell className="font-mono text-xs">{l.certificate_number}</TableCell>
+                        <TableCell>
+                          {l.result === "valid" && <Badge className="bg-emerald-600 hover:bg-emerald-600">Valid</Badge>}
+                          {l.result === "revoked" && <Badge variant="destructive">Revoked</Badge>}
+                          {l.result === "not_found" && <Badge variant="secondary">Not Found</Badge>}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </Card>
+          </TabsContent>
+        )}
+      </Tabs>
+
+      <Dialog open={!!revokeTarget} onOpenChange={(o) => { if (!o) { setRevokeTarget(null); setRevokeReason(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Revoke Sertifikat</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 text-sm">
+            <div>
+              No. Sertifikat: <span className="font-mono font-semibold">{revokeTarget?.certificate_number}</span>
+            </div>
+            <div className="text-muted-foreground text-xs">
+              Setelah di-revoke, halaman verifikasi & QR akan menampilkan status <b>Revoked</b> beserta alasan berikut.
+            </div>
+            <Textarea
+              placeholder="Alasan revoke (min 10 karakter)…"
+              value={revokeReason}
+              onChange={(e) => setRevokeReason(e.target.value)}
+              rows={4}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRevokeTarget(null)} disabled={revoking}>Batal</Button>
+            <Button variant="destructive" onClick={submitRevoke} disabled={revoking}>
+              {revoking ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Ban className="w-4 h-4 mr-2" />}
+              Revoke
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
