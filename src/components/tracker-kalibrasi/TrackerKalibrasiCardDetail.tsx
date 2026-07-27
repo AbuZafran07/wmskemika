@@ -3,6 +3,7 @@ import {
   FlaskConical, X, Send, Loader2, CheckSquare, Square,
   MapPin, Phone, User, CalendarDays, FileText, Download,
   Plus, Trash2, Package, MessageSquare, Printer, AtSign,
+  Paperclip, Upload,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
@@ -239,6 +240,22 @@ export default function TrackerKalibrasiCardDetail({
   };
   const [docLogs, setDocLogs] = useState<DocLog[]>([]);
 
+  // ── attachments ─────────────────────────────────────────────────────────
+  type Attachment = {
+    id: string;
+    file_key: string;
+    url: string;
+    file_name: string | null;
+    mime_type: string | null;
+    file_size: number | null;
+    uploaded_by: string | null;
+    uploaded_at: string;
+    uploader_name?: string;
+  };
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // spare parts add form
   const [addingPart, setAddingPart] = useState(false);
   const [newPart, setNewPart] = useState({ instrument_id: "", product_id: "", qty_used: "1", unit_price: "0", notes: "" });
@@ -448,6 +465,118 @@ export default function TrackerKalibrasiCardDetail({
       console.error('logCalibrationDoc error:', e);
     }
   }, [receiptId, user?.id, user?.email, receipt?.spk_number, receipt?.receipt_number]);
+
+  // ── attachments fetch/upload/delete ────────────────────────────────────
+  const fetchAttachments = useCallback(async () => {
+    if (!receiptId) { setAttachments([]); return; }
+    const { data } = await supabase
+      .from("attachments")
+      .select("*")
+      .eq("ref_table", "sales_order_headers")
+      .eq("ref_id", receiptId)
+      .eq("module_name", "tracker-kalibrasi")
+      .order("uploaded_at", { ascending: false });
+    if (!data) { setAttachments([]); return; }
+    const userIds = [...new Set(data.map((a: any) => a.uploaded_by).filter(Boolean))] as string[];
+    const { data: profiles } = userIds.length > 0
+      ? await supabase.from("profiles").select("id, full_name").in("id", userIds)
+      : { data: [] as any[] };
+    const withUrls = await Promise.all(data.map(async (a: any) => {
+      const { data: signed } = await supabase.storage.from("documents").createSignedUrl(a.file_key, 1800);
+      return {
+        ...a,
+        url: signed?.signedUrl || a.url,
+        uploader_name: profiles?.find((p: any) => p.id === a.uploaded_by)?.full_name || "Unknown",
+      } as Attachment;
+    }));
+    setAttachments(withUrls);
+  }, [receiptId]);
+
+  useEffect(() => { fetchAttachments(); }, [fetchAttachments]);
+
+  useEffect(() => {
+    if (!receiptId) return;
+    const ch = supabase
+      .channel(`kal-attachments-${receiptId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attachments', filter: `ref_id=eq.${receiptId}` }, fetchAttachments)
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [receiptId, fetchAttachments]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !receiptId || !user) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Ukuran file maksimal 10MB");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    setUploadingFile(true);
+    try {
+      const sanitized = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const fileKey = `calibration/${receiptId}/${Date.now()}_${sanitized}`;
+      const { error: upErr } = await supabase.storage.from("documents").upload(fileKey, file);
+      if (upErr) throw upErr;
+      const { data: urlData } = await supabase.storage.from("documents").createSignedUrl(fileKey, 1800);
+      const { error: insErr } = await supabase.from("attachments").insert({
+        ref_table: "sales_order_headers",
+        ref_id: receiptId,
+        module_name: "tracker-kalibrasi",
+        file_key: fileKey,
+        url: urlData?.signedUrl || fileKey,
+        mime_type: file.type,
+        file_size: file.size,
+        uploaded_by: user.id,
+        file_name: file.name,
+      });
+      if (insErr) throw insErr;
+      toast.success("File berhasil diupload");
+      fetchAttachments();
+    } catch (err: any) {
+      toast.error("Gagal upload: " + (err?.message || 'unknown'));
+    } finally {
+      setUploadingFile(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDownloadAttachment = async (att: Attachment) => {
+    try {
+      const { data, error } = await supabase.storage.from("documents").download(att.file_key);
+      if (error || !data) throw error || new Error("Gagal download");
+      const objectUrl = URL.createObjectURL(data);
+      const fileName = att.file_name || att.file_key.split("/").pop() || "attachment";
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      window.open(att.url, "_blank", "noopener,noreferrer");
+    }
+  };
+
+  const handleDeleteAttachment = async (att: Attachment) => {
+    if (!confirm(`Hapus file "${att.file_name || 'attachment'}"?`)) return;
+    try {
+      await supabase.storage.from("documents").remove([att.file_key]);
+      const { error } = await supabase.from("attachments").delete().eq("id", att.id);
+      if (error) throw error;
+      toast.success("File dihapus");
+      fetchAttachments();
+    } catch (e: any) {
+      toast.error("Gagal menghapus: " + (e?.message || 'unknown'));
+    }
+  };
+
+  const formatFileSize = (bytes: number | null) => {
+    if (!bytes) return "";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
 
   // ── fetch comments ──────────────────────────────────────────────────────
 
@@ -1508,6 +1637,82 @@ export default function TrackerKalibrasiCardDetail({
                         })}
                       </div>
                     )}
+                  </div>
+
+                  {/* Attachments panel */}
+                  <div className="mt-3 rounded-lg border bg-muted/20">
+                    <div className="px-3 py-2 border-b flex items-center gap-1.5">
+                      <Paperclip className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Lampiran Dokumen
+                      </span>
+                      <Badge variant="secondary" className="h-4 text-[10px] px-1.5 ml-auto">
+                        {attachments.length}
+                      </Badge>
+                    </div>
+                    <div className="p-3 space-y-2">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        onChange={handleFileUpload}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingFile || !receiptId}
+                        className="w-full gap-1.5 text-xs"
+                      >
+                        {uploadingFile
+                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          : <Upload className="w-3.5 h-3.5" />}
+                        {uploadingFile ? "Mengupload..." : "Upload File"}
+                      </Button>
+                      {attachments.length === 0 ? (
+                        <div className="text-[11px] text-muted-foreground italic text-center py-2">
+                          Belum ada lampiran.
+                        </div>
+                      ) : (
+                        <div className="divide-y rounded border bg-background">
+                          {attachments.map((att) => (
+                            <div key={att.id} className="px-3 py-2 flex items-center gap-2 text-xs">
+                              <FileText className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium truncate" title={att.file_name || ''}>
+                                  {att.file_name || att.file_key.split('/').pop()}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground truncate">
+                                  {formatFileSize(att.file_size)}
+                                  {att.uploader_name ? ` · ${att.uploader_name}` : ''}
+                                  {` · ${format(new Date(att.uploaded_at), 'dd MMM yyyy HH:mm', { locale: idLocale })}`}
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 flex-shrink-0"
+                                onClick={() => handleDownloadAttachment(att)}
+                                title="Download"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                              </Button>
+                              {(att.uploaded_by === user?.id || user?.role === 'super_admin' || user?.role === 'admin') && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 flex-shrink-0 text-destructive hover:text-destructive"
+                                  onClick={() => handleDeleteAttachment(att)}
+                                  title="Hapus"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
