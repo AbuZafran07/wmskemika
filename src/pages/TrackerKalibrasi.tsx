@@ -259,6 +259,36 @@ export default function TrackerKalibrasi() {
   const [boardBgUrl, setBoardBgUrl] = useState<string>("");
   const [bgInput, setBgInput] = useState("");
 
+  // Card labels map (sales_order_id -> labels)
+  const [labelsByCard, setLabelsByCard] = useState<Record<string, { id: string; name: string; color: string }[]>>({});
+
+  const loadCardLabels = React.useCallback(async () => {
+    const [{ data: labels }, { data: links }] = await Promise.all([
+      (supabase as any).from("calibration_labels").select("id, name, color"),
+      (supabase as any).from("calibration_card_labels").select("sales_order_id, label_id"),
+    ]);
+    const labelMap = new Map<string, { id: string; name: string; color: string }>();
+    (labels || []).forEach((l: any) => labelMap.set(l.id, l));
+    const map: Record<string, { id: string; name: string; color: string }[]> = {};
+    (links || []).forEach((row: any) => {
+      const l = labelMap.get(row.label_id);
+      if (!l) return;
+      if (!map[row.sales_order_id]) map[row.sales_order_id] = [];
+      map[row.sales_order_id].push(l);
+    });
+    setLabelsByCard(map);
+  }, []);
+
+  useEffect(() => {
+    loadCardLabels();
+    const channel = supabase
+      .channel("calibration_card_labels_board")
+      .on("postgres_changes", { event: "*", schema: "public", table: "calibration_card_labels" }, () => loadCardLabels())
+      .on("postgres_changes", { event: "*", schema: "public", table: "calibration_labels" }, () => loadCardLabels())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [loadCardLabels]);
+
   const handleSetFullView = (v: boolean) => {
     setIsFullView(v);
     localStorage.setItem('calibration_full_view', String(v));
