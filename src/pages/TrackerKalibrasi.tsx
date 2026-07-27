@@ -50,9 +50,10 @@ interface KanbanCardProps {
   card: KalibrasiV2Card;
   columnId: KalibrasiV2Column;
   onClickCard: (id: string) => void;
+  labels?: { id: string; name: string; color: string }[];
 }
 
-function KanbanCard({ card, columnId, onClickCard }: KanbanCardProps) {
+function KanbanCard({ card, columnId, onClickCard, labels }: KanbanCardProps) {
   const isOverdue =
     card.target_completion_date &&
     isPast(new Date(card.target_completion_date + "T23:59:59")) &&
@@ -69,6 +70,21 @@ function KanbanCard({ card, columnId, onClickCard }: KanbanCardProps) {
         "hover:shadow-md hover:border-primary/40 transition-all cursor-pointer",
       )}
     >
+      {/* Custom labels (dipasang dari detail card) */}
+      {labels && labels.length > 0 && (
+        <div className="flex flex-wrap gap-1 -mt-0.5 mb-0.5">
+          {labels.map((l) => (
+            <span
+              key={l.id}
+              className="text-[9px] font-semibold text-white px-1.5 py-0.5 rounded"
+              style={{ backgroundColor: l.color }}
+              title={l.name}
+            >
+              {l.name}
+            </span>
+          ))}
+        </div>
+      )}
       {/* SO number + status */}
       <div className="flex items-start justify-between gap-2">
         <span className="font-bold text-primary text-[13px] truncate">
