@@ -180,9 +180,10 @@ interface ColumnProps {
   colDef: (typeof COLUMN_DEFS)[number];
   cards: KalibrasiV2Card[];
   onClickCard: (id: string) => void;
+  labelsByCard?: Record<string, { id: string; name: string; color: string }[]>;
 }
 
-function KanbanColumn({ colDef, cards, onClickCard }: ColumnProps) {
+function KanbanColumn({ colDef, cards, onClickCard, labelsByCard }: ColumnProps) {
   return (
     <div className="flex flex-col w-[85vw] sm:w-72 max-w-[320px] flex-none">
       {/* Column header */}
@@ -212,6 +213,7 @@ function KanbanColumn({ colDef, cards, onClickCard }: ColumnProps) {
               card={card}
               columnId={colDef.id}
               onClickCard={onClickCard}
+              labels={labelsByCard?.[card.id]}
             />
           ))
         )}
