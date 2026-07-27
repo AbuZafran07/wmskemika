@@ -12,7 +12,7 @@ const M_LEFT = 14;
 const M_RIGHT = 14;
 const CONTENT_W = A4_W - M_LEFT - M_RIGHT;
 const M_TOP = 47;
-const M_BOTTOM = 24; // reserve room for footer meta table
+const M_BOTTOM = 38; // reserve room for kop surat footer (address block on bg)
 
 // ── typography scale (locked so layout is identical across devices) ───────────
 const FONT = "helvetica" as const;
@@ -110,38 +110,6 @@ function infoRow(doc: jsPDF, label: string, value: string, y: number, labelW = 4
 }
 
 // ── SPK PDF — F-KAL-02 ───────────────────────────────────────────────────────
-
-function drawSpkFooter(doc: jsPDF, pageNo: number, pageCount: number) {
-  const footY = A4_H - 18;
-  autoTable(doc, {
-    startY: footY,
-    body: [
-      [
-        { content: "No. Dokumen", styles: { fontStyle: "bold", fillColor: [230, 235, 245] } },
-        "KEMIKA-F-KAL-02",
-        { content: "Dokumen ini milik PT KEMIKA KARYA PRATAMA", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
-        { content: "Revisi", styles: { fontStyle: "bold", fillColor: [230, 235, 245] } },
-        "00",
-      ],
-      [
-        { content: "Terbit", styles: { fontStyle: "bold", fillColor: [230, 235, 245] } },
-        "01 Juni 2026",
-        { content: "Halaman", styles: { fontStyle: "bold", fillColor: [230, 235, 245] } },
-        `${pageNo} dari ${pageCount}`,
-      ],
-    ],
-    theme: "grid",
-    margin: { left: M_LEFT, right: M_RIGHT },
-    styles: { fontSize: 7.5, cellPadding: 1.5, lineColor: [180, 180, 180], lineWidth: 0.2 },
-    columnStyles: {
-      0: { cellWidth: 26 },
-      1: { cellWidth: 40 },
-      2: { cellWidth: CONTENT_W - 26 - 40 - 20 - 20 },
-      3: { cellWidth: 20 },
-      4: { cellWidth: 20 },
-    },
-  });
-}
 
 export async function generateSPKPdf(receiptId: string) {
   // 1. Fetch SO header + customer
@@ -307,8 +275,8 @@ export async function generateSPKPdf(receiptId: string) {
   });
   y = (doc as any).lastAutoTable.finalY + 6;
 
-  // ── Signatures: 3 columns — add new page if not enough room ──
-  const SIG_BLOCK_H = 44;
+  // ── Signatures: 3 columns — compact block, add new page if not enough room ──
+  const SIG_BLOCK_H = 28;
   if (y + SIG_BLOCK_H > A4_H - M_BOTTOM) {
     doc.addPage();
     addBg(doc, bgData);
@@ -323,26 +291,19 @@ export async function generateSPKPdf(receiptId: string) {
   ];
   doc.setDrawColor(180, 180, 180);
   doc.setLineWidth(0.2);
-  // outer frame
-  doc.rect(M_LEFT, sigY - 4, CONTENT_W, 40);
+  // outer frame (compact)
+  doc.rect(M_LEFT, sigY - 3, CONTENT_W, SIG_BLOCK_H - 2);
   for (let i = 0; i < 3; i++) {
     const x = M_LEFT + colW * i;
-    if (i > 0) doc.line(x, sigY - 4, x, sigY + 36);
+    if (i > 0) doc.line(x, sigY - 3, x, sigY + SIG_BLOCK_H - 5);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.text(sigLabels[i][0], x + colW / 2, sigY, { align: "center" });
+    // signature line
+    doc.line(x + 8, sigY + SIG_BLOCK_H - 11, x + colW - 8, sigY + SIG_BLOCK_H - 11);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
-    doc.text(sigLabels[i][1], x + colW / 2, sigY + 33, { align: "center" });
-    // signature line
-    doc.line(x + 8, sigY + 28, x + colW - 8, sigY + 28);
-  }
-
-  // ── Footer meta table on every page ──
-  const pageCount = (doc as any).internal.getNumberOfPages();
-  for (let p = 1; p <= pageCount; p++) {
-    doc.setPage(p);
-    drawSpkFooter(doc, p, pageCount);
+    doc.text(sigLabels[i][1], x + colW / 2, sigY + SIG_BLOCK_H - 7, { align: "center" });
   }
 
   // ── Open preview in a new tab (user can download from viewer) ──
