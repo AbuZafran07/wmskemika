@@ -448,6 +448,141 @@ export default function TrackerKalibrasiCardDetail({
     return () => { supabase.removeChannel(ch); };
   }, [receiptId, fetchReceipt]);
 
+  // ── fetch customer payment terms & existing PI for this SO ──────────────
+  useEffect(() => {
+    if (!receiptId) {
+      setCustomerPaymentTerms(null);
+      setCustomerType(null);
+      setExistingPI(null);
+      return;
+    }
+    (async () => {
+      const { data: so } = await (supabase as any)
+        .from('sales_order_headers')
+        .select('customer_id')
+        .eq('id', receiptId)
+        .maybeSingle();
+      if (so?.customer_id) {
+        const { data: cust } = await (supabase as any)
+          .from('customers')
+          .select('terms_payment, customer_type')
+          .eq('id', so.customer_id)
+          .maybeSingle();
+        setCustomerPaymentTerms(cust?.terms_payment ?? null);
+        setCustomerType(cust?.customer_type ?? null);
+      }
+      const { data: piData } = await (supabase as any)
+        .from('proforma_invoices')
+        .select('id, pi_number, status')
+        .eq('sales_order_id', receiptId)
+        .neq('status', 'cancelled')
+        .neq('status', 'rejected')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      setExistingPI(piData && piData.length > 0 ? piData[0].pi_number : null);
+    })();
+  }, [receiptId]);
+
+  const handleGeneratePI = useCallback(async (opts?: { dpPercent?: number; termDays?: number; paymentNote?: string }) => {
+    if (!receiptId || !user) return;
+    setGeneratingPI(true);
+    try {
+      const { data: soHeader } = await (supabase as any)
+        .from('sales_order_headers')
+        .select('*')
+        .eq('id', receiptId)
+        .single();
+      if (!soHeader) throw new Error('Sales Order tidak ditemukan');
+
+      const { data: soItems } = await (supabase as any)
+        .from('sales_order_items')
+        .select('*, product:products(name)')
+        .eq('sales_order_id', receiptId);
+      if (!soItems || soItems.length === 0) throw new Error('Item Sales Order tidak ditemukan');
+
+      const { data: cust } = await (supabase as any)
+        .from('customers')
+        .select('*')
+        .eq('id', soHeader.customer_id)
+        .single();
+
+      const piNumber = await generateUniquePINumber();
+      const discount = soHeader.discount || 0;
+      const shippingCost = soHeader.shipping_cost || 0;
+
+      const piItemsData = (soItems as any[]).map((item: any) => {
+        const baseAmount = (item.ordered_qty || 0) * (item.unit_price || 0);
+        const itemDiscount = item.discount || 0;
+        const subtotalAfterDiscount = baseAmount - itemDiscount;
+        return {
+          product_id: item.product_id,
+          product_name: item.instrument_name || item.description || (item.product as any)?.name || 'Kalibrasi',
+          qty: item.ordered_qty,
+          unit_price: item.unit_price,
+          discount: itemDiscount,
+          subtotal: Math.round(subtotalAfterDiscount),
+        };
+      });
+
+      const dpp = piItemsData.reduce((sum: number, it: any) => sum + it.subtotal, 0);
+      const dppPengganti = Math.round(dpp * 11 / 12);
+      const taxAmount = Math.round(dppPengganti * 0.12);
+      const materai = calculateMaterai(cust?.customer_type, dpp, shippingCost, taxAmount, materaiAmount);
+      const grandTotal = Math.round(dpp + shippingCost + taxAmount + materai);
+
+      const { data: piInserted, error: piError } = await (supabase as any)
+        .from('proforma_invoices')
+        .insert({
+          pi_number: piNumber,
+          sales_order_id: receiptId,
+          customer_id: soHeader.customer_id,
+          delivery_request_id: null,
+          subtotal: dpp,
+          discount,
+          tax_rate: 12,
+          tax_amount: taxAmount,
+          shipping_cost: shippingCost,
+          other_costs: 0,
+          materai_amount: materai,
+          grand_total: grandTotal,
+          customer_type: cust?.customer_type,
+          payment_terms: cust?.terms_payment,
+          status: 'pending',
+          notes: null,
+          created_by: user.id,
+          dp_percent: opts?.dpPercent ?? null,
+          term_days: opts?.termDays ?? null,
+          payment_note: opts?.paymentNote ?? null,
+        })
+        .select('id')
+        .single();
+      if (piError) throw piError;
+
+      const piItems = piItemsData.map((it: any) => ({ ...it, proforma_invoice_id: piInserted.id }));
+      const { error: itemsError } = await (supabase as any)
+        .from('proforma_invoice_items')
+        .insert(piItems);
+      if (itemsError) throw itemsError;
+
+      await (supabase as any).from('audit_logs').insert({
+        user_id: user.id,
+        user_email: user.email,
+        action: 'create',
+        module: 'proforma_invoice',
+        ref_id: piInserted.id,
+        ref_no: piNumber,
+        ref_table: 'proforma_invoices',
+      });
+
+      setExistingPI(piNumber);
+      toast.success(`Proforma Invoice ${piNumber} berhasil dibuat!`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal generate Proforma Invoice');
+    } finally {
+      setGeneratingPI(false);
+    }
+  }, [receiptId, user, materaiAmount]);
+
   // ── document generation history ─────────────────────────────────────────
   const fetchDocLogs = useCallback(async () => {
     if (!receiptId) { setDocLogs([]); return; }
