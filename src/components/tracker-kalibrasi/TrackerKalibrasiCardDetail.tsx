@@ -297,6 +297,17 @@ export default function TrackerKalibrasiCardDetail({
   const receivedDateInputRef = useRef<HTMLInputElement>(null);
   const spkConfirmedDateInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Proforma Invoice (PI) generation ────────────────────────────────────
+  const navigate = useNavigate();
+  const { materaiAmount } = useMateraiSetting();
+  const [generatingPI, setGeneratingPI] = useState(false);
+  const [existingPI, setExistingPI] = useState<string | null>(null);
+  const [customerPaymentTerms, setCustomerPaymentTerms] = useState<string | null>(null);
+  const [customerType, setCustomerType] = useState<string | null>(null);
+  const [showDpTerminDialog, setShowDpTerminDialog] = useState(false);
+  const [dpPercentInput, setDpPercentInput] = useState<string>("30");
+  const [termDaysInput, setTermDaysInput] = useState<string>("30");
+
   // ── fetch receipt + instruments ─────────────────────────────────────────
 
   const fetchReceipt = useCallback(async () => {
