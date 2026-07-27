@@ -11,7 +11,7 @@ const A4_H = 297;
 const M_LEFT = 14;
 const M_RIGHT = 14;
 const CONTENT_W = A4_W - M_LEFT - M_RIGHT;
-const M_TOP = 47;
+const M_TOP = 39;
 const M_BOTTOM = 38; // reserve room for kop surat footer (address block on bg)
 
 // ── typography scale (locked so layout is identical across devices) ───────────
