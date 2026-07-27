@@ -1416,6 +1416,25 @@ export default function TrackerKalibrasiCardDetail({
                                 );
                               })}
 
+                              {/* Completed: input Tgl Pembayaran (Payment Verified) */}
+                              {col.id === 'completed' && receiptId && (
+                                <div className="rounded-lg border border-dashed p-2.5 bg-muted/20 mt-2">
+                                  <label className="text-[11px] text-muted-foreground block mb-1">
+                                    Tgl Pembayaran
+                                  </label>
+                                  <Input
+                                    type="date"
+                                    className="h-8 text-sm"
+                                    value={paymentDateInputValue}
+                                    disabled={!FINANCE_CHECKLIST_ROLES.includes(user?.role || '')}
+                                    onChange={(e) => handleSetPaymentDate(e.target.value || null)}
+                                  />
+                                  <p className="text-[10px] text-muted-foreground mt-1">
+                                    Tanggal saat pembayaran diverifikasi. Hanya Finance / Admin / Super Admin yang dapat mengubah.
+                                  </p>
+                                </div>
+                              )}
+
                               {/* Instrument Received: input Tgl SPK Confirmed di bawah checklist */}
                               {col.id === 'instrument_received' && canToggle && receiptId && (
                                 <div className="rounded-lg border border-dashed p-2.5 bg-muted/20 mt-2">
