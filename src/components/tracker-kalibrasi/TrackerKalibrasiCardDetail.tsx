@@ -1214,11 +1214,17 @@ export default function TrackerKalibrasiCardDetail({
                                 return (
                                   <button
                                     key={item.key}
-                                    disabled={!keyAllowed || !receiptId}
+                                    disabled={!receiptId}
+                                    aria-disabled={!keyAllowed}
+                                    title={
+                                      !keyAllowed
+                                        ? 'Read-only untuk role Anda. Hanya Finance / Admin / Super Admin yang dapat menandai checklist ini.'
+                                        : undefined
+                                    }
                                     onClick={() => {
                                       if (!receiptId) return;
                                       if (!keyAllowed) {
-                                        toast.error('Hanya Finance / Admin / Super Admin yang dapat menandai checklist ini.');
+                                        toast.error('Read-only untuk role Anda. Hanya Finance / Admin / Super Admin yang dapat menandai checklist Payment Verified, Certificate Released, dan Instrument Delivered.');
                                         return;
                                       }
                                       // Block "Receive Instrument" toggle unless received date is filled & valid
@@ -1398,8 +1404,9 @@ export default function TrackerKalibrasiCardDetail({
                         if (!receiptId) return;
                         setPdfLoading("spk");
                         try { await generateSPKPdf(receiptId); }
-                        catch (e) { toast.error("Gagal generate SPK PDF"); console.error(e); }
+                        catch (e) { toast.error("Gagal generate SPK PDF"); console.error(e); setPdfLoading(null); return; }
                         finally { setPdfLoading(null); }
+                        await logCalibrationDoc('spk', receipt?.spk_number ?? null);
                       }}
                       className="gap-1.5 text-xs"
                     >
@@ -1415,8 +1422,10 @@ export default function TrackerKalibrasiCardDetail({
                         if (!receiptId) return;
                         setPdfLoading("cert");
                         try { await generateCertificatePdf(receiptId); }
-                        catch (e) { toast.error("Gagal generate Sertifikat PDF"); console.error(e); }
+                        catch (e) { toast.error("Gagal generate Sertifikat PDF"); console.error(e); setPdfLoading(null); return; }
                         finally { setPdfLoading(null); }
+                        const firstCert = instruments.find(i => (i as any).certificate_number)?.['certificate_number' as any] as string | undefined;
+                        await logCalibrationDoc('certificate', firstCert ?? receipt?.spk_number ?? null);
                       }}
                       className="gap-1.5 text-xs"
                     >
@@ -1430,8 +1439,9 @@ export default function TrackerKalibrasiCardDetail({
                         if (!receiptId) return;
                         setPdfLoading("bast");
                         try { await generateBASTPdf(receiptId); }
-                        catch (e) { toast.error("Gagal generate BAST PDF"); console.error(e); }
+                        catch (e) { toast.error("Gagal generate BAST PDF"); console.error(e); setPdfLoading(null); return; }
                         finally { setPdfLoading(null); }
+                        await logCalibrationDoc('bast', receipt?.spk_number ?? receipt?.receipt_number ?? null);
                       }}
                       className="gap-1.5 text-xs"
                     >
