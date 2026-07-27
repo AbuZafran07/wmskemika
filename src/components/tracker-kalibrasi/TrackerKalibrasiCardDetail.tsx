@@ -21,9 +21,10 @@ import {
   COLUMN_CHECKLISTS,
   computeKalibrasiColumn,
   KalibrasiV2Checklist,
+  canToggleChecklistKey,
 } from "@/hooks/useTrackerKalibrasi";
 import { useProducts } from "@/hooks/useMasterData";
-import { generateSPKPdf, generateCertificatePdf } from "@/lib/calibrationPdf";
+import { generateSPKPdf, generateCertificatePdf, generateBASTPdf } from "@/lib/calibrationPdf";
 import { printCalibrationSparepartRequest } from "@/lib/calibrationSparepartRequestPdf";
 import CalibrationLabelPicker from "./CalibrationLabelPicker";
 
@@ -225,7 +226,7 @@ export default function TrackerKalibrasiCardDetail({
   const [loadingComments, setLoadingComments] = useState(false);
   const [newComment, setNewComment] = useState("");
   const [sending, setSending] = useState(false);
-  const [pdfLoading, setPdfLoading] = useState<"spk" | "cert" | null>(null);
+  const [pdfLoading, setPdfLoading] = useState<"spk" | "cert" | "bast" | null>(null);
 
   // spare parts add form
   const [addingPart, setAddingPart] = useState(false);
