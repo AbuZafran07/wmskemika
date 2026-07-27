@@ -39,6 +39,7 @@ const translations: Record<Language, Record<string, string>> = {
 
     // Menu Groups
     "menu.summary": "SUMMARY",
+    "menu.calibration": "CALIBRATION",
     "menu.transactions": "TRANSACTIONS",
     "menu.masterData": "MASTER DATA",
     "menu.reports": "REPORTS",
@@ -51,7 +52,7 @@ const translations: Record<Language, Record<string, string>> = {
     "menu.trackerPOSub": "Purchase Order Tracker",
     "menu.trackerKalibrasi": "Tracker Kalibrasi",
     "menu.trackerKalibrasiSub": "Calibration Service Tracker",
-    "menu.arsipSertifikat": "Arsip Sertifikat",
+    "menu.arsipSertifikat": "Sertificate Calibration",
     "menu.arsipSertifikatSub": "Issued Calibration Certificates",
     "menu.planOrder": "Plan Order",
     "menu.planOrderSub": "Inbound Plan",
