@@ -5,11 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Search, FileDown, ExternalLink, QrCode } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2, Search, FileDown, ExternalLink, QrCode, Ban } from "lucide-react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { generateCertificatePdf } from "@/lib/calibrationPdf";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Row {
   id: string;
@@ -19,7 +23,16 @@ interface Row {
   instrument_name: string | null;
   instrument_brand_model: string | null;
   instrument_serial_number: string | null;
+  certificate_revoked_at: string | null;
+  certificate_revoked_reason: string | null;
   header: { sales_order_number: string | null; spk_number: string | null; customer: { name: string | null } | null } | null;
+}
+
+interface ScanLog {
+  id: string;
+  certificate_number: string;
+  result: string;
+  scanned_at: string;
 }
 
 function fmtDate(d: string | null | undefined) {
@@ -28,10 +41,25 @@ function fmtDate(d: string | null | undefined) {
 }
 
 export default function ArsipSertifikat() {
+  const { user } = useAuth();
+  const canRevoke = ["super_admin", "admin", "finance"].includes(user?.role || "");
+  const canViewLogs = ["super_admin", "admin"].includes(user?.role || "");
+
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [generating, setGenerating] = useState<string | null>(null);
+
+  const [revokeTarget, setRevokeTarget] = useState<Row | null>(null);
+  const [revokeReason, setRevokeReason] = useState("");
+  const [revoking, setRevoking] = useState(false);
+
+  // Scan logs state
+  const [logs, setLogs] = useState<ScanLog[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logQ, setLogQ] = useState("");
+  const [logFrom, setLogFrom] = useState("");
+  const [logTo, setLogTo] = useState("");
 
   const fetchRows = async () => {
     setLoading(true);
@@ -40,6 +68,7 @@ export default function ArsipSertifikat() {
       .select(`
         id, sales_order_id, certificate_number, certificate_issued_at,
         instrument_name, instrument_brand_model, instrument_serial_number,
+        certificate_revoked_at, certificate_revoked_reason,
         header:sales_order_headers!inner(sales_order_number, spk_number, customer:customers(name))
       `)
       .eq("item_type", "calibration")
@@ -55,6 +84,25 @@ export default function ArsipSertifikat() {
   };
 
   useEffect(() => { fetchRows(); }, []);
+
+  const fetchLogs = async () => {
+    if (!canViewLogs) return;
+    setLogsLoading(true);
+    let query: any = (supabase as any)
+      .from("certificate_verification_logs")
+      .select("id, certificate_number, result, scanned_at")
+      .order("scanned_at", { ascending: false })
+      .limit(500);
+    if (logQ.trim()) query = query.ilike("certificate_number", `%${logQ.trim()}%`);
+    if (logFrom) query = query.gte("scanned_at", `${logFrom}T00:00:00`);
+    if (logTo) query = query.lte("scanned_at", `${logTo}T23:59:59`);
+    const { data, error } = await query;
+    if (error) toast.error("Gagal memuat riwayat scan");
+    else setLogs((data as any) || []);
+    setLogsLoading(false);
+  };
+
+  useEffect(() => { if (canViewLogs) fetchLogs(); /* eslint-disable-next-line */ }, [canViewLogs]);
 
   const filtered = useMemo(() => {
     const kw = q.trim().toLowerCase();
@@ -85,6 +133,28 @@ export default function ArsipSertifikat() {
     }
   };
 
+  const submitRevoke = async () => {
+    if (!revokeTarget) return;
+    if (revokeReason.trim().length < 10) {
+      toast.error("Alasan minimal 10 karakter");
+      return;
+    }
+    setRevoking(true);
+    const { data, error } = await (supabase as any).rpc("revoke_certificate", {
+      p_item_id: revokeTarget.id,
+      p_reason: revokeReason.trim(),
+    });
+    setRevoking(false);
+    if (error || !data?.success) {
+      toast.error(error?.message || data?.error || "Gagal revoke sertifikat");
+      return;
+    }
+    toast.success("Sertifikat berhasil di-revoke");
+    setRevokeTarget(null);
+    setRevokeReason("");
+    fetchRows();
+  };
+
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
@@ -113,6 +183,7 @@ export default function ArsipSertifikat() {
             <TableRow>
               <TableHead>No. Sertifikat</TableHead>
               <TableHead>Tgl Terbit</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Alat</TableHead>
               <TableHead>Merk / Model</TableHead>
               <TableHead>No. Seri</TableHead>
@@ -124,13 +195,13 @@ export default function ArsipSertifikat() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-10">
+                <TableCell colSpan={9} className="text-center py-10">
                   <Loader2 className="w-5 h-5 animate-spin inline text-muted-foreground" />
                 </TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-10 text-muted-foreground">
                   Belum ada sertifikat terbit.
                 </TableCell>
               </TableRow>
@@ -139,6 +210,13 @@ export default function ArsipSertifikat() {
                 <TableRow key={r.id}>
                   <TableCell className="font-mono text-xs">{r.certificate_number}</TableCell>
                   <TableCell className="whitespace-nowrap">{fmtDate(r.certificate_issued_at)}</TableCell>
+                  <TableCell>
+                    {r.certificate_revoked_at ? (
+                      <Badge variant="destructive" title={r.certificate_revoked_reason || ""}>Revoked</Badge>
+                    ) : (
+                      <Badge className="bg-emerald-600 hover:bg-emerald-600">Valid</Badge>
+                    )}
+                  </TableCell>
                   <TableCell>{r.instrument_name || "-"}</TableCell>
                   <TableCell>{r.instrument_brand_model || "-"}</TableCell>
                   <TableCell>{r.instrument_serial_number || "-"}</TableCell>
@@ -156,19 +234,21 @@ export default function ArsipSertifikat() {
                       </Button>
                       <Button
                         size="sm"
-                        variant="outline"
-                        onClick={() => window.open(`/verify/${encodeURIComponent(r.certificate_number)}`, "_blank")}
-                        title="Buka verifikasi"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="sm"
                         onClick={() => handleDownload(r)}
                         disabled={generating === r.id}
                       >
                         {generating === r.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
                       </Button>
+                      {canRevoke && !r.certificate_revoked_at && (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => { setRevokeTarget(r); setRevokeReason(""); }}
+                          title="Revoke sertifikat"
+                        >
+                          <Ban className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
