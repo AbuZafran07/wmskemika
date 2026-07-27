@@ -143,6 +143,47 @@ export type Database = {
           },
         ]
       }
+      calibration_document_logs: {
+        Row: {
+          created_at: string
+          document_number: string | null
+          document_type: string
+          file_url: string | null
+          generated_by: string | null
+          generated_by_email: string | null
+          id: string
+          sales_order_id: string
+        }
+        Insert: {
+          created_at?: string
+          document_number?: string | null
+          document_type: string
+          file_url?: string | null
+          generated_by?: string | null
+          generated_by_email?: string | null
+          id?: string
+          sales_order_id: string
+        }
+        Update: {
+          created_at?: string
+          document_number?: string | null
+          document_type?: string
+          file_url?: string | null
+          generated_by?: string | null
+          generated_by_email?: string | null
+          id?: string
+          sales_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calibration_document_logs_sales_order_id_fkey"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_order_headers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calibration_items: {
         Row: {
           brand_model: string | null
