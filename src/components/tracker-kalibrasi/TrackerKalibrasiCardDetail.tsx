@@ -3,7 +3,7 @@ import {
   FlaskConical, X, Send, Loader2, CheckSquare, Square,
   MapPin, Phone, User, CalendarDays, FileText, Download,
   Plus, Trash2, Package, MessageSquare, Printer, AtSign,
-  Paperclip, Upload,
+  Paperclip, Upload, Receipt,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
@@ -29,6 +29,21 @@ import { useProducts } from "@/hooks/useMasterData";
 import { generateSPKPdf, generateCertificatePdf, generateBASTPdf } from "@/lib/calibrationPdf";
 import { printCalibrationSparepartRequest } from "@/lib/calibrationSparepartRequestPdf";
 import CalibrationLabelPicker from "./CalibrationLabelPicker";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  generateUniquePINumber,
+  calculateMaterai,
+  useMateraiSetting,
+} from "@/hooks/useProformaInvoices";
+import { useNavigate } from "react-router-dom";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
