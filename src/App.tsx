@@ -41,6 +41,8 @@ import Profile from "./pages/Profile";
 
 import TrackerPO from "./pages/TrackerPO";
 import TrackerKalibrasi from "./pages/TrackerKalibrasi";
+import ArsipSertifikat from "./pages/ArsipSertifikat";
+import VerifyCertificate from "./pages/VerifyCertificate";
 import NotFound from "./pages/NotFound";
 import Notifications from "./pages/Notifications";
 import DeliveryOrder from "./pages/DeliveryOrder";
@@ -59,6 +61,7 @@ const App = () => (
             <BrowserRouter>
               <Routes>
                 <Route path="/login" element={<Login />} />
+                <Route path="/verify/:certNumber" element={<VerifyCertificate />} />
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 
                 <Route element={<MainLayout />}>
@@ -81,6 +84,11 @@ const App = () => (
                   <Route path="/tracker-kalibrasi" element={
                     <RouteGuard menuKey="trackerKalibrasi">
                       <TrackerKalibrasi />
+                    </RouteGuard>
+                  } />
+                  <Route path="/arsip-sertifikat" element={
+                    <RouteGuard menuKey="arsipSertifikat">
+                      <ArsipSertifikat />
                     </RouteGuard>
                   } />
 

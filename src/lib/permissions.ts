@@ -39,6 +39,7 @@ export type MenuKey =
   | 'requestDelivery'
   | 'trackerPO'
   | 'trackerKalibrasi'
+  | 'arsipSertifikat'
   | 'planOrder'
   | 'stockIn'
   | 'salesOrder'
@@ -74,6 +75,7 @@ export const MENU_ACCESS: Record<MenuKey, UserRole[]> = {
   requestDelivery: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales', 'viewer'],
   trackerPO: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales', 'viewer'],
   trackerKalibrasi: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales', 'viewer'],
+  arsipSertifikat: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales', 'viewer'],
 
   // Transactions
   planOrder: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'viewer'],
@@ -396,6 +398,7 @@ export const ROUTE_TO_MENU: Record<string, MenuKey> = {
   '/request-delivery': 'requestDelivery',
   '/tracker-po': 'trackerPO',
   '/tracker-kalibrasi': 'trackerKalibrasi',
+  '/arsip-sertifikat': 'arsipSertifikat',
   '/plan-order': 'planOrder',
   '/stock-in': 'stockIn',
   '/sales-order': 'salesOrder',

@@ -2714,6 +2714,21 @@ export type Database = {
         Args: { table_name: string; uuid_val: string }
         Returns: boolean
       }
+      verify_certificate: {
+        Args: { p_number: string }
+        Returns: {
+          brand_model: string
+          calibration_method: string
+          certificate_issued_at: string
+          certificate_number: string
+          customer_name: string
+          instrument_name: string
+          measurement_range: string
+          sales_order_number: string
+          serial_number: string
+          spk_number: string
+        }[]
+      }
     }
     Enums: {
       app_role:
