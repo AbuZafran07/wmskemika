@@ -520,3 +520,184 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
 
   doc.save(fname);
 }
+
+// ── BAST PDF — F-KAL-06 (Berita Acara Serah Terima Alat & Sertifikat) ────────
+
+export async function generateBASTPdf(receiptId: string) {
+  const { data: header, error } = await (supabase as any)
+    .from("sales_order_headers")
+    .select(`
+      id, sales_order_number, spk_number,
+      calibration_received_at, service_pic_name, service_pic_phone,
+      customer:customers(name, address, phone, pic)
+    `)
+    .eq("id", receiptId)
+    .single();
+  if (error || !header) throw new Error("Data SO kalibrasi tidak ditemukan");
+
+  const { data: rawItems } = await (supabase as any)
+    .from("sales_order_items")
+    .select("instrument_name, instrument_brand_model, instrument_serial_number, description, certificate_number, created_at")
+    .eq("sales_order_id", receiptId)
+    .eq("item_type", "calibration")
+    .order("created_at", { ascending: true });
+
+  const instruments = (rawItems || []).map((it: any, idx: number) => ({
+    no: idx + 1,
+    name: it.instrument_name ?? it.description ?? "-",
+    brand: it.instrument_brand_model ?? "-",
+    serial: it.instrument_serial_number ?? "-",
+    cert: it.certificate_number ?? "-",
+  }));
+
+  const bgData = await imgToBase64("/kop-surat-bg.jpg");
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  addBg(doc, bgData);
+
+  // Form code
+  doc.setFontSize(FS.formCode);
+  doc.setTextColor(110, 110, 110);
+  doc.text("F-KAL-06", A4_W - M_RIGHT, 10, { align: "right" });
+  doc.setTextColor(0, 0, 0);
+
+  let y = M_TOP;
+  setFont(doc, "bold", 12);
+  doc.text("BERITA ACARA SERAH TERIMA ALAT & SERTIFIKAT", A4_W / 2, y, { align: "center" });
+  y += 8;
+
+  const today = new Date();
+  autoTable(doc, {
+    startY: y,
+    margin: { left: M_LEFT, right: M_RIGHT, top: M_TOP, bottom: M_BOTTOM },
+    body: [
+      [
+        { content: "No. Berita Acara", styles: { fontStyle: "bold", fillColor: [245, 247, 252] } },
+        `LAB-BA-${format(today, "yyyyMMdd")}`,
+        { content: "Tgl Serah Terima", styles: { fontStyle: "bold", fillColor: [245, 247, 252] } },
+        fmtDate(today.toISOString()),
+      ],
+      [
+        { content: "No. SPK Ref.", styles: { fontStyle: "bold", fillColor: [245, 247, 252] } },
+        header.spk_number || "-",
+        { content: "No. SO", styles: { fontStyle: "bold", fillColor: [245, 247, 252] } },
+        header.sales_order_number || "-",
+      ],
+    ],
+    theme: "grid",
+    styles: { fontSize: 9, cellPadding: 2, lineColor: [180, 180, 180], lineWidth: 0.2 },
+    columnStyles: {
+      0: { cellWidth: 36 }, 1: { cellWidth: (CONTENT_W - 72) / 2 },
+      2: { cellWidth: 36 }, 3: { cellWidth: (CONTENT_W - 72) / 2 },
+    },
+    didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
+  });
+  y = (doc as any).lastAutoTable.finalY + 4;
+
+  // A. PARA PIHAK
+  const customer = header.customer;
+  autoTable(doc, {
+    startY: y,
+    margin: { left: M_LEFT, right: M_RIGHT, top: M_TOP, bottom: M_BOTTOM },
+    head: [[{ content: "A.  PARA PIHAK YANG TERLIBAT", colSpan: 2, styles: { halign: "left", fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold" } }]],
+    body: [[
+      { content: `PIHAK PENYERAH — PT Kemika Karya Pratama\n\nNama    : ______________________________\nJabatan : ______________________________\nNo. HP  : ______________________________` },
+      { content: `PIHAK PENERIMA — Pelanggan\n${customer?.name || "-"}\n\nNama    : ${header.service_pic_name || customer?.pic || "______________________________"}\nJabatan : ______________________________\nNo. HP  : ${header.service_pic_phone || customer?.phone || "______________________________"}` },
+    ]],
+    theme: "grid",
+    styles: { fontSize: 9, cellPadding: 2.5, lineColor: [180, 180, 180], lineWidth: 0.2, valign: "top" },
+    columnStyles: { 0: { cellWidth: CONTENT_W / 2 }, 1: { cellWidth: CONTENT_W / 2 } },
+    didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
+  });
+  y = (doc as any).lastAutoTable.finalY + 4;
+
+  // B. DAFTAR ALAT DAN DOKUMEN
+  autoTable(doc, {
+    startY: y,
+    margin: { left: M_LEFT, right: M_RIGHT, top: M_TOP, bottom: M_BOTTOM },
+    head: [
+      [{ content: "B.  DAFTAR ALAT DAN DOKUMEN YANG DISERAHKAN", colSpan: 5, styles: { halign: "left", fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold" } }],
+      ["No.", "Nama / Jenis Alat", "Merk / Model", "No. Seri", "No. Sertifikat"],
+    ],
+    body: instruments.length
+      ? instruments.map((it) => [String(it.no), it.name, it.brand, it.serial, it.cert])
+      : [[{ content: "Tidak ada data alat", colSpan: 5, styles: { halign: "center" } }]],
+    theme: "grid",
+    styles: { fontSize: 8.5, cellPadding: 2, lineColor: [180, 180, 180], lineWidth: 0.2, valign: "middle" },
+    headStyles: { fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold", halign: "center" },
+    columnStyles: { 0: { cellWidth: 10, halign: "center" } },
+    didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
+  });
+  y = (doc as any).lastAutoTable.finalY + 4;
+
+  // C. KELENGKAPAN DOKUMEN
+  const kelengkapan = [
+    "☑ Sertifikat Kalibrasi (asli)",
+    "☑ Sertifikat Kalibrasi (salinan digital / PDF)",
+    "☑ Alat dalam kondisi lengkap sesuai penerimaan",
+    "☐ Laporan Teknis / Lembar Data (jika ada)",
+    "☑ Faktur / Invoice Pembayaran",
+    "☐ Aksesori / kelengkapan alat terlampir",
+  ];
+  autoTable(doc, {
+    startY: y,
+    margin: { left: M_LEFT, right: M_RIGHT, top: M_TOP, bottom: M_BOTTOM },
+    head: [[{ content: "C.  KELENGKAPAN DOKUMEN", colSpan: 2, styles: { halign: "left", fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold" } }]],
+    body: [[kelengkapan.slice(0, 3).join("\n"), kelengkapan.slice(3).join("\n")]],
+    theme: "grid",
+    styles: { fontSize: 8.5, cellPadding: 2.5, lineColor: [180, 180, 180], lineWidth: 0.2, valign: "top" },
+    columnStyles: { 0: { cellWidth: CONTENT_W / 2 }, 1: { cellWidth: CONTENT_W / 2 } },
+    didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
+  });
+  y = (doc as any).lastAutoTable.finalY + 4;
+
+  // D. PERNYATAAN
+  const pernyataan = [
+    "Alat dan sertifikat kalibrasi telah diserahterimakan dengan baik dan lengkap.",
+    "Pihak penerima telah memeriksa kondisi alat dan dokumen serta menyatakan sesuai.",
+    "Keluhan atau klaim wajib disampaikan dalam 7 hari kalender sejak tanggal serah terima.",
+    "Berita acara ini dibuat rangkap 2 (dua), masing-masing pihak memegang satu salinan yang sah.",
+  ];
+  autoTable(doc, {
+    startY: y,
+    margin: { left: M_LEFT, right: M_RIGHT, top: M_TOP, bottom: M_BOTTOM },
+    head: [[{ content: "D.  PERNYATAAN SERAH TERIMA", styles: { halign: "left", fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold" } }]],
+    body: [[pernyataan.map((t, i) => `${i + 1}. ${t}`).join("\n")]],
+    theme: "grid",
+    styles: { fontSize: 8.5, cellPadding: 2.5, lineColor: [180, 180, 180], lineWidth: 0.2 },
+    didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
+  });
+  y = (doc as any).lastAutoTable.finalY + 8;
+
+  // Signatures: 2 columns
+  const SIG_H = 28;
+  if (y + SIG_H > A4_H - M_BOTTOM) {
+    doc.addPage();
+    addBg(doc, bgData);
+    y = M_TOP;
+  }
+  const sigY = Math.max(y, A4_H - M_BOTTOM - SIG_H);
+  const colW = CONTENT_W / 2;
+  doc.setDrawColor(180, 180, 180);
+  doc.setLineWidth(0.2);
+  doc.rect(M_LEFT, sigY - 3, CONTENT_W, SIG_H - 2);
+  doc.line(M_LEFT + colW, sigY - 3, M_LEFT + colW, sigY + SIG_H - 5);
+  const sigLabels: [string, string][] = [
+    ["Diserahkan oleh", "PT Kemika Karya Pratama"],
+    ["Diterima oleh", `(${customer?.name || "Pelanggan / PIC"})`],
+  ];
+  for (let i = 0; i < 2; i++) {
+    const x = M_LEFT + colW * i;
+    setFont(doc, "bold", FS.sigTitle);
+    doc.text(sigLabels[i][0], x + colW / 2, sigY, { align: "center" });
+    doc.line(x + 8, sigY + SIG_H - 11, x + colW - 8, sigY + SIG_H - 11);
+    setFont(doc, "normal", FS.sigRole);
+    doc.text(sigLabels[i][1], x + colW / 2, sigY + SIG_H - 7, { align: "center" });
+  }
+
+  const filename = `BAST-${header.spk_number || header.sales_order_number || receiptId}.pdf`;
+  const blob = doc.output("blob");
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, "_blank");
+  if (!win) doc.save(filename);
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
