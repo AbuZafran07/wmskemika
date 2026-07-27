@@ -1,0 +1,1 @@
+ALTER TABLE public.sales_order_headers ADD COLUMN IF NOT EXISTS payment_verified_at date;

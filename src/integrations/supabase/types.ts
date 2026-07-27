@@ -1617,6 +1617,7 @@ export type Database = {
           notes: string | null
           order_date: string
           order_type: string
+          payment_verified_at: string | null
           po_document_url: string | null
           project_instansi: string
           sales_name: string
@@ -1659,6 +1660,7 @@ export type Database = {
           notes?: string | null
           order_date?: string
           order_type?: string
+          payment_verified_at?: string | null
           po_document_url?: string | null
           project_instansi: string
           sales_name: string
@@ -1701,6 +1703,7 @@ export type Database = {
           notes?: string | null
           order_date?: string
           order_type?: string
+          payment_verified_at?: string | null
           po_document_url?: string | null
           project_instansi?: string
           sales_name?: string
