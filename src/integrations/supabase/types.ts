@@ -456,6 +456,33 @@ export type Database = {
         }
         Relationships: []
       }
+      certificate_verification_logs: {
+        Row: {
+          certificate_number: string
+          id: string
+          ip_address: string | null
+          result: string
+          scanned_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          certificate_number: string
+          id?: string
+          ip_address?: string | null
+          result: string
+          scanned_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          certificate_number?: string
+          id?: string
+          ip_address?: string | null
+          result?: string
+          scanned_at?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           created_at: string
@@ -1740,6 +1767,9 @@ export type Database = {
           calibration_method: string | null
           certificate_issued_at: string | null
           certificate_number: string | null
+          certificate_revoked_at: string | null
+          certificate_revoked_by: string | null
+          certificate_revoked_reason: string | null
           condition_notes: string | null
           created_at: string | null
           description: string | null
@@ -1767,6 +1797,9 @@ export type Database = {
           calibration_method?: string | null
           certificate_issued_at?: string | null
           certificate_number?: string | null
+          certificate_revoked_at?: string | null
+          certificate_revoked_by?: string | null
+          certificate_revoked_reason?: string | null
           condition_notes?: string | null
           created_at?: string | null
           description?: string | null
@@ -1794,6 +1827,9 @@ export type Database = {
           calibration_method?: string | null
           certificate_issued_at?: string | null
           certificate_number?: string | null
+          certificate_revoked_at?: string | null
+          certificate_revoked_by?: string | null
+          certificate_revoked_reason?: string | null
           condition_notes?: string | null
           created_at?: string | null
           description?: string | null
@@ -2618,6 +2654,10 @@ export type Database = {
         Args: { _order_id: string }
         Returns: undefined
       }
+      revoke_certificate: {
+        Args: { p_item_id: string; p_reason: string }
+        Returns: Json
+      }
       sales_order_approve: {
         Args: { approve_reason?: string; order_id: string }
         Returns: Json
@@ -2724,9 +2764,12 @@ export type Database = {
           customer_name: string
           instrument_name: string
           measurement_range: string
+          revoked_at: string
+          revoked_reason: string
           sales_order_number: string
           serial_number: string
           spk_number: string
+          status: string
         }[]
       }
     }

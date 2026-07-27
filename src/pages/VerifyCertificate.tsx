@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, CheckCircle2, XCircle, ShieldCheck } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, ShieldCheck, Ban } from "lucide-react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 
 interface CertData {
+  status: "valid" | "revoked" | "not_found";
   certificate_number: string;
   certificate_issued_at: string | null;
   instrument_name: string | null;
@@ -16,6 +17,8 @@ interface CertData {
   sales_order_number: string | null;
   spk_number: string | null;
   customer_name: string | null;
+  revoked_at: string | null;
+  revoked_reason: string | null;
 }
 
 function fmtDate(d: string | null | undefined) {
@@ -38,7 +41,9 @@ export default function VerifyCertificate() {
     })();
   }, [certNumber]);
 
-  const valid = !!data;
+  const status = data?.status ?? "not_found";
+  const isValid = status === "valid";
+  const isRevoked = status === "revoked";
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4">
@@ -55,15 +60,32 @@ export default function VerifyCertificate() {
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
-        ) : valid ? (
+        ) : status !== "not_found" ? (
           <>
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900">
-              <CheckCircle2 className="w-5 h-5" />
-              <div>
-                <div className="font-semibold">Sertifikat Valid</div>
-                <div className="text-xs opacity-80">Certificate is authentic and issued by PT Kemika Karya Pratama.</div>
+            {isValid ? (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900">
+                <CheckCircle2 className="w-5 h-5 shrink-0" />
+                <div>
+                  <div className="font-semibold">Sertifikat Valid</div>
+                  <div className="text-xs opacity-80">Certificate is authentic and issued by PT Kemika Karya Pratama.</div>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900">
+                <div className="flex items-center gap-2">
+                  <Ban className="w-5 h-5 shrink-0" />
+                  <div className="font-semibold">Sertifikat Dibatalkan (Revoked)</div>
+                </div>
+                <div className="text-xs mt-1 opacity-90">
+                  Sertifikat ini telah dibatalkan oleh laboratorium pada {fmtDate(data!.revoked_at)}.
+                </div>
+                {data!.revoked_reason && (
+                  <div className="text-xs mt-2">
+                    <span className="opacity-70">Alasan:</span> <span className="font-medium">{data!.revoked_reason}</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
               <Row k="No. Sertifikat" v={data!.certificate_number} />
