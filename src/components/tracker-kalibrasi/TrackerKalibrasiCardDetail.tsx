@@ -21,9 +21,10 @@ import {
   COLUMN_CHECKLISTS,
   computeKalibrasiColumn,
   KalibrasiV2Checklist,
+  canToggleChecklistKey,
 } from "@/hooks/useTrackerKalibrasi";
 import { useProducts } from "@/hooks/useMasterData";
-import { generateSPKPdf, generateCertificatePdf } from "@/lib/calibrationPdf";
+import { generateSPKPdf, generateCertificatePdf, generateBASTPdf } from "@/lib/calibrationPdf";
 import { printCalibrationSparepartRequest } from "@/lib/calibrationSparepartRequestPdf";
 import CalibrationLabelPicker from "./CalibrationLabelPicker";
 
@@ -225,7 +226,7 @@ export default function TrackerKalibrasiCardDetail({
   const [loadingComments, setLoadingComments] = useState(false);
   const [newComment, setNewComment] = useState("");
   const [sending, setSending] = useState(false);
-  const [pdfLoading, setPdfLoading] = useState<"spk" | "cert" | null>(null);
+  const [pdfLoading, setPdfLoading] = useState<"spk" | "cert" | "bast" | null>(null);
 
   // spare parts add form
   const [addingPart, setAddingPart] = useState(false);
@@ -1148,12 +1149,17 @@ export default function TrackerKalibrasiCardDetail({
                               {items.map((item) => {
                                 const checked = isChecked(item.key);
                                 const ts = checkedAt(item.key);
+                                const keyAllowed = canToggleChecklistKey(user?.role, item.key);
                                 return (
                                   <button
                                     key={item.key}
-                                    disabled={!canToggle || !receiptId}
+                                    disabled={!keyAllowed || !receiptId}
                                     onClick={() => {
                                       if (!receiptId) return;
+                                      if (!keyAllowed) {
+                                        toast.error('Hanya Finance / Admin / Super Admin yang dapat menandai checklist ini.');
+                                        return;
+                                      }
                                       // Block "Receive Instrument" toggle unless received date is filled & valid
                                       if (item.key === 'instrument_received' && !checked) {
                                         const currentReceivedDate = toDateInputValue(receivedDateInputRef.current?.value || receivedDateInputValue || receipt?.received_date);
@@ -1184,7 +1190,7 @@ export default function TrackerKalibrasiCardDetail({
                                     }}
                                     className={cn(
                                       "flex items-start gap-2.5 w-full text-left rounded-lg p-1.5 transition-colors",
-                                      canToggle ? "hover:bg-muted/40 cursor-pointer" : "cursor-default",
+                                      keyAllowed ? "hover:bg-muted/40 cursor-pointer" : "cursor-default opacity-70",
                                       checked && "bg-muted/30",
                                     )}
                                   >
@@ -1339,7 +1345,8 @@ export default function TrackerKalibrasiCardDetail({
                       {pdfLoading === "spk" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
                       SPK (F-KAL-02)
                     </Button>
-                    {getBoardColumn(checklists, receipt?.status)?.id === 'invoiced' && (
+                    {getBoardColumn(checklists, receipt?.status)?.id === 'delivered' && (
+                    <>
                     <Button
                       variant="outline" size="sm"
                       disabled={!receiptId || pdfLoading !== null || instruments.length === 0}
@@ -1355,6 +1362,22 @@ export default function TrackerKalibrasiCardDetail({
                       {pdfLoading === "cert" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
                       Sertifikat (F-KAL-05)
                     </Button>
+                    <Button
+                      variant="outline" size="sm"
+                      disabled={!receiptId || pdfLoading !== null}
+                      onClick={async () => {
+                        if (!receiptId) return;
+                        setPdfLoading("bast");
+                        try { await generateBASTPdf(receiptId); }
+                        catch (e) { toast.error("Gagal generate BAST PDF"); console.error(e); }
+                        finally { setPdfLoading(null); }
+                      }}
+                      className="gap-1.5 text-xs"
+                    >
+                      {pdfLoading === "bast" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+                      BAST (F-KAL-06)
+                    </Button>
+                    </>
                     )}
                   </div>
                 </div>

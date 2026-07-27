@@ -9,7 +9,7 @@ export type KalibrasiV2Column =
   | 'instrument_received'
   | 'calibration_in_progress'
   | 'completed'
-  | 'invoiced'
+  | 'delivered'
   | 'rejected';
 
 export interface KalibrasiV2Checklist {
@@ -59,7 +59,7 @@ export const COLUMN_DEFS: {
   { id: 'instrument_received',    label: 'Instrument Received',    desc: 'Received & Verified',                    color: 'bg-cyan-600'   },
   { id: 'calibration_in_progress',label: 'Calibration In Progress',desc: 'Service & Calibration',                  color: 'bg-blue-600'   },
   { id: 'completed',              label: 'Completed',              desc: 'Calibration Completed',                  color: 'bg-purple-600' },
-  { id: 'invoiced',               label: 'Invoiced',               desc: 'Payment Verified & Certificate Issued',  color: 'bg-orange-600' },
+  { id: 'delivered',              label: 'Delivered',              desc: 'Payment Verified & Instrument Delivered',color: 'bg-orange-600' },
   { id: 'rejected',               label: 'Rejected',               desc: 'Calibration Cannot Proceed',             color: 'bg-red-600'    },
 ];
 
@@ -72,21 +72,32 @@ export const COLUMN_CHECKLISTS: Record<KalibrasiV2Column, { key: string; label: 
     { key: 'spk_confirmed',        label: 'SPK Confirmed' },
   ],
   calibration_in_progress: [
-    { key: 'physical_check',       label: 'Cek fisik alat selesai' },
-    { key: 'calibration_done',     label: 'Semua alat selesai dikalibrasi' },
+    { key: 'calibration_completed', label: 'Calibration Completed' },
   ],
   completed: [
-    { key: 'certificate_issued',   label: 'Sertifikat diterbitkan' },
-    { key: 'invoice_sent',         label: 'Invoice dikirim ke customer' },
+    { key: 'payment_verified',      label: 'Payment Verified' },
+    { key: 'certificate_released',  label: 'Certificate Released' },
+    { key: 'instrument_delivered',  label: 'Instrument Delivered' },
   ],
-  invoiced: [
-    { key: 'payment_received',     label: 'Pembayaran diterima' },
-    { key: 'tools_returned',       label: 'Alat dikembalikan ke customer' },
-  ],
+  delivered: [],
   rejected: [],
 };
 
 export const CHECKLIST_TOGGLE_ROLES = ['super_admin', 'admin', 'warehouse', 'purchasing'];
+
+// Some checklist keys are restricted to finance/admin only.
+export const FINANCE_ONLY_CHECKLIST_KEYS = new Set<string>([
+  'payment_verified',
+  'certificate_released',
+  'instrument_delivered',
+]);
+export const FINANCE_CHECKLIST_ROLES = ['super_admin', 'admin', 'finance'];
+
+export function canToggleChecklistKey(role: string | undefined, key: string): boolean {
+  if (!role) return false;
+  if (FINANCE_ONLY_CHECKLIST_KEYS.has(key)) return FINANCE_CHECKLIST_ROLES.includes(role);
+  return CHECKLIST_TOGGLE_ROLES.includes(role);
+}
 
 // Legacy aliases used by TrackerKalibrasiCardDetail
 export type KalibrasiCard = KalibrasiV2Card;
@@ -108,10 +119,9 @@ export function computeKalibrasiColumn(
   const ok = (key: string) => checklists.some((c) => c.checklist_key === key && c.is_checked);
   if (!ok('instrument_received')) return 'scheduled';
   if (!ok('spk_issued') || !ok('spk_confirmed')) return 'instrument_received';
-  if (!ok('physical_check') || !ok('calibration_done')) return 'calibration_in_progress';
-  if (!ok('certificate_issued') || !ok('invoice_sent')) return 'completed';
-  if (!ok('payment_received') || !ok('tools_returned')) return 'invoiced';
-  return 'invoiced';
+  if (!ok('calibration_completed')) return 'calibration_in_progress';
+  if (!ok('payment_verified') || !ok('certificate_released') || !ok('instrument_delivered')) return 'completed';
+  return 'delivered';
 }
 
 export function useTrackerKalibrasi() {
