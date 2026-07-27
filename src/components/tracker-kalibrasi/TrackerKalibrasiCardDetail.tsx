@@ -1125,7 +1125,9 @@ export default function TrackerKalibrasiCardDetail({
                                     value={
                                       receipt?.status === 'rejected'
                                         ? 'rejected'
-                                        : ''
+                                        : ['accepted','spk_issued','in_progress','completed','invoiced','delivered'].includes(String(receipt?.status || ''))
+                                          ? 'accepted'
+                                          : ''
                                     }
                                     onChange={(e) => {
                                       const v = e.target.value as '' | 'accepted' | 'rejected';
