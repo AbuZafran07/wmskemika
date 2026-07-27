@@ -10,7 +10,9 @@ import { id as idLocale } from "date-fns/locale";
 const A4_W = 210;
 const A4_H = 297;
 const M_LEFT = 14;
-const M_RIGHT = 14;
+// Right margin is wider than left to clear the pre-baked green corner
+// decoration on the letterhead background so tables never bleed under it.
+const M_RIGHT = 24;
 const CONTENT_W = A4_W - M_LEFT - M_RIGHT;
 const M_TOP = 39;
 const M_BOTTOM = 38; // reserve room for kop surat footer (address block on bg)
