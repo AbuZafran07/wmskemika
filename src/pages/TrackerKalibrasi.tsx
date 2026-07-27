@@ -38,7 +38,7 @@ function totalValue(card: KalibrasiV2Card): number {
 
 function statusBadgeColor(status: string): string {
   const s = (status || "").toLowerCase();
-  if (s === "approved" || s === "completed" || s === "invoiced") return "bg-emerald-100 text-emerald-700 border-emerald-200";
+  if (s === "approved" || s === "completed" || s === "invoiced" || s === "delivered") return "bg-emerald-100 text-emerald-700 border-emerald-200";
   if (s === "rejected" || s === "cancelled") return "bg-red-100 text-red-700 border-red-200";
   if (s === "received" || s === "in_progress") return "bg-blue-100 text-blue-700 border-blue-200";
   return "bg-slate-100 text-slate-700 border-slate-200";
@@ -56,7 +56,7 @@ function KanbanCard({ card, columnId, onClickCard }: KanbanCardProps) {
   const isOverdue =
     card.target_completion_date &&
     isPast(new Date(card.target_completion_date + "T23:59:59")) &&
-    columnId !== "invoiced" && columnId !== "rejected";
+    columnId !== "delivered" && columnId !== "rejected";
 
   const instCount = card.instruments?.length ?? 0;
   const firstInstrument = card.instruments?.[0];
