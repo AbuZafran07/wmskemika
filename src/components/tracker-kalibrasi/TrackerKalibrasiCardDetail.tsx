@@ -1345,7 +1345,8 @@ export default function TrackerKalibrasiCardDetail({
                       {pdfLoading === "spk" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
                       SPK (F-KAL-02)
                     </Button>
-                    {getBoardColumn(checklists, receipt?.status)?.id === 'invoiced' && (
+                    {getBoardColumn(checklists, receipt?.status)?.id === 'delivered' && (
+                    <>
                     <Button
                       variant="outline" size="sm"
                       disabled={!receiptId || pdfLoading !== null || instruments.length === 0}
@@ -1361,6 +1362,22 @@ export default function TrackerKalibrasiCardDetail({
                       {pdfLoading === "cert" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
                       Sertifikat (F-KAL-05)
                     </Button>
+                    <Button
+                      variant="outline" size="sm"
+                      disabled={!receiptId || pdfLoading !== null}
+                      onClick={async () => {
+                        if (!receiptId) return;
+                        setPdfLoading("bast");
+                        try { await generateBASTPdf(receiptId); }
+                        catch (e) { toast.error("Gagal generate BAST PDF"); console.error(e); }
+                        finally { setPdfLoading(null); }
+                      }}
+                      className="gap-1.5 text-xs"
+                    >
+                      {pdfLoading === "bast" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+                      BAST (F-KAL-06)
+                    </Button>
+                    </>
                     )}
                   </div>
                 </div>
