@@ -11,7 +11,7 @@ const A4_H = 297;
 const M_LEFT = 14;
 const M_RIGHT = 14;
 const CONTENT_W = A4_W - M_LEFT - M_RIGHT;
-const M_TOP = 47;
+const M_TOP = 39;
 const M_BOTTOM = 38; // reserve room for kop surat footer (address block on bg)
 
 // ── typography scale (locked so layout is identical across devices) ───────────
@@ -86,7 +86,26 @@ async function getSignatureBase64(userId: string | null | undefined): Promise<st
 }
 
 function addBg(doc: jsPDF, bgData: string | null) {
-  if (bgData) doc.addImage(bgData, "JPEG", 0, 0, A4_W, A4_H);
+  if (!bgData) return;
+  // Inset background slightly so the pre-baked green corner decoration
+  // (top-right) does not touch the paper edges. We shrink the image
+  // uniformly on top/left/right and keep the bottom flush so the pre-baked
+  // company address footer stays in place.
+  const INSET = 4; // mm of whitespace around top/left/right edges
+  doc.addImage(
+    bgData,
+    "JPEG",
+    INSET,
+    INSET,
+    A4_W - INSET * 2,
+    A4_H - INSET,
+  );
+  // Mask any residual bleed at the very top/right edges to guarantee
+  // a clean white border around the decoration.
+  doc.setFillColor(255, 255, 255);
+  doc.rect(0, 0, A4_W, INSET, "F");
+  doc.rect(A4_W - INSET, 0, INSET, A4_H, "F");
+  doc.rect(0, 0, INSET, A4_H, "F");
 }
 
 function sectionHeader(doc: jsPDF, text: string, y: number): number {
