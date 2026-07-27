@@ -299,7 +299,7 @@ export default function TrackerKalibrasiCardDetail({
 
   // ── Proforma Invoice (PI) generation ────────────────────────────────────
   const navigate = useNavigate();
-  const { materaiAmount } = useMateraiSetting();
+  const { data: materaiAmount = 10000 } = useMateraiSetting();
   const [generatingPI, setGeneratingPI] = useState(false);
   const [existingPI, setExistingPI] = useState<string | null>(null);
   const [customerPaymentTerms, setCustomerPaymentTerms] = useState<string | null>(null);
