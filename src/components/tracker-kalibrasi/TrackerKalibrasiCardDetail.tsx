@@ -803,6 +803,13 @@ export default function TrackerKalibrasiCardDetail({
     if (receiptId) onSetSpkConfirmedDate?.(receiptId, nextValue);
   };
 
+  const paymentDateInputValue = toDateInputValue(receipt?.payment_verified_at);
+  const handleSetPaymentDate = (value: string | null) => {
+    const nextValue = value ? toDateInputValue(value) : null;
+    setReceipt((prev) => prev ? { ...prev, payment_verified_at: nextValue } : prev);
+    if (receiptId) onSetPaymentDate?.(receiptId, nextValue);
+  };
+
   // ── upload bukti SPK Confirmed ──────────────────────────────────────────
   const [uploadingSpkFile, setUploadingSpkFile] = useState(false);
 
