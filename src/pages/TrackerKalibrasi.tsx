@@ -50,9 +50,10 @@ interface KanbanCardProps {
   card: KalibrasiV2Card;
   columnId: KalibrasiV2Column;
   onClickCard: (id: string) => void;
+  labels?: { id: string; name: string; color: string }[];
 }
 
-function KanbanCard({ card, columnId, onClickCard }: KanbanCardProps) {
+function KanbanCard({ card, columnId, onClickCard, labels }: KanbanCardProps) {
   const isOverdue =
     card.target_completion_date &&
     isPast(new Date(card.target_completion_date + "T23:59:59")) &&
@@ -69,6 +70,21 @@ function KanbanCard({ card, columnId, onClickCard }: KanbanCardProps) {
         "hover:shadow-md hover:border-primary/40 transition-all cursor-pointer",
       )}
     >
+      {/* Custom labels (dipasang dari detail card) */}
+      {labels && labels.length > 0 && (
+        <div className="flex flex-wrap gap-1 -mt-0.5 mb-0.5">
+          {labels.map((l) => (
+            <span
+              key={l.id}
+              className="text-[9px] font-semibold text-white px-1.5 py-0.5 rounded"
+              style={{ backgroundColor: l.color }}
+              title={l.name}
+            >
+              {l.name}
+            </span>
+          ))}
+        </div>
+      )}
       {/* SO number + status */}
       <div className="flex items-start justify-between gap-2">
         <span className="font-bold text-primary text-[13px] truncate">
@@ -164,9 +180,10 @@ interface ColumnProps {
   colDef: (typeof COLUMN_DEFS)[number];
   cards: KalibrasiV2Card[];
   onClickCard: (id: string) => void;
+  labelsByCard?: Record<string, { id: string; name: string; color: string }[]>;
 }
 
-function KanbanColumn({ colDef, cards, onClickCard }: ColumnProps) {
+function KanbanColumn({ colDef, cards, onClickCard, labelsByCard }: ColumnProps) {
   return (
     <div className="flex flex-col w-[85vw] sm:w-72 max-w-[320px] flex-none">
       {/* Column header */}
@@ -196,6 +213,7 @@ function KanbanColumn({ colDef, cards, onClickCard }: ColumnProps) {
               card={card}
               columnId={colDef.id}
               onClickCard={onClickCard}
+              labels={labelsByCard?.[card.id]}
             />
           ))
         )}
@@ -240,6 +258,36 @@ export default function TrackerKalibrasi() {
   });
   const [boardBgUrl, setBoardBgUrl] = useState<string>("");
   const [bgInput, setBgInput] = useState("");
+
+  // Card labels map (sales_order_id -> labels)
+  const [labelsByCard, setLabelsByCard] = useState<Record<string, { id: string; name: string; color: string }[]>>({});
+
+  const loadCardLabels = React.useCallback(async () => {
+    const [{ data: labels }, { data: links }] = await Promise.all([
+      (supabase as any).from("calibration_labels").select("id, name, color"),
+      (supabase as any).from("calibration_card_labels").select("sales_order_id, label_id"),
+    ]);
+    const labelMap = new Map<string, { id: string; name: string; color: string }>();
+    (labels || []).forEach((l: any) => labelMap.set(l.id, l));
+    const map: Record<string, { id: string; name: string; color: string }[]> = {};
+    (links || []).forEach((row: any) => {
+      const l = labelMap.get(row.label_id);
+      if (!l) return;
+      if (!map[row.sales_order_id]) map[row.sales_order_id] = [];
+      map[row.sales_order_id].push(l);
+    });
+    setLabelsByCard(map);
+  }, []);
+
+  useEffect(() => {
+    loadCardLabels();
+    const channel = supabase
+      .channel("calibration_card_labels_board")
+      .on("postgres_changes", { event: "*", schema: "public", table: "calibration_card_labels" }, () => loadCardLabels())
+      .on("postgres_changes", { event: "*", schema: "public", table: "calibration_labels" }, () => loadCardLabels())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [loadCardLabels]);
 
   const handleSetFullView = (v: boolean) => {
     setIsFullView(v);
@@ -648,6 +696,7 @@ export default function TrackerKalibrasi() {
                   colDef={col}
                   cards={filteredColumnCards(col.id)}
                   onClickCard={setSelectedId}
+                  labelsByCard={labelsByCard}
                 />
               </div>
             ))}
