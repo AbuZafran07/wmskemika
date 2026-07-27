@@ -1149,12 +1149,17 @@ export default function TrackerKalibrasiCardDetail({
                               {items.map((item) => {
                                 const checked = isChecked(item.key);
                                 const ts = checkedAt(item.key);
+                                const keyAllowed = canToggleChecklistKey(user?.role, item.key);
                                 return (
                                   <button
                                     key={item.key}
-                                    disabled={!canToggle || !receiptId}
+                                    disabled={!keyAllowed || !receiptId}
                                     onClick={() => {
                                       if (!receiptId) return;
+                                      if (!keyAllowed) {
+                                        toast.error('Hanya Finance / Admin / Super Admin yang dapat menandai checklist ini.');
+                                        return;
+                                      }
                                       // Block "Receive Instrument" toggle unless received date is filled & valid
                                       if (item.key === 'instrument_received' && !checked) {
                                         const currentReceivedDate = toDateInputValue(receivedDateInputRef.current?.value || receivedDateInputValue || receipt?.received_date);
@@ -1185,7 +1190,7 @@ export default function TrackerKalibrasiCardDetail({
                                     }}
                                     className={cn(
                                       "flex items-start gap-2.5 w-full text-left rounded-lg p-1.5 transition-colors",
-                                      canToggle ? "hover:bg-muted/40 cursor-pointer" : "cursor-default",
+                                      keyAllowed ? "hover:bg-muted/40 cursor-pointer" : "cursor-default opacity-70",
                                       checked && "bg-muted/30",
                                     )}
                                   >
