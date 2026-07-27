@@ -228,6 +228,17 @@ export default function TrackerKalibrasiCardDetail({
   const [sending, setSending] = useState(false);
   const [pdfLoading, setPdfLoading] = useState<"spk" | "cert" | "bast" | null>(null);
 
+  // ── document generation history ─────────────────────────────────────────
+  type DocLog = {
+    id: string;
+    document_type: 'spk' | 'certificate' | 'bast';
+    document_number: string | null;
+    file_url: string | null;
+    generated_by_email: string | null;
+    created_at: string;
+  };
+  const [docLogs, setDocLogs] = useState<DocLog[]>([]);
+
   // spare parts add form
   const [addingPart, setAddingPart] = useState(false);
   const [newPart, setNewPart] = useState({ instrument_id: "", product_id: "", qty_used: "1", unit_price: "0", notes: "" });
@@ -387,6 +398,56 @@ export default function TrackerKalibrasiCardDetail({
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [receiptId, fetchReceipt]);
+
+  // ── document generation history ─────────────────────────────────────────
+  const fetchDocLogs = useCallback(async () => {
+    if (!receiptId) { setDocLogs([]); return; }
+    const { data, error } = await (supabase as any)
+      .from('calibration_document_logs')
+      .select('id, document_type, document_number, file_url, generated_by_email, created_at')
+      .eq('sales_order_id', receiptId)
+      .order('created_at', { ascending: false });
+    if (!error) setDocLogs((data || []) as DocLog[]);
+  }, [receiptId]);
+
+  useEffect(() => { fetchDocLogs(); }, [fetchDocLogs]);
+
+  useEffect(() => {
+    if (!receiptId) return;
+    const ch = supabase
+      .channel(`kal-doc-logs-${receiptId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'calibration_document_logs', filter: `sales_order_id=eq.${receiptId}` }, fetchDocLogs)
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [receiptId, fetchDocLogs]);
+
+  const logCalibrationDoc = useCallback(async (
+    docType: 'spk' | 'certificate' | 'bast',
+    docNumber: string | null,
+  ) => {
+    if (!receiptId || !user?.id) return;
+    try {
+      await (supabase as any).from('calibration_document_logs').insert({
+        sales_order_id: receiptId,
+        document_type: docType,
+        document_number: docNumber,
+        generated_by: user.id,
+        generated_by_email: user.email ?? null,
+      });
+      await (supabase as any).from('audit_logs').insert({
+        user_id: user.id,
+        user_email: user.email ?? null,
+        action: 'generate_document',
+        module: 'tracker-kalibrasi',
+        ref_table: 'sales_order_headers',
+        ref_id: receiptId,
+        ref_no: docNumber || receipt?.spk_number || receipt?.receipt_number || null,
+        new_data: { document_type: docType, document_number: docNumber },
+      });
+    } catch (e) {
+      console.error('logCalibrationDoc error:', e);
+    }
+  }, [receiptId, user?.id, user?.email, receipt?.spk_number, receipt?.receipt_number]);
 
   // ── fetch comments ──────────────────────────────────────────────────────
 
@@ -1153,11 +1214,17 @@ export default function TrackerKalibrasiCardDetail({
                                 return (
                                   <button
                                     key={item.key}
-                                    disabled={!keyAllowed || !receiptId}
+                                    disabled={!receiptId}
+                                    aria-disabled={!keyAllowed}
+                                    title={
+                                      !keyAllowed
+                                        ? 'Read-only untuk role Anda. Hanya Finance / Admin / Super Admin yang dapat menandai checklist ini.'
+                                        : undefined
+                                    }
                                     onClick={() => {
                                       if (!receiptId) return;
                                       if (!keyAllowed) {
-                                        toast.error('Hanya Finance / Admin / Super Admin yang dapat menandai checklist ini.');
+                                        toast.error('Read-only untuk role Anda. Hanya Finance / Admin / Super Admin yang dapat menandai checklist Payment Verified, Certificate Released, dan Instrument Delivered.');
                                         return;
                                       }
                                       // Block "Receive Instrument" toggle unless received date is filled & valid
@@ -1337,8 +1404,9 @@ export default function TrackerKalibrasiCardDetail({
                         if (!receiptId) return;
                         setPdfLoading("spk");
                         try { await generateSPKPdf(receiptId); }
-                        catch (e) { toast.error("Gagal generate SPK PDF"); console.error(e); }
+                        catch (e) { toast.error("Gagal generate SPK PDF"); console.error(e); setPdfLoading(null); return; }
                         finally { setPdfLoading(null); }
+                        await logCalibrationDoc('spk', receipt?.spk_number ?? null);
                       }}
                       className="gap-1.5 text-xs"
                     >
@@ -1354,8 +1422,10 @@ export default function TrackerKalibrasiCardDetail({
                         if (!receiptId) return;
                         setPdfLoading("cert");
                         try { await generateCertificatePdf(receiptId); }
-                        catch (e) { toast.error("Gagal generate Sertifikat PDF"); console.error(e); }
+                        catch (e) { toast.error("Gagal generate Sertifikat PDF"); console.error(e); setPdfLoading(null); return; }
                         finally { setPdfLoading(null); }
+                        const firstCert = instruments.find(i => (i as any).certificate_number)?.['certificate_number' as any] as string | undefined;
+                        await logCalibrationDoc('certificate', firstCert ?? receipt?.spk_number ?? null);
                       }}
                       className="gap-1.5 text-xs"
                     >
@@ -1369,8 +1439,9 @@ export default function TrackerKalibrasiCardDetail({
                         if (!receiptId) return;
                         setPdfLoading("bast");
                         try { await generateBASTPdf(receiptId); }
-                        catch (e) { toast.error("Gagal generate BAST PDF"); console.error(e); }
+                        catch (e) { toast.error("Gagal generate BAST PDF"); console.error(e); setPdfLoading(null); return; }
                         finally { setPdfLoading(null); }
+                        await logCalibrationDoc('bast', receipt?.spk_number ?? receipt?.receipt_number ?? null);
                       }}
                       className="gap-1.5 text-xs"
                     >
@@ -1378,6 +1449,64 @@ export default function TrackerKalibrasiCardDetail({
                       BAST (F-KAL-06)
                     </Button>
                     </>
+                    )}
+                  </div>
+
+                  {/* Document generation history */}
+                  <div className="mt-3 rounded-lg border bg-muted/20">
+                    <div className="px-3 py-2 border-b flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Riwayat Pembuatan Dokumen
+                      </span>
+                      <Badge variant="secondary" className="h-4 text-[10px] px-1.5 ml-auto">
+                        {docLogs.length}
+                      </Badge>
+                    </div>
+                    {docLogs.length === 0 ? (
+                      <div className="px-3 py-3 text-[11px] text-muted-foreground italic">
+                        Belum ada dokumen yang di-generate.
+                      </div>
+                    ) : (
+                      <div className="divide-y">
+                        {docLogs.map((log) => {
+                          const label =
+                            log.document_type === 'spk' ? 'SPK (F-KAL-02)'
+                            : log.document_type === 'certificate' ? 'Sertifikat (F-KAL-05)'
+                            : 'BAST (F-KAL-06)';
+                          return (
+                            <div key={log.id} className="px-3 py-2 flex items-center gap-3 text-xs">
+                              <FileText className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-medium">{label}</span>
+                                  {log.document_number && (
+                                    <span className="text-muted-foreground">· {log.document_number}</span>
+                                  )}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground truncate">
+                                  {format(new Date(log.created_at), 'dd MMM yyyy HH:mm', { locale: idLocale })}
+                                  {log.generated_by_email ? ` · ${log.generated_by_email}` : ''}
+                                </div>
+                              </div>
+                              {log.file_url ? (
+                                <a
+                                  href={log.file_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-primary underline text-[11px] flex-shrink-0"
+                                >
+                                  Download
+                                </a>
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground flex-shrink-0">
+                                  Preview di browser
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
                 </div>
