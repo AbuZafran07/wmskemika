@@ -696,6 +696,7 @@ export default function TrackerKalibrasi() {
                   colDef={col}
                   cards={filteredColumnCards(col.id)}
                   onClickCard={setSelectedId}
+                  labelsByCard={labelsByCard}
                 />
               </div>
             ))}
