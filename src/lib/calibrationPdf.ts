@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import QRCode from "qrcode";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
@@ -586,6 +587,25 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
     setFont(doc, "bold", 10);
     doc.text(`Tangerang, ${issueDate}`, A4_W / 2, y, { align: "center" });
     y += 8;
+
+    // QR verification code (top-right of page 2, inside safe area)
+    if (item.certificate_number) {
+      try {
+        const verifyUrl = `${window.location.origin}/verify/${encodeURIComponent(item.certificate_number)}`;
+        const qrData = await QRCode.toDataURL(verifyUrl, { margin: 0, width: 240 });
+        const qrSize = 26;
+        const qrX = A4_W - M_RIGHT - qrSize;
+        const qrY = M_TOP + 4;
+        doc.addImage(qrData, "PNG", qrX, qrY, qrSize, qrSize);
+        setFont(doc, "normal", 7);
+        doc.setTextColor(90, 90, 90);
+        doc.text("Scan untuk verifikasi", qrX + qrSize / 2, qrY + qrSize + 3, { align: "center" });
+        doc.text("Scan to verify", qrX + qrSize / 2, qrY + qrSize + 6, { align: "center" });
+        doc.setTextColor(0, 0, 0);
+      } catch (e) {
+        console.error("QR generation failed:", e);
+      }
+    }
 
     // Signatures — 3 columns
     const [techSig, checkSig, authSig] = await Promise.all([
