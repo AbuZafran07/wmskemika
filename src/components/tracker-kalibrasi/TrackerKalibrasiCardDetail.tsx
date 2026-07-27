@@ -1638,6 +1638,82 @@ export default function TrackerKalibrasiCardDetail({
                       </div>
                     )}
                   </div>
+
+                  {/* Attachments panel */}
+                  <div className="mt-3 rounded-lg border bg-muted/20">
+                    <div className="px-3 py-2 border-b flex items-center gap-1.5">
+                      <Paperclip className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Lampiran Dokumen
+                      </span>
+                      <Badge variant="secondary" className="h-4 text-[10px] px-1.5 ml-auto">
+                        {attachments.length}
+                      </Badge>
+                    </div>
+                    <div className="p-3 space-y-2">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        onChange={handleFileUpload}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingFile || !receiptId}
+                        className="w-full gap-1.5 text-xs"
+                      >
+                        {uploadingFile
+                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          : <Upload className="w-3.5 h-3.5" />}
+                        {uploadingFile ? "Mengupload..." : "Upload File"}
+                      </Button>
+                      {attachments.length === 0 ? (
+                        <div className="text-[11px] text-muted-foreground italic text-center py-2">
+                          Belum ada lampiran.
+                        </div>
+                      ) : (
+                        <div className="divide-y rounded border bg-background">
+                          {attachments.map((att) => (
+                            <div key={att.id} className="px-3 py-2 flex items-center gap-2 text-xs">
+                              <FileText className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium truncate" title={att.file_name || ''}>
+                                  {att.file_name || att.file_key.split('/').pop()}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground truncate">
+                                  {formatFileSize(att.file_size)}
+                                  {att.uploader_name ? ` · ${att.uploader_name}` : ''}
+                                  {` · ${format(new Date(att.uploaded_at), 'dd MMM yyyy HH:mm', { locale: idLocale })}`}
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 flex-shrink-0"
+                                onClick={() => handleDownloadAttachment(att)}
+                                title="Download"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                              </Button>
+                              {(att.uploaded_by === user?.id || currentUserRole === 'super_admin' || currentUserRole === 'admin') && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 flex-shrink-0 text-destructive hover:text-destructive"
+                                  onClick={() => handleDeleteAttachment(att)}
+                                  title="Hapus"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
               </div>
