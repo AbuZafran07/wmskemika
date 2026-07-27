@@ -53,6 +53,7 @@ const menuItems: { groupKey: string; items: MenuItem[] }[] = [
       { key: "requestDelivery", menuKey: "requestDelivery", labelKey: "menu.requestDelivery", subLabelKey: "menu.requestDeliverySub", icon: Truck, href: "/request-delivery" },
       { key: "trackerPO", menuKey: "trackerPO", labelKey: "menu.trackerPO", subLabelKey: "menu.trackerPOSub", icon: ClipboardCheck, href: "/tracker-po" },
       { key: "trackerKalibrasi", menuKey: "trackerKalibrasi", labelKey: "menu.trackerKalibrasi", subLabelKey: "menu.trackerKalibrasiSub", icon: FlaskConical, href: "/tracker-kalibrasi" },
+      { key: "arsipSertifikat", menuKey: "arsipSertifikat", labelKey: "menu.arsipSertifikat", subLabelKey: "menu.arsipSertifikatSub", icon: FileText, href: "/arsip-sertifikat" },
     ],
   },
   {
