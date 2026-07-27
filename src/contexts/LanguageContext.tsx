@@ -51,6 +51,8 @@ const translations: Record<Language, Record<string, string>> = {
     "menu.trackerPOSub": "Purchase Order Tracker",
     "menu.trackerKalibrasi": "Tracker Kalibrasi",
     "menu.trackerKalibrasiSub": "Calibration Service Tracker",
+    "menu.arsipSertifikat": "Arsip Sertifikat",
+    "menu.arsipSertifikatSub": "Issued Calibration Certificates",
     "menu.planOrder": "Plan Order",
     "menu.planOrderSub": "Inbound Plan",
     "menu.stockIn": "Stock In",
