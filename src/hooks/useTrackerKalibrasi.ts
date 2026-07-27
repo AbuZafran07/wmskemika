@@ -415,6 +415,29 @@ export function useTrackerKalibrasi() {
     [canToggle, fetchData],
   );
 
+  const setPaymentVerifiedDate = useCallback(
+    async (receiptId: string, dateISO: string | null) => {
+      if (!user?.id) return;
+      if (!FINANCE_CHECKLIST_ROLES.includes(role || '')) {
+        toast.error('Hanya Finance / Admin / Super Admin yang dapat mengatur tanggal pembayaran.');
+        return;
+      }
+      try {
+        const value = dateISO || null;
+        const { error } = await (supabase as any)
+          .from('sales_order_headers')
+          .update({ payment_verified_at: value })
+          .eq('id', receiptId);
+        if (error) throw error;
+        fetchData();
+      } catch (err) {
+        console.error('setPaymentVerifiedDate error:', err);
+        toast.error('Gagal update tanggal pembayaran');
+      }
+    },
+    [user, role, fetchData],
+  );
+
   const setDecision = useCallback(
     async (receiptId: string, decision: 'accepted' | 'rejected') => {
       if (!canToggle) return;
@@ -448,6 +471,7 @@ export function useTrackerKalibrasi() {
     toggleChecklist,
     setReceivedDate,
     setSpkConfirmedDate,
+    setPaymentVerifiedDate,
     setDecision,
     refetch: fetchData,
   };

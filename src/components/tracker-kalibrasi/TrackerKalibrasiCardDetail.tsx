@@ -23,6 +23,7 @@ import {
   computeKalibrasiColumn,
   KalibrasiV2Checklist,
   canToggleChecklistKey,
+  FINANCE_CHECKLIST_ROLES,
 } from "@/hooks/useTrackerKalibrasi";
 import { useProducts } from "@/hooks/useMasterData";
 import { generateSPKPdf, generateCertificatePdf, generateBASTPdf } from "@/lib/calibrationPdf";
@@ -39,6 +40,7 @@ interface ReceiptDetail {
   spk_issued_at: string | null;
   spk_signed_at: string | null;
   spk_confirmed_at: string | null;
+  payment_verified_at: string | null;
   status: string;
   so_status: string | null;
   spk_confirmed_file_url: string | null;
@@ -202,6 +204,7 @@ interface Props {
   onToggle: (receiptId: string, key: string) => void;
   onSetReceivedDate?: (receiptId: string, dateISO: string | null) => void;
   onSetSpkConfirmedDate?: (receiptId: string, dateISO: string | null) => void;
+  onSetPaymentDate?: (receiptId: string, dateISO: string | null) => void;
   onSetDecision?: (receiptId: string, decision: 'accepted' | 'rejected') => void;
   onClose: () => void;
 }
@@ -213,6 +216,7 @@ export default function TrackerKalibrasiCardDetail({
   onToggle,
   onSetReceivedDate,
   onSetSpkConfirmedDate,
+  onSetPaymentDate,
   onSetDecision,
   onClose,
 }: Props) {
@@ -291,6 +295,7 @@ export default function TrackerKalibrasiCardDetail({
             calibration_status, status, calibration_received_at,
             target_completion_date, service_location, service_pic_name,
             service_pic_phone, customer_request_notes, created_at, created_by, spk_confirmed_at,
+            payment_verified_at,
             sales_name, allocation_type, project_instansi,
             spk_confirmed_file_url, spk_confirmed_file_name,
             customer:customers(id, name, code, pic, phone, address)
@@ -337,6 +342,7 @@ export default function TrackerKalibrasiCardDetail({
             spk_issued_at: h.spk_issued_at ?? null,
             spk_signed_at: null,
             spk_confirmed_at: h.spk_confirmed_at ?? null,
+            payment_verified_at: h.payment_verified_at ?? null,
             status: h.calibration_status ?? h.status ?? "draft",
             so_status: h.status ?? null,
             spk_confirmed_file_url: h.spk_confirmed_file_url ?? null,
@@ -796,6 +802,13 @@ export default function TrackerKalibrasiCardDetail({
     const nextValue = value ? toDateInputValue(value) : null;
     setReceipt((prev) => prev ? { ...prev, spk_confirmed_at: nextValue } : prev);
     if (receiptId) onSetSpkConfirmedDate?.(receiptId, nextValue);
+  };
+
+  const paymentDateInputValue = toDateInputValue(receipt?.payment_verified_at);
+  const handleSetPaymentDate = (value: string | null) => {
+    const nextValue = value ? toDateInputValue(value) : null;
+    setReceipt((prev) => prev ? { ...prev, payment_verified_at: nextValue } : prev);
+    if (receiptId) onSetPaymentDate?.(receiptId, nextValue);
   };
 
   // ── upload bukti SPK Confirmed ──────────────────────────────────────────
@@ -1403,6 +1416,25 @@ export default function TrackerKalibrasiCardDetail({
                                   </button>
                                 );
                               })}
+
+                              {/* Completed: input Tgl Pembayaran (Payment Verified) */}
+                              {col.id === 'completed' && receiptId && (
+                                <div className="rounded-lg border border-dashed p-2.5 bg-muted/20 mt-2">
+                                  <label className="text-[11px] text-muted-foreground block mb-1">
+                                    Tgl Pembayaran
+                                  </label>
+                                  <Input
+                                    type="date"
+                                    className="h-8 text-sm"
+                                    value={paymentDateInputValue}
+                                    disabled={!FINANCE_CHECKLIST_ROLES.includes(user?.role || '')}
+                                    onChange={(e) => handleSetPaymentDate(e.target.value || null)}
+                                  />
+                                  <p className="text-[10px] text-muted-foreground mt-1">
+                                    Tanggal saat pembayaran diverifikasi. Hanya Finance / Admin / Super Admin yang dapat mengubah.
+                                  </p>
+                                </div>
+                              )}
 
                               {/* Instrument Received: input Tgl SPK Confirmed di bawah checklist */}
                               {col.id === 'instrument_received' && canToggle && receiptId && (
