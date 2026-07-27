@@ -3,7 +3,7 @@ import {
   FlaskConical, X, Send, Loader2, CheckSquare, Square,
   MapPin, Phone, User, CalendarDays, FileText, Download,
   Plus, Trash2, Package, MessageSquare, Printer, AtSign,
-  Paperclip, Upload,
+  Paperclip, Upload, Receipt,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
@@ -29,6 +29,21 @@ import { useProducts } from "@/hooks/useMasterData";
 import { generateSPKPdf, generateCertificatePdf, generateBASTPdf } from "@/lib/calibrationPdf";
 import { printCalibrationSparepartRequest } from "@/lib/calibrationSparepartRequestPdf";
 import CalibrationLabelPicker from "./CalibrationLabelPicker";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  generateUniquePINumber,
+  calculateMaterai,
+  useMateraiSetting,
+} from "@/hooks/useProformaInvoices";
+import { useNavigate } from "react-router-dom";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -282,6 +297,17 @@ export default function TrackerKalibrasiCardDetail({
   const receivedDateInputRef = useRef<HTMLInputElement>(null);
   const spkConfirmedDateInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Proforma Invoice (PI) generation ────────────────────────────────────
+  const navigate = useNavigate();
+  const { data: materaiAmount = 10000 } = useMateraiSetting();
+  const [generatingPI, setGeneratingPI] = useState(false);
+  const [existingPI, setExistingPI] = useState<string | null>(null);
+  const [customerPaymentTerms, setCustomerPaymentTerms] = useState<string | null>(null);
+  const [customerType, setCustomerType] = useState<string | null>(null);
+  const [showDpTerminDialog, setShowDpTerminDialog] = useState(false);
+  const [dpPercentInput, setDpPercentInput] = useState<string>("30");
+  const [termDaysInput, setTermDaysInput] = useState<string>("30");
+
   // ── fetch receipt + instruments ─────────────────────────────────────────
 
   const fetchReceipt = useCallback(async () => {
@@ -421,6 +447,141 @@ export default function TrackerKalibrasiCardDetail({
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [receiptId, fetchReceipt]);
+
+  // ── fetch customer payment terms & existing PI for this SO ──────────────
+  useEffect(() => {
+    if (!receiptId) {
+      setCustomerPaymentTerms(null);
+      setCustomerType(null);
+      setExistingPI(null);
+      return;
+    }
+    (async () => {
+      const { data: so } = await (supabase as any)
+        .from('sales_order_headers')
+        .select('customer_id')
+        .eq('id', receiptId)
+        .maybeSingle();
+      if (so?.customer_id) {
+        const { data: cust } = await (supabase as any)
+          .from('customers')
+          .select('terms_payment, customer_type')
+          .eq('id', so.customer_id)
+          .maybeSingle();
+        setCustomerPaymentTerms(cust?.terms_payment ?? null);
+        setCustomerType(cust?.customer_type ?? null);
+      }
+      const { data: piData } = await (supabase as any)
+        .from('proforma_invoices')
+        .select('id, pi_number, status')
+        .eq('sales_order_id', receiptId)
+        .neq('status', 'cancelled')
+        .neq('status', 'rejected')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      setExistingPI(piData && piData.length > 0 ? piData[0].pi_number : null);
+    })();
+  }, [receiptId]);
+
+  const handleGeneratePI = useCallback(async (opts?: { dpPercent?: number; termDays?: number; paymentNote?: string }) => {
+    if (!receiptId || !user) return;
+    setGeneratingPI(true);
+    try {
+      const { data: soHeader } = await (supabase as any)
+        .from('sales_order_headers')
+        .select('*')
+        .eq('id', receiptId)
+        .single();
+      if (!soHeader) throw new Error('Sales Order tidak ditemukan');
+
+      const { data: soItems } = await (supabase as any)
+        .from('sales_order_items')
+        .select('*, product:products(name)')
+        .eq('sales_order_id', receiptId);
+      if (!soItems || soItems.length === 0) throw new Error('Item Sales Order tidak ditemukan');
+
+      const { data: cust } = await (supabase as any)
+        .from('customers')
+        .select('*')
+        .eq('id', soHeader.customer_id)
+        .single();
+
+      const piNumber = await generateUniquePINumber();
+      const discount = soHeader.discount || 0;
+      const shippingCost = soHeader.shipping_cost || 0;
+
+      const piItemsData = (soItems as any[]).map((item: any) => {
+        const baseAmount = (item.ordered_qty || 0) * (item.unit_price || 0);
+        const itemDiscount = item.discount || 0;
+        const subtotalAfterDiscount = baseAmount - itemDiscount;
+        return {
+          product_id: item.product_id,
+          product_name: item.instrument_name || item.description || (item.product as any)?.name || 'Kalibrasi',
+          qty: item.ordered_qty,
+          unit_price: item.unit_price,
+          discount: itemDiscount,
+          subtotal: Math.round(subtotalAfterDiscount),
+        };
+      });
+
+      const dpp = piItemsData.reduce((sum: number, it: any) => sum + it.subtotal, 0);
+      const dppPengganti = Math.round(dpp * 11 / 12);
+      const taxAmount = Math.round(dppPengganti * 0.12);
+      const materai = calculateMaterai(cust?.customer_type, dpp, shippingCost, taxAmount, materaiAmount);
+      const grandTotal = Math.round(dpp + shippingCost + taxAmount + materai);
+
+      const { data: piInserted, error: piError } = await (supabase as any)
+        .from('proforma_invoices')
+        .insert({
+          pi_number: piNumber,
+          sales_order_id: receiptId,
+          customer_id: soHeader.customer_id,
+          delivery_request_id: null,
+          subtotal: dpp,
+          discount,
+          tax_rate: 12,
+          tax_amount: taxAmount,
+          shipping_cost: shippingCost,
+          other_costs: 0,
+          materai_amount: materai,
+          grand_total: grandTotal,
+          customer_type: cust?.customer_type,
+          payment_terms: cust?.terms_payment,
+          status: 'pending',
+          notes: null,
+          created_by: user.id,
+          dp_percent: opts?.dpPercent ?? null,
+          term_days: opts?.termDays ?? null,
+          payment_note: opts?.paymentNote ?? null,
+        })
+        .select('id')
+        .single();
+      if (piError) throw piError;
+
+      const piItems = piItemsData.map((it: any) => ({ ...it, proforma_invoice_id: piInserted.id }));
+      const { error: itemsError } = await (supabase as any)
+        .from('proforma_invoice_items')
+        .insert(piItems);
+      if (itemsError) throw itemsError;
+
+      await (supabase as any).from('audit_logs').insert({
+        user_id: user.id,
+        user_email: user.email,
+        action: 'create',
+        module: 'proforma_invoice',
+        ref_id: piInserted.id,
+        ref_no: piNumber,
+        ref_table: 'proforma_invoices',
+      });
+
+      setExistingPI(piNumber);
+      toast.success(`Proforma Invoice ${piNumber} berhasil dibuat!`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal generate Proforma Invoice');
+    } finally {
+      setGeneratingPI(false);
+    }
+  }, [receiptId, user, materaiAmount]);
 
   // ── document generation history ─────────────────────────────────────────
   const fetchDocLogs = useCallback(async () => {
@@ -1574,6 +1735,50 @@ export default function TrackerKalibrasiCardDetail({
                       {pdfLoading === "spk" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
                       SPK (F-KAL-02)
                     </Button>
+                    {/* Generate PI — sama seperti Kanban Request Delivery */}
+                    {(() => {
+                      const termsUpper = customerPaymentTerms?.toUpperCase() || '';
+                      const isCBDTerms = termsUpper === 'CBD';
+                      const isDpTermTerms = termsUpper.includes('DP') && (termsUpper.includes('TERMIN') || termsUpper.includes('TOP') || /\d+\s*HARI/.test(termsUpper));
+                      const eligible = isCBDTerms || isDpTermTerms;
+                      const canGenerate = user?.role === 'sales' || user?.role === 'super_admin' || user?.role === 'finance';
+                      const spkIssued = isChecked('spk_issued');
+                      if (existingPI) {
+                        return (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5 text-xs text-emerald-600 border-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                            onClick={() => { onClose(); navigate('/proforma-invoice'); }}
+                          >
+                            <Receipt className="w-3.5 h-3.5" />
+                            PI: {existingPI}
+                          </Button>
+                        );
+                      }
+                      if (!eligible || !canGenerate) return null;
+                      return (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 text-xs text-emerald-600 border-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                          disabled={!receiptId || generatingPI || !spkIssued}
+                          title={!spkIssued ? 'Centang "SPK Issued" dulu untuk generate PI' : undefined}
+                          onClick={() => {
+                            if (isDpTermTerms) {
+                              setDpPercentInput("30");
+                              setTermDaysInput("30");
+                              setShowDpTerminDialog(true);
+                            } else {
+                              handleGeneratePI();
+                            }
+                          }}
+                        >
+                          {generatingPI ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Receipt className="w-3.5 h-3.5" />}
+                          Generate PI
+                        </Button>
+                      );
+                    })()}
                     {getBoardColumn(checklists, receipt?.status)?.id === 'delivered' && (
                     <>
                     <Button
@@ -1783,6 +1988,76 @@ export default function TrackerKalibrasiCardDetail({
           </>
         )}
       </div>
+
+      {/* DP + Termin Setup Dialog */}
+      <Dialog open={showDpTerminDialog} onOpenChange={setShowDpTerminDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="h-5 w-5 text-emerald-600" />
+              Setup DP + Termin
+            </DialogTitle>
+            <DialogDescription>
+              Tentukan persentase Down Payment dan jumlah hari termin sebelum PI dibuat.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="kal-dp-percent">DP (%)</Label>
+                <Input
+                  id="kal-dp-percent"
+                  type="number"
+                  min={1}
+                  max={99}
+                  value={dpPercentInput}
+                  onChange={(e) => setDpPercentInput(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="kal-term-days">Termin (hari)</Label>
+                <Input
+                  id="kal-term-days"
+                  type="number"
+                  min={1}
+                  value={termDaysInput}
+                  onChange={(e) => setTermDaysInput(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="text-xs text-muted-foreground bg-muted/50 rounded p-2">
+              Note di PDF: <span className="italic">"Sisa pembayaran {termDaysInput || 'N'} hari setelah invoice diterbitkan"</span>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDpTerminDialog(false)} disabled={generatingPI}>
+              Batal
+            </Button>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              disabled={generatingPI}
+              onClick={async () => {
+                const dp = parseFloat(dpPercentInput);
+                const days = parseInt(termDaysInput, 10);
+                if (!dp || dp <= 0 || dp >= 100) {
+                  toast.error("DP harus antara 1-99%");
+                  return;
+                }
+                if (!days || days <= 0) {
+                  toast.error("Termin harus minimal 1 hari");
+                  return;
+                }
+                const note = `Sisa pembayaran ${days} hari setelah invoice diterbitkan`;
+                await handleGeneratePI({ dpPercent: dp, termDays: days, paymentNote: note });
+                setShowDpTerminDialog(false);
+              }}
+            >
+              {generatingPI ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
+              Generate PI
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
