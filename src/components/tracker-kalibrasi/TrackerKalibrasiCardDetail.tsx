@@ -1613,64 +1613,6 @@ export default function TrackerKalibrasiCardDetail({
                     )}
                   </div>
 
-                  {/* Document generation history */}
-                  <div className="mt-3 rounded-lg border bg-muted/20">
-                    <div className="px-3 py-2 border-b flex items-center gap-1.5">
-                      <FileText className="w-3.5 h-3.5 text-muted-foreground" />
-                      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Riwayat Pembuatan Dokumen
-                      </span>
-                      <Badge variant="secondary" className="h-4 text-[10px] px-1.5 ml-auto">
-                        {docLogs.length}
-                      </Badge>
-                    </div>
-                    {docLogs.length === 0 ? (
-                      <div className="px-3 py-3 text-[11px] text-muted-foreground italic">
-                        Belum ada dokumen yang di-generate.
-                      </div>
-                    ) : (
-                      <div className="divide-y">
-                        {docLogs.map((log) => {
-                          const label =
-                            log.document_type === 'spk' ? 'SPK (F-KAL-02)'
-                            : log.document_type === 'certificate' ? 'Sertifikat (F-KAL-05)'
-                            : 'BAST (F-KAL-06)';
-                          return (
-                            <div key={log.id} className="px-3 py-2 flex items-center gap-3 text-xs">
-                              <FileText className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-medium">{label}</span>
-                                  {log.document_number && (
-                                    <span className="text-muted-foreground">· {log.document_number}</span>
-                                  )}
-                                </div>
-                                <div className="text-[10px] text-muted-foreground truncate">
-                                  {format(new Date(log.created_at), 'dd MMM yyyy HH:mm', { locale: idLocale })}
-                                  {log.generated_by_email ? ` · ${log.generated_by_email}` : ''}
-                                </div>
-                              </div>
-                              {log.file_url ? (
-                                <a
-                                  href={log.file_url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-primary underline text-[11px] flex-shrink-0"
-                                >
-                                  Download
-                                </a>
-                              ) : (
-                                <span className="text-[10px] text-muted-foreground flex-shrink-0">
-                                  Preview di browser
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-
                   {/* Attachments panel */}
                   <div className="mt-3 rounded-lg border bg-muted/20">
                     <div className="px-3 py-2 border-b flex items-center gap-1.5">
