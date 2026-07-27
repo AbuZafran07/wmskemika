@@ -217,6 +217,7 @@ export default function TrackerKalibrasi() {
     toggleChecklist,
     setReceivedDate,
     setSpkConfirmedDate,
+    setPaymentVerifiedDate,
     setDecision,
     refetch,
     cards,
@@ -663,6 +664,7 @@ export default function TrackerKalibrasi() {
           onToggle={toggleChecklist}
           onSetReceivedDate={setReceivedDate}
           onSetSpkConfirmedDate={setSpkConfirmedDate}
+          onSetPaymentDate={setPaymentVerifiedDate}
           onSetDecision={setDecision}
           onClose={() => setSelectedId(null)}
         />
