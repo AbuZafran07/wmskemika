@@ -111,38 +111,6 @@ function infoRow(doc: jsPDF, label: string, value: string, y: number, labelW = 4
 
 // ── SPK PDF — F-KAL-02 ───────────────────────────────────────────────────────
 
-function drawSpkFooter(doc: jsPDF, pageNo: number, pageCount: number) {
-  const footY = A4_H - 18;
-  autoTable(doc, {
-    startY: footY,
-    body: [
-      [
-        { content: "No. Dokumen", styles: { fontStyle: "bold", fillColor: [230, 235, 245] } },
-        "KEMIKA-F-KAL-02",
-        { content: "Dokumen ini milik PT KEMIKA KARYA PRATAMA", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
-        { content: "Revisi", styles: { fontStyle: "bold", fillColor: [230, 235, 245] } },
-        "00",
-      ],
-      [
-        { content: "Terbit", styles: { fontStyle: "bold", fillColor: [230, 235, 245] } },
-        "01 Juni 2026",
-        { content: "Halaman", styles: { fontStyle: "bold", fillColor: [230, 235, 245] } },
-        `${pageNo} dari ${pageCount}`,
-      ],
-    ],
-    theme: "grid",
-    margin: { left: M_LEFT, right: M_RIGHT },
-    styles: { fontSize: 7.5, cellPadding: 1.5, lineColor: [180, 180, 180], lineWidth: 0.2 },
-    columnStyles: {
-      0: { cellWidth: 26 },
-      1: { cellWidth: 40 },
-      2: { cellWidth: CONTENT_W - 26 - 40 - 20 - 20 },
-      3: { cellWidth: 20 },
-      4: { cellWidth: 20 },
-    },
-  });
-}
-
 export async function generateSPKPdf(receiptId: string) {
   // 1. Fetch SO header + customer
   const { data: header, error } = await (supabase as any)
