@@ -1735,6 +1735,50 @@ export default function TrackerKalibrasiCardDetail({
                       {pdfLoading === "spk" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
                       SPK (F-KAL-02)
                     </Button>
+                    {/* Generate PI — sama seperti Kanban Request Delivery */}
+                    {(() => {
+                      const termsUpper = customerPaymentTerms?.toUpperCase() || '';
+                      const isCBDTerms = termsUpper === 'CBD';
+                      const isDpTermTerms = termsUpper.includes('DP') && (termsUpper.includes('TERMIN') || termsUpper.includes('TOP') || /\d+\s*HARI/.test(termsUpper));
+                      const eligible = isCBDTerms || isDpTermTerms;
+                      const canGenerate = user?.role === 'sales' || user?.role === 'super_admin' || user?.role === 'finance';
+                      const spkIssued = isChecked('spk_issued');
+                      if (existingPI) {
+                        return (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5 text-xs text-emerald-600 border-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                            onClick={() => { onClose(); navigate('/proforma-invoice'); }}
+                          >
+                            <Receipt className="w-3.5 h-3.5" />
+                            PI: {existingPI}
+                          </Button>
+                        );
+                      }
+                      if (!eligible || !canGenerate) return null;
+                      return (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 text-xs text-emerald-600 border-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                          disabled={!receiptId || generatingPI || !spkIssued}
+                          title={!spkIssued ? 'Centang "SPK Issued" dulu untuk generate PI' : undefined}
+                          onClick={() => {
+                            if (isDpTermTerms) {
+                              setDpPercentInput("30");
+                              setTermDaysInput("30");
+                              setShowDpTerminDialog(true);
+                            } else {
+                              handleGeneratePI();
+                            }
+                          }}
+                        >
+                          {generatingPI ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Receipt className="w-3.5 h-3.5" />}
+                          Generate PI
+                        </Button>
+                      );
+                    })()}
                     {getBoardColumn(checklists, receipt?.status)?.id === 'delivered' && (
                     <>
                     <Button
