@@ -344,7 +344,7 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
   // 1. Fetch SO header
   const { data: hdr } = await (supabase as any)
     .from("sales_order_headers")
-    .select("id, sales_order_number, spk_number, customer:customers(name)")
+    .select("id, sales_order_number, spk_number, calibration_received_at, service_location, customer:customers(name, address)")
     .eq("id", receiptId)
     .single();
 
@@ -372,153 +372,276 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
 
   // 3. Background
   const bgData = await imgToBase64("/kop-surat-bg.jpg");
-  const LABEL_W = 44;
 
-  // 4. Build PDF — one page per instrument
+  // 4. Build PDF — 2 pages per instrument (bilingual ID/EN)
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
   for (let idx = 0; idx < instruments.length; idx++) {
     const item = instruments[idx] as any;
-
     if (idx > 0) doc.addPage();
     addBg(doc, bgData);
 
-    let y = M_TOP;
-
-    // Form number
-    doc.setFontSize(7);
+    // Form code (top-right, above safe area)
+    doc.setFontSize(FS.formCode);
     doc.setTextColor(110, 110, 110);
-    doc.text("F-KAL-05", A4_W - M_RIGHT, 10, { align: "right" });
+    doc.text("F-KAL-05", A4_W - M_RIGHT, 12, { align: "right" });
     doc.setTextColor(0, 0, 0);
 
-    // Title
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(13);
-    doc.text("SERTIFIKAT KALIBRASI", A4_W / 2, y, { align: "center" });
-    y += 6.5;
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text(`No. Sertifikat : ${item.certificate_number || "-"}`, A4_W / 2, y, { align: "center" });
-    y += 4.5;
-    doc.text(
-      `Tanggal Terbit : ${fmtDate(item.certificate_issued_at)}`,
-      A4_W / 2, y, { align: "center" },
-    );
-    y += 7;
-
-    doc.setDrawColor(140, 140, 140);
+    // ── Title (bilingual) ──
+    let y = M_TOP;
+    setFont(doc, "bold", 14);
+    const titleId = "SERTIFIKAT KALIBRASI";
+    doc.text(titleId, A4_W / 2, y, { align: "center" });
+    // underline
+    const tw = doc.getTextWidth(titleId);
     doc.setLineWidth(0.3);
-    doc.line(M_LEFT, y, A4_W - M_RIGHT, y);
-    y += 6;
-
-    // Receipt/customer context
-    for (const [label, value] of [
-      ["No. SPK",        (receipt as any)?.spk_number || "-"] as [string, string],
-      ["Customer",       (receipt as any)?.customer?.name || "-"] as [string, string],
-      ["No. Tanda Terima", (receipt as any)?.receipt_number || "-"] as [string, string],
-    ]) {
-      y = infoRow(doc, label, value, y, LABEL_W);
-      y += 0.5;
-    }
-
+    doc.line(A4_W / 2 - tw / 2, y + 1.2, A4_W / 2 + tw / 2, y + 1.2);
+    y += 5.5;
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(10);
+    doc.text("Calibration Certificate", A4_W / 2, y, { align: "center" });
     y += 5;
 
-    // DATA ALAT
-    y = sectionHeader(doc, "DATA ALAT", y);
-    for (const [label, value] of [
-      ["Nama Alat",       item.instrument_name] as [string, string],
-      ["Merk / Model",    item.brand_model || "-"] as [string, string],
-      ["No. Seri",        item.serial_number || "-"] as [string, string],
-      ["Range Ukur",      item.measurement_range || "-"] as [string, string],
-      ["Metode Kalibrasi",item.calibration_method || "-"] as [string, string],
-    ]) {
-      y = infoRow(doc, label, value, y, LABEL_W);
-      y += 0.5;
-    }
+    // ── Info Sertifikat table (2 label/value pairs per row) ──
+    autoTable(doc, {
+      startY: y,
+      margin: { left: M_LEFT, right: M_RIGHT, top: M_TOP, bottom: M_BOTTOM },
+      body: [
+        [
+          { content: "No. Sertifikat / Certificate No.", styles: { fontStyle: "bold", fillColor: [245, 247, 252] } },
+          item.certificate_number || "-",
+          { content: "Halaman / Page", styles: { fontStyle: "bold", fillColor: [245, 247, 252] } },
+          "1 dari 2",
+        ],
+        [
+          { content: "Tanggal Kalibrasi / Calibration Date", styles: { fontStyle: "bold", fillColor: [245, 247, 252] } },
+          fmtDate(item.calibration_date || item.certificate_issued_at),
+          { content: "Tanggal Terbit / Issue Date", styles: { fontStyle: "bold", fillColor: [245, 247, 252] } },
+          fmtDate(item.certificate_issued_at),
+        ],
+      ],
+      theme: "grid",
+      styles: { fontSize: 8.5, cellPadding: 1.8, lineColor: [180, 180, 180], lineWidth: 0.2 },
+      columnStyles: {
+        0: { cellWidth: 46 }, 1: { cellWidth: (CONTENT_W - 92) / 2 },
+        2: { cellWidth: 46 }, 3: { cellWidth: (CONTENT_W - 92) / 2 },
+      },
+      didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
+    });
+    y = (doc as any).lastAutoTable.finalY + 3;
 
-    y += 4;
+    // ── Section A: IDENTITAS DAN SPESIFIKASI ALAT ──
+    const customer = (receipt as any)?.customer;
+    autoTable(doc, {
+      startY: y,
+      margin: { left: M_LEFT, right: M_RIGHT, top: M_TOP, bottom: M_BOTTOM },
+      head: [[{ content: "A.  IDENTITAS DAN SPESIFIKASI ALAT YANG DIKALIBRASI  /  ITEM CALIBRATED", colSpan: 4, styles: { halign: "left", fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold" } }]],
+      body: [
+        [
+          { content: "Nama Alat / Instrument", styles: { fontStyle: "bold" } },
+          item.instrument_name || "-",
+          { content: "Pemohon / Customer", styles: { fontStyle: "bold" } },
+          customer?.name || "-",
+        ],
+        [
+          { content: "Model / Type", styles: { fontStyle: "bold" } },
+          item.brand_model || item.instrument_brand_model || "-",
+          { content: "Tgl Terima Alat / Received Date", styles: { fontStyle: "bold" } },
+          fmtDate((receipt as any)?.calibration_received_at),
+        ],
+        [
+          { content: "Rentang Ukur / Range", styles: { fontStyle: "bold" } },
+          item.measurement_range || "-",
+          { content: "No. SPK / Work Order", styles: { fontStyle: "bold" } },
+          (receipt as any)?.spk_number || "-",
+        ],
+        [
+          { content: "No. Seri / Serial No.", styles: { fontStyle: "bold" } },
+          item.serial_number || "-",
+          { content: "Lokasi Kalibrasi / Calibration at", styles: { fontStyle: "bold" } },
+          (receipt as any)?.service_location || "-",
+        ],
+        [
+          { content: "Merk / Manufacturer", styles: { fontStyle: "bold" } },
+          { content: item.manufacturer || item.instrument_brand_model || "-", colSpan: 3 },
+        ] as any,
+      ],
+      theme: "grid",
+      styles: { fontSize: 8.5, cellPadding: 1.8, lineColor: [180, 180, 180], lineWidth: 0.2, valign: "middle" },
+      columnStyles: {
+        0: { cellWidth: 46 }, 1: { cellWidth: (CONTENT_W - 92) / 2 },
+        2: { cellWidth: 46 }, 3: { cellWidth: (CONTENT_W - 92) / 2 },
+      },
+      didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
+    });
+    y = (doc as any).lastAutoTable.finalY + 3;
 
-    // DATA KALIBRASI
-    y = sectionHeader(doc, "DATA KALIBRASI", y);
-    for (const [label, value] of [
-      ["Metode Standar",  item.standard_method || "-"] as [string, string],
-      ["Ketertelusuran",  item.traceability || "-"] as [string, string],
-      ["Suhu Lingkungan", item.env_temperature != null ? `${item.env_temperature} °C` : "-"] as [string, string],
-      ["Kelembaban",      item.env_humidity != null ? `${item.env_humidity} %RH` : "-"] as [string, string],
-    ]) {
-      y = infoRow(doc, label, value, y, LABEL_W);
-      y += 0.5;
-    }
+    // ── Section B: REFERENSI METODE & STANDAR ──
+    autoTable(doc, {
+      startY: y,
+      margin: { left: M_LEFT, right: M_RIGHT, top: M_TOP, bottom: M_BOTTOM },
+      head: [[{ content: "B.  REFERENSI METODE & STANDAR  /  METHOD & STANDARDS REFERENCE", colSpan: 2, styles: { halign: "left", fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold" } }]],
+      body: [
+        [{ content: "Metode Kalibrasi / Method", styles: { fontStyle: "bold" } }, item.calibration_method || item.standard_method || "-"],
+        [{ content: "Gas yang digunakan / Calibration Gas used", styles: { fontStyle: "bold" } }, item.calibration_gas || "-"],
+        [{ content: "Ketertelusuran / Traceability", styles: { fontStyle: "bold" } }, item.traceability || "-"],
+        [
+          { content: "Kondisi Ruang / Ambient", styles: { fontStyle: "bold" } },
+          `Suhu: ${item.env_temperature != null ? item.env_temperature + " °C" : "-"}   |   Kelembaban: ${item.env_humidity != null ? item.env_humidity + " %RH" : "-"}`,
+        ],
+      ],
+      theme: "grid",
+      styles: { fontSize: 8.5, cellPadding: 1.8, lineColor: [180, 180, 180], lineWidth: 0.2, valign: "middle" },
+      columnStyles: { 0: { cellWidth: 62 }, 1: { cellWidth: CONTENT_W - 62 } },
+      didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
+    });
+    y = (doc as any).lastAutoTable.finalY + 3;
 
-    y += 4;
+    // ── Section C: CEK VERIFIKASI HASIL KALIBRASI ──
+    const verif = Array.isArray(item.verification_rows) && item.verification_rows.length
+      ? item.verification_rows
+      : [{ standard: item.standard_applied || "-", reading: item.monitoring_reading || "-", correction: item.correction ?? "0" }];
 
-    // HASIL & KESIMPULAN
-    y = sectionHeader(doc, "HASIL & KESIMPULAN", y);
+    autoTable(doc, {
+      startY: y,
+      margin: { left: M_LEFT, right: M_RIGHT, top: M_TOP, bottom: M_BOTTOM },
+      head: [
+        [{ content: "C.  CEK VERIFIKASI HASIL KALIBRASI  /  CALIBRATION RESULT VERIFICATION CHECK", colSpan: 4, styles: { halign: "left", fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold" } }],
+        [
+          { content: "No.", styles: { halign: "center" } },
+          { content: "Standard Applied & Span Gas Set (PPM)", styles: { halign: "center" } },
+          { content: "Monitoring Reading (PPM)", styles: { halign: "center" } },
+          { content: "Correction", styles: { halign: "center" } },
+        ],
+      ],
+      body: verif.map((r: any, i: number) => [
+        { content: String(i + 1), styles: { halign: "center" } },
+        { content: String(r.standard ?? "-"), styles: { halign: "center" } },
+        { content: String(r.reading ?? "-"), styles: { halign: "center" } },
+        { content: String(r.correction ?? "-"), styles: { halign: "center" } },
+      ]),
+      theme: "grid",
+      styles: { fontSize: 8.5, cellPadding: 1.8, lineColor: [180, 180, 180], lineWidth: 0.2 },
+      headStyles: { fillColor: [235, 238, 245], textColor: 0, fontStyle: "bold" },
+      columnStyles: { 0: { cellWidth: 12 } },
+      didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
+    });
+    y = (doc as any).lastAutoTable.finalY + 2;
 
-    const withinLimits = !item.calibration_conclusion || item.calibration_conclusion === "within_limits";
-    const conclusionText = withinLimits ? "DALAM BATAS  (Within Limits)" : "DI LUAR BATAS  (Out of Limits)";
+    // Italic note
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(8);
+    doc.text("The result confirms that performance of the instrument is within acceptable limits.", M_LEFT, y + 3);
+    doc.setFont("helvetica", "normal");
+    doc.text("Hasil mengkonfirmasi bahwa kinerja instrumen berada dalam batas yang dapat diterima.", M_LEFT, y + 7);
+    y += 10;
 
-    setFont(doc, "bold", FS.infoRow);
-    doc.text("Kesimpulan", M_LEFT, y);
-    doc.text(":", M_LEFT + LABEL_W, y);
-    doc.setTextColor(withinLimits ? 20 : 180, withinLimits ? 120 : 30, withinLimits ? 40 : 30);
-    doc.text(conclusionText, M_LEFT + LABEL_W + 4, y);
+    // Additional info + next calibration
+    autoTable(doc, {
+      startY: y,
+      margin: { left: M_LEFT, right: M_RIGHT, top: M_TOP, bottom: M_BOTTOM },
+      body: [
+        [
+          { content: "Tambahan Informasi / Additional Information", styles: { fontStyle: "bold", fillColor: [245, 247, 252] } },
+          item.additional_information || "----",
+        ],
+        [
+          { content: "Kalibrasi Selanjutnya / Next Calibration", styles: { fontStyle: "bold", fillColor: [245, 247, 252] } },
+          fmtDate(item.next_calibration_date),
+        ],
+      ],
+      theme: "grid",
+      styles: { fontSize: 8.5, cellPadding: 1.8, lineColor: [180, 180, 180], lineWidth: 0.2 },
+      columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: CONTENT_W - 70 } },
+      didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
+    });
+
+    // ─────────────── PAGE 2 ───────────────
+    doc.addPage();
+    addBg(doc, bgData);
+    doc.setFontSize(FS.formCode);
+    doc.setTextColor(110, 110, 110);
+    doc.text("F-KAL-05", A4_W - M_RIGHT, 12, { align: "right" });
     doc.setTextColor(0, 0, 0);
-    y += 5.5;
 
-    if (item.calibration_notes) {
-      y = infoRow(doc, "Catatan", item.calibration_notes, y, LABEL_W);
-      y += 0.5;
-    }
+    y = M_TOP;
 
-    y += 6;
+    // Section D: PERNYATAAN KALIBRASI
+    autoTable(doc, {
+      startY: y,
+      margin: { left: M_LEFT, right: M_RIGHT, top: M_TOP, bottom: M_BOTTOM },
+      head: [[{ content: "D.  PERNYATAAN KALIBRASI  /  CALIBRATION STATEMENT", styles: { halign: "left", fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold" } }]],
+      body: [[{
+        content:
+          "Sertifikat kalibrasi ini hanya berlaku untuk alat yang diidentifikasi di atas dan kondisi saat kalibrasi dilakukan. Sertifikat ini tidak boleh diperbanyak sebagian, kecuali secara lengkap, tanpa izin tertulis dari laboratorium.\n\nThis certificate relates only to the item identified above and at the time of calibration. It shall not be reproduced except in full without written approval of the laboratory.",
+      }]],
+      theme: "grid",
+      styles: { fontSize: 9, cellPadding: 3, lineColor: [180, 180, 180], lineWidth: 0.2 },
+      didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
+    });
+    y = (doc as any).lastAutoTable.finalY + 10;
 
-    // Signatures
-    const [techSig, authSig] = await Promise.all([
+    // Tempat & tanggal (center)
+    const issueDate = fmtDate(item.certificate_issued_at || new Date().toISOString());
+    setFont(doc, "bold", 10);
+    doc.text(`Tangerang, ${issueDate}`, A4_W / 2, y, { align: "center" });
+    y += 8;
+
+    // Signatures — 3 columns
+    const [techSig, checkSig, authSig] = await Promise.all([
       getSignatureBase64(item.calibration_executed_by),
+      getSignatureBase64(item.calibration_checked_by),
       getSignatureBase64(item.certificate_authorized_by),
     ]);
 
-    const sigY = Math.max(y, A4_H - 60);
-    const colW = CONTENT_W / 2;
+    const SIG_H = 40;
+    const availBottom = A4_H - M_BOTTOM;
+    const sigY = Math.min(y, availBottom - SIG_H);
+    const colW3 = CONTENT_W / 3;
 
-    doc.setFontSize(8.5);
-    doc.setFont("helvetica", "normal");
+    doc.setDrawColor(180, 180, 180);
+    doc.setLineWidth(0.2);
+    doc.rect(M_LEFT, sigY, CONTENT_W, SIG_H);
 
-    // Left: Teknisi
-    doc.text("Dilaksanakan oleh,", M_LEFT, sigY);
-    doc.text("Teknisi Kalibrasi", M_LEFT, sigY + 4.5);
-    if (techSig) {
-      try { doc.addImage(techSig, "PNG", M_LEFT, sigY + 6.5, 36, 18); } catch {}
-    } else {
-      doc.line(M_LEFT, sigY + 26, M_LEFT + 44, sigY + 26);
+    const sigCols: { title: string; role: string; sig: string | null }[] = [
+      { title: "Dilaksanakan oleh", role: "Teknisi Kalibrasi", sig: techSig },
+      { title: "Diperiksa & Disahkan oleh", role: "Koordinator Teknis", sig: checkSig },
+      { title: "Diotorisasi oleh", role: "Manajer Laboratorium", sig: authSig },
+    ];
+    for (let i = 0; i < 3; i++) {
+      const x = M_LEFT + colW3 * i;
+      if (i > 0) doc.line(x, sigY, x, sigY + SIG_H);
+      setFont(doc, "bold", FS.sigTitle);
+      doc.text(sigCols[i].title, x + colW3 / 2, sigY + 5, { align: "center" });
+      // sig box (image or empty)
+      if (sigCols[i].sig) {
+        try { doc.addImage(sigCols[i].sig!, "PNG", x + colW3 / 2 - 18, sigY + 8, 36, 18); } catch {}
+      }
+      if (i === 2) {
+        // stamp text for authorized column
+        doc.setTextColor(20, 120, 40);
+        setFont(doc, "bold", 8);
+        doc.text("PT. KEMIKA KARYA PRATAMA", x + colW3 / 2, sigY + 20, { align: "center" });
+        doc.setTextColor(0, 0, 0);
+      }
+      // signature line
+      doc.setDrawColor(120, 120, 120);
+      doc.line(x + 8, sigY + SIG_H - 10, x + colW3 - 8, sigY + SIG_H - 10);
+      setFont(doc, "normal", FS.sigRole);
+      doc.text(sigCols[i].role, x + colW3 / 2, sigY + SIG_H - 5, { align: "center" });
     }
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.text("PT. Kemika Karya Pratama", M_LEFT, sigY + 30);
-
-    // Right: Otorisasi
-    const rX = M_LEFT + colW;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8.5);
-    doc.text("Disetujui oleh,", rX, sigY);
-    doc.text("Manajer Lab", rX, sigY + 4.5);
-    if (authSig) {
-      try { doc.addImage(authSig, "PNG", rX, sigY + 6.5, 36, 18); } catch {}
-    } else {
-      doc.line(rX, sigY + 26, rX + 44, sigY + 26);
-    }
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.text("PT. Kemika Karya Pratama", rX, sigY + 30);
   }
 
   const fname = instruments.length === 1
     ? `Sertifikat-${instruments[0].certificate_number || instruments[0].id}.pdf`
     : `Sertifikat-${(receipt as any)?.spk_number || receiptId}.pdf`;
 
-  doc.save(fname);
+  // Open preview in new tab
+  const blob = doc.output("blob");
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, "_blank");
+  if (!win) doc.save(fname);
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 // ── BAST PDF — F-KAL-06 (Berita Acara Serah Terima Alat & Sertifikat) ────────
