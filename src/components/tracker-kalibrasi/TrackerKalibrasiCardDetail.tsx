@@ -1697,7 +1697,7 @@ export default function TrackerKalibrasiCardDetail({
                               >
                                 <Download className="w-3.5 h-3.5" />
                               </Button>
-                              {(att.uploaded_by === user?.id || currentUserRole === 'super_admin' || currentUserRole === 'admin') && (
+                              {(att.uploaded_by === user?.id || user?.role === 'super_admin' || user?.role === 'admin') && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
