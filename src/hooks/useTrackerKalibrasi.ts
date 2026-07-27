@@ -253,7 +253,11 @@ export function useTrackerKalibrasi() {
 
   const toggleChecklist = useCallback(
     async (receiptId: string, checklistKey: string) => {
-      if (!user?.id || !canToggle) return;
+      if (!user?.id) return;
+      if (!canToggleChecklistKey(role, checklistKey)) {
+        toast.error('Read-only untuk role Anda pada checklist ini.');
+        return;
+      }
 
       const existing = (checklists[receiptId] || []).find(
         (c) => c.checklist_key === checklistKey,
