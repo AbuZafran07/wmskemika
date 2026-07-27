@@ -228,6 +228,17 @@ export default function TrackerKalibrasiCardDetail({
   const [sending, setSending] = useState(false);
   const [pdfLoading, setPdfLoading] = useState<"spk" | "cert" | "bast" | null>(null);
 
+  // ── document generation history ─────────────────────────────────────────
+  type DocLog = {
+    id: string;
+    document_type: 'spk' | 'certificate' | 'bast';
+    document_number: string | null;
+    file_url: string | null;
+    generated_by_email: string | null;
+    created_at: string;
+  };
+  const [docLogs, setDocLogs] = useState<DocLog[]>([]);
+
   // spare parts add form
   const [addingPart, setAddingPart] = useState(false);
   const [newPart, setNewPart] = useState({ instrument_id: "", product_id: "", qty_used: "1", unit_price: "0", notes: "" });
