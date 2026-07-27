@@ -39,6 +39,7 @@ interface ReceiptDetail {
   spk_issued_at: string | null;
   spk_signed_at: string | null;
   spk_confirmed_at: string | null;
+  payment_verified_at: string | null;
   status: string;
   so_status: string | null;
   spk_confirmed_file_url: string | null;
@@ -202,6 +203,7 @@ interface Props {
   onToggle: (receiptId: string, key: string) => void;
   onSetReceivedDate?: (receiptId: string, dateISO: string | null) => void;
   onSetSpkConfirmedDate?: (receiptId: string, dateISO: string | null) => void;
+  onSetPaymentDate?: (receiptId: string, dateISO: string | null) => void;
   onSetDecision?: (receiptId: string, decision: 'accepted' | 'rejected') => void;
   onClose: () => void;
 }
@@ -213,6 +215,7 @@ export default function TrackerKalibrasiCardDetail({
   onToggle,
   onSetReceivedDate,
   onSetSpkConfirmedDate,
+  onSetPaymentDate,
   onSetDecision,
   onClose,
 }: Props) {
@@ -291,6 +294,7 @@ export default function TrackerKalibrasiCardDetail({
             calibration_status, status, calibration_received_at,
             target_completion_date, service_location, service_pic_name,
             service_pic_phone, customer_request_notes, created_at, created_by, spk_confirmed_at,
+            payment_verified_at,
             sales_name, allocation_type, project_instansi,
             spk_confirmed_file_url, spk_confirmed_file_name,
             customer:customers(id, name, code, pic, phone, address)
@@ -337,6 +341,7 @@ export default function TrackerKalibrasiCardDetail({
             spk_issued_at: h.spk_issued_at ?? null,
             spk_signed_at: null,
             spk_confirmed_at: h.spk_confirmed_at ?? null,
+            payment_verified_at: h.payment_verified_at ?? null,
             status: h.calibration_status ?? h.status ?? "draft",
             so_status: h.status ?? null,
             spk_confirmed_file_url: h.spk_confirmed_file_url ?? null,
