@@ -399,6 +399,56 @@ export default function TrackerKalibrasiCardDetail({
     return () => { supabase.removeChannel(ch); };
   }, [receiptId, fetchReceipt]);
 
+  // ── document generation history ─────────────────────────────────────────
+  const fetchDocLogs = useCallback(async () => {
+    if (!receiptId) { setDocLogs([]); return; }
+    const { data, error } = await (supabase as any)
+      .from('calibration_document_logs')
+      .select('id, document_type, document_number, file_url, generated_by_email, created_at')
+      .eq('sales_order_id', receiptId)
+      .order('created_at', { ascending: false });
+    if (!error) setDocLogs((data || []) as DocLog[]);
+  }, [receiptId]);
+
+  useEffect(() => { fetchDocLogs(); }, [fetchDocLogs]);
+
+  useEffect(() => {
+    if (!receiptId) return;
+    const ch = supabase
+      .channel(`kal-doc-logs-${receiptId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'calibration_document_logs', filter: `sales_order_id=eq.${receiptId}` }, fetchDocLogs)
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [receiptId, fetchDocLogs]);
+
+  const logCalibrationDoc = useCallback(async (
+    docType: 'spk' | 'certificate' | 'bast',
+    docNumber: string | null,
+  ) => {
+    if (!receiptId || !user?.id) return;
+    try {
+      await (supabase as any).from('calibration_document_logs').insert({
+        sales_order_id: receiptId,
+        document_type: docType,
+        document_number: docNumber,
+        generated_by: user.id,
+        generated_by_email: user.email ?? null,
+      });
+      await (supabase as any).from('audit_logs').insert({
+        user_id: user.id,
+        user_email: user.email ?? null,
+        action: 'generate_document',
+        module: 'tracker-kalibrasi',
+        ref_table: 'sales_order_headers',
+        ref_id: receiptId,
+        ref_no: docNumber || receipt?.spk_number || receipt?.receipt_number || null,
+        new_data: { document_type: docType, document_number: docNumber },
+      });
+    } catch (e) {
+      console.error('logCalibrationDoc error:', e);
+    }
+  }, [receiptId, user?.id, user?.email, receipt?.spk_number, receipt?.receipt_number]);
+
   // ── fetch comments ──────────────────────────────────────────────────────
 
   const fetchComments = useCallback(async () => {
