@@ -1519,7 +1519,7 @@ export default function TrackerKalibrasiCardDetail({
                                     value={
                                       receipt?.status === 'rejected'
                                         ? 'rejected'
-                                        : ['received','accepted','spk_issued','in_progress','completed','invoiced','delivered'].includes(String(receipt?.status || ''))
+                                        : ['accepted','spk_issued','in_progress','completed','invoiced','delivered'].includes(String(receipt?.status || ''))
                                           ? 'accepted'
                                           : ''
                                     }
