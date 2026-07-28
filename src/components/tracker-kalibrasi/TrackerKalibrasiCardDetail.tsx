@@ -1769,7 +1769,10 @@ export default function TrackerKalibrasiCardDetail({
                       const termsUpper = customerPaymentTerms?.toUpperCase() || '';
                       const isCBDTerms = termsUpper === 'CBD';
                       const isDpTermTerms = termsUpper.includes('DP') && (termsUpper.includes('TERMIN') || termsUpper.includes('TOP') || /\d+\s*HARI/.test(termsUpper));
-                      const eligible = isCBDTerms || isDpTermTerms;
+                      const hasCBDLabel = cardLabelNames.some((n) => n === 'CBD' || n.includes('CBD') || n.includes('CASH BEFORE DELIVERY'));
+                      const hasDpTermLabel = cardLabelNames.some((n) => n.includes('DP') && (n.includes('TERMIN') || n.includes('TOP')));
+                      const eligible = isCBDTerms || isDpTermTerms || hasCBDLabel || hasDpTermLabel;
+                      const useDpFlow = isDpTermTerms || hasDpTermLabel;
                       const canGenerate = user?.role === 'sales' || user?.role === 'super_admin' || user?.role === 'finance';
                       const spkIssued = isChecked('spk_issued');
                       if (existingPI) {
@@ -1794,7 +1797,7 @@ export default function TrackerKalibrasiCardDetail({
                           disabled={!receiptId || generatingPI || !spkIssued}
                           title={!spkIssued ? 'Centang "SPK Issued" dulu untuk generate PI' : undefined}
                           onClick={() => {
-                            if (isDpTermTerms) {
+                            if (useDpFlow) {
                               setDpPercentInput("30");
                               setTermDaysInput("30");
                               setShowDpTerminDialog(true);
