@@ -302,6 +302,7 @@ export default function TrackerKalibrasiCardDetail({
   const { data: materaiAmount = 10000 } = useMateraiSetting();
   const [generatingPI, setGeneratingPI] = useState(false);
   const [existingPI, setExistingPI] = useState<string | null>(null);
+  const [cardLabelNames, setCardLabelNames] = useState<string[]>([]);
   const [customerPaymentTerms, setCustomerPaymentTerms] = useState<string | null>(null);
   const [customerType, setCustomerType] = useState<string | null>(null);
   const [showDpTerminDialog, setShowDpTerminDialog] = useState(false);
