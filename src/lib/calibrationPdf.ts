@@ -344,13 +344,7 @@ export async function generateSPKPdf(receiptId: string) {
 // ── Certificate PDF — F-KAL-05 ────────────────────────────────────────────────
 
 export async function generateCertificatePdf(receiptId: string, instrumentId?: string) {
-  const { data: issuedCerts, error: issueError } = await (supabase as any).rpc(
-    "issue_calibration_certificates",
-    { p_so_id: receiptId },
-  );
-  if (issueError) {
-    throw new Error(issueError.message || "Gagal menerbitkan nomor sertifikat");
-  }
+  let issuedCerts: any[] = [];
 
   // 1. Fetch SO header
   const { data: hdr } = await (supabase as any)
@@ -371,7 +365,34 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
 
   if (instrumentId) q = (q as any).eq("id", instrumentId);
 
-  const { data: rawItems } = await q;
+  let { data: rawItems } = await q;
+  if ((rawItems || []).some((it: any) => !it.certificate_number)) {
+    const { data, error: issueError } = await (supabase as any).rpc(
+      "issue_calibration_certificates",
+      { p_so_id: receiptId },
+    );
+    if (issueError) {
+      throw new Error(issueError.message || "Gagal menerbitkan nomor sertifikat");
+    }
+    issuedCerts = data || [];
+
+    let reloadQ = (supabase as any)
+      .from("sales_order_items")
+      .select("*")
+      .eq("sales_order_id", receiptId)
+      .eq("item_type", "calibration")
+      .order("created_at", { ascending: true });
+
+    if (instrumentId) reloadQ = (reloadQ as any).eq("id", instrumentId);
+    const { data: refreshedItems } = await reloadQ;
+    rawItems = refreshedItems || rawItems;
+  } else {
+    issuedCerts = (rawItems || []).map((it: any) => ({
+      item_id: it.id,
+      certificate_number: it.certificate_number,
+      certificate_issued_at: it.certificate_issued_at,
+    }));
+  }
   const instruments = (rawItems || []).map((it: any, idx: number) => ({
     ...it,
     item_number: idx + 1,
