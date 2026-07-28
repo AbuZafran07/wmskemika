@@ -1863,9 +1863,6 @@ export default function TrackerKalibrasiCardDetail({
                         if (!receiptId) return;
                         setPdfLoading("cert");
                         let issuedCerts: Array<{ certificate_number?: string | null }> = [];
-                        try { await generateCertificatePdf(receiptId); }
-                        catch (e) { toast.error("Gagal generate Sertifikat PDF"); console.error(e); setPdfLoading(null); return; }
-                        finally { setPdfLoading(null); }
                         try {
                           issuedCerts = await generateCertificatePdf(receiptId) as Array<{ certificate_number?: string | null }>;
                         } catch (e) {
