@@ -529,6 +529,19 @@ export default function TrackerKalibrasiCardDetail({
         .eq('sales_order_id', receiptId);
       if (!soItems || soItems.length === 0) throw new Error('Item Sales Order tidak ditemukan');
 
+      // Ambil sparepart kalibrasi (per instrument dalam SO ini) untuk ikut ditagih di PI
+      const instrumentIds = (soItems as any[])
+        .filter((it: any) => (it.item_type || 'product') === 'calibration')
+        .map((it: any) => it.id);
+      let spareParts: any[] = [];
+      if (instrumentIds.length > 0) {
+        const { data: sp } = await (supabase as any)
+          .from('calibration_spare_parts')
+          .select('id, qty_used, unit_price, notes, product:products(id, name, sku)')
+          .in('instrument_id', instrumentIds);
+        spareParts = sp || [];
+      }
+
       const { data: cust } = await (supabase as any)
         .from('customers')
         .select('*')
@@ -552,6 +565,23 @@ export default function TrackerKalibrasiCardDetail({
           subtotal: Math.round(subtotalAfterDiscount),
         };
       });
+
+      // Gabungkan sparepart sebagai baris PI tambahan
+      const sparePartItems = spareParts.map((sp: any) => {
+        const qty = Number(sp.qty_used || 0);
+        const price = Number(sp.unit_price || 0);
+        const sub = Math.round(qty * price);
+        return {
+          product_id: sp.product?.id ?? null,
+          product_name: `Sparepart: ${sp.product?.name ?? '-'}${sp.product?.sku ? ` (${sp.product.sku})` : ''}`,
+          qty,
+          unit_price: price,
+          discount: 0,
+          subtotal: sub,
+          notes: sp.notes ?? null,
+        };
+      });
+      piItemsData.push(...sparePartItems);
 
       const dpp = piItemsData.reduce((sum: number, it: any) => sum + it.subtotal, 0);
       const dppPengganti = Math.round(dpp * 11 / 12);
