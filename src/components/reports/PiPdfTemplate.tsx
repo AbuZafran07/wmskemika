@@ -170,7 +170,9 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
     </thead>
   );
 
-  const renderTableRow = (item: PiPdfItem, idx: number) => (
+  const renderTableRow = (item: PiPdfItem, idx: number) => {
+    const isSparepart = /^Sparepart\s*:/i.test(item.name || '');
+    return (
     <tr
       key={`${item.no}-${idx}`}
       style={{
@@ -181,7 +183,19 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
     >
       <td style={{ ...tdBase, textAlign: 'center' }}>{item.no}</td>
       <td style={{ ...tdBase, color: TEXT, fontWeight: 700 }}>{item.code}</td>
-      <td style={{ ...tdBase, wordBreak: 'break-word', lineHeight: '1.28' }}>{item.name}</td>
+      <td
+        style={{
+          ...tdBase,
+          wordBreak: 'break-word',
+          lineHeight: '1.28',
+          paddingLeft: isSparepart ? '5mm' : tdBase.padding,
+          fontStyle: isSparepart ? 'italic' : 'normal',
+          fontSize: isSparepart ? '2.7mm' : tdBase.fontSize,
+          color: isSparepart ? '#555' : TEXT,
+        }}
+      >
+        {isSparepart ? `↳ ${item.name}` : item.name}
+      </td>
       <td style={{ ...tdBase, textAlign: 'center' }}>{item.qty}</td>
       <td style={{ ...tdBase, textAlign: 'center' }}>{item.unit}</td>
       <td style={{ ...tdBase, textAlign: 'right', whiteSpace: 'nowrap' }}>{fmt(item.price)}</td>
@@ -194,6 +208,7 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
       <td style={{ ...tdBase, textAlign: 'center', whiteSpace: 'nowrap' }}>{item.taxPercent}</td>
     </tr>
   );
+  };
 
   const summaryRowsTop = [
     { label: 'DPP', value: fmt(summary.dpp) },
