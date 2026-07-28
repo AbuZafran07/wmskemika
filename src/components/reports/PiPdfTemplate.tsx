@@ -189,8 +189,8 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
           wordBreak: 'break-word',
           lineHeight: '1.28',
           paddingLeft: isSparepart ? '5mm' : tdBase.padding,
-          fontStyle: isSparepart ? 'italic' : 'normal',
-          fontSize: isSparepart ? '2.7mm' : tdBase.fontSize,
+          fontStyle: 'normal',
+          fontSize: isSparepart ? '2.85mm' : tdBase.fontSize,
           color: isSparepart ? '#555' : TEXT,
         }}
       >
