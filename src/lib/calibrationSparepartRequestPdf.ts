@@ -4,11 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export async function printCalibrationSparepartRequest(salesOrderId: string) {
-  const { data: header } = await supabase
+  const { data: header, error: headerErr } = await supabase
     .from("sales_order_headers")
-    .select("sales_order_number, order_date, pic_name, calibration_location, notes, customer:customers(name, code)")
+    .select("sales_order_number, order_date, service_pic_name, service_pic_phone, service_location, notes, customer:customers(name, code)")
     .eq("id", salesOrderId)
     .single();
+  if (headerErr) console.error("[SparepartRequestPdf] header error:", headerErr);
 
   const { data: items } = await supabase
     .from("sales_order_items")
@@ -63,8 +64,8 @@ export async function printCalibrationSparepartRequest(salesOrderId: string) {
     "Customer",
     h.customer?.name ? `${h.customer.name}${h.customer.code ? ` (${h.customer.code})` : ""}` : "-",
   );
-  line("PIC / Teknisi", h.pic_name || "-");
-  line("Lokasi Kalibrasi", h.calibration_location || "-");
+  line("PIC / Teknisi", h.service_pic_name || "-");
+  line("Lokasi Kalibrasi", h.service_location || "-");
 
   const body = parts.map((p, i) => [
     String(i + 1),
