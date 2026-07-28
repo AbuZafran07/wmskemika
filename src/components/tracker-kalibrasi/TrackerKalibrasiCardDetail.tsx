@@ -530,17 +530,23 @@ export default function TrackerKalibrasiCardDetail({
       if (!soItems || soItems.length === 0) throw new Error('Item Sales Order tidak ditemukan');
 
       // Ambil sparepart kalibrasi (per instrument dalam SO ini) untuk ikut ditagih di PI
-      const instrumentIds = (soItems as any[])
-        .filter((it: any) => (it.item_type || 'product') === 'calibration')
-        .map((it: any) => it.id);
+      const calibrationItems = (soItems as any[]).filter(
+        (it: any) => (it.item_type || 'product') === 'calibration',
+      );
+      const instrumentIds = calibrationItems.map((it: any) => it.id);
       let spareParts: any[] = [];
       if (instrumentIds.length > 0) {
-        const { data: sp } = await (supabase as any)
+        const { data: sp, error: spErr } = await (supabase as any)
           .from('calibration_spare_parts')
-          .select('id, qty_used, unit_price, notes, product:products(id, name, sku)')
+          .select('id, instrument_id, qty_used, unit_price, notes, product:products(id, name, sku)')
           .in('instrument_id', instrumentIds);
+        if (spErr) throw spErr;
         spareParts = sp || [];
       }
+      const sparePartsByInstrument = spareParts.reduce<Record<string, any[]>>((acc, sp: any) => {
+        (acc[sp.instrument_id] ||= []).push(sp);
+        return acc;
+      }, {});
 
       const { data: cust } = await (supabase as any)
         .from('customers')
@@ -552,36 +558,44 @@ export default function TrackerKalibrasiCardDetail({
       const discount = soHeader.discount || 0;
       const shippingCost = soHeader.shipping_cost || 0;
 
-      const piItemsData = (soItems as any[]).map((item: any) => {
+      // Susun baris PI: alat diikuti sparepart-nya, agar rapi per alat di PDF
+      const piItemsData: any[] = [];
+      let sparePartsInserted = 0;
+      for (const item of soItems as any[]) {
         const baseAmount = (item.ordered_qty || 0) * (item.unit_price || 0);
         const itemDiscount = item.discount || 0;
-        const subtotalAfterDiscount = baseAmount - itemDiscount;
-        return {
+        const instrumentLabel =
+          item.instrument_name || item.description || (item.product as any)?.name || 'Kalibrasi';
+        piItemsData.push({
           product_id: item.product_id,
-          product_name: item.instrument_name || item.description || (item.product as any)?.name || 'Kalibrasi',
+          product_name: instrumentLabel,
           qty: item.ordered_qty,
           unit_price: item.unit_price,
           discount: itemDiscount,
-          subtotal: Math.round(subtotalAfterDiscount),
-        };
-      });
-
-      // Gabungkan sparepart sebagai baris PI tambahan
-      const sparePartItems = spareParts.map((sp: any) => {
-        const qty = Number(sp.qty_used || 0);
-        const price = Number(sp.unit_price || 0);
-        const sub = Math.round(qty * price);
-        return {
-          product_id: sp.product?.id ?? null,
-          product_name: `Sparepart: ${sp.product?.name ?? '-'}${sp.product?.sku ? ` (${sp.product.sku})` : ''}`,
-          qty,
-          unit_price: price,
-          discount: 0,
-          subtotal: sub,
-          notes: sp.notes ?? null,
-        };
-      });
-      piItemsData.push(...sparePartItems);
+          subtotal: Math.round(baseAmount - itemDiscount),
+        });
+        const sps = sparePartsByInstrument[item.id] || [];
+        for (const sp of sps) {
+          const qty = Number(sp.qty_used || 0);
+          const price = Number(sp.unit_price || 0);
+          piItemsData.push({
+            product_id: sp.product?.id ?? null,
+            product_name: `Sparepart: ${sp.product?.name ?? '-'}${sp.product?.sku ? ` (${sp.product.sku})` : ''} — untuk ${instrumentLabel}`,
+            qty,
+            unit_price: price,
+            discount: 0,
+            subtotal: Math.round(qty * price),
+            notes: sp.notes ?? null,
+          });
+          sparePartsInserted++;
+        }
+      }
+      // Validasi: pastikan semua sparepart terkait alat SO ini masuk PI
+      if (sparePartsInserted !== spareParts.length) {
+        throw new Error(
+          `Validasi sparepart gagal: ${sparePartsInserted}/${spareParts.length} sparepart berhasil dimasukkan ke PI. Silakan coba lagi.`,
+        );
+      }
 
       const dpp = piItemsData.reduce((sum: number, it: any) => sum + it.subtotal, 0);
       const dppPengganti = Math.round(dpp * 11 / 12);
