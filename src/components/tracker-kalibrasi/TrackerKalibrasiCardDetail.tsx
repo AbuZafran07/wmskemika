@@ -855,11 +855,10 @@ export default function TrackerKalibrasiCardDetail({
 
     const totalStock = (batches || []).reduce((s, b) => s + b.qty_on_hand, 0);
     if (totalStock < qty) {
-      toast.error(`Stok tidak cukup. Tersedia: ${totalStock} unit`);
-      return;
+      toast.warning(`Stok kurang (tersedia ${totalStock}). Item tetap disimpan — buat Form Permintaan Sparepart untuk pengadaan.`);
     }
 
-    // 2. Simpan spare part — warehouse proses pengeluaran dari menu Stock Out
+    // 2. Simpan spare part — jika stok kurang, tindak lanjut via Form Permintaan Sparepart
     const { data, error } = await (supabase as any)
       .from("calibration_spare_parts")
       .insert({
@@ -1360,7 +1359,7 @@ export default function TrackerKalibrasiCardDetail({
                             )}>
                               {selectedProductStock > 0
                                 ? `Stok tersedia: ${selectedProductStock} unit`
-                                : "⚠ Stok habis — tidak bisa disimpan"}
+                                : "⚠ Stok habis — tetap bisa disimpan, tindak lanjut via Form Permintaan Sparepart"}
                             </p>
                           )}
                         </div>
