@@ -248,6 +248,10 @@ export default function TrackerKalibrasiCardDetail({
   const [sending, setSending] = useState(false);
   const [pdfLoading, setPdfLoading] = useState<"spk" | "cert" | "bast" | null>(null);
 
+  // Kunci penambahan alat/sparepart ketika kartu sudah di kolom Completed atau Delivered
+  const currentColumnId = getBoardColumn(checklists, receipt?.status)?.id;
+  const isCardLocked = currentColumnId === 'completed' || currentColumnId === 'delivered';
+
   // ── document generation history ─────────────────────────────────────────
   type DocLog = {
     id: string;
