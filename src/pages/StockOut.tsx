@@ -131,7 +131,7 @@ export default function StockOut() {
         .from("sales_order_items")
         .select(
           `
-          id, product_id, ordered_qty, qty_delivered, qty_remaining, unit_price,
+          id, product_id, ordered_qty, qty_delivered, qty_remaining, unit_price, item_type,
           product:products(
             id, name, sku,
             category:categories(name),
@@ -152,7 +152,9 @@ export default function StockOut() {
       // For each item, fetch available batches (FEFO - First Expired, First Out)
       const stockOutItems: StockOutItem[] = [];
 
-      for (const item of (soItems as SalesOrderItem[]) || []) {
+      for (const item of ((soItems as (SalesOrderItem & { item_type?: string; product_id: string | null })[]) || [])) {
+        // Skip baris instrumen kalibrasi — instrumen tidak dikeluarkan dari stok gudang
+        if ((item as any).item_type === 'calibration' || !item.product_id) continue;
         const { data: batches } = await supabase
           .from("inventory_batches")
           .select("*")
@@ -180,6 +182,59 @@ export default function StockOut() {
           qty_out: 0,
           batches: batchSelections,
         });
+      }
+
+      // Tambahkan sparepart kalibrasi yang belum di-Stock Out (issued_stock_out_id IS NULL)
+      const { data: soInstruments } = await supabase
+        .from("sales_order_items")
+        .select("id, instrument_name")
+        .eq("sales_order_id", selectedSalesOrderId)
+        .eq("item_type", "calibration");
+      const instrumentIds = (soInstruments || []).map((i: any) => i.id);
+      const instrumentNameById = new Map(
+        (soInstruments || []).map((i: any) => [i.id, i.instrument_name || "Alat"]),
+      );
+      if (instrumentIds.length > 0) {
+        const { data: parts } = await (supabase as any)
+          .from("calibration_spare_parts")
+          .select(
+            `id, product_id, qty_used, instrument_id,
+             product:products(id, name, sku, category:categories(name), unit:units(name))`,
+          )
+          .in("instrument_id", instrumentIds)
+          .is("issued_stock_out_id", null);
+
+        for (const p of (parts || []) as any[]) {
+          if (!p.product_id) continue;
+          const { data: batches } = await supabase
+            .from("inventory_batches")
+            .select("*")
+            .eq("product_id", p.product_id)
+            .gt("qty_on_hand", 0)
+            .order("expired_date", { ascending: true, nullsFirst: false });
+          const batchSelections: BatchSelection[] = (batches || []).map((b) => ({
+            batch_id: b.id,
+            batch_no: b.batch_no,
+            qty_available: b.qty_on_hand,
+            expired_date: b.expired_date,
+            qty_out: 0,
+          }));
+          const instLabel = instrumentNameById.get(p.instrument_id) || "Alat";
+          stockOutItems.push({
+            sales_order_item_id: null,
+            product_id: p.product_id,
+            product_name: `↳ [Sparepart] ${p.product?.name || "-"} — untuk alat: ${instLabel}`,
+            sku: p.product?.sku || "-",
+            category: p.product?.category?.name || "-",
+            unit: p.product?.unit?.name || "-",
+            qty_ordered: p.qty_used,
+            qty_remaining: p.qty_used,
+            qty_out: 0,
+            batches: batchSelections,
+            calibration_spare_part_id: p.id,
+            instrument_label: instLabel,
+          });
+        }
       }
 
       setItems(stockOutItems);
