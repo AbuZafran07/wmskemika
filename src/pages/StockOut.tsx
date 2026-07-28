@@ -361,7 +361,7 @@ export default function StockOut() {
 
       // Build items data for RPC - each item with its batches and total qty
       const itemsPayload = validItems.map((item) => ({
-        sales_order_item_id: item.sales_order_item_id,
+        sales_order_item_id: item.sales_order_item_id, // null untuk baris sparepart kalibrasi
         product_id: item.product_id,
         total_qty_out: item.qty_out,
         batches: item.batches
@@ -384,6 +384,25 @@ export default function StockOut() {
       const rpcResult = result as { success: boolean; error?: string; id?: string };
       if (!rpcResult?.success) {
         throw new Error(rpcResult?.error || "Unknown error occurred");
+      }
+
+      // Tandai sparepart kalibrasi yang baru dikeluarkan agar tidak muncul lagi
+      const issuedSparepartIds = validItems
+        .filter((it) => it.calibration_spare_part_id)
+        .map((it) => it.calibration_spare_part_id!) as string[];
+      if (issuedSparepartIds.length > 0 && rpcResult.id) {
+        const { error: updErr } = await (supabase as any)
+          .from("calibration_spare_parts")
+          .update({ issued_stock_out_id: rpcResult.id })
+          .in("id", issuedSparepartIds);
+        if (updErr) {
+          console.error("Failed to mark calibration_spare_parts as issued:", updErr);
+          toast.warning(
+            language === "en"
+              ? "Stock Out saved, but failed to mark spare parts as issued."
+              : "Stock Out tersimpan, namun gagal menandai sparepart sebagai sudah dikeluarkan.",
+          );
+        }
       }
 
       toast.success(language === "en" ? "Stock Out saved successfully" : "Stock Out berhasil disimpan");
