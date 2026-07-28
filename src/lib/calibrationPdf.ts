@@ -159,13 +159,14 @@ export async function generateSPKPdf(receiptId: string) {
   const { data: rawItems } = await (supabase as any)
     .from("sales_order_items")
     .select(
-      "instrument_name, instrument_brand_model, instrument_serial_number, measurement_range, calibration_method, sla_working_days, unit_price, description, created_at",
+      "id, instrument_name, instrument_brand_model, instrument_serial_number, measurement_range, calibration_method, sla_working_days, unit_price, description, created_at",
     )
     .eq("sales_order_id", receiptId)
     .eq("item_type", "calibration")
     .order("created_at", { ascending: true });
 
   const instruments = (rawItems || []).map((it: any, idx: number) => ({
+    id: it.id,
     item_number: idx + 1,
     instrument_name: it.instrument_name ?? it.description ?? "-",
     brand_model: it.instrument_brand_model ?? null,
@@ -176,6 +177,27 @@ export async function generateSPKPdf(receiptId: string) {
     unit_price: Number(it.unit_price ?? 0),
   }));
 
+  const instrumentIds = instruments.map((item) => item.id).filter(Boolean);
+  const sparePartsByInstrument = new Map<string, any[]>();
+  if (instrumentIds.length > 0) {
+    const { data: spareRows, error: spareErr } = await (supabase as any)
+      .from("calibration_spare_parts")
+      .select("id, instrument_id, qty_used, unit_price, notes, product:products(name, sku)")
+      .in("instrument_id", instrumentIds)
+      .order("created_at", { ascending: true });
+
+    if (spareErr) {
+      console.error("[generateSPKPdf] failed to load calibration spareparts:", spareErr);
+    }
+
+    (spareRows || []).forEach((part: any) => {
+      if (!part.instrument_id) return;
+      const current = sparePartsByInstrument.get(part.instrument_id) || [];
+      current.push(part);
+      sparePartsByInstrument.set(part.instrument_id, current);
+    });
+  }
+
   // 3. Assets
   const bgData = await imgToBase64("/kop-surat-bg.jpg");
 
@@ -185,7 +207,41 @@ export async function generateSPKPdf(receiptId: string) {
 
   const customer = (receipt as any).customer;
   const taxRate = Number((receipt as any).tax_rate ?? 11);
-  const subtotal = (instruments || []).reduce((s, i) => s + Number(i.unit_price || 0), 0);
+  const spkScopeRows: any[][] = [];
+  let subtotal = 0;
+  (instruments || []).forEach((item) => {
+    const instrumentPrice = Number(item.unit_price || 0);
+    subtotal += instrumentPrice;
+    spkScopeRows.push([
+      String(item.item_number),
+      item.instrument_name,
+      item.brand_model || "-",
+      item.serial_number || "-",
+      item.calibration_method || "-",
+      item.sla_working_days != null ? String(item.sla_working_days) : "-",
+      fmt(instrumentPrice),
+    ]);
+
+    const spareParts = sparePartsByInstrument.get(item.id) || [];
+    spareParts.forEach((part) => {
+      const qty = Number(part.qty_used || 0);
+      const unitPrice = Number(part.unit_price || 0);
+      const lineTotal = unitPrice * Math.max(qty, 1);
+      subtotal += lineTotal;
+      const productName = part.product?.name || "Sparepart";
+      const sku = part.product?.sku ? ` (${part.product.sku})` : "";
+      const notes = part.notes ? ` — ${part.notes}` : "";
+      spkScopeRows.push([
+        "",
+        `↳ Sparepart: ${productName}${sku}${notes}`,
+        "-",
+        "-",
+        "Sparepart",
+        qty > 0 ? String(qty) : "-",
+        fmt(lineTotal),
+      ]);
+    });
+  });
   const taxAmount = subtotal * (taxRate / 100);
   const grandTotal = Number((receipt as any).total_amount) > 0
     ? Number((receipt as any).total_amount)
@@ -252,15 +308,7 @@ export async function generateSPKPdf(receiptId: string) {
       ["No.", "Nama / Jenis Alat", "Merk / Model", "No. Seri", "Metode Kalibrasi", "SLA (HK)", "Harga (Rp)"],
     ],
     body: [
-      ...(instruments || []).map((item) => [
-        String(item.item_number),
-        item.instrument_name,
-        item.brand_model || "-",
-        item.serial_number || "-",
-        item.calibration_method || "-",
-        item.sla_working_days != null ? String(item.sla_working_days) : "-",
-        fmt(Number(item.unit_price)),
-      ]),
+      ...spkScopeRows,
       [{ content: "Sub-Total", colSpan: 6, styles: { halign: "right", fontStyle: "bold" } }, { content: fmt(subtotal), styles: { halign: "right" } }],
       [{ content: `PPN ${taxRate}%`, colSpan: 6, styles: { halign: "right", fontStyle: "bold" } }, { content: fmt(taxAmount), styles: { halign: "right" } }],
       [{ content: "TOTAL", colSpan: 6, styles: { halign: "right", fontStyle: "bold", fillColor: [245, 247, 252] } }, { content: fmt(grandTotal), styles: { halign: "right", fontStyle: "bold", fillColor: [245, 247, 252] } }],
@@ -272,6 +320,19 @@ export async function generateSPKPdf(receiptId: string) {
       0: { cellWidth: 10, halign: "center" },
       5: { cellWidth: 16, halign: "center" },
       6: { cellWidth: 30, halign: "right" },
+    },
+    didParseCell: (data) => {
+      if (data.section !== "body") return;
+      const rawRow = data.row.raw as any[];
+      const nameCell = rawRow?.[1];
+      const text = typeof nameCell === "string" ? nameCell : nameCell?.content;
+      if (typeof text === "string" && text.startsWith("↳ Sparepart:")) {
+        data.cell.styles.fontStyle = "italic";
+        data.cell.styles.textColor = [80, 80, 80];
+        if (data.column.index === 1) {
+          data.cell.styles.cellPadding = { top: 1.8, right: 2, bottom: 1.8, left: 5 } as any;
+        }
+      }
     },
     didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
   });
