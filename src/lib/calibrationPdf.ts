@@ -206,7 +206,7 @@ export async function generateSPKPdf(receiptId: string) {
   addBg(doc, bgData);
 
   const customer = (receipt as any).customer;
-  const taxRate = Number((receipt as any).tax_rate ?? 11);
+  const taxRate = Number((receipt as any).tax_rate) || 11;
   const instrumentRows: any[][] = [];
   const sparepartRows: any[][] = [];
   let instrumentSubtotal = 0;
@@ -316,7 +316,6 @@ export async function generateSPKPdf(receiptId: string) {
     ],
     body: [
       ...instrumentRows,
-      [{ content: "Sub-Total Kalibrasi", colSpan: 6, styles: { halign: "right", fontStyle: "bold" } }, { content: fmt(instrumentSubtotal), styles: { halign: "right" } }],
     ],
     theme: "grid",
     styles: { fontSize: 8.5, cellPadding: 2, lineColor: [180, 180, 180], lineWidth: 0.2, valign: "middle" },
@@ -341,7 +340,6 @@ export async function generateSPKPdf(receiptId: string) {
       ],
       body: [
         ...sparepartRows,
-        [{ content: "Sub-Total Sparepart", colSpan: 6, styles: { halign: "right", fontStyle: "bold" } }, { content: fmt(sparepartSubtotal), styles: { halign: "right" } }],
       ],
       theme: "grid",
       styles: { fontSize: 8.5, cellPadding: 2, lineColor: [180, 180, 180], lineWidth: 0.2, valign: "middle" },
@@ -400,14 +398,16 @@ export async function generateSPKPdf(receiptId: string) {
   });
   y = (doc as any).lastAutoTable.finalY + 6;
 
-  // ── Signatures: 3 columns — compact block, add new page if not enough room ──
+  // ── Signatures: 3 columns — compact block, placed directly after T&C.
+  // If it doesn't fit on the current page, move to next page but keep it
+  // close to the top (not pushed to the bottom).
   const SIG_BLOCK_H = 28;
   if (y + SIG_BLOCK_H > A4_H - M_BOTTOM) {
     doc.addPage();
     addBg(doc, bgData);
     y = M_TOP;
   }
-  const sigY = Math.max(y, A4_H - M_BOTTOM - SIG_BLOCK_H);
+  const sigY = y + 3;
   const colW = CONTENT_W / 3;
   const sigLabels: [string, string][] = [
     ["Dibuat oleh", "Koordinator Administrasi"],
