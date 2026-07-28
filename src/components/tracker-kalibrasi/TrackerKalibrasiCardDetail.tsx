@@ -484,6 +484,34 @@ export default function TrackerKalibrasiCardDetail({
     })();
   }, [receiptId]);
 
+  // ── fetch calibration labels attached to this card (for CBD/DP+Termin detection) ──
+  const fetchCardLabels = useCallback(async () => {
+    if (!receiptId) { setCardLabelNames([]); return; }
+    const { data: cardLabels } = await (supabase as any)
+      .from('calibration_card_labels')
+      .select('label_id')
+      .eq('sales_order_id', receiptId);
+    const ids = ((cardLabels as any[]) || []).map((c) => c.label_id);
+    if (ids.length === 0) { setCardLabelNames([]); return; }
+    const { data: labels } = await (supabase as any)
+      .from('calibration_labels')
+      .select('name')
+      .in('id', ids);
+    setCardLabelNames(((labels as any[]) || []).map((l) => (l.name || '').toUpperCase()));
+  }, [receiptId]);
+
+  useEffect(() => { fetchCardLabels(); }, [fetchCardLabels]);
+
+  useEffect(() => {
+    if (!receiptId) return;
+    const ch = supabase
+      .channel(`kal-card-labels-${receiptId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'calibration_card_labels', filter: `sales_order_id=eq.${receiptId}` }, () => fetchCardLabels())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'calibration_labels' }, () => fetchCardLabels())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [receiptId, fetchCardLabels]);
+
   const handleGeneratePI = useCallback(async (opts?: { dpPercent?: number; termDays?: number; paymentNote?: string }) => {
     if (!receiptId || !user) return;
     setGeneratingPI(true);
