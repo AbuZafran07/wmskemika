@@ -207,12 +207,15 @@ export async function generateSPKPdf(receiptId: string) {
 
   const customer = (receipt as any).customer;
   const taxRate = Number((receipt as any).tax_rate ?? 11);
-  const spkScopeRows: any[][] = [];
-  let subtotal = 0;
+  const instrumentRows: any[][] = [];
+  const sparepartRows: any[][] = [];
+  let instrumentSubtotal = 0;
+  let sparepartSubtotal = 0;
+  let spNo = 0;
   (instruments || []).forEach((item) => {
     const instrumentPrice = Number(item.unit_price || 0);
-    subtotal += instrumentPrice;
-    spkScopeRows.push([
+    instrumentSubtotal += instrumentPrice;
+    instrumentRows.push([
       String(item.item_number),
       item.instrument_name,
       item.brand_model || "-",
@@ -221,26 +224,30 @@ export async function generateSPKPdf(receiptId: string) {
       item.sla_working_days != null ? String(item.sla_working_days) : "-",
       fmt(instrumentPrice),
     ]);
-
     const spareParts = sparePartsByInstrument.get(item.id) || [];
     spareParts.forEach((part) => {
+      spNo += 1;
       const qty = Number(part.qty_used || 0);
       const unitPrice = Number(part.unit_price || 0);
       const lineTotal = unitPrice * Math.max(qty, 1);
-      subtotal += lineTotal;
+      sparepartSubtotal += lineTotal;
       const productName = part.product?.name || "Sparepart";
-      const sku = part.product?.sku ? ` (${part.product.sku})` : "";
-      const notes = part.notes ? ` — ${part.notes}` : "";
-      spkScopeRows.push([
-        "",
-        {
-          content: `↳ Sparepart: ${productName}${sku}${notes}${qty > 0 ? `  (Qty: ${qty})` : ""}`,
-          colSpan: 5,
-        },
+      const sku = part.product?.sku || "-";
+      const nameCell = part.notes
+        ? `${productName}\nuntuk alat: ${item.instrument_name}${part.notes ? ` — ${part.notes}` : ""}`
+        : `${productName}\nuntuk alat: ${item.instrument_name}`;
+      sparepartRows.push([
+        String(spNo),
+        sku,
+        nameCell,
+        String(qty || 1),
+        "pcs",
+        fmt(unitPrice),
         fmt(lineTotal),
       ]);
     });
   });
+  const subtotal = instrumentSubtotal + sparepartSubtotal;
   const taxAmount = subtotal * (taxRate / 100);
   const grandTotal = Number((receipt as any).total_amount) > 0
     ? Number((receipt as any).total_amount)
@@ -298,7 +305,8 @@ export async function generateSPKPdf(receiptId: string) {
   });
   y = (doc as any).lastAutoTable.finalY + 4;
 
-  // ── B. LINGKUP PEKERJAAN KALIBRASI ──
+  // ── B. LINGKUP PEKERJAAN KALIBRASI (Instrumen) ──
+  const hasSpareparts = sparepartRows.length > 0;
   autoTable(doc, {
     startY: y,
     margin: { left: M_LEFT, right: M_RIGHT, top: M_TOP, bottom: M_BOTTOM },
@@ -307,10 +315,8 @@ export async function generateSPKPdf(receiptId: string) {
       ["No.", "Nama / Jenis Alat", "Merk / Model", "No. Seri", "Metode Kalibrasi", "SLA (HK)", "Harga (Rp)"],
     ],
     body: [
-      ...spkScopeRows,
-      [{ content: "Sub-Total", colSpan: 6, styles: { halign: "right", fontStyle: "bold" } }, { content: fmt(subtotal), styles: { halign: "right" } }],
-      [{ content: `PPN ${taxRate}%`, colSpan: 6, styles: { halign: "right", fontStyle: "bold" } }, { content: fmt(taxAmount), styles: { halign: "right" } }],
-      [{ content: "TOTAL", colSpan: 6, styles: { halign: "right", fontStyle: "bold", fillColor: [245, 247, 252] } }, { content: fmt(grandTotal), styles: { halign: "right", fontStyle: "bold", fillColor: [245, 247, 252] } }],
+      ...instrumentRows,
+      [{ content: "Sub-Total Kalibrasi", colSpan: 6, styles: { halign: "right", fontStyle: "bold" } }, { content: fmt(instrumentSubtotal), styles: { halign: "right" } }],
     ],
     theme: "grid",
     styles: { fontSize: 8.5, cellPadding: 2, lineColor: [180, 180, 180], lineWidth: 0.2, valign: "middle" },
@@ -320,17 +326,53 @@ export async function generateSPKPdf(receiptId: string) {
       5: { cellWidth: 16, halign: "center" },
       6: { cellWidth: 30, halign: "right" },
     },
-    didParseCell: (data) => {
-      if (data.section !== "body") return;
-      const rawRow = data.row.raw as any[];
-      const nameCell = rawRow?.[1];
-      const text = typeof nameCell === "string" ? nameCell : nameCell?.content;
-      if (typeof text === "string" && text.startsWith("↳ Sparepart:")) {
-        data.cell.styles.textColor = [80, 80, 80];
-        if (data.column.index === 1) {
-          data.cell.styles.cellPadding = { top: 1.8, right: 2, bottom: 1.8, left: 5 } as any;
-        }
-      }
+    didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
+  });
+  y = (doc as any).lastAutoTable.finalY + 4;
+
+  // ── B.1  DAFTAR SPAREPART (produk gudang) ──
+  if (hasSpareparts) {
+    autoTable(doc, {
+      startY: y,
+      margin: { left: M_LEFT, right: M_RIGHT, top: M_TOP, bottom: M_BOTTOM },
+      head: [
+        [{ content: "B.1  DAFTAR SPAREPART TERKAIT", colSpan: 7, styles: { halign: "left", fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold" } }],
+        ["No.", "Kode", "Nama Barang", "Jumlah", "Unit", "Harga (Rp)", "Sub Total (Rp)"],
+      ],
+      body: [
+        ...sparepartRows,
+        [{ content: "Sub-Total Sparepart", colSpan: 6, styles: { halign: "right", fontStyle: "bold" } }, { content: fmt(sparepartSubtotal), styles: { halign: "right" } }],
+      ],
+      theme: "grid",
+      styles: { fontSize: 8.5, cellPadding: 2, lineColor: [180, 180, 180], lineWidth: 0.2, valign: "middle" },
+      headStyles: { fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold", halign: "center" },
+      columnStyles: {
+        0: { cellWidth: 10, halign: "center" },
+        1: { cellWidth: 22 },
+        3: { cellWidth: 14, halign: "center" },
+        4: { cellWidth: 12, halign: "center" },
+        5: { cellWidth: 26, halign: "right" },
+        6: { cellWidth: 30, halign: "right" },
+      },
+      didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
+    });
+    y = (doc as any).lastAutoTable.finalY + 4;
+  }
+
+  // ── Total Keseluruhan ──
+  autoTable(doc, {
+    startY: y,
+    margin: { left: M_LEFT, right: M_RIGHT, top: M_TOP, bottom: M_BOTTOM },
+    body: [
+      [{ content: "Sub-Total", styles: { halign: "right", fontStyle: "bold" } }, { content: fmt(subtotal), styles: { halign: "right" } }],
+      [{ content: `PPN ${taxRate}%`, styles: { halign: "right", fontStyle: "bold" } }, { content: fmt(taxAmount), styles: { halign: "right" } }],
+      [{ content: "TOTAL", styles: { halign: "right", fontStyle: "bold", fillColor: [245, 247, 252] } }, { content: fmt(grandTotal), styles: { halign: "right", fontStyle: "bold", fillColor: [245, 247, 252] } }],
+    ],
+    theme: "grid",
+    styles: { fontSize: 8.5, cellPadding: 2, lineColor: [180, 180, 180], lineWidth: 0.2 },
+    columnStyles: {
+      0: { cellWidth: CONTENT_W - 30, halign: "right" },
+      1: { cellWidth: 30, halign: "right" },
     },
     didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
   });
