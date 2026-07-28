@@ -283,6 +283,29 @@ export function useTrackerKalibrasi() {
             return;
           }
         }
+
+        // Guard: Calibration Completed hanya boleh jika semua sparepart sudah di Stock Out
+        if (checklistKey === 'calibration_completed') {
+          const { data: instRows } = await (supabase as any)
+            .from('sales_order_items')
+            .select('id')
+            .eq('sales_order_id', receiptId)
+            .eq('item_type', 'calibration');
+          const instIds = (instRows || []).map((r: any) => r.id);
+          if (instIds.length > 0) {
+            const { data: pendingParts } = await (supabase as any)
+              .from('calibration_spare_parts')
+              .select('id')
+              .in('instrument_id', instIds)
+              .is('issued_stock_out_id', null);
+            if ((pendingParts || []).length > 0) {
+              toast.error(
+                `Masih ada ${pendingParts!.length} sparepart yang belum di-Stock Out. Selesaikan Stock Out sparepart terlebih dahulu.`,
+              );
+              return;
+            }
+          }
+        }
       }
 
       // Optimistic update
