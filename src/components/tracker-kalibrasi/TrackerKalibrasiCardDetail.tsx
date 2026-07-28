@@ -302,6 +302,7 @@ export default function TrackerKalibrasiCardDetail({
   const { data: materaiAmount = 10000 } = useMateraiSetting();
   const [generatingPI, setGeneratingPI] = useState(false);
   const [existingPI, setExistingPI] = useState<string | null>(null);
+  const [cardLabelNames, setCardLabelNames] = useState<string[]>([]);
   const [customerPaymentTerms, setCustomerPaymentTerms] = useState<string | null>(null);
   const [customerType, setCustomerType] = useState<string | null>(null);
   const [showDpTerminDialog, setShowDpTerminDialog] = useState(false);
@@ -482,6 +483,34 @@ export default function TrackerKalibrasiCardDetail({
       setExistingPI(piData && piData.length > 0 ? piData[0].pi_number : null);
     })();
   }, [receiptId]);
+
+  // ── fetch calibration labels attached to this card (for CBD/DP+Termin detection) ──
+  const fetchCardLabels = useCallback(async () => {
+    if (!receiptId) { setCardLabelNames([]); return; }
+    const { data: cardLabels } = await (supabase as any)
+      .from('calibration_card_labels')
+      .select('label_id')
+      .eq('sales_order_id', receiptId);
+    const ids = ((cardLabels as any[]) || []).map((c) => c.label_id);
+    if (ids.length === 0) { setCardLabelNames([]); return; }
+    const { data: labels } = await (supabase as any)
+      .from('calibration_labels')
+      .select('name')
+      .in('id', ids);
+    setCardLabelNames(((labels as any[]) || []).map((l) => (l.name || '').toUpperCase()));
+  }, [receiptId]);
+
+  useEffect(() => { fetchCardLabels(); }, [fetchCardLabels]);
+
+  useEffect(() => {
+    if (!receiptId) return;
+    const ch = supabase
+      .channel(`kal-card-labels-${receiptId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'calibration_card_labels', filter: `sales_order_id=eq.${receiptId}` }, () => fetchCardLabels())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'calibration_labels' }, () => fetchCardLabels())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [receiptId, fetchCardLabels]);
 
   const handleGeneratePI = useCallback(async (opts?: { dpPercent?: number; termDays?: number; paymentNote?: string }) => {
     if (!receiptId || !user) return;
@@ -1740,7 +1769,10 @@ export default function TrackerKalibrasiCardDetail({
                       const termsUpper = customerPaymentTerms?.toUpperCase() || '';
                       const isCBDTerms = termsUpper === 'CBD';
                       const isDpTermTerms = termsUpper.includes('DP') && (termsUpper.includes('TERMIN') || termsUpper.includes('TOP') || /\d+\s*HARI/.test(termsUpper));
-                      const eligible = isCBDTerms || isDpTermTerms;
+                      const hasCBDLabel = cardLabelNames.some((n) => n === 'CBD' || n.includes('CBD') || n.includes('CASH BEFORE DELIVERY'));
+                      const hasDpTermLabel = cardLabelNames.some((n) => n.includes('DP') && (n.includes('TERMIN') || n.includes('TOP')));
+                      const eligible = isCBDTerms || isDpTermTerms || hasCBDLabel || hasDpTermLabel;
+                      const useDpFlow = isDpTermTerms || hasDpTermLabel;
                       const canGenerate = user?.role === 'sales' || user?.role === 'super_admin' || user?.role === 'finance';
                       const spkIssued = isChecked('spk_issued');
                       if (existingPI) {
@@ -1765,7 +1797,7 @@ export default function TrackerKalibrasiCardDetail({
                           disabled={!receiptId || generatingPI || !spkIssued}
                           title={!spkIssued ? 'Centang "SPK Issued" dulu untuk generate PI' : undefined}
                           onClick={() => {
-                            if (isDpTermTerms) {
+                            if (useDpFlow) {
                               setDpPercentInput("30");
                               setTermDaysInput("30");
                               setShowDpTerminDialog(true);
