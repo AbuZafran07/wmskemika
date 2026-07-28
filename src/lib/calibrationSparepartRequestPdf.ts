@@ -68,7 +68,6 @@ export async function printCalibrationSparepartRequest(salesOrderId: string) {
 
   const body = parts.map((p, i) => [
     String(i + 1),
-    instMap.get(p.instrument_id) || "-",
     p.product?.name ?? "-",
     p.product?.sku ?? "-",
     String(p.qty_used),
@@ -78,14 +77,14 @@ export async function printCalibrationSparepartRequest(salesOrderId: string) {
 
   autoTable(doc, {
     startY: y + 3,
-    head: [["No", "Alat / Instrumen", "Sparepart", "SKU", "Qty", "Catatan", "Qty Diserahkan"]],
+    head: [["No", "Sparepart", "SKU", "Qty", "Catatan", "Qty Diserahkan"]],
     body,
     styles: { fontSize: 9, cellPadding: 2 },
     headStyles: { fillColor: [30, 41, 59], textColor: 255, fontStyle: "bold" },
     columnStyles: {
       0: { cellWidth: 10, halign: "center" },
-      4: { cellWidth: 14, halign: "center" },
-      6: { cellWidth: 28 },
+      3: { cellWidth: 14, halign: "center" },
+      5: { cellWidth: 28 },
     },
   });
 
