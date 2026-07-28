@@ -1429,7 +1429,7 @@ export type Database = {
           discount: number | null
           id: string
           notes: string | null
-          product_id: string
+          product_id: string | null
           product_name: string
           proforma_invoice_id: string
           qty: number
@@ -1441,7 +1441,7 @@ export type Database = {
           discount?: number | null
           id?: string
           notes?: string | null
-          product_id: string
+          product_id?: string | null
           product_name: string
           proforma_invoice_id: string
           qty: number
@@ -1453,7 +1453,7 @@ export type Database = {
           discount?: number | null
           id?: string
           notes?: string | null
-          product_id?: string
+          product_id?: string | null
           product_name?: string
           proforma_invoice_id?: string
           qty?: number
