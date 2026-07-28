@@ -2620,6 +2620,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      issue_calibration_certificates: {
+        Args: { p_so_id: string }
+        Returns: {
+          certificate_issued_at: string
+          certificate_number: string
+          item_id: string
+        }[]
+      }
       issue_calibration_spk: {
         Args: { p_so_id: string }
         Returns: {
