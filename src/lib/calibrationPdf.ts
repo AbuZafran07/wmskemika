@@ -233,11 +233,10 @@ export async function generateSPKPdf(receiptId: string) {
       const notes = part.notes ? ` — ${part.notes}` : "";
       spkScopeRows.push([
         "",
-        `↳ Sparepart: ${productName}${sku}${notes}`,
-        "-",
-        "-",
-        "Sparepart",
-        qty > 0 ? String(qty) : "-",
+        {
+          content: `↳ Sparepart: ${productName}${sku}${notes}${qty > 0 ? `  (Qty: ${qty})` : ""}`,
+          colSpan: 5,
+        },
         fmt(lineTotal),
       ]);
     });
@@ -327,7 +326,6 @@ export async function generateSPKPdf(receiptId: string) {
       const nameCell = rawRow?.[1];
       const text = typeof nameCell === "string" ? nameCell : nameCell?.content;
       if (typeof text === "string" && text.startsWith("↳ Sparepart:")) {
-        data.cell.styles.fontStyle = "italic";
         data.cell.styles.textColor = [80, 80, 80];
         if (data.column.index === 1) {
           data.cell.styles.cellPadding = { top: 1.8, right: 2, bottom: 1.8, left: 5 } as any;
