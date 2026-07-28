@@ -584,7 +584,7 @@ export default function TrackerKalibrasiCardDetail({
           const price = Number(sp.unit_price || 0);
           piItemsData.push({
             product_id: sp.product?.id ?? null,
-            product_name: `Sparepart: ${sp.product?.name ?? '-'}${sp.product?.sku ? ` (${sp.product.sku})` : ''} — untuk ${instrumentLabel}`,
+            product_name: sp.product?.name ?? '-',
             qty,
             unit_price: price,
             discount: 0,
