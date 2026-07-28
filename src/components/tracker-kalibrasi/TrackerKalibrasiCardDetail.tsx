@@ -1213,7 +1213,7 @@ export default function TrackerKalibrasiCardDetail({
                     <SectionTitle>Alat ({instruments.length})</SectionTitle>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-primary">{formatRupiah(totalValue)}</span>
-                      {canToggle && !addingInstrument && (
+                      {canToggle && !isCardLocked && !addingInstrument && (
                         <Button variant="outline" size="sm" className="h-7 gap-1 text-xs"
                           onClick={() => setAddingInstrument(true)}>
                           <Plus className="w-3 h-3" /> Tambah
@@ -1356,7 +1356,7 @@ export default function TrackerKalibrasiCardDetail({
                           <Printer className="w-3 h-3" /> Cetak
                         </Button>
                       )}
-                      {canToggle && !addingPart && (
+                      {canToggle && !isCardLocked && !addingPart && (
                         <Button variant="outline" size="sm" className="h-7 gap-1 text-xs"
                           onClick={() => setAddingPart(true)}>
                           <Plus className="w-3 h-3" /> Tambah
