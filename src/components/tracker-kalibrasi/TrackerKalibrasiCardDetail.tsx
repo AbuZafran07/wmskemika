@@ -1862,10 +1862,22 @@ export default function TrackerKalibrasiCardDetail({
                       onClick={async () => {
                         if (!receiptId) return;
                         setPdfLoading("cert");
+                        let issuedCerts: Array<{ certificate_number?: string | null }> = [];
                         try { await generateCertificatePdf(receiptId); }
                         catch (e) { toast.error("Gagal generate Sertifikat PDF"); console.error(e); setPdfLoading(null); return; }
                         finally { setPdfLoading(null); }
-                        const firstCert = instruments.find(i => (i as any).certificate_number)?.['certificate_number' as any] as string | undefined;
+                        try {
+                          issuedCerts = await generateCertificatePdf(receiptId) as Array<{ certificate_number?: string | null }>;
+                        } catch (e) {
+                          toast.error("Gagal generate Sertifikat PDF");
+                          console.error(e);
+                          return;
+                        } finally {
+                          setPdfLoading(null);
+                        }
+                        await fetchReceipt();
+                        const firstCert = issuedCerts.find((i) => i.certificate_number)?.certificate_number
+                          ?? instruments.find(i => (i as any).certificate_number)?.['certificate_number' as any] as string | undefined;
                         await logCalibrationDoc('certificate', firstCert ?? receipt?.spk_number ?? null);
                       }}
                       className="gap-1.5 text-xs"
