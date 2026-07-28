@@ -223,7 +223,7 @@ export default function StockOut() {
           stockOutItems.push({
             sales_order_item_id: null,
             product_id: p.product_id,
-            product_name: `↳ [Sparepart] ${p.product?.name || "-"} — untuk alat: ${instLabel}`,
+            product_name: p.product?.name || "-",
             sku: p.product?.sku || "-",
             category: p.product?.category?.name || "-",
             unit: p.product?.unit?.name || "-",
