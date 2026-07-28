@@ -344,6 +344,14 @@ export async function generateSPKPdf(receiptId: string) {
 // ── Certificate PDF — F-KAL-05 ────────────────────────────────────────────────
 
 export async function generateCertificatePdf(receiptId: string, instrumentId?: string) {
+  const { data: issuedCerts, error: issueError } = await (supabase as any).rpc(
+    "issue_calibration_certificates",
+    { p_so_id: receiptId },
+  );
+  if (issueError) {
+    throw new Error(issueError.message || "Gagal menerbitkan nomor sertifikat");
+  }
+
   // 1. Fetch SO header
   const { data: hdr } = await (supabase as any)
     .from("sales_order_headers")
@@ -582,32 +590,33 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
       styles: { fontSize: 9, cellPadding: 3, lineColor: [180, 180, 180], lineWidth: 0.2 },
       didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
     });
-    y = (doc as any).lastAutoTable.finalY + 10;
+    y = (doc as any).lastAutoTable.finalY + 5;
 
-    // Tempat & tanggal (center)
-    const issueDate = fmtDate(item.certificate_issued_at || new Date().toISOString());
-    setFont(doc, "bold", 10);
-    doc.text(`Tangerang, ${issueDate}`, A4_W / 2, y, { align: "center" });
-    y += 8;
-
-    // QR verification code (top-right of page 2, inside safe area)
+    // QR verification code — placed below statement block so it never hides the letterhead/table.
     if (item.certificate_number) {
       try {
         const verifyUrl = `${window.location.origin}/verify/${encodeURIComponent(item.certificate_number)}`;
         const qrData = await QRCode.toDataURL(verifyUrl, { margin: 0, width: 240 });
-        const qrSize = 26;
+        const qrSize = 24;
         const qrX = A4_W - M_RIGHT - qrSize;
-        const qrY = M_TOP + 4;
+        const qrY = y;
         doc.addImage(qrData, "PNG", qrX, qrY, qrSize, qrSize);
         setFont(doc, "normal", 7);
         doc.setTextColor(90, 90, 90);
         doc.text("Scan untuk verifikasi", qrX + qrSize / 2, qrY + qrSize + 3, { align: "center" });
         doc.text("Scan to verify", qrX + qrSize / 2, qrY + qrSize + 6, { align: "center" });
         doc.setTextColor(0, 0, 0);
+        y = Math.max(y + qrSize + 10, y + 14);
       } catch (e) {
         console.error("QR generation failed:", e);
       }
     }
+
+    // Tempat & tanggal (center)
+    const issueDate = fmtDate(item.certificate_issued_at || new Date().toISOString());
+    setFont(doc, "bold", 10);
+    doc.text(`Tangerang, ${issueDate}`, A4_W / 2, y, { align: "center" });
+    y += 8;
 
     // Signatures — 3 columns
     const [techSig, checkSig, authSig] = await Promise.all([
@@ -664,6 +673,7 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
   const win = window.open(url, "_blank");
   if (!win) doc.save(fname);
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  return issuedCerts || [];
 }
 
 // ── BAST PDF — F-KAL-06 (Berita Acara Serah Terima Alat & Sertifikat) ────────
