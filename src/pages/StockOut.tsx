@@ -50,7 +50,7 @@ interface BatchSelection {
 }
 
 interface StockOutItem {
-  sales_order_item_id: string;
+  sales_order_item_id: string | null;
   product_id: string;
   product_name: string;
   sku: string;
@@ -60,6 +60,9 @@ interface StockOutItem {
   qty_remaining: number;
   qty_out: number;
   batches: BatchSelection[];
+  // Sparepart kalibrasi yang belum dikeluarkan (issued_stock_out_id IS NULL)
+  calibration_spare_part_id?: string;
+  instrument_label?: string;
 }
 
 export default function StockOut() {
