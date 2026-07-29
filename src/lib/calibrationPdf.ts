@@ -111,6 +111,26 @@ function addBg(doc: jsPDF, bgData: string | null) {
   doc.rect(0, 0, INSET, A4_H, "F");
 }
 
+function openPreviewAndDownload(doc: jsPDF, filename: string) {
+  const blob = doc.output("blob");
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, "_blank");
+  if (!win) {
+    // Popup blocked: fall back to jsPDF save so the user still gets the file.
+    doc.save(filename);
+  } else {
+    // Trigger a real download with the certificate number as filename.
+    // Previewing via blob URL alone makes the browser use a random hash name.
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
 function sectionHeader(doc: jsPDF, text: string, y: number): number {
   doc.setFillColor(220, 228, 252);
   doc.rect(M_LEFT, y - 3.5, CONTENT_W, 6.5, "F");
