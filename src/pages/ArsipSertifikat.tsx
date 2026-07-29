@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Search, FileDown, QrCode, Ban } from "lucide-react";
+import { Loader2, Search, FileDown, QrCode, Ban, Trash2 } from "lucide-react";
 import { DataTablePagination } from "@/components/DataTablePagination";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
@@ -68,6 +68,7 @@ export default function ArsipSertifikat() {
   const { user } = useAuth();
   const canRevoke = ["super_admin", "admin", "finance"].includes(user?.role || "");
   const canViewLogs = ["super_admin", "admin"].includes(user?.role || "");
+  const canDelete = user?.role === "super_admin";
 
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,6 +83,8 @@ export default function ArsipSertifikat() {
   const [revokeTarget, setRevokeTarget] = useState<Row | null>(null);
   const [revokeReason, setRevokeReason] = useState("");
   const [revoking, setRevoking] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Row | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Scan logs state
   const [logs, setLogs] = useState<ScanLog[]>([]);
@@ -196,6 +199,22 @@ export default function ArsipSertifikat() {
     toast.success("Sertifikat berhasil di-revoke");
     setRevokeTarget(null);
     setRevokeReason("");
+    fetchRows();
+  };
+
+  const submitDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const { data, error } = await (supabase as any).rpc("delete_certificate", {
+      p_item_id: deleteTarget.id,
+    });
+    setDeleting(false);
+    if (error || !data?.success) {
+      toast.error(error?.message || data?.error || "Gagal menghapus sertifikat");
+      return;
+    }
+    toast.success("Sertifikat berhasil dihapus");
+    setDeleteTarget(null);
     fetchRows();
   };
 
@@ -333,6 +352,16 @@ export default function ArsipSertifikat() {
                           <Ban className="w-4 h-4" />
                         </Button>
                       )}
+                      {canDelete && (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => setDeleteTarget(r)}
+                          title="Hapus sertifikat (Super Admin)"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -441,6 +470,29 @@ export default function ArsipSertifikat() {
             <Button variant="destructive" onClick={submitRevoke} disabled={revoking}>
               {revoking ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Ban className="w-4 h-4 mr-2" />}
               Revoke
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Hapus Sertifikat</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 text-sm">
+            <div>
+              No. Sertifikat: <span className="font-mono font-semibold">{deleteTarget?.certificate_number}</span>
+            </div>
+            <div className="text-muted-foreground text-xs">
+              Nomor sertifikat, tanggal terbit, dan status revoke akan dihapus dari alat ini. Aksi ini tidak dapat dibatalkan. Alat dapat diterbitkan sertifikatnya kembali dari Tracker Kalibrasi.
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>Batal</Button>
+            <Button variant="destructive" onClick={submitDelete} disabled={deleting}>
+              {deleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+              Hapus
             </Button>
           </DialogFooter>
         </DialogContent>
