@@ -72,7 +72,10 @@ export default function ArsipSertifikat() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [generating, setGenerating] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<"all" | "valid" | "expiring" | "expired" | "revoked">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "valid" | "expiring" | "archived">("all");
+  const [page, setPage] = useState(1);
+  const [logsPage, setLogsPage] = useState(1);
+  const PAGE_SIZE = 20;
 
   const [revokeTarget, setRevokeTarget] = useState<Row | null>(null);
   const [revokeReason, setRevokeReason] = useState("");
@@ -132,7 +135,11 @@ export default function ArsipSertifikat() {
     const kw = q.trim().toLowerCase();
     let base = rows;
     if (statusFilter !== "all") {
-      base = base.filter((r) => certStatus(r).key === statusFilter);
+      base = base.filter((r) => {
+        const k = certStatus(r).key;
+        if (statusFilter === "archived") return k === "expired" || k === "revoked";
+        return k === statusFilter;
+      });
     }
     if (!kw) return base;
     return base.filter((r) =>
@@ -149,6 +156,13 @@ export default function ArsipSertifikat() {
         .some((v) => String(v).toLowerCase().includes(kw)),
     );
   }, [rows, q, statusFilter]);
+
+  useEffect(() => { setPage(1); }, [q, statusFilter, rows]);
+  useEffect(() => { setLogsPage(1); }, [logs]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalLogPages = Math.max(1, Math.ceil(logs.length / PAGE_SIZE));
+  const pageLogs = logs.slice((logsPage - 1) * PAGE_SIZE, logsPage * PAGE_SIZE);
 
   const handleDownload = async (r: Row) => {
     setGenerating(r.id);
@@ -216,8 +230,7 @@ export default function ArsipSertifikat() {
                   { k: "all", label: "Semua" },
                   { k: "valid", label: "Valid" },
                   { k: "expiring", label: "Akan Expired" },
-                  { k: "expired", label: "Expired" },
-                  { k: "revoked", label: "Revoked" },
+                  { k: "archived", label: "Expired / Revoked" },
                 ] as const).map((opt) => (
                   <Button
                     key={opt.k}
@@ -262,7 +275,7 @@ export default function ArsipSertifikat() {
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((r) => {
+              pageRows.map((r) => {
                 const st = certStatus(r);
                 const expiresAt = addOneYear(r.certificate_issued_at);
                 return (
@@ -327,6 +340,18 @@ export default function ArsipSertifikat() {
           </TableBody>
         </Table>
           </Card>
+          {filtered.length > PAGE_SIZE && (
+            <div className="flex items-center justify-between px-2">
+              <div className="text-xs text-muted-foreground">
+                Menampilkan {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} dari {filtered.length}
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Sebelumnya</Button>
+                <div className="text-sm px-2 py-1">Hal {page} / {totalPages}</div>
+                <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Berikutnya</Button>
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         {canViewLogs && (
@@ -362,7 +387,7 @@ export default function ArsipSertifikat() {
                   ) : logs.length === 0 ? (
                     <TableRow><TableCell colSpan={3} className="text-center py-10 text-muted-foreground">Belum ada aktivitas scan.</TableCell></TableRow>
                   ) : (
-                    logs.map((l) => (
+                    pageLogs.map((l) => (
                       <TableRow key={l.id}>
                         <TableCell className="whitespace-nowrap">{format(new Date(l.scanned_at), "dd MMM yyyy HH:mm:ss", { locale: idLocale })}</TableCell>
                         <TableCell className="font-mono text-xs">{l.certificate_number}</TableCell>
@@ -378,6 +403,18 @@ export default function ArsipSertifikat() {
                 </TableBody>
               </Table>
             </Card>
+            {logs.length > PAGE_SIZE && (
+              <div className="flex items-center justify-between px-2">
+                <div className="text-xs text-muted-foreground">
+                  Menampilkan {(logsPage - 1) * PAGE_SIZE + 1}–{Math.min(logsPage * PAGE_SIZE, logs.length)} dari {logs.length}
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" disabled={logsPage <= 1} onClick={() => setLogsPage(p => p - 1)}>Sebelumnya</Button>
+                  <div className="text-sm px-2 py-1">Hal {logsPage} / {totalLogPages}</div>
+                  <Button size="sm" variant="outline" disabled={logsPage >= totalLogPages} onClick={() => setLogsPage(p => p + 1)}>Berikutnya</Button>
+                </div>
+              </div>
+            )}
           </TabsContent>
         )}
       </Tabs>
