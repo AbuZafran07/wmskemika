@@ -410,7 +410,7 @@ export default function ArsipSertifikat() {
                 pageSize={logsPageSize}
                 totalItems={logs.length}
                 onPageChange={setLogsPage}
-                onPageSizeChange={() => {}}
+                onPageSizeChange={setLogsPageSize}
               />
             )}
           </TabsContent>
