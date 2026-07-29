@@ -1491,7 +1491,11 @@ export default function TrackerKalibrasiCardDetail({
                               <td className="px-3 py-2 text-center">{p.qty_used}</td>
                               <td className="px-3 py-2 text-right">{formatRupiah(p.unit_price)}</td>
                               <td className="px-3 py-2 text-center">
-                                {p.stock_issued ? (
+                                {currentColumnId === 'delivered' && p.stock_issued ? (
+                                  <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                    Delivered
+                                  </span>
+                                ) : p.stock_issued ? (
                                   <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
                                     Dikeluarkan
                                   </span>
