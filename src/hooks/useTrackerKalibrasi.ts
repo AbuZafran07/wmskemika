@@ -495,6 +495,14 @@ export function useTrackerKalibrasi() {
           .update(patch)
           .eq('id', receiptId);
         if (error) throw error;
+        // Sync feasibility_status pada tiap instrumen kalibrasi
+        const newFeasibility = decision === 'rejected' ? 'not_feasible' : 'feasible';
+        const { error: itemErr } = await (supabase as any)
+          .from('sales_order_items')
+          .update({ feasibility_status: newFeasibility })
+          .eq('sales_order_id', receiptId)
+          .eq('item_type', 'calibration');
+        if (itemErr) console.error('update feasibility_status error:', itemErr);
         toast.success(decision === 'rejected' ? 'Ditandai Rejected' : 'Ditandai Accepted');
         fetchData();
       } catch (err: any) {

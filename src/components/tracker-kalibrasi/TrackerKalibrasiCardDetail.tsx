@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   FlaskConical, X, Send, Loader2, CheckSquare, Square,
-  MapPin, Phone, User, CalendarDays, FileText, Download,
+  MapPin, Phone, User, CalendarDays, FileText, Download, Eye,
   Plus, Trash2, Package, MessageSquare, Printer, AtSign,
   Paperclip, Upload, Receipt,
 } from "lucide-react";
@@ -419,6 +419,7 @@ export default function TrackerKalibrasiCardDetail({
             instrument_name: instList.find(i => i.id === p.instrument_id)?.instrument_name ?? "-",
             product_name: (p.product as { name?: string } | null)?.name ?? "-",
             product_sku: (p.product as { sku?: string } | null)?.sku ?? null,
+            stock_issued: !!(p as { issued_stock_out_id?: string | null }).issued_stock_out_id,
           })) as SparePart[]
         );
       }
@@ -1967,6 +1968,15 @@ export default function TrackerKalibrasiCardDetail({
                                 title="Download"
                               >
                                 <Download className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 flex-shrink-0"
+                                onClick={() => window.open(att.url, "_blank", "noopener,noreferrer")}
+                                title="Lihat"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
                               </Button>
                               {(att.uploaded_by === user?.id || user?.role === 'super_admin' || user?.role === 'admin') && (
                                 <Button
