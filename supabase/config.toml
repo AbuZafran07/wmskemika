@@ -15,5 +15,8 @@ verify_jwt = false
 [functions.check-stock-alerts]
 verify_jwt = false
 
+[functions.certificate-expiry-notifier]
+verify_jwt = false
+
 [functions.wms-assistant]
 verify_jwt = false
