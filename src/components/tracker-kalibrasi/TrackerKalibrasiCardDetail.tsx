@@ -88,6 +88,14 @@ interface InstrumentDetail {
   feasibility_status: string | null;
   calibration_conclusion: string | null;
   certificate_number: string | null;
+  calibration_gas: string | null;
+  traceability: string | null;
+  env_temperature: number | null;
+  env_humidity: number | null;
+  standard_applied: string | null;
+  monitoring_reading: string | null;
+  correction: string | null;
+  additional_information: string | null;
 }
 
 interface SparePart {
@@ -240,6 +248,8 @@ export default function TrackerKalibrasiCardDetail({
 
   const [receipt, setReceipt] = useState<ReceiptDetail | null>(null);
   const [instruments, setInstruments] = useState<InstrumentDetail[]>([]);
+  const [editingCalDetail, setEditingCalDetail] = useState<InstrumentDetail | null>(null);
+  const [savingCalDetail, setSavingCalDetail] = useState(false);
   const [spareParts, setSpareParts] = useState<SparePart[]>([]);
   const [comments, setComments] = useState<KomComment[]>([]);
   const [loadingReceipt, setLoadingReceipt] = useState(false);
@@ -340,7 +350,9 @@ export default function TrackerKalibrasiCardDetail({
             instrument_brand_model, instrument_serial_number,
             measurement_range, calibration_method, sla_working_days,
             feasibility_status, feasibility_notes, certificate_number,
-            description, item_type, created_at
+            description, item_type, created_at,
+            calibration_gas, traceability, env_temperature, env_humidity,
+            standard_applied, monitoring_reading, correction, additional_information
           `)
           .eq("sales_order_id", receiptId)
           .eq("item_type", "calibration")
@@ -361,6 +373,14 @@ export default function TrackerKalibrasiCardDetail({
         feasibility_status: it.feasibility_status ?? null,
         calibration_conclusion: null,
         certificate_number: it.certificate_number ?? null,
+        calibration_gas: it.calibration_gas ?? null,
+        traceability: it.traceability ?? null,
+        env_temperature: it.env_temperature != null ? Number(it.env_temperature) : null,
+        env_humidity: it.env_humidity != null ? Number(it.env_humidity) : null,
+        standard_applied: it.standard_applied ?? null,
+        monitoring_reading: it.monitoring_reading ?? null,
+        correction: it.correction ?? null,
+        additional_information: it.additional_information ?? null,
       }));
 
       const h = (hdr as Record<string, any>) ?? null;
@@ -990,6 +1010,14 @@ export default function TrackerKalibrasiCardDetail({
           feasibility_status: it.feasibility_status ?? null,
           calibration_conclusion: null,
           certificate_number: it.certificate_number ?? null,
+          calibration_gas: null,
+          traceability: null,
+          env_temperature: null,
+          env_humidity: null,
+          standard_applied: null,
+          monitoring_reading: null,
+          correction: null,
+          additional_information: null,
         },
       ]);
       setNewInstrument({
@@ -1323,13 +1351,22 @@ export default function TrackerKalibrasiCardDetail({
                             </td>
                             {canToggle && (
                               <td className="px-3 py-2">
-                                <button
-                                  className="text-muted-foreground hover:text-destructive transition-colors"
-                                  onClick={() => deleteInstrument(inst.id)}
-                                  title="Hapus alat"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                                <div className="flex items-center gap-1 justify-end">
+                                  <button
+                                    className="text-muted-foreground hover:text-primary transition-colors"
+                                    onClick={() => setEditingCalDetail(inst)}
+                                    title="Detail data kalibrasi (Metode, Standar, Verifikasi)"
+                                  >
+                                    <FlaskConical className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    className="text-muted-foreground hover:text-destructive transition-colors"
+                                    onClick={() => deleteInstrument(inst.id)}
+                                    title="Hapus alat"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </td>
                             )}
                           </tr>
@@ -2157,6 +2194,129 @@ export default function TrackerKalibrasiCardDetail({
               {generatingPI ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
               Generate PI
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Detail Data Kalibrasi per alat */}
+      <Dialog open={!!editingCalDetail} onOpenChange={(o) => { if (!o) setEditingCalDetail(null); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Detail Data Kalibrasi — {editingCalDetail?.instrument_name}</DialogTitle>
+            <DialogDescription>
+              Data ini akan otomatis tercantum pada Sertifikat Kalibrasi (Section B & C). Dapat diedit oleh role yang berwenang saat card berada di kolom <b>Calibration Progress</b>.
+            </DialogDescription>
+          </DialogHeader>
+          {editingCalDetail && (() => {
+            const readOnly = !(canToggle && currentColumnId === 'calibration_in_progress');
+            const upd = (patch: Partial<InstrumentDetail>) =>
+              setEditingCalDetail((prev) => (prev ? { ...prev, ...patch } as InstrumentDetail : prev));
+            return (
+              <div className="space-y-4">
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                    Section B — Referensi Metode & Standar
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Metode Kalibrasi</Label>
+                      <Input value={editingCalDetail.calibration_method ?? ''} disabled={readOnly}
+                        onChange={(e) => upd({ calibration_method: e.target.value })} placeholder="Kalibrasi standard" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Gas yang digunakan / Calibration Gas</Label>
+                      <Input value={editingCalDetail.calibration_gas ?? ''} disabled={readOnly}
+                        onChange={(e) => upd({ calibration_gas: e.target.value })} placeholder="mis. CH4 50 PPM in N2" />
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label className="text-xs">Ketertelusuran / Traceability</Label>
+                      <Input value={editingCalDetail.traceability ?? ''} disabled={readOnly}
+                        onChange={(e) => upd({ traceability: e.target.value })} placeholder="mis. NIST / KAN LK-XXX" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Suhu Ruangan (°C)</Label>
+                      <Input type="number" step="0.1" value={editingCalDetail.env_temperature ?? ''} disabled={readOnly}
+                        onChange={(e) => upd({ env_temperature: e.target.value === '' ? null : Number(e.target.value) })} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Kelembaban (%RH)</Label>
+                      <Input type="number" step="0.1" value={editingCalDetail.env_humidity ?? ''} disabled={readOnly}
+                        onChange={(e) => upd({ env_humidity: e.target.value === '' ? null : Number(e.target.value) })} />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                    Section C — Cek Verifikasi Hasil Kalibrasi
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <Label className="text-xs">Standard Applied & Span Gas Set (PPM)</Label>
+                      <Input value={editingCalDetail.standard_applied ?? ''} disabled={readOnly}
+                        onChange={(e) => upd({ standard_applied: e.target.value })} placeholder="mis. 50" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Monitoring Reading (PPM)</Label>
+                      <Input value={editingCalDetail.monitoring_reading ?? ''} disabled={readOnly}
+                        onChange={(e) => upd({ monitoring_reading: e.target.value })} placeholder="mis. 50" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Correction</Label>
+                      <Input value={editingCalDetail.correction ?? ''} disabled={readOnly}
+                        onChange={(e) => upd({ correction: e.target.value })} placeholder="mis. 0" />
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <Label className="text-xs">Tambahan Informasi / Additional Information</Label>
+                    <Textarea rows={2} value={editingCalDetail.additional_information ?? ''} disabled={readOnly}
+                      onChange={(e) => upd({ additional_information: e.target.value })} placeholder="opsional" />
+                  </div>
+                </div>
+
+                {readOnly && (
+                  <div className="text-xs text-muted-foreground bg-muted/40 rounded p-2">
+                    Data hanya dapat diedit saat card berada di kolom <b>Calibration Progress</b> oleh role yang berwenang.
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingCalDetail(null)} disabled={savingCalDetail}>
+              {(canToggle && currentColumnId === 'calibration_in_progress') ? 'Batal' : 'Tutup'}
+            </Button>
+            {(canToggle && currentColumnId === 'calibration_in_progress') && (
+              <Button
+                disabled={savingCalDetail || !editingCalDetail}
+                onClick={async () => {
+                  if (!editingCalDetail) return;
+                  setSavingCalDetail(true);
+                  const { error } = await (supabase as any)
+                    .from('sales_order_items')
+                    .update({
+                      calibration_method: editingCalDetail.calibration_method,
+                      calibration_gas: editingCalDetail.calibration_gas,
+                      traceability: editingCalDetail.traceability,
+                      env_temperature: editingCalDetail.env_temperature,
+                      env_humidity: editingCalDetail.env_humidity,
+                      standard_applied: editingCalDetail.standard_applied,
+                      monitoring_reading: editingCalDetail.monitoring_reading,
+                      correction: editingCalDetail.correction,
+                      additional_information: editingCalDetail.additional_information,
+                    })
+                    .eq('id', editingCalDetail.id);
+                  setSavingCalDetail(false);
+                  if (error) { toast.error(error.message || 'Gagal menyimpan detail'); return; }
+                  toast.success('Detail kalibrasi tersimpan');
+                  setInstruments((prev) => prev.map((i) => i.id === editingCalDetail.id ? { ...editingCalDetail } : i));
+                  setEditingCalDetail(null);
+                }}
+              >
+                {savingCalDetail ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
+                Simpan
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

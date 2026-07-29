@@ -1796,6 +1796,8 @@ export type Database = {
       }
       sales_order_items: {
         Row: {
+          additional_information: string | null
+          calibration_gas: string | null
           calibration_method: string | null
           certificate_issued_at: string | null
           certificate_number: string | null
@@ -1803,9 +1805,12 @@ export type Database = {
           certificate_revoked_by: string | null
           certificate_revoked_reason: string | null
           condition_notes: string | null
+          correction: string | null
           created_at: string | null
           description: string | null
           discount: number | null
+          env_humidity: number | null
+          env_temperature: number | null
           feasibility_notes: string | null
           feasibility_status: string | null
           id: string
@@ -1814,6 +1819,7 @@ export type Database = {
           instrument_serial_number: string | null
           item_type: string
           measurement_range: string | null
+          monitoring_reading: string | null
           notes: string | null
           ordered_qty: number
           product_id: string | null
@@ -1821,11 +1827,15 @@ export type Database = {
           qty_remaining: number | null
           sales_order_id: string
           sla_working_days: number | null
+          standard_applied: string | null
           subtotal: number | null
           tax_rate: number | null
+          traceability: string | null
           unit_price: number
         }
         Insert: {
+          additional_information?: string | null
+          calibration_gas?: string | null
           calibration_method?: string | null
           certificate_issued_at?: string | null
           certificate_number?: string | null
@@ -1833,9 +1843,12 @@ export type Database = {
           certificate_revoked_by?: string | null
           certificate_revoked_reason?: string | null
           condition_notes?: string | null
+          correction?: string | null
           created_at?: string | null
           description?: string | null
           discount?: number | null
+          env_humidity?: number | null
+          env_temperature?: number | null
           feasibility_notes?: string | null
           feasibility_status?: string | null
           id?: string
@@ -1844,6 +1857,7 @@ export type Database = {
           instrument_serial_number?: string | null
           item_type?: string
           measurement_range?: string | null
+          monitoring_reading?: string | null
           notes?: string | null
           ordered_qty: number
           product_id?: string | null
@@ -1851,11 +1865,15 @@ export type Database = {
           qty_remaining?: number | null
           sales_order_id: string
           sla_working_days?: number | null
+          standard_applied?: string | null
           subtotal?: number | null
           tax_rate?: number | null
+          traceability?: string | null
           unit_price: number
         }
         Update: {
+          additional_information?: string | null
+          calibration_gas?: string | null
           calibration_method?: string | null
           certificate_issued_at?: string | null
           certificate_number?: string | null
@@ -1863,9 +1881,12 @@ export type Database = {
           certificate_revoked_by?: string | null
           certificate_revoked_reason?: string | null
           condition_notes?: string | null
+          correction?: string | null
           created_at?: string | null
           description?: string | null
           discount?: number | null
+          env_humidity?: number | null
+          env_temperature?: number | null
           feasibility_notes?: string | null
           feasibility_status?: string | null
           id?: string
@@ -1874,6 +1895,7 @@ export type Database = {
           instrument_serial_number?: string | null
           item_type?: string
           measurement_range?: string | null
+          monitoring_reading?: string | null
           notes?: string | null
           ordered_qty?: number
           product_id?: string | null
@@ -1881,8 +1903,10 @@ export type Database = {
           qty_remaining?: number | null
           sales_order_id?: string
           sla_working_days?: number | null
+          standard_applied?: string | null
           subtotal?: number | null
           tax_rate?: number | null
+          traceability?: string | null
           unit_price?: number
         }
         Relationships: [
