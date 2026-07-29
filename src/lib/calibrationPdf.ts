@@ -1068,7 +1068,7 @@ export async function generateBASTPdf(receiptId: string) {
   y = (doc as any).lastAutoTable.finalY + 4;
 
   // Signatures: 2 columns
-  const SIG_H = 26;
+  const SIG_H = 30;
   if (y + SIG_H > A4_H - M_BOTTOM) {
     doc.addPage();
     addBg(doc, bgData);
@@ -1089,11 +1089,12 @@ export async function generateBASTPdf(receiptId: string) {
     const x = M_LEFT + colW * i;
     setFont(doc, "bold", FS.sigTitle);
     doc.text(sigLabels[i][0], x + colW / 2, sigY, { align: "center" });
-    doc.line(x + 8, sigY + SIG_H - 11, x + colW - 8, sigY + SIG_H - 11);
+    // Signature line sits above the name so name text never crosses it
+    doc.line(x + 8, sigY + SIG_H - 13, x + colW - 8, sigY + SIG_H - 13);
     setFont(doc, "normal", FS.sigRole);
     const lines = sigLabels[i][1].split("\n");
     lines.forEach((ln, li) => {
-      doc.text(ln, x + colW / 2, sigY + SIG_H - 7 + li * 3.6, { align: "center" });
+      doc.text(ln, x + colW / 2, sigY + SIG_H - 8 + li * 4, { align: "center" });
     });
   }
 
