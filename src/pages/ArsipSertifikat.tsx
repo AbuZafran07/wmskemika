@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Search, FileDown, QrCode, Ban } from "lucide-react";
+import { DataTablePagination } from "@/components/DataTablePagination";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { generateCertificatePdf } from "@/lib/calibrationPdf";
