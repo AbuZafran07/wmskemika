@@ -725,26 +725,6 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
     });
     y = (doc as any).lastAutoTable.finalY + 5;
 
-    // QR verification code — placed below statement block so it never hides the letterhead/table.
-    if (item.certificate_number) {
-      try {
-        const verifyUrl = `${window.location.origin}/verify/${encodeURIComponent(item.certificate_number)}`;
-        const qrData = await QRCode.toDataURL(verifyUrl, { margin: 0, width: 240 });
-        const qrSize = 24;
-        const qrX = A4_W - M_RIGHT - qrSize;
-        const qrY = y;
-        doc.addImage(qrData, "PNG", qrX, qrY, qrSize, qrSize);
-        setFont(doc, "normal", 7);
-        doc.setTextColor(90, 90, 90);
-        doc.text("Scan untuk verifikasi", qrX + qrSize / 2, qrY + qrSize + 3, { align: "center" });
-        doc.text("Scan to verify", qrX + qrSize / 2, qrY + qrSize + 6, { align: "center" });
-        doc.setTextColor(0, 0, 0);
-        y = Math.max(y + qrSize + 10, y + 14);
-      } catch (e) {
-        console.error("QR generation failed:", e);
-      }
-    }
-
     // Tempat & tanggal (center)
     const issueDate = fmtDate(item.certificate_issued_at || new Date().toISOString());
     setFont(doc, "bold", 10);
@@ -799,6 +779,30 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
   const fname = instruments.length === 1
     ? `Sertifikat-${instruments[0].certificate_number || instruments[0].id}.pdf`
     : `Sertifikat-${(receipt as any)?.spk_number || receiptId}.pdf`;
+
+  // QR verifikasi di kanan bawah setiap halaman (sejajar footnote kop surat)
+  try {
+    const totalPages = doc.getNumberOfPages();
+    const perInstrument = 2; // 2 pages per instrument
+    for (let p = 1; p <= totalPages; p++) {
+      const instIdx = Math.floor((p - 1) / perInstrument);
+      const inst = instruments[instIdx];
+      if (!inst?.certificate_number) continue;
+      doc.setPage(p);
+      const verifyUrl = `${window.location.origin}/verify/${encodeURIComponent(inst.certificate_number)}`;
+      const qrData = await QRCode.toDataURL(verifyUrl, { margin: 0, width: 200 });
+      const qrSize = 16;
+      const qrX = A4_W - M_RIGHT - qrSize;
+      const qrY = A4_H - M_BOTTOM - qrSize + 2;
+      doc.addImage(qrData, "PNG", qrX, qrY, qrSize, qrSize);
+      setFont(doc, "normal", 6);
+      doc.setTextColor(90, 90, 90);
+      doc.text("Scan to verify", qrX + qrSize / 2, qrY + qrSize + 2.5, { align: "center" });
+      doc.setTextColor(0, 0, 0);
+    }
+  } catch (e) {
+    console.error("QR footer generation failed:", e);
+  }
 
   // Open preview in new tab
   const blob = doc.output("blob");
