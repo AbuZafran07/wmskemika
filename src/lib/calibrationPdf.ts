@@ -682,7 +682,16 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
         ],
         [
           { content: "Kalibrasi Selanjutnya / Next Calibration", styles: { fontStyle: "bold", fillColor: [245, 247, 252] } },
-          fmtDate(item.next_calibration_date),
+          fmtDate(
+            item.next_calibration_date ??
+              (item.certificate_issued_at
+                ? (() => {
+                    const d = new Date(item.certificate_issued_at);
+                    d.setFullYear(d.getFullYear() + 1);
+                    return d.toISOString();
+                  })()
+                : null),
+          ),
         ],
       ],
       theme: "grid",
