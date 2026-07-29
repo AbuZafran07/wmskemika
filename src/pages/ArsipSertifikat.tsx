@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Search, FileDown, QrCode, Ban } from "lucide-react";
+import { DataTablePagination } from "@/components/DataTablePagination";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { generateCertificatePdf } from "@/lib/calibrationPdf";
@@ -75,7 +76,8 @@ export default function ArsipSertifikat() {
   const [statusFilter, setStatusFilter] = useState<"all" | "valid" | "expiring" | "archived">("all");
   const [page, setPage] = useState(1);
   const [logsPage, setLogsPage] = useState(1);
-  const PAGE_SIZE = 20;
+  const [pageSize, setPageSize] = useState(20);
+  const [logsPageSize, setLogsPageSize] = useState(20);
 
   const [revokeTarget, setRevokeTarget] = useState<Row | null>(null);
   const [revokeReason, setRevokeReason] = useState("");
@@ -159,10 +161,10 @@ export default function ArsipSertifikat() {
 
   useEffect(() => { setPage(1); }, [q, statusFilter, rows]);
   useEffect(() => { setLogsPage(1); }, [logs]);
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const totalLogPages = Math.max(1, Math.ceil(logs.length / PAGE_SIZE));
-  const pageLogs = logs.slice((logsPage - 1) * PAGE_SIZE, logsPage * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const totalLogPages = Math.max(1, Math.ceil(logs.length / logsPageSize));
+  const pageLogs = logs.slice((logsPage - 1) * logsPageSize, logsPage * logsPageSize);
 
   const handleDownload = async (r: Row) => {
     setGenerating(r.id);
@@ -340,17 +342,15 @@ export default function ArsipSertifikat() {
           </TableBody>
         </Table>
           </Card>
-          {filtered.length > PAGE_SIZE && (
-            <div className="flex items-center justify-between px-2">
-              <div className="text-xs text-muted-foreground">
-                Menampilkan {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} dari {filtered.length}
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Sebelumnya</Button>
-                <div className="text-sm px-2 py-1">Hal {page} / {totalPages}</div>
-                <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Berikutnya</Button>
-              </div>
-            </div>
+          {filtered.length > 0 && (
+            <DataTablePagination
+              currentPage={page}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={filtered.length}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
           )}
         </TabsContent>
 
@@ -403,17 +403,15 @@ export default function ArsipSertifikat() {
                 </TableBody>
               </Table>
             </Card>
-            {logs.length > PAGE_SIZE && (
-              <div className="flex items-center justify-between px-2">
-                <div className="text-xs text-muted-foreground">
-                  Menampilkan {(logsPage - 1) * PAGE_SIZE + 1}–{Math.min(logsPage * PAGE_SIZE, logs.length)} dari {logs.length}
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" disabled={logsPage <= 1} onClick={() => setLogsPage(p => p - 1)}>Sebelumnya</Button>
-                  <div className="text-sm px-2 py-1">Hal {logsPage} / {totalLogPages}</div>
-                  <Button size="sm" variant="outline" disabled={logsPage >= totalLogPages} onClick={() => setLogsPage(p => p + 1)}>Berikutnya</Button>
-                </div>
-              </div>
+            {logs.length > 0 && (
+              <DataTablePagination
+                currentPage={logsPage}
+                totalPages={totalLogPages}
+                pageSize={logsPageSize}
+                totalItems={logs.length}
+                onPageChange={setLogsPage}
+                onPageSizeChange={setLogsPageSize}
+              />
             )}
           </TabsContent>
         )}
