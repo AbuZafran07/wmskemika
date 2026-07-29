@@ -832,12 +832,7 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
     console.error("QR footer generation failed:", e);
   }
 
-  // Open preview in new tab
-  const blob = doc.output("blob");
-  const url = URL.createObjectURL(blob);
-  const win = window.open(url, "_blank");
-  if (!win) doc.save(fname);
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  openPreviewAndDownload(doc, fname);
   return issuedCerts || [];
 }
 
