@@ -321,6 +321,51 @@ export function useNotifications() {
         .order('created_at', { ascending: false })
         .limit(20);
 
+      // Fetch calibration certificates expiring within 30 days (or already expired)
+      const { data: certRows } = await supabase
+        .from('sales_order_items')
+        .select('id, certificate_number, certificate_issued_at, instrument_name, sales_order_headers!inner(sales_order_number, customers(name))')
+        .eq('item_type', 'calibration')
+        .not('certificate_number', 'is', null)
+        .not('certificate_issued_at', 'is', null)
+        .is('certificate_revoked_at', null);
+
+      (certRows || []).forEach((it: any) => {
+        if (!it.certificate_issued_at) return;
+        const issued = new Date(it.certificate_issued_at);
+        const expires = new Date(issued);
+        expires.setFullYear(expires.getFullYear() + 1);
+        const daysLeft = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        const soNo = it.sales_order_headers?.sales_order_number || '-';
+        const custName = it.sales_order_headers?.customers?.name || '-';
+        const label = `${it.certificate_number} · ${it.instrument_name || 'Instrument'} · ${custName}`;
+        if (daysLeft <= 0) {
+          notifs.push({
+            id: `cert_expired_${it.id}`,
+            type: 'expired',
+            title: 'Sertifikat Kalibrasi Expired',
+            message: `${label} — masa berlaku habis pada ${expires.toLocaleDateString('id-ID')}`,
+            module: 'calibration',
+            refId: it.id,
+            refNo: it.certificate_number,
+            createdAt: now,
+            read: false,
+          });
+        } else if (daysLeft <= 30) {
+          notifs.push({
+            id: `cert_expiring_${it.id}`,
+            type: 'expiring_soon',
+            title: 'Sertifikat Kalibrasi Akan Expired',
+            message: `${label} — ${daysLeft} hari lagi (SO ${soNo})`,
+            module: 'calibration',
+            refId: it.id,
+            refNo: it.certificate_number,
+            createdAt: now,
+            read: false,
+          });
+        }
+      });
+
       const { data: pendingSalesOrders } = await supabase
         .from('sales_order_headers')
         .select('id, sales_order_number, created_at, status, customers(name)')
