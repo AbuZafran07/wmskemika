@@ -419,6 +419,7 @@ export default function TrackerKalibrasiCardDetail({
             instrument_name: instList.find(i => i.id === p.instrument_id)?.instrument_name ?? "-",
             product_name: (p.product as { name?: string } | null)?.name ?? "-",
             product_sku: (p.product as { sku?: string } | null)?.sku ?? null,
+            stock_issued: !!(p as { issued_stock_out_id?: string | null }).issued_stock_out_id,
           })) as SparePart[]
         );
       }
