@@ -478,6 +478,19 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
 
   const receipt: any = hdr ? { ...hdr, receipt_number: hdr.sales_order_number } : null;
 
+  // Fetch calibration_in_progress entry date (when spk_confirmed was checked)
+  const { data: progressChecks } = await (supabase as any)
+    .from("calibration_tracker_checklists")
+    .select("checklist_key, checked_at, is_checked")
+    .eq("sales_order_id", receiptId)
+    .in("checklist_key", ["spk_issued", "spk_confirmed"]);
+  const progressAt = (() => {
+    const list = (progressChecks || []).filter((c: any) => c.is_checked && c.checked_at);
+    if (!list.length) return null;
+    // Card moves to Calibration In Progress once BOTH are checked → use the later timestamp
+    return list.reduce((m: string, c: any) => (c.checked_at > m ? c.checked_at : m), list[0].checked_at);
+  })();
+
   // 2. Fetch instruments from sales_order_items
   let q = (supabase as any)
     .from("sales_order_items")
@@ -578,7 +591,7 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
         ],
         [
           { content: "Tanggal Kalibrasi / Calibration Date", styles: { fontStyle: "bold", fillColor: [245, 247, 252] } },
-          fmtDate(item.calibration_date || item.certificate_issued_at),
+          fmtDate(progressAt || item.certificate_issued_at),
           { content: "Tanggal Terbit / Issue Date", styles: { fontStyle: "bold", fillColor: [245, 247, 252] } },
           fmtDate(item.certificate_issued_at),
         ],
@@ -1083,7 +1096,7 @@ export async function generateBASTPdf(receiptId: string) {
   y = (doc as any).lastAutoTable.finalY + 4;
 
   // Signatures: 2 columns
-  const SIG_H = 30;
+  const SIG_H = 38;
   if (y + SIG_H > A4_H - M_BOTTOM) {
     doc.addPage();
     addBg(doc, bgData);
@@ -1104,12 +1117,13 @@ export async function generateBASTPdf(receiptId: string) {
     const x = M_LEFT + colW * i;
     setFont(doc, "bold", FS.sigTitle);
     doc.text(sigLabels[i][0], x + colW / 2, sigY, { align: "center" });
-    // Signature line sits above the name so name text never crosses it
-    doc.line(x + 8, sigY + SIG_H - 13, x + colW - 8, sigY + SIG_H - 13);
+    // Signature line sits well above the name so name text never crosses it
+    const lineY = sigY + SIG_H - 15;
+    doc.line(x + 8, lineY, x + colW - 8, lineY);
     setFont(doc, "normal", FS.sigRole);
     const lines = sigLabels[i][1].split("\n");
     lines.forEach((ln, li) => {
-      doc.text(ln, x + colW / 2, sigY + SIG_H - 8 + li * 4, { align: "center" });
+      doc.text(ln, x + colW / 2, lineY + 6 + li * 4.2, { align: "center" });
     });
   }
 
