@@ -76,7 +76,8 @@ export default function ArsipSertifikat() {
   const [statusFilter, setStatusFilter] = useState<"all" | "valid" | "expiring" | "archived">("all");
   const [page, setPage] = useState(1);
   const [logsPage, setLogsPage] = useState(1);
-  const PAGE_SIZE = 20;
+  const [pageSize, setPageSize] = useState(20);
+  const [logsPageSize, setLogsPageSize] = useState(20);
 
   const [revokeTarget, setRevokeTarget] = useState<Row | null>(null);
   const [revokeReason, setRevokeReason] = useState("");
