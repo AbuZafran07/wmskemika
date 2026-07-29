@@ -509,7 +509,15 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
   const bgData = await imgToBase64("/kop-surat-bg.jpg");
 
   // 4. Build PDF — 2 pages per instrument (bilingual ID/EN)
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  // Encrypt so certificate cannot be edited/modified/copied. Printing allowed.
+  const doc = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: "a4",
+    encryption: {
+      userPermissions: ["print"],
+    },
+  } as any);
 
   for (let idx = 0; idx < instruments.length; idx++) {
     const item = instruments[idx] as any;
