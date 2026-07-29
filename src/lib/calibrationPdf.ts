@@ -882,72 +882,136 @@ export async function generateBASTPdf(receiptId: string) {
     head: [[{ content: "A.  PARA PIHAK YANG TERLIBAT", colSpan: 2, styles: { halign: "left", fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold" } }]],
     body: [[
       { content: `PIHAK PENYERAH — PT Kemika Karya Pratama\n\nNama    : ${salesName}\nJabatan : Sales / PIC Kalibrasi\nNo. HP  : ______________________________` },
-      { content: `PIHAK PENERIMA — ${customer?.name || "Pelanggan"}\n\nNama    : ${header.service_pic_name || customer?.pic || "______________________________"}\nJabatan : ______________________________\nNo. HP  : ${header.service_pic_phone || customer?.phone || "______________________________"}` },
+      { content: `PIHAK PENERIMA — Pelanggan (${customer?.name || "-"})\n\nNama    : ${header.service_pic_name || customer?.pic || "______________________________"}\nJabatan : ______________________________\nNo. HP  : ${header.service_pic_phone || customer?.phone || "______________________________"}` },
     ]],
     theme: "grid",
-    styles: { fontSize: 9, cellPadding: 2.5, lineColor: [180, 180, 180], lineWidth: 0.2, valign: "top" },
+    styles: { fontSize: 9, cellPadding: 2.5, lineColor: [180, 180, 180], lineWidth: 0.2, valign: "top", overflow: "linebreak", cellWidth: "wrap" },
     columnStyles: { 0: { cellWidth: CONTENT_W / 2 }, 1: { cellWidth: CONTENT_W / 2 } },
     didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
   });
   y = (doc as any).lastAutoTable.finalY + 3;
 
-  // B. DAFTAR ALAT DAN DOKUMEN — matches template columns
-  const condCell = "☐ Baik\n☐ Ada catatan: ______________";
+  // B. DAFTAR ALAT DAN DOKUMEN — matches template columns (6 columns, drawn checkboxes)
+  const BOX = 2.6; // mm
+  const drawCheckboxHook = (rows: { label: string; note?: boolean }[]) => (data: any) => {
+    if (data.section !== "body") return;
+    const { cell } = data;
+    const padX = 2;
+    const padY = 2;
+    const lineH = 4;
+    rows.forEach((r, i) => {
+      const cx = cell.x + padX;
+      const cy = cell.y + padY + i * lineH;
+      doc.setDrawColor(60, 60, 60);
+      doc.setLineWidth(0.25);
+      doc.rect(cx, cy, BOX, BOX);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(0, 0, 0);
+      const textY = cy + BOX - 0.4;
+      const label = r.note
+        ? "Ada catatan: ______________________"
+        : r.label;
+      doc.text(label, cx + BOX + 1.2, textY);
+    });
+  };
+  const bColWidths = {
+    0: 9,   // No
+    1: 44,  // Nama
+    2: 24,  // Serial
+    3: 32,  // Cert
+    4: 42,  // Kondisi
+    5: 0,   // Paraf (fill remaining)
+  } as Record<number, number>;
+  bColWidths[5] = Math.max(15, CONTENT_W - (bColWidths[0] + bColWidths[1] + bColWidths[2] + bColWidths[3] + bColWidths[4]));
   autoTable(doc, {
     startY: y,
     margin: { left: M_LEFT, right: M_RIGHT, top: M_TOP, bottom: M_BOTTOM },
     head: [
-      [{ content: "B.  DAFTAR ALAT DAN DOKUMEN YANG DISERAHKAN", colSpan: 5, styles: { halign: "left", fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold" } }],
+      [{ content: "B.  DAFTAR ALAT DAN DOKUMEN YANG DISERAHKAN", colSpan: 6, styles: { halign: "left", fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold" } }],
       [
         { content: "No.", styles: { halign: "center" } },
         { content: "Nama / Jenis Alat", styles: { halign: "center" } },
         { content: "No. Seri", styles: { halign: "center" } },
         { content: "No. Sertifikat Kalibrasi", styles: { halign: "center" } },
         { content: "Kondisi Alat Saat Diserahkan", styles: { halign: "center" } },
+        { content: "Paraf Penerima", styles: { halign: "center" } },
       ],
     ],
-    body: instruments.length
-      ? instruments.map((it) => [
-          { content: String(it.no), styles: { halign: "center" } },
-          it.name,
-          it.serial,
-          it.cert,
-          { content: condCell, styles: { fontSize: 8 } },
-        ])
-      : [[{ content: "Tidak ada data alat", colSpan: 5, styles: { halign: "center" } }]],
+    body: (instruments.length ? instruments : [{ no: 1, name: "", serial: "", cert: "", brand: "" }, { no: 2, name: "", serial: "", cert: "", brand: "" } as any]).map((it) => [
+      { content: String(it.no), styles: { halign: "center" } },
+      it.name || "",
+      it.serial || "",
+      it.cert || "",
+      { content: "", styles: { minCellHeight: 12 }, _kondisi: true } as any,
+      { content: "", styles: { minCellHeight: 12 } },
+    ]),
     theme: "grid",
-    styles: { fontSize: 8.5, cellPadding: 2, lineColor: [180, 180, 180], lineWidth: 0.2, valign: "middle" },
-    headStyles: { fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold", halign: "center" },
+    styles: { fontSize: 8.5, cellPadding: 2, lineColor: [180, 180, 180], lineWidth: 0.2, valign: "top", overflow: "linebreak" },
+    tableWidth: CONTENT_W,
+    tableLineWidth: 0,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     columnStyles: {
-      0: { cellWidth: 10, halign: "center" },
-      1: { cellWidth: 46 },
-      2: { cellWidth: 30 },
-      3: { cellWidth: 38 },
-      4: { cellWidth: CONTENT_W - 10 - 46 - 30 - 38 },
+      0: { cellWidth: bColWidths[0], halign: "center" },
+      1: { cellWidth: bColWidths[1] },
+      2: { cellWidth: bColWidths[2] },
+      3: { cellWidth: bColWidths[3] },
+      4: { cellWidth: bColWidths[4] },
+      5: { cellWidth: bColWidths[5] },
+    } as any,
+    headStyles: { fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold", halign: "center" },
+    didDrawCell: (data: any) => {
+      if (data.section === "body" && data.column.index === 4) {
+        drawCheckboxHook([{ label: "Baik" }, { label: "", note: true }])(data);
+      }
     },
     didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
   });
   y = (doc as any).lastAutoTable.finalY + 3;
 
-  // C. KELENGKAPAN DOKUMEN — checklist 2 kolom
+  // C. KELENGKAPAN DOKUMEN — drawn checkboxes to avoid missing glyphs / letter-spacing
   const kelengkapanLeft = [
-    "☐ Sertifikat Kalibrasi (asli)",
-    "☐ Sertifikat Kalibrasi (salinan digital / PDF)",
-    "☐ Alat dalam kondisi lengkap sesuai penerimaan",
+    "Sertifikat Kalibrasi (asli)",
+    "Sertifikat Kalibrasi (salinan digital / PDF)",
+    "Alat dalam kondisi lengkap sesuai penerimaan",
   ];
   const kelengkapanRight = [
-    "☐ Laporan Teknis / Lembar Data (jika ada)",
-    "☐ Faktur / Invoice Pembayaran",
-    "☐ Aksesori / kelengkapan alat terlampir",
+    "Laporan Teknis / Lembar Data (jika ada)",
+    "Faktur / Invoice Pembayaran",
+    "Aksesori / kelengkapan alat terlampir",
   ];
   autoTable(doc, {
     startY: y,
     margin: { left: M_LEFT, right: M_RIGHT, top: M_TOP, bottom: M_BOTTOM },
     head: [[{ content: "C.  KELENGKAPAN DOKUMEN", colSpan: 2, styles: { halign: "left", fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold" } }]],
-    body: [[kelengkapanLeft.join("\n"), kelengkapanRight.join("\n")]],
+    body: [[
+      { content: kelengkapanLeft.map(() => " ").join("\n"), styles: { minCellHeight: kelengkapanLeft.length * 5.5 + 3 } },
+      { content: kelengkapanRight.map(() => " ").join("\n") },
+    ]],
     theme: "grid",
-    styles: { fontSize: 8.5, cellPadding: 2.5, lineColor: [180, 180, 180], lineWidth: 0.2, valign: "top" },
+    styles: { fontSize: 8.5, cellPadding: 2.5, lineColor: [180, 180, 180], lineWidth: 0.2, valign: "top", overflow: "linebreak" },
+    tableWidth: CONTENT_W,
     columnStyles: { 0: { cellWidth: CONTENT_W / 2 }, 1: { cellWidth: CONTENT_W / 2 } },
+    didDrawCell: (data: any) => {
+      if (data.section !== "body") return;
+      const items = data.column.index === 0 ? kelengkapanLeft : kelengkapanRight;
+      const cell = data.cell;
+      const startX = cell.x + 2.5;
+      const startY = cell.y + 3;
+      const lineH = 5.5;
+      items.forEach((label, i) => {
+        const cy = startY + i * lineH;
+        doc.setDrawColor(60, 60, 60);
+        doc.setLineWidth(0.25);
+        doc.rect(startX, cy, BOX, BOX);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.setTextColor(0, 0, 0);
+        const maxW = cell.width - 6 - BOX;
+        const wrapped = doc.splitTextToSize(label, maxW);
+        doc.text(wrapped, startX + BOX + 1.5, cy + BOX - 0.4);
+      });
+    },
     didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
   });
   y = (doc as any).lastAutoTable.finalY + 3;
@@ -998,7 +1062,7 @@ export async function generateBASTPdf(receiptId: string) {
   doc.line(M_LEFT + colW, sigY - 3, M_LEFT + colW, sigY + SIG_H - 5);
   const sigLabels: [string, string][] = [
     ["Diserahkan oleh", `PT Kemika Karya Pratama\n(${salesName})`],
-    ["Diterima oleh", `(${customer?.name || "Pelanggan / PIC"})`],
+    ["Diterima oleh", `${customer?.name || "Pelanggan"}\n(${header.service_pic_name || customer?.pic || "Pelanggan / PIC"})`],
   ];
   for (let i = 0; i < 2; i++) {
     const x = M_LEFT + colW * i;
