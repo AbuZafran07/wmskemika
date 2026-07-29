@@ -1062,7 +1062,7 @@ export async function generateBASTPdf(receiptId: string) {
   doc.line(M_LEFT + colW, sigY - 3, M_LEFT + colW, sigY + SIG_H - 5);
   const sigLabels: [string, string][] = [
     ["Diserahkan oleh", `PT Kemika Karya Pratama\n(${salesName})`],
-    ["Diterima oleh", `(${customer?.name || "Pelanggan / PIC"})`],
+    ["Diterima oleh", `${customer?.name || "Pelanggan"}\n(${header.service_pic_name || customer?.pic || "Pelanggan / PIC"})`],
   ];
   for (let i = 0; i < 2; i++) {
     const x = M_LEFT + colW * i;
