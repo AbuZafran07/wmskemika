@@ -402,17 +402,15 @@ export default function ArsipSertifikat() {
                 </TableBody>
               </Table>
             </Card>
-            {logs.length > PAGE_SIZE && (
-              <div className="flex items-center justify-between px-2">
-                <div className="text-xs text-muted-foreground">
-                  Menampilkan {(logsPage - 1) * PAGE_SIZE + 1}–{Math.min(logsPage * PAGE_SIZE, logs.length)} dari {logs.length}
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" disabled={logsPage <= 1} onClick={() => setLogsPage(p => p - 1)}>Sebelumnya</Button>
-                  <div className="text-sm px-2 py-1">Hal {logsPage} / {totalLogPages}</div>
-                  <Button size="sm" variant="outline" disabled={logsPage >= totalLogPages} onClick={() => setLogsPage(p => p + 1)}>Berikutnya</Button>
-                </div>
-              </div>
+            {logs.length > 0 && (
+              <DataTablePagination
+                currentPage={logsPage}
+                totalPages={totalLogPages}
+                pageSize={PAGE_SIZE}
+                totalItems={logs.length}
+                onPageChange={setLogsPage}
+                onPageSizeChange={() => {}}
+              />
             )}
           </TabsContent>
         )}
