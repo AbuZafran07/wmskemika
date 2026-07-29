@@ -72,6 +72,7 @@ export default function ArsipSertifikat() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [generating, setGenerating] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"all" | "valid" | "expiring" | "expired" | "revoked">("all");
 
   const [revokeTarget, setRevokeTarget] = useState<Row | null>(null);
   const [revokeReason, setRevokeReason] = useState("");
@@ -129,8 +130,12 @@ export default function ArsipSertifikat() {
 
   const filtered = useMemo(() => {
     const kw = q.trim().toLowerCase();
-    if (!kw) return rows;
-    return rows.filter((r) =>
+    let base = rows;
+    if (statusFilter !== "all") {
+      base = base.filter((r) => certStatus(r).key === statusFilter);
+    }
+    if (!kw) return base;
+    return base.filter((r) =>
       [
         r.certificate_number,
         r.instrument_name,
@@ -143,7 +148,7 @@ export default function ArsipSertifikat() {
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(kw)),
     );
-  }, [rows, q]);
+  }, [rows, q, statusFilter]);
 
   const handleDownload = async (r: Row) => {
     setGenerating(r.id);
@@ -196,14 +201,34 @@ export default function ArsipSertifikat() {
 
         <TabsContent value="archive" className="space-y-4">
           <Card className="p-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Cari nomor sertifikat, alat, no. seri, pelanggan…"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                className="pl-9"
-              />
+            <div className="space-y-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Cari nomor sertifikat, alat, no. seri, pelanggan…"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { k: "all", label: "Semua" },
+                  { k: "valid", label: "Valid" },
+                  { k: "expiring", label: "Akan Expired" },
+                  { k: "expired", label: "Expired" },
+                  { k: "revoked", label: "Revoked" },
+                ] as const).map((opt) => (
+                  <Button
+                    key={opt.k}
+                    size="sm"
+                    variant={statusFilter === opt.k ? "default" : "outline"}
+                    onClick={() => setStatusFilter(opt.k)}
+                  >
+                    {opt.label}
+                  </Button>
+                ))}
+              </div>
             </div>
           </Card>
 
