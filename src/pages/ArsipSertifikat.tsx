@@ -407,7 +407,7 @@ export default function ArsipSertifikat() {
               <DataTablePagination
                 currentPage={logsPage}
                 totalPages={totalLogPages}
-                pageSize={PAGE_SIZE}
+                pageSize={logsPageSize}
                 totalItems={logs.length}
                 onPageChange={setLogsPage}
                 onPageSizeChange={() => {}}
