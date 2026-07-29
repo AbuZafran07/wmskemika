@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, CheckCircle2, XCircle, ShieldCheck, Ban } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, ShieldCheck, Ban, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 
 interface CertData {
-  status: "valid" | "revoked" | "not_found";
+  status: "valid" | "revoked" | "expired" | "not_found";
   certificate_number: string;
   certificate_issued_at: string | null;
+  expires_at: string | null;
   instrument_name: string | null;
   brand_model: string | null;
   serial_number: string | null;
@@ -44,6 +45,7 @@ export default function VerifyCertificate() {
   const status = data?.status ?? "not_found";
   const isValid = status === "valid";
   const isRevoked = status === "revoked";
+  const isExpired = status === "expired";
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4">
@@ -70,6 +72,16 @@ export default function VerifyCertificate() {
                   <div className="text-xs opacity-80">Certificate is authentic and issued by PT Kemika Karya Pratama.</div>
                 </div>
               </div>
+            ) : isExpired ? (
+              <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-900">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-5 h-5 shrink-0" />
+                  <div className="font-semibold">Sertifikat Kedaluwarsa (Expired)</div>
+                </div>
+                <div className="text-xs mt-1 opacity-90">
+                  Masa berlaku 1 tahun sudah berakhir pada {fmtDate(data!.expires_at)}. Silakan hubungi PT Kemika Karya Pratama untuk kalibrasi ulang.
+                </div>
+              </div>
             ) : (
               <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900">
                 <div className="flex items-center gap-2">
@@ -90,6 +102,7 @@ export default function VerifyCertificate() {
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
               <Row k="No. Sertifikat" v={data!.certificate_number} />
               <Row k="Tanggal Terbit" v={fmtDate(data!.certificate_issued_at)} />
+              <Row k="Berlaku Sampai" v={fmtDate(data!.expires_at)} />
               <Row k="Nama Alat" v={data!.instrument_name || "-"} />
               <Row k="Merk / Model" v={data!.brand_model || "-"} />
               <Row k="No. Seri" v={data!.serial_number || "-"} />
