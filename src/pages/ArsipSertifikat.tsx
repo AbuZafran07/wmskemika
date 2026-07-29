@@ -161,10 +161,10 @@ export default function ArsipSertifikat() {
 
   useEffect(() => { setPage(1); }, [q, statusFilter, rows]);
   useEffect(() => { setLogsPage(1); }, [logs]);
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const totalLogPages = Math.max(1, Math.ceil(logs.length / PAGE_SIZE));
-  const pageLogs = logs.slice((logsPage - 1) * PAGE_SIZE, logsPage * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const totalLogPages = Math.max(1, Math.ceil(logs.length / logsPageSize));
+  const pageLogs = logs.slice((logsPage - 1) * logsPageSize, logsPage * logsPageSize);
 
   const handleDownload = async (r: Row) => {
     setGenerating(r.id);
