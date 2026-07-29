@@ -1863,8 +1863,7 @@ export default function TrackerKalibrasiCardDetail({
                         </Button>
                       );
                     })()}
-                    {getBoardColumn(checklists, receipt?.status)?.id === 'delivered' && (
-                    <>
+                    {(['completed', 'delivered'].includes(currentColumnId ?? '') && isChecked('payment_verified')) && (
                     <Button
                       variant="outline" size="sm"
                       disabled={!receiptId || pdfLoading !== null || instruments.length === 0}
@@ -1891,6 +1890,8 @@ export default function TrackerKalibrasiCardDetail({
                       {pdfLoading === "cert" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
                       Sertifikat (F-KAL-05)
                     </Button>
+                    )}
+                    {currentColumnId === 'delivered' && (
                     <Button
                       variant="outline" size="sm"
                       disabled={!receiptId || pdfLoading !== null}
@@ -1907,7 +1908,6 @@ export default function TrackerKalibrasiCardDetail({
                       {pdfLoading === "bast" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
                       BAST (F-KAL-06)
                     </Button>
-                    </>
                     )}
                   </div>
 
