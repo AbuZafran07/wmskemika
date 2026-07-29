@@ -391,6 +391,27 @@ export function useTrackerKalibrasi() {
           }
           fetchData();
         }
+
+        // Auto-confirm delivery on all related stock outs when "Instrument Delivered" is checked
+        if (checklistKey === 'instrument_delivered' && newValue) {
+          try {
+            const { data: sos } = await (supabase as any)
+              .from('stock_out_headers')
+              .select('id, booking_status')
+              .eq('sales_order_id', receiptId);
+            for (const so of (sos || []) as any[]) {
+              if (so.booking_status === 'booked') {
+                const { error: rpcErr } = await (supabase as any).rpc(
+                  'stock_out_confirm_delivery',
+                  { p_stock_out_id: so.id },
+                );
+                if (rpcErr) console.error('stock_out_confirm_delivery error:', rpcErr);
+              }
+            }
+          } catch (e) {
+            console.error('auto-confirm delivery error:', e);
+          }
+        }
       } catch (err) {
         console.error('toggleChecklist error:', err);
         toast.error('Gagal update checklist');
