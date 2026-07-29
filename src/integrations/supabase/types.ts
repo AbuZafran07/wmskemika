@@ -456,6 +456,38 @@ export type Database = {
         }
         Relationships: []
       }
+      certificate_expiry_notifications: {
+        Row: {
+          created_at: string
+          id: string
+          item_id: string
+          sent_date: string
+          threshold_days: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_id: string
+          sent_date?: string
+          threshold_days: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_id?: string
+          sent_date?: string
+          threshold_days?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "certificate_expiry_notifications_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "sales_order_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       certificate_verification_logs: {
         Row: {
           certificate_number: string
@@ -2770,6 +2802,7 @@ export type Database = {
           certificate_issued_at: string
           certificate_number: string
           customer_name: string
+          expires_at: string
           instrument_name: string
           measurement_range: string
           revoked_at: string

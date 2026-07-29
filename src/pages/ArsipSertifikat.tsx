@@ -40,6 +40,29 @@ function fmtDate(d: string | null | undefined) {
   try { return format(new Date(d), "dd MMM yyyy", { locale: idLocale }); } catch { return d; }
 }
 
+function addOneYear(iso: string | null | undefined): Date | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  d.setFullYear(d.getFullYear() + 1);
+  return d;
+}
+
+function certStatus(r: { certificate_revoked_at: string | null; certificate_issued_at: string | null }): {
+  key: "revoked" | "expired" | "expiring" | "valid";
+  label: string;
+  daysLeft: number | null;
+} {
+  if (r.certificate_revoked_at) return { key: "revoked", label: "Revoked", daysLeft: null };
+  const exp = addOneYear(r.certificate_issued_at);
+  if (!exp) return { key: "valid", label: "Valid", daysLeft: null };
+  const diffMs = exp.getTime() - Date.now();
+  const days = Math.ceil(diffMs / (24 * 60 * 60 * 1000));
+  if (days <= 0) return { key: "expired", label: "Expired", daysLeft: days };
+  if (days <= 30) return { key: "expiring", label: `Expiring (${days}h)`, daysLeft: days };
+  return { key: "valid", label: "Valid", daysLeft: days };
+}
+
 export default function ArsipSertifikat() {
   const { user } = useAuth();
   const canRevoke = ["super_admin", "admin", "finance"].includes(user?.role || "");
@@ -190,6 +213,7 @@ export default function ArsipSertifikat() {
             <TableRow>
               <TableHead>No. Sertifikat</TableHead>
               <TableHead>Tgl Terbit</TableHead>
+              <TableHead>Berlaku Sampai</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Alat</TableHead>
               <TableHead>Merk / Model</TableHead>
@@ -202,25 +226,38 @@ export default function ArsipSertifikat() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-10">
+                <TableCell colSpan={10} className="text-center py-10">
                   <Loader2 className="w-5 h-5 animate-spin inline text-muted-foreground" />
                 </TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-10 text-muted-foreground">
+                <TableCell colSpan={10} className="text-center py-10 text-muted-foreground">
                   Belum ada sertifikat terbit.
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((r) => (
+              filtered.map((r) => {
+                const st = certStatus(r);
+                const expiresAt = addOneYear(r.certificate_issued_at);
+                return (
                 <TableRow key={r.id}>
                   <TableCell className="font-mono text-xs">{r.certificate_number}</TableCell>
                   <TableCell className="whitespace-nowrap">{fmtDate(r.certificate_issued_at)}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {expiresAt ? fmtDate(expiresAt.toISOString()) : "-"}
+                  </TableCell>
                   <TableCell>
-                    {r.certificate_revoked_at ? (
+                    {st.key === "revoked" && (
                       <Badge variant="destructive" title={r.certificate_revoked_reason || ""}>Revoked</Badge>
-                    ) : (
+                    )}
+                    {st.key === "expired" && (
+                      <Badge variant="destructive">Expired</Badge>
+                    )}
+                    {st.key === "expiring" && (
+                      <Badge className="bg-amber-500 hover:bg-amber-500">{st.label}</Badge>
+                    )}
+                    {st.key === "valid" && (
                       <Badge className="bg-emerald-600 hover:bg-emerald-600">Valid</Badge>
                     )}
                   </TableCell>
@@ -259,7 +296,8 @@ export default function ArsipSertifikat() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -306,6 +344,7 @@ export default function ArsipSertifikat() {
                         <TableCell>
                           {l.result === "valid" && <Badge className="bg-emerald-600 hover:bg-emerald-600">Valid</Badge>}
                           {l.result === "revoked" && <Badge variant="destructive">Revoked</Badge>}
+                          {l.result === "expired" && <Badge variant="destructive">Expired</Badge>}
                           {l.result === "not_found" && <Badge variant="secondary">Not Found</Badge>}
                         </TableCell>
                       </TableRow>
