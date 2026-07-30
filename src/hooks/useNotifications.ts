@@ -1041,6 +1041,17 @@ export function useNotifications() {
       )
       .subscribe();
 
+    // Subscribe to calibration tracker checklist changes → recompute which
+    // cards now await this user's checklist action.
+    const calibrationChecklistChannel = supabase
+      .channel('calibration-checklist-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'calibration_tracker_checklists' },
+        () => { fetchNotifications(); }
+      )
+      .subscribe();
+
     // Also keep the polling as fallback (every 5 minutes)
     const interval = setInterval(fetchNotifications, 5 * 60 * 1000);
 
@@ -1053,6 +1064,7 @@ export function useNotifications() {
       supabase.removeChannel(stockInChannel);
       supabase.removeChannel(stockOutChannel);
       supabase.removeChannel(deliveryCommentsChannel);
+      supabase.removeChannel(calibrationChecklistChannel);
     };
   }, [fetchNotifications]);
 
