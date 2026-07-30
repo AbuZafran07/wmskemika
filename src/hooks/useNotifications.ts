@@ -742,9 +742,7 @@ export function useNotifications() {
                 });
             });
 
-            if (!isCalibrationChecker) return;
-
-            (calCards || []).forEach((card: any) => {
+            if (isCalibrationChecker) (calCards || []).forEach((card: any) => {
               const list = checklistByCard[card.id] || [];
               const column = computeKalibrasiColumn(list, card.status);
               if (column === 'rejected' || column === 'delivered') return;
