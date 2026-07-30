@@ -1804,6 +1804,7 @@ export type Database = {
           certificate_revoked_at: string | null
           certificate_revoked_by: string | null
           certificate_revoked_reason: string | null
+          certificate_verify_token: string | null
           condition_notes: string | null
           correction: string | null
           created_at: string | null
@@ -1842,6 +1843,7 @@ export type Database = {
           certificate_revoked_at?: string | null
           certificate_revoked_by?: string | null
           certificate_revoked_reason?: string | null
+          certificate_verify_token?: string | null
           condition_notes?: string | null
           correction?: string | null
           created_at?: string | null
@@ -1880,6 +1882,7 @@ export type Database = {
           certificate_revoked_at?: string | null
           certificate_revoked_by?: string | null
           certificate_revoked_reason?: string | null
+          certificate_verify_token?: string | null
           condition_notes?: string | null
           correction?: string | null
           created_at?: string | null
@@ -2821,7 +2824,7 @@ export type Database = {
         Returns: boolean
       }
       verify_certificate: {
-        Args: { p_number: string }
+        Args: { p_number: string; p_token: string }
         Returns: {
           brand_model: string
           calibration_method: string
