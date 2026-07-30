@@ -67,6 +67,8 @@ export default function Notifications() {
         return <AlertTriangle className="w-5 h-5 text-destructive" />;
       case 'card_comment':
         return <MessageSquare className="w-5 h-5 text-info" />;
+      case 'calibration_action':
+        return <ClipboardList className="w-5 h-5 text-primary" />;
       default:
         return <Bell className="w-5 h-5 text-info" />;
     }
@@ -85,6 +87,7 @@ export default function Notifications() {
       urgent_approved: { variant: 'secondary', label: 'Urgent Disetujui' },
       urgent_rejected: { variant: 'destructive', label: 'Urgent Ditolak' },
       card_comment: { variant: 'secondary', label: language === 'en' ? 'Comment' : 'Komentar' },
+      calibration_action: { variant: 'default', label: language === 'en' ? 'Calibration Checklist' : 'Checklist Kalibrasi' },
       info: { variant: 'secondary', label: 'Info' },
     };
     const config = variants[type] || variants.info;
@@ -107,6 +110,7 @@ export default function Notifications() {
         return 'bg-success/10 border-success/20';
       case 'approval_pending':
       case 'new_order':
+      case 'calibration_action':
         return 'bg-primary/10 border-primary/20';
       default:
         return 'bg-info/10 border-info/20';
@@ -320,6 +324,7 @@ export default function Notifications() {
                   <SelectItem value="urgent_request">Urgent/Cito</SelectItem>
                   <SelectItem value="urgent_approved">{language === 'en' ? 'Urgent Approved' : 'Urgent Disetujui'}</SelectItem>
                   <SelectItem value="urgent_rejected">{language === 'en' ? 'Urgent Rejected' : 'Urgent Ditolak'}</SelectItem>
+                  <SelectItem value="calibration_action">{language === 'en' ? 'Calibration Checklist' : 'Checklist Kalibrasi'}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
