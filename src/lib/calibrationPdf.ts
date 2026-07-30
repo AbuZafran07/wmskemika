@@ -592,7 +592,7 @@ export async function generateCertificatePdf(
       .eq("item_type", "calibration")
       .order("created_at", { ascending: true });
 
-    if (instrumentId) reloadQ = (reloadQ as any).eq("id", instrumentId);
+    reloadQ = applyInstrumentFilter(reloadQ);
     const { data: refreshedItems } = await reloadQ;
     rawItems = refreshedItems || rawItems;
   } else {
@@ -919,8 +919,13 @@ export async function generateCertificatePdf(
     console.error("QR footer generation failed:", e);
   }
 
+  if (opts?.preview) {
+    const blobUrl = URL.createObjectURL(doc.output("blob"));
+    return { issued: issuedCerts || [], blobUrl, filename: fname };
+  }
+
   openPreviewAndDownload(doc, fname);
-  return issuedCerts || [];
+  return { issued: issuedCerts || [], blobUrl: null, filename: fname };
 }
 
 // ── BAST PDF — F-KAL-06 (Berita Acara Serah Terima Alat & Sertifikat) ────────
