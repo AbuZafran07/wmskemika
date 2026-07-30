@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { setBadgeCount } from '@/lib/badgeUtils';
 import { buildNotificationDeepLink } from '@/lib/notificationDeepLink';
+import { logNotificationAudit } from '@/lib/notificationAudit';
 import {
   computeKalibrasiColumn,
   COLUMN_CHECKLISTS,
@@ -15,7 +16,7 @@ import {
 
 export interface Notification {
   id: string;
-  type: 'low_stock' | 'expiring_soon' | 'expired' | 'info' | 'approval_pending' | 'approved' | 'cancelled' | 'new_order' | 'revision_requested' | 'urgent_request' | 'urgent_approved' | 'urgent_rejected' | 'card_comment' | 'calibration_action';
+  type: 'low_stock' | 'expiring_soon' | 'expired' | 'info' | 'approval_pending' | 'approved' | 'cancelled' | 'new_order' | 'revision_requested' | 'urgent_request' | 'urgent_approved' | 'urgent_rejected' | 'card_comment' | 'calibration_action' | 'calibration_event';
   title: string;
   message: string;
   productId?: string;
