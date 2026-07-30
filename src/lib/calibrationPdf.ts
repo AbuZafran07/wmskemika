@@ -434,7 +434,7 @@ export async function generateSPKPdf(receiptId: string) {
   // ── Signatures: 3 columns — compact block, placed directly after T&C.
   // If it doesn't fit on the current page, move to next page but keep it
   // close to the top (not pushed to the bottom).
-  const SIG_BLOCK_H = 32;
+  const SIG_BLOCK_H = 34;
   if (y + SIG_BLOCK_H > A4_H - M_BOTTOM) {
     doc.addPage();
     addBg(doc, bgData);
@@ -467,19 +467,19 @@ export async function generateSPKPdf(receiptId: string) {
         doc.addImage(sigLabels[i][3]!, "PNG", x + colW / 2 - 14, sigY + 2, 28, 12);
       } catch {}
     }
-    const lineY = sigY + SIG_BLOCK_H - 9;
-    // name sits ABOVE the signature line
+    const lineY = sigY + SIG_BLOCK_H - 10;
+    // name sits clearly ABOVE the signature line
     if (sigLabels[i][2]) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8.5);
-      doc.text(sigLabels[i][2]!, x + colW / 2, lineY - 1.5, { align: "center" });
+      doc.text(sigLabels[i][2]!, x + colW / 2, lineY - 2.5, { align: "center" });
     }
     // signature line
     doc.line(x + 8, lineY, x + colW - 8, lineY);
-    // role/position sits BELOW the line
+    // role/position sits BELOW the line with a small gap so it doesn't touch the line
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
-    doc.text(sigLabels[i][1], x + colW / 2, lineY + 3.5, { align: "center" });
+    doc.text(sigLabels[i][1], x + colW / 2, lineY + 4.8, { align: "center" });
   }
 
   // ── Open preview in a new tab (user can download from viewer) ──
