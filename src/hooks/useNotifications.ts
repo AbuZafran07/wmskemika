@@ -8,7 +8,7 @@ import { buildNotificationDeepLink } from '@/lib/notificationDeepLink';
 
 export interface Notification {
   id: string;
-  type: 'low_stock' | 'expiring_soon' | 'expired' | 'info' | 'approval_pending' | 'approved' | 'cancelled' | 'new_order' | 'revision_requested' | 'urgent_request' | 'urgent_approved' | 'urgent_rejected' | 'card_comment';
+  type: 'low_stock' | 'expiring_soon' | 'expired' | 'info' | 'approval_pending' | 'approved' | 'cancelled' | 'new_order' | 'revision_requested' | 'urgent_request' | 'urgent_approved' | 'urgent_rejected' | 'card_comment' | 'calibration_action';
   title: string;
   message: string;
   productId?: string;
