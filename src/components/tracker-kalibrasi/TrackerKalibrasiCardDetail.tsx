@@ -247,6 +247,7 @@ export default function TrackerKalibrasiCardDetail({
 }: Props) {
   const { user } = useAuth();
   const { products } = useProducts();
+  const calibrationCheckerIds = useCalibrationCheckers();
 
   const [receipt, setReceipt] = useState<ReceiptDetail | null>(null);
   const [instruments, setInstruments] = useState<InstrumentDetail[]>([]);
@@ -1633,7 +1634,12 @@ export default function TrackerKalibrasiCardDetail({
                               {items.map((item) => {
                                 const checked = isChecked(item.key);
                                 const ts = checkedAt(item.key);
-                                const keyAllowed = canToggleChecklistKey(user?.role, item.key);
+                                const keyAllowed = canToggleChecklistKey(
+                                  user?.role,
+                                  item.key,
+                                  user?.id,
+                                  calibrationCheckerIds,
+                                );
                                 return (
                                   <button
                                     key={item.key}
@@ -1641,7 +1647,9 @@ export default function TrackerKalibrasiCardDetail({
                                     aria-disabled={!keyAllowed}
                                     title={
                                       !keyAllowed
-                                        ? 'Read-only untuk role Anda. Hanya Finance / Admin / Super Admin yang dapat menandai checklist ini.'
+                                        ? CALIBRATION_STAGE_CHECKLIST_KEYS.has(item.key)
+                                          ? 'Akun Anda belum terdaftar sebagai petugas checklist kalibrasi (atur di Settings > Petugas Kalibrasi).'
+                                          : 'Read-only untuk role Anda. Hanya Finance / Admin / Super Admin yang dapat menandai checklist ini.'
                                         : undefined
                                     }
                                     onClick={() => {
