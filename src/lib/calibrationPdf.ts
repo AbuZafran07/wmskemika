@@ -497,8 +497,29 @@ export async function generateSPKPdf(receiptId: string) {
 
 // ── Certificate PDF — F-KAL-05 ────────────────────────────────────────────────
 
-export async function generateCertificatePdf(receiptId: string, instrumentId?: string) {
+export type CertificatePdfResult = {
+  issued: any[];
+  blobUrl: string | null;
+  filename: string;
+};
+
+export async function generateCertificatePdf(
+  receiptId: string,
+  instrumentId?: string | string[],
+  opts?: { preview?: boolean },
+): Promise<CertificatePdfResult> {
   let issuedCerts: any[] = [];
+  const instrumentIdList = Array.isArray(instrumentId)
+    ? instrumentId.filter(Boolean)
+    : instrumentId
+      ? [instrumentId]
+      : [];
+  const applyInstrumentFilter = (query: any) =>
+    instrumentIdList.length === 1
+      ? query.eq("id", instrumentIdList[0])
+      : instrumentIdList.length > 1
+        ? query.in("id", instrumentIdList)
+        : query;
 
   // 1. Fetch SO header
   const { data: hdr } = await (supabase as any)
@@ -551,7 +572,7 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
     .eq("item_type", "calibration")
     .order("created_at", { ascending: true });
 
-  if (instrumentId) q = (q as any).eq("id", instrumentId);
+  q = applyInstrumentFilter(q);
 
   let { data: rawItems } = await q;
   if ((rawItems || []).some((it: any) => !it.certificate_number)) {
@@ -571,7 +592,7 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
       .eq("item_type", "calibration")
       .order("created_at", { ascending: true });
 
-    if (instrumentId) reloadQ = (reloadQ as any).eq("id", instrumentId);
+    reloadQ = applyInstrumentFilter(reloadQ);
     const { data: refreshedItems } = await reloadQ;
     rawItems = refreshedItems || rawItems;
   } else {
@@ -898,8 +919,13 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
     console.error("QR footer generation failed:", e);
   }
 
+  if (opts?.preview) {
+    const blobUrl = URL.createObjectURL(doc.output("blob"));
+    return { issued: issuedCerts || [], blobUrl, filename: fname };
+  }
+
   openPreviewAndDownload(doc, fname);
-  return issuedCerts || [];
+  return { issued: issuedCerts || [], blobUrl: null, filename: fname };
 }
 
 // ── BAST PDF — F-KAL-06 (Berita Acara Serah Terima Alat & Sertifikat) ────────
