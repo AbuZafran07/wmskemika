@@ -78,6 +78,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const cronSecret = Deno.env.get('CRON_SECRET');
+    let senderId: string | null = null;
 
     // Allow internal cron callers via shared secret header
     const incomingCronSecret = req.headers.get('x-cron-secret');
@@ -117,6 +118,7 @@ serve(async (req) => {
           status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
+      senderId = userId;
     }
 
     const serviceAccountJson = Deno.env.get('FIREBASE_SERVICE_ACCOUNT_JSON');
@@ -128,13 +130,29 @@ serve(async (req) => {
     const serviceAccount = JSON.parse(serviceAccountJson);
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { title, body, data, user_ids, exclude_user_id } = await req.json();
+    const payload = await req.json();
+    const { data, user_ids, exclude_user_id } = payload;
+    const title = typeof payload.title === 'string' ? payload.title.replace(/[\r\n]+/g, ' ').trim().slice(0, 120) : '';
+    const body = typeof payload.body === 'string' ? payload.body.replace(/[\r\n]+/g, ' ').trim().slice(0, 500) : '';
 
     if (!title || !body) {
       return new Response(JSON.stringify({ error: 'title and body are required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
+
+    // Only allow relative in-app paths as the click-through link
+    const sanitizeLink = (raw: unknown): string => {
+      const value = typeof raw === 'string' ? raw.trim() : '';
+      if (!value) return '/';
+      if (!value.startsWith('/') || value.startsWith('//') || value.startsWith('/\\')) return '/';
+      if (/[\r\n\t]/.test(value)) return '/';
+      return value.slice(0, 500);
+    };
+    const safeLink = sanitizeLink((data as any)?.link);
+    const safeData = data && typeof data === 'object'
+      ? { ...data, link: safeLink, ...(senderId ? { sender_id: senderId } : {}) }
+      : (senderId ? { link: safeLink, sender_id: senderId } : { link: safeLink });
 
     // Get FCM tokens for target users
     let query = supabase.from('push_tokens').select('token, user_id');
@@ -188,15 +206,15 @@ serve(async (req) => {
                     body,
                     icon: '/logo-kemika.png',
                     badge: '/favicon.png',
-                    tag: data?.tag || 'default',
-                    requireInteraction: data?.requireInteraction || false,
+                    tag: safeData?.tag || 'default',
+                    requireInteraction: safeData?.requireInteraction || false,
                   },
                   fcm_options: {
-                    link: data?.link || '/',
+                    link: safeLink,
                   },
                 },
-                data: data ? Object.fromEntries(
-                  Object.entries(data).map(([k, v]) => [k, String(v)])
+                data: safeData ? Object.fromEntries(
+                  Object.entries(safeData).map(([k, v]) => [k, String(v)])
                 ) : undefined,
               },
             }),

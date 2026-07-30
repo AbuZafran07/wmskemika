@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, CheckCircle2, XCircle, ShieldCheck, Ban, Clock } from "lucide-react";
 import { format } from "date-fns";
@@ -29,18 +29,28 @@ function fmtDate(d: string | null | undefined) {
 
 export default function VerifyCertificate() {
   const { certNumber } = useParams<{ certNumber: string }>();
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get("t") || "";
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<CertData | null>(null);
 
   useEffect(() => {
     (async () => {
       if (!certNumber) return;
-      const { data: rows } = await (supabase as any).rpc("verify_certificate", { p_number: certNumber });
+      if (!token) {
+        setData({ status: "not_found", certificate_number: certNumber } as CertData);
+        setLoading(false);
+        return;
+      }
+      const { data: rows } = await (supabase as any).rpc("verify_certificate", {
+        p_number: certNumber,
+        p_token: token,
+      });
       const row = Array.isArray(rows) ? rows[0] : rows;
       setData(row || null);
       setLoading(false);
     })();
-  }, [certNumber]);
+  }, [certNumber, token]);
 
   const status = data?.status ?? "not_found";
   const isValid = status === "valid";

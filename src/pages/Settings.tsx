@@ -658,15 +658,14 @@ function ArApSettings({ language }: { language: string }) {
   const fetchApiKey = async () => {
     setLoading(true);
     try {
+      // Jangan pernah menarik nilai API key ke browser — cukup cek keberadaannya.
       const { data } = await supabase
         .from('settings')
-        .select('value')
+        .select('key')
         .eq('key', 'arap_api_key')
-        .single();
+        .maybeSingle();
 
-      if (data?.value) {
-        const key = typeof data.value === 'string' ? data.value : String(data.value);
-        setApiKey(key);
+      if (data?.key) {
         setHasKey(true);
       }
     } catch {
@@ -718,40 +717,28 @@ function ArApSettings({ language }: { language: string }) {
     setTesting(true);
     setTestResult(null);
 
-    if (!apiKey || apiKey.trim() === '') {
+    if (!hasKey && !apiKey.trim()) {
       setTestResult({ success: false, message: 'API Key belum diisi. Silakan simpan API Key terlebih dahulu.' });
       setTesting(false);
       return;
     }
 
     try {
-      const payload = {
-        entity: 'customer' as const,
-        action: 'upsert' as const,
-        data: { customer_name: 'Test Connection WMS' }
-      };
-
-      const response = await fetch('https://qekexdtidnbspqzwerrd.supabase.co/functions/v1/wms-sync', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
+      // Tes koneksi lewat edge function (API key tetap di server)
+      const { data: result, error } = await supabase.functions.invoke('arap-sync', {
+        body: {
+          entity: 'customer',
+          action: 'upsert',
+          data: { customer_name: 'Test Connection WMS' },
         },
-        body: JSON.stringify(payload),
       });
 
-      const result = await response.json().catch(() => ({}));
-      
-      if (response.ok || response.status === 404) {
+      if (error) {
+        setTestResult({ success: false, message: `Koneksi gagal: ${error.message}` });
+      } else if ((result as any)?.success) {
         setTestResult({ success: true, message: 'Koneksi berhasil! Endpoint AR/AP merespons dengan benar.' });
-      } else if (response.status === 401 || response.status === 403) {
-        setTestResult({ success: false, message: 'API Key tidak valid atau tidak memiliki akses.' });
-      } else if (response.status === 400) {
-        // 400 with validation error means endpoint is reachable but rejected payload
-        const details = result.details ? JSON.stringify(result.details) : result.error;
-        setTestResult({ success: false, message: `Endpoint merespons tapi menolak request: ${details}` });
       } else {
-        setTestResult({ success: false, message: `HTTP ${response.status}: ${result.error || 'Endpoint tidak merespons'}` });
+        setTestResult({ success: false, message: (result as any)?.error || 'Endpoint tidak merespons' });
       }
     } catch (err) {
       setTestResult({ success: false, message: `Koneksi gagal: ${err instanceof Error ? err.message : 'Network error'}` });

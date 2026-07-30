@@ -21,6 +21,7 @@ interface Row {
   sales_order_id: string;
   certificate_number: string;
   certificate_issued_at: string | null;
+  certificate_verify_token?: string | null;
   instrument_name: string | null;
   instrument_brand_model: string | null;
   instrument_serial_number: string | null;
@@ -98,7 +99,7 @@ export default function ArsipSertifikat() {
     const { data, error } = await (supabase as any)
       .from("sales_order_items")
       .select(`
-        id, sales_order_id, certificate_number, certificate_issued_at,
+        id, sales_order_id, certificate_number, certificate_issued_at, certificate_verify_token,
         instrument_name, instrument_brand_model, instrument_serial_number,
         certificate_revoked_at, certificate_revoked_reason,
         header:sales_order_headers!inner(sales_order_number, spk_number, customer:customers(name))
@@ -330,7 +331,10 @@ export default function ArsipSertifikat() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => window.open(`/verify/${encodeURIComponent(r.certificate_number)}`, "_blank")}
+                        onClick={() => window.open(
+                          `/verify/${encodeURIComponent(r.certificate_number)}${r.certificate_verify_token ? `?t=${encodeURIComponent(r.certificate_verify_token)}` : ""}`,
+                          "_blank",
+                        )}
                         title="Halaman verifikasi publik"
                       >
                         <QrCode className="w-4 h-4" />
