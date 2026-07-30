@@ -88,6 +88,18 @@ async function getSignatureBase64(userId: string | null | undefined): Promise<st
   return imgToBase64(pub.publicUrl);
 }
 
+/** Resolve a signer's display name + signature image from a user id. */
+async function getSigner(
+  userId: string | null | undefined,
+): Promise<{ name: string | null; sig: string | null }> {
+  if (!userId) return { name: null, sig: null };
+  const [{ data: prof }, sig] = await Promise.all([
+    supabase.from("profiles").select("full_name, email").eq("id", userId).maybeSingle(),
+    getSignatureBase64(userId),
+  ]);
+  return { name: (prof as any)?.full_name || (prof as any)?.email || null, sig };
+}
+
 function addBg(doc: jsPDF, bgData: string | null) {
   if (!bgData) return;
   // Inset background slightly so the pre-baked green corner decoration
@@ -162,6 +174,7 @@ export async function generateSPKPdf(receiptId: string) {
       calibration_received_at, target_completion_date, service_location,
       service_pic_name, service_pic_phone, customer_request_notes,
       customer_po_number, tax_rate, total_amount,
+      created_by, approved_by,
       customer:customers(name, address, phone)
     `)
     .eq("id", receiptId)
@@ -421,7 +434,7 @@ export async function generateSPKPdf(receiptId: string) {
   // ── Signatures: 3 columns — compact block, placed directly after T&C.
   // If it doesn't fit on the current page, move to next page but keep it
   // close to the top (not pushed to the bottom).
-  const SIG_BLOCK_H = 28;
+  const SIG_BLOCK_H = 32;
   if (y + SIG_BLOCK_H > A4_H - M_BOTTOM) {
     doc.addPage();
     addBg(doc, bgData);
@@ -429,10 +442,14 @@ export async function generateSPKPdf(receiptId: string) {
   }
   const sigY = y + 3;
   const colW = CONTENT_W / 3;
-  const sigLabels: [string, string][] = [
-    ["Dibuat oleh", "Koordinator Administrasi"],
-    ["Disetujui oleh", "Manajer Laboratorium"],
-    ["Disetujui oleh", "(Pihak II — Pelanggan)"],
+  const [spkMaker, spkApprover] = await Promise.all([
+    getSigner((header as any).created_by),
+    getSigner((header as any).approved_by),
+  ]);
+  const sigLabels: [string, string, string | null, string | null][] = [
+    ["Dibuat oleh", "Koordinator Teknis", spkMaker.name, spkMaker.sig],
+    ["Disetujui oleh", "Manajer Laboratorium", spkApprover.name, spkApprover.sig],
+    ["Disetujui oleh", "(Pihak II — Pelanggan)", null, null],
   ];
   doc.setDrawColor(180, 180, 180);
   doc.setLineWidth(0.2);
@@ -444,11 +461,25 @@ export async function generateSPKPdf(receiptId: string) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.text(sigLabels[i][0], x + colW / 2, sigY, { align: "center" });
+    // signature image (if the signer has one uploaded)
+    if (sigLabels[i][3]) {
+      try {
+        doc.addImage(sigLabels[i][3]!, "PNG", x + colW / 2 - 14, sigY + 2, 28, 12);
+      } catch {}
+    }
     // signature line
     doc.line(x + 8, sigY + SIG_BLOCK_H - 11, x + colW - 8, sigY + SIG_BLOCK_H - 11);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
-    doc.text(sigLabels[i][1], x + colW / 2, sigY + SIG_BLOCK_H - 7, { align: "center" });
+    if (sigLabels[i][2]) {
+      doc.setFont("helvetica", "bold");
+      doc.text(sigLabels[i][2]!, x + colW / 2, sigY + SIG_BLOCK_H - 7.5, { align: "center" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.text(sigLabels[i][1], x + colW / 2, sigY + SIG_BLOCK_H - 3.5, { align: "center" });
+    } else {
+      doc.text(sigLabels[i][1], x + colW / 2, sigY + SIG_BLOCK_H - 7, { align: "center" });
+    }
   }
 
   // ── Open preview in a new tab (user can download from viewer) ──
@@ -472,7 +503,7 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
   // 1. Fetch SO header
   const { data: hdr } = await (supabase as any)
     .from("sales_order_headers")
-    .select("id, sales_order_number, spk_number, calibration_received_at, service_location, customer:customers(name, address)")
+    .select("id, sales_order_number, spk_number, calibration_received_at, service_location, created_by, approved_by, customer:customers(name, address)")
     .eq("id", receiptId)
     .single();
 
@@ -481,7 +512,7 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
   // Fetch tracker checklist timestamps (entry to Calibration In Progress & Completed)
   const { data: progressChecks } = await (supabase as any)
     .from("calibration_tracker_checklists")
-    .select("checklist_key, checked_at, is_checked")
+    .select("checklist_key, checked_at, is_checked, checked_by")
     .eq("sales_order_id", receiptId)
     .in("checklist_key", ["spk_issued", "spk_confirmed", "calibration_completed"]);
   const progressAt = (() => {
@@ -497,6 +528,20 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
     (progressChecks || []).find(
       (c: any) => c.checklist_key === "calibration_completed" && c.is_checked && c.checked_at,
     )?.checked_at ?? null;
+
+  // ── Signer mapping (automated) ────────────────────────────────────────────
+  // Teknisi Kalibrasi      = user who ticked "Calibration Completed"
+  // Koordinator Teknis     = user who created the Sales Order
+  // Manajer Laboratorium   = user who approved the Sales Order
+  const technicianId =
+    (progressChecks || []).find(
+      (c: any) => c.checklist_key === "calibration_completed" && c.is_checked,
+    )?.checked_by ?? null;
+  const [technician, coordinator, labManager] = await Promise.all([
+    getSigner(technicianId),
+    getSigner(hdr?.created_by),
+    getSigner(hdr?.approved_by),
+  ]);
 
   // 2. Fetch instruments from sales_order_items
   let q = (supabase as any)
@@ -779,13 +824,7 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
     doc.text(`Tangerang, ${issueDate}`, A4_W / 2, y, { align: "center" });
     y += 8;
 
-    // Signatures — 3 columns
-    const [techSig, checkSig, authSig] = await Promise.all([
-      getSignatureBase64(item.calibration_executed_by),
-      getSignatureBase64(item.calibration_checked_by),
-      getSignatureBase64(item.certificate_authorized_by),
-    ]);
-
+    // Signatures — 3 columns (auto-mapped from SO workflow actors)
     const SIG_H = 40;
     const availBottom = A4_H - M_BOTTOM;
     const sigY = Math.min(y, availBottom - SIG_H);
@@ -795,10 +834,10 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
     doc.setLineWidth(0.2);
     doc.rect(M_LEFT, sigY, CONTENT_W, SIG_H);
 
-    const sigCols: { title: string; role: string; sig: string | null }[] = [
-      { title: "Dilaksanakan oleh", role: "Teknisi Kalibrasi", sig: techSig },
-      { title: "Diperiksa & Disahkan oleh", role: "Koordinator Teknis", sig: checkSig },
-      { title: "Diotorisasi oleh", role: "Manajer Laboratorium", sig: authSig },
+    const sigCols: { title: string; role: string; sig: string | null; name: string | null }[] = [
+      { title: "Dilaksanakan oleh", role: "Teknisi Kalibrasi", sig: technician.sig, name: technician.name },
+      { title: "Diperiksa & Disahkan oleh", role: "Koordinator Teknis", sig: coordinator.sig, name: coordinator.name },
+      { title: "Diotorisasi oleh", role: "Manajer Laboratorium", sig: labManager.sig, name: labManager.name },
     ];
     for (let i = 0; i < 3; i++) {
       const x = M_LEFT + colW3 * i;
@@ -819,8 +858,15 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
       // signature line
       doc.setDrawColor(120, 120, 120);
       doc.line(x + 8, sigY + SIG_H - 10, x + colW3 - 8, sigY + SIG_H - 10);
-      setFont(doc, "normal", FS.sigRole);
-      doc.text(sigCols[i].role, x + colW3 / 2, sigY + SIG_H - 5, { align: "center" });
+      if (sigCols[i].name) {
+        setFont(doc, "bold", FS.sigRole);
+        doc.text(sigCols[i].name!, x + colW3 / 2, sigY + SIG_H - 6, { align: "center" });
+        setFont(doc, "normal", Math.max(6.5, FS.sigRole - 1));
+        doc.text(sigCols[i].role, x + colW3 / 2, sigY + SIG_H - 2.5, { align: "center" });
+      } else {
+        setFont(doc, "normal", FS.sigRole);
+        doc.text(sigCols[i].role, x + colW3 / 2, sigY + SIG_H - 5, { align: "center" });
+      }
     }
   }
 

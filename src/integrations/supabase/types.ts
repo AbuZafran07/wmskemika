@@ -2649,6 +2649,7 @@ export type Database = {
     Functions: {
       cleanup_old_chat_messages: { Args: never; Returns: undefined }
       delete_certificate: { Args: { p_item_id: string }; Returns: Json }
+      get_calibration_checklist_users: { Args: never; Returns: string[] }
       get_my_email: { Args: never; Returns: string }
       get_sanitized_error_message: {
         Args: { p_sqlerrm: string; p_sqlstate: string }
