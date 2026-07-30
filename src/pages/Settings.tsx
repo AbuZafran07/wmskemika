@@ -658,15 +658,14 @@ function ArApSettings({ language }: { language: string }) {
   const fetchApiKey = async () => {
     setLoading(true);
     try {
+      // Jangan pernah menarik nilai API key ke browser — cukup cek keberadaannya.
       const { data } = await supabase
         .from('settings')
-        .select('value')
+        .select('key')
         .eq('key', 'arap_api_key')
-        .single();
+        .maybeSingle();
 
-      if (data?.value) {
-        const key = typeof data.value === 'string' ? data.value : String(data.value);
-        setApiKey(key);
+      if (data?.key) {
         setHasKey(true);
       }
     } catch {
