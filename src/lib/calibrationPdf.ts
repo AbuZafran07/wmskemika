@@ -478,18 +478,25 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
 
   const receipt: any = hdr ? { ...hdr, receipt_number: hdr.sales_order_number } : null;
 
-  // Fetch calibration_in_progress entry date (when spk_confirmed was checked)
+  // Fetch tracker checklist timestamps (entry to Calibration In Progress & Completed)
   const { data: progressChecks } = await (supabase as any)
     .from("calibration_tracker_checklists")
     .select("checklist_key, checked_at, is_checked")
     .eq("sales_order_id", receiptId)
-    .in("checklist_key", ["spk_issued", "spk_confirmed"]);
+    .in("checklist_key", ["spk_issued", "spk_confirmed", "calibration_completed"]);
   const progressAt = (() => {
-    const list = (progressChecks || []).filter((c: any) => c.is_checked && c.checked_at);
+    const list = (progressChecks || []).filter(
+      (c: any) => c.is_checked && c.checked_at && c.checklist_key !== "calibration_completed",
+    );
     if (!list.length) return null;
     // Card moves to Calibration In Progress once BOTH are checked → use the later timestamp
     return list.reduce((m: string, c: any) => (c.checked_at > m ? c.checked_at : m), list[0].checked_at);
   })();
+  // Card moves to Completed when "calibration_completed" is checked → certificate issue date
+  const completedAt =
+    (progressChecks || []).find(
+      (c: any) => c.checklist_key === "calibration_completed" && c.is_checked && c.checked_at,
+    )?.checked_at ?? null;
 
   // 2. Fetch instruments from sales_order_items
   let q = (supabase as any)
@@ -593,7 +600,7 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
           { content: "Tanggal Kalibrasi / Calibration Date", styles: { fontStyle: "bold", fillColor: [245, 247, 252] } },
           fmtDate(progressAt || item.certificate_issued_at),
           { content: "Tanggal Terbit / Issue Date", styles: { fontStyle: "bold", fillColor: [245, 247, 252] } },
-          fmtDate(item.certificate_issued_at),
+          fmtDate(completedAt || item.certificate_issued_at),
         ],
       ],
       theme: "grid",
@@ -725,9 +732,9 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
           { content: "Kalibrasi Selanjutnya / Next Calibration", styles: { fontStyle: "bold", fillColor: [245, 247, 252] } },
           fmtDate(
             item.next_calibration_date ??
-              (item.certificate_issued_at
+              (completedAt || item.certificate_issued_at
                 ? (() => {
-                    const d = new Date(item.certificate_issued_at);
+                    const d = new Date(completedAt || item.certificate_issued_at);
                     d.setFullYear(d.getFullYear() + 1);
                     return d.toISOString();
                   })()
@@ -767,7 +774,7 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
     y = (doc as any).lastAutoTable.finalY + 5;
 
     // Tempat & tanggal (center)
-    const issueDate = fmtDate(item.certificate_issued_at || new Date().toISOString());
+    const issueDate = fmtDate(completedAt || item.certificate_issued_at || new Date().toISOString());
     setFont(doc, "bold", 10);
     doc.text(`Tangerang, ${issueDate}`, A4_W / 2, y, { align: "center" });
     y += 8;
