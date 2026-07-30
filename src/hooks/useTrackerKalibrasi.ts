@@ -85,6 +85,39 @@ export const COLUMN_CHECKLISTS: Record<KalibrasiV2Column, { key: string; label: 
 
 export const CHECKLIST_TOGGLE_ROLES = ['super_admin', 'admin', 'warehouse', 'purchasing'];
 
+// Checklist keys for columns Scheduled -> Calibration In Progress.
+// Only super_admin + users registered in Settings ("Petugas Kalibrasi") may toggle these.
+export const CALIBRATION_STAGE_CHECKLIST_KEYS = new Set<string>([
+  'instrument_received',
+  'spk_issued',
+  'spk_confirmed',
+  'calibration_completed',
+]);
+
+/** Fetches the allow-list of users permitted to tick early-stage calibration checklists. */
+export function useCalibrationCheckers() {
+  const [checkerIds, setCheckerIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from('settings')
+        .select('value')
+        .eq('key', 'calibration_checklist_users')
+        .maybeSingle();
+      if (!active) return;
+      const val = data?.value;
+      setCheckerIds(Array.isArray(val) ? (val as string[]) : []);
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return checkerIds;
+}
+
 // Some checklist keys are restricted to finance/admin only.
 export const FINANCE_ONLY_CHECKLIST_KEYS = new Set<string>([
   'payment_verified',
@@ -93,9 +126,18 @@ export const FINANCE_ONLY_CHECKLIST_KEYS = new Set<string>([
 ]);
 export const FINANCE_CHECKLIST_ROLES = ['super_admin', 'admin', 'finance'];
 
-export function canToggleChecklistKey(role: string | undefined, key: string): boolean {
+export function canToggleChecklistKey(
+  role: string | undefined,
+  key: string,
+  userId?: string | null,
+  checkerIds: string[] = [],
+): boolean {
   if (!role) return false;
+  if (role === 'super_admin') return true;
   if (FINANCE_ONLY_CHECKLIST_KEYS.has(key)) return FINANCE_CHECKLIST_ROLES.includes(role);
+  if (CALIBRATION_STAGE_CHECKLIST_KEYS.has(key)) {
+    return !!userId && checkerIds.includes(userId);
+  }
   return CHECKLIST_TOGGLE_ROLES.includes(role);
 }
 
@@ -132,6 +174,7 @@ export function useTrackerKalibrasi() {
   const [loading, setLoading] = useState(true);
 
   const canToggle = CHECKLIST_TOGGLE_ROLES.includes(role || '');
+  const checkerIds = useCalibrationCheckers();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -254,8 +297,12 @@ export function useTrackerKalibrasi() {
   const toggleChecklist = useCallback(
     async (receiptId: string, checklistKey: string) => {
       if (!user?.id) return;
-      if (!canToggleChecklistKey(role, checklistKey)) {
-        toast.error('Read-only untuk role Anda pada checklist ini.');
+      if (!canToggleChecklistKey(role, checklistKey, user.id, checkerIds)) {
+        toast.error(
+          CALIBRATION_STAGE_CHECKLIST_KEYS.has(checklistKey)
+            ? 'Akun Anda belum terdaftar sebagai petugas checklist kalibrasi.'
+            : 'Read-only untuk role Anda pada checklist ini.',
+        );
         return;
       }
 
