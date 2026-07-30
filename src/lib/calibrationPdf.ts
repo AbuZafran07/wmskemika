@@ -88,6 +88,18 @@ async function getSignatureBase64(userId: string | null | undefined): Promise<st
   return imgToBase64(pub.publicUrl);
 }
 
+/** Resolve a signer's display name + signature image from a user id. */
+async function getSigner(
+  userId: string | null | undefined,
+): Promise<{ name: string | null; sig: string | null }> {
+  if (!userId) return { name: null, sig: null };
+  const [{ data: prof }, sig] = await Promise.all([
+    supabase.from("profiles").select("full_name, email").eq("id", userId).maybeSingle(),
+    getSignatureBase64(userId),
+  ]);
+  return { name: (prof as any)?.full_name || (prof as any)?.email || null, sig };
+}
+
 function addBg(doc: jsPDF, bgData: string | null) {
   if (!bgData) return;
   // Inset background slightly so the pre-baked green corner decoration
