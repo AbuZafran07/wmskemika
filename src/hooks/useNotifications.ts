@@ -11,6 +11,7 @@ import {
   COLUMN_CHECKLISTS,
   COLUMN_DEFS,
   CALIBRATION_STAGE_CHECKLIST_KEYS,
+  KALIBRASI_CHECKLIST_LABELS,
   type KalibrasiV2Checklist,
 } from '@/hooks/useTrackerKalibrasi';
 
@@ -794,6 +795,7 @@ export function useNotifications() {
           revision_requested: 4,
           approval_pending: 5, 
           calibration_action: 5.5,
+          calibration_event: 5.7,
           expiring_soon: 6, 
           low_stock: 7, 
           new_order: 8,
