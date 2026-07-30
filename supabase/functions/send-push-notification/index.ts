@@ -109,9 +109,7 @@ serve(async (req) => {
         .select('role')
         .eq('user_id', userId);
       const roles = (roleRows || []).map((r: any) => r.role);
-      const allowed = roles.some((r: string) =>
-        ['super_admin', 'admin', 'sales', 'warehouse', 'finance', 'purchasing'].includes(r)
-      );
+      const allowed = roles.some((r: string) => ['super_admin', 'admin'].includes(r));
       if (!allowed) {
         return new Response(JSON.stringify({ error: 'Forbidden' }), {
           status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -135,6 +133,17 @@ serve(async (req) => {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
+
+    // Only allow relative in-app paths as the click-through link
+    const sanitizeLink = (raw: unknown): string => {
+      const value = typeof raw === 'string' ? raw.trim() : '';
+      if (!value) return '/';
+      if (!value.startsWith('/') || value.startsWith('//') || value.startsWith('/\\')) return '/';
+      if (/[\r\n\t]/.test(value)) return '/';
+      return value.slice(0, 500);
+    };
+    const safeLink = sanitizeLink((data as any)?.link);
+    const safeData = data && typeof data === 'object' ? { ...data, link: safeLink } : undefined;
 
     // Get FCM tokens for target users
     let query = supabase.from('push_tokens').select('token, user_id');
