@@ -824,13 +824,7 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
     doc.text(`Tangerang, ${issueDate}`, A4_W / 2, y, { align: "center" });
     y += 8;
 
-    // Signatures — 3 columns
-    const [techSig, checkSig, authSig] = await Promise.all([
-      getSignatureBase64(item.calibration_executed_by),
-      getSignatureBase64(item.calibration_checked_by),
-      getSignatureBase64(item.certificate_authorized_by),
-    ]);
-
+    // Signatures — 3 columns (auto-mapped from SO workflow actors)
     const SIG_H = 40;
     const availBottom = A4_H - M_BOTTOM;
     const sigY = Math.min(y, availBottom - SIG_H);
@@ -840,10 +834,10 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
     doc.setLineWidth(0.2);
     doc.rect(M_LEFT, sigY, CONTENT_W, SIG_H);
 
-    const sigCols: { title: string; role: string; sig: string | null }[] = [
-      { title: "Dilaksanakan oleh", role: "Teknisi Kalibrasi", sig: techSig },
-      { title: "Diperiksa & Disahkan oleh", role: "Koordinator Teknis", sig: checkSig },
-      { title: "Diotorisasi oleh", role: "Manajer Laboratorium", sig: authSig },
+    const sigCols: { title: string; role: string; sig: string | null; name: string | null }[] = [
+      { title: "Dilaksanakan oleh", role: "Teknisi Kalibrasi", sig: technician.sig, name: technician.name },
+      { title: "Diperiksa & Disahkan oleh", role: "Koordinator Teknis", sig: coordinator.sig, name: coordinator.name },
+      { title: "Diotorisasi oleh", role: "Manajer Laboratorium", sig: labManager.sig, name: labManager.name },
     ];
     for (let i = 0; i < 3; i++) {
       const x = M_LEFT + colW3 * i;
@@ -864,8 +858,15 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
       // signature line
       doc.setDrawColor(120, 120, 120);
       doc.line(x + 8, sigY + SIG_H - 10, x + colW3 - 8, sigY + SIG_H - 10);
-      setFont(doc, "normal", FS.sigRole);
-      doc.text(sigCols[i].role, x + colW3 / 2, sigY + SIG_H - 5, { align: "center" });
+      if (sigCols[i].name) {
+        setFont(doc, "bold", FS.sigRole);
+        doc.text(sigCols[i].name!, x + colW3 / 2, sigY + SIG_H - 6, { align: "center" });
+        setFont(doc, "normal", Math.max(6.5, FS.sigRole - 1));
+        doc.text(sigCols[i].role, x + colW3 / 2, sigY + SIG_H - 2.5, { align: "center" });
+      } else {
+        setFont(doc, "normal", FS.sigRole);
+        doc.text(sigCols[i].role, x + colW3 / 2, sigY + SIG_H - 5, { align: "center" });
+      }
     }
   }
 
