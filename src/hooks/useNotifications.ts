@@ -5,17 +5,19 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { setBadgeCount } from '@/lib/badgeUtils';
 import { buildNotificationDeepLink } from '@/lib/notificationDeepLink';
+import { logNotificationAudit } from '@/lib/notificationAudit';
 import {
   computeKalibrasiColumn,
   COLUMN_CHECKLISTS,
   COLUMN_DEFS,
   CALIBRATION_STAGE_CHECKLIST_KEYS,
+  KALIBRASI_CHECKLIST_LABELS,
   type KalibrasiV2Checklist,
 } from '@/hooks/useTrackerKalibrasi';
 
 export interface Notification {
   id: string;
-  type: 'low_stock' | 'expiring_soon' | 'expired' | 'info' | 'approval_pending' | 'approved' | 'cancelled' | 'new_order' | 'revision_requested' | 'urgent_request' | 'urgent_approved' | 'urgent_rejected' | 'card_comment' | 'calibration_action';
+  type: 'low_stock' | 'expiring_soon' | 'expired' | 'info' | 'approval_pending' | 'approved' | 'cancelled' | 'new_order' | 'revision_requested' | 'urgent_request' | 'urgent_approved' | 'urgent_rejected' | 'card_comment' | 'calibration_action' | 'calibration_event';
   title: string;
   message: string;
   productId?: string;
@@ -658,7 +660,7 @@ export function useNotifications() {
           const isCalibrationChecker =
             user.role === 'super_admin' || checkerIds.includes(user.id);
 
-          if (isCalibrationChecker) {
+          {
             const { data: calCards } = await (supabase as any)
               .from('sales_order_headers')
               .select('id, sales_order_number, spk_number, status, customer:customers(name)')
@@ -680,7 +682,68 @@ export function useNotifications() {
               });
             }
 
+            // Resolve actor names for transition events.
+            const actorIds = Array.from(
+              new Set(
+                Object.values(checklistByCard)
+                  .flat()
+                  .filter((c) => c.is_checked && (c as any).checked_by)
+                  .map((c) => (c as any).checked_by as string),
+              ),
+            );
+            let actorNames: Record<string, string> = {};
+            if (actorIds.length) {
+              const { data: actors } = await (supabase as any)
+                .from('profiles')
+                .select('id, full_name, email')
+                .in('id', actorIds);
+              (actors || []).forEach((a: any) => {
+                actorNames[a.id] = a.full_name || a.email || 'Pengguna';
+              });
+            }
+
+            // ── Stage transition events (visible to all users) ──
+            // Emitted whenever a card advances through the important stages:
+            // Scheduled → Instrument Received → Calibration In Progress →
+            // Completed → Delivered. Deep-links straight to the card.
+            const EVENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+            const now = Date.now();
             (calCards || []).forEach((card: any) => {
+              const list = checklistByCard[card.id] || [];
+              const refNo = card.spk_number || card.sales_order_number;
+              const customer = card.customer?.name ? ` • ${card.customer.name}` : '';
+
+              list
+                .filter((c: any) => c.is_checked && c.checked_at)
+                .filter((c: any) => now - new Date(c.checked_at).getTime() <= EVENT_WINDOW_MS)
+                .forEach((c: any) => {
+                  const label = KALIBRASI_CHECKLIST_LABELS[c.checklist_key] || c.checklist_key;
+                  const nextColumn = computeKalibrasiColumn(
+                    list.filter((x: any) =>
+                      x.is_checked && x.checked_at
+                        ? new Date(x.checked_at).getTime() <= new Date(c.checked_at).getTime()
+                        : false,
+                    ),
+                    card.status,
+                  );
+                  const colLabel =
+                    COLUMN_DEFS.find((col) => col.id === nextColumn)?.label || nextColumn;
+                  const actor = c.checked_by ? actorNames[c.checked_by] || 'Pengguna' : 'Sistem';
+                  notifs.push({
+                    id: `calibration_event_${c.id}`,
+                    type: 'calibration_event',
+                    title: `🔄 ${label} — ${colLabel}`,
+                    message: `${refNo}${customer}: ${label} diselesaikan oleh ${actor}`,
+                    module: 'calibration',
+                    refId: card.id,
+                    refNo,
+                    createdAt: new Date(c.checked_at),
+                    read: false,
+                  });
+                });
+            });
+
+            if (isCalibrationChecker) (calCards || []).forEach((card: any) => {
               const list = checklistByCard[card.id] || [];
               const column = computeKalibrasiColumn(list, card.status);
               if (column === 'rejected' || column === 'delivered') return;
@@ -732,6 +795,7 @@ export function useNotifications() {
           revision_requested: 4,
           approval_pending: 5, 
           calibration_action: 5.5,
+          calibration_event: 5.7,
           expiring_soon: 6, 
           low_stock: 7, 
           new_order: 8,
@@ -752,11 +816,11 @@ export function useNotifications() {
       if (newNotifs.length > 0 && previousNotifIds.current.size > 0) {
         // Determine sound type based on notification priority
         const hasCritical = newNotifs.some(n => n.type === 'expired' || n.type === 'low_stock' || n.type === 'urgent_request' || n.type === 'urgent_rejected');
-        const hasWarning = newNotifs.some(n => n.type === 'expiring_soon' || n.type === 'approval_pending' || n.type === 'revision_requested' || n.type === 'urgent_approved' || n.type === 'calibration_action');
+        const hasWarning = newNotifs.some(n => n.type === 'expiring_soon' || n.type === 'approval_pending' || n.type === 'revision_requested' || n.type === 'urgent_approved' || n.type === 'calibration_action' || n.type === 'calibration_event');
 
-        // In-app toast for newly actionable calibration cards
+        // In-app toast for newly actionable calibration cards + stage transitions
         newNotifs
-          .filter(n => n.type === 'calibration_action')
+          .filter(n => n.type === 'calibration_action' || n.type === 'calibration_event')
           .slice(0, 3)
           .forEach(n => {
             toast.info(n.title, {
@@ -781,7 +845,7 @@ export function useNotifications() {
         // Send browser push notifications for critical alerts
         if (pushEnabled && 'Notification' in window && Notification.permission === 'granted') {
           newNotifs.forEach(n => {
-            if (n.type === 'expired' || n.type === 'low_stock' || n.type === 'approval_pending' || n.type === 'revision_requested' || n.type === 'urgent_request' || n.type === 'urgent_approved' || n.type === 'urgent_rejected' || n.type === 'calibration_action') {
+            if (n.type === 'expired' || n.type === 'low_stock' || n.type === 'approval_pending' || n.type === 'revision_requested' || n.type === 'urgent_request' || n.type === 'urgent_approved' || n.type === 'urgent_rejected' || n.type === 'calibration_action' || n.type === 'calibration_event') {
               const icon = n.type === 'urgent_request' || n.type === 'urgent_rejected' ? '🚨' : n.type === 'urgent_approved' ? '✅' : n.type === 'expired' ? '🚨' : n.type === 'low_stock' ? '⚠️' : n.type === 'revision_requested' ? '📝' : '🔔';
               sendBrowserNotification(
                 `${icon} ${n.title}`,
@@ -797,6 +861,10 @@ export function useNotifications() {
       }
       
       previousNotifIds.current = currentIds;
+      // Audit trail: record every notification surfaced to this user.
+      if (newNotifs.length > 0) {
+        void logNotificationAudit('notification_sent', newNotifs);
+      }
       // Apply persisted "auto-read" keys (type:refId / type:productId) so that
       // notifications for records the user has already opened stay marked read.
       const readKeys = readNotifKeysRef.current;
@@ -1125,6 +1193,8 @@ export function useNotifications() {
         const key = notifKey(n);
         if (key && readNotifKeysRef.current.has(key)) {
           touched++;
+          // Audit trail: auto-read via deep-link navigation.
+          void logNotificationAudit('notification_read', [n]);
           // Persist underlying comment ids for card_comment / urgent so realtime
           // refetch won't re-surface them.
           if (n.type === 'card_comment' && n.commentIds?.length) {
@@ -1156,6 +1226,8 @@ export function useNotifications() {
   const markAsRead = (id: string) => {
     setNotifications(prev => prev.map(n => {
       if (n.id !== id) return n;
+      // Audit trail: record that this user opened/acknowledged the notification.
+      void logNotificationAudit('notification_read', [n]);
       // Persist underlying comment IDs so card_comment entries don't reappear
       if (n.type === 'card_comment' && n.commentIds?.length) {
         n.commentIds.forEach(cid => readCommentIdsRef.current.add(cid));
@@ -1186,6 +1258,7 @@ export function useNotifications() {
 
   const markAllAsRead = () => {
     setNotifications(prev => {
+      void logNotificationAudit('notification_read', prev.filter(n => !n.read));
       prev.forEach(n => {
         if (n.type === 'card_comment' && n.commentIds?.length) {
           n.commentIds.forEach(cid => readCommentIdsRef.current.add(cid));
