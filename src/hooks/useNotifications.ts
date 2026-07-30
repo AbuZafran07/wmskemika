@@ -5,10 +5,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { setBadgeCount } from '@/lib/badgeUtils';
 import { buildNotificationDeepLink } from '@/lib/notificationDeepLink';
+import {
+  computeKalibrasiColumn,
+  COLUMN_CHECKLISTS,
+  COLUMN_DEFS,
+  CALIBRATION_STAGE_CHECKLIST_KEYS,
+  type KalibrasiV2Checklist,
+} from '@/hooks/useTrackerKalibrasi';
 
 export interface Notification {
   id: string;
-  type: 'low_stock' | 'expiring_soon' | 'expired' | 'info' | 'approval_pending' | 'approved' | 'cancelled' | 'new_order' | 'revision_requested' | 'urgent_request' | 'urgent_approved' | 'urgent_rejected' | 'card_comment';
+  type: 'low_stock' | 'expiring_soon' | 'expired' | 'info' | 'approval_pending' | 'approved' | 'cancelled' | 'new_order' | 'revision_requested' | 'urgent_request' | 'urgent_approved' | 'urgent_rejected' | 'card_comment' | 'calibration_action';
   title: string;
   message: string;
   productId?: string;
@@ -634,6 +641,87 @@ export function useNotifications() {
         }
       }
 
+      // ── Calibration tracker: cards awaiting THIS user's checklist action ──
+      // Applies to the stages Scheduled → Instrument Received → Calibration In
+      // Progress → Completed. Only shown to super_admin and users registered as
+      // "Petugas Kalibrasi" in Settings.
+      try {
+        if (user?.id) {
+          const { data: checkerSetting } = await (supabase as any)
+            .from('settings')
+            .select('value')
+            .eq('key', 'calibration_checklist_users')
+            .maybeSingle();
+          const checkerIds: string[] = Array.isArray(checkerSetting?.value)
+            ? (checkerSetting!.value as string[])
+            : [];
+          const isCalibrationChecker =
+            user.role === 'super_admin' || checkerIds.includes(user.id);
+
+          if (isCalibrationChecker) {
+            const { data: calCards } = await (supabase as any)
+              .from('sales_order_headers')
+              .select('id, sales_order_number, spk_number, status, customer:customers(name)')
+              .eq('order_type', 'calibration')
+              .eq('is_deleted', false)
+              .neq('status', 'cancelled')
+              .order('created_at', { ascending: false })
+              .limit(200);
+
+            const cardIds = (calCards || []).map((c: any) => c.id);
+            let checklistByCard: Record<string, KalibrasiV2Checklist[]> = {};
+            if (cardIds.length) {
+              const { data: calChecks } = await (supabase as any)
+                .from('calibration_tracker_checklists')
+                .select('id, sales_order_id, checklist_key, is_checked, checked_by, checked_at')
+                .in('sales_order_id', cardIds);
+              (calChecks || []).forEach((c: any) => {
+                (checklistByCard[c.sales_order_id] ||= []).push(c);
+              });
+            }
+
+            (calCards || []).forEach((card: any) => {
+              const list = checklistByCard[card.id] || [];
+              const column = computeKalibrasiColumn(list, card.status);
+              if (column === 'rejected' || column === 'delivered') return;
+
+              const pending = (COLUMN_CHECKLISTS[column] || []).filter(
+                (item) =>
+                  CALIBRATION_STAGE_CHECKLIST_KEYS.has(item.key) &&
+                  !list.some((c) => c.checklist_key === item.key && c.is_checked),
+              );
+              if (!pending.length) return;
+
+              const colLabel =
+                COLUMN_DEFS.find((c) => c.id === column)?.label || column;
+              const latestAt = list
+                .filter((c) => c.is_checked && c.checked_at)
+                .reduce<string | null>(
+                  (m, c) => (!m || (c.checked_at as string) > m ? (c.checked_at as string) : m),
+                  null,
+                );
+              const refNo = card.spk_number || card.sales_order_number;
+
+              notifs.push({
+                id: `calibration_action_${card.id}_${column}`,
+                type: 'calibration_action',
+                title: `🧪 Checklist kalibrasi menunggu — ${colLabel}`,
+                message: `${refNo}${card.customer?.name ? ` • ${card.customer.name}` : ''}: ${pending
+                  .map((p) => p.label)
+                  .join(', ')}`,
+                module: 'calibration',
+                refId: card.id,
+                refNo,
+                createdAt: latestAt ? new Date(latestAt) : new Date(),
+                read: false,
+              });
+            });
+          }
+        }
+      } catch (calErr) {
+        console.error('Error building calibration checklist notifications:', calErr);
+      }
+
       // Sort by priority and date
       notifs.sort((a, b) => {
         const priority: Record<string, number> = { 
@@ -643,6 +731,7 @@ export function useNotifications() {
           urgent_approved: 3,
           revision_requested: 4,
           approval_pending: 5, 
+          calibration_action: 5.5,
           expiring_soon: 6, 
           low_stock: 7, 
           new_order: 8,
@@ -663,7 +752,21 @@ export function useNotifications() {
       if (newNotifs.length > 0 && previousNotifIds.current.size > 0) {
         // Determine sound type based on notification priority
         const hasCritical = newNotifs.some(n => n.type === 'expired' || n.type === 'low_stock' || n.type === 'urgent_request' || n.type === 'urgent_rejected');
-        const hasWarning = newNotifs.some(n => n.type === 'expiring_soon' || n.type === 'approval_pending' || n.type === 'revision_requested' || n.type === 'urgent_approved');
+        const hasWarning = newNotifs.some(n => n.type === 'expiring_soon' || n.type === 'approval_pending' || n.type === 'revision_requested' || n.type === 'urgent_approved' || n.type === 'calibration_action');
+
+        // In-app toast for newly actionable calibration cards
+        newNotifs
+          .filter(n => n.type === 'calibration_action')
+          .slice(0, 3)
+          .forEach(n => {
+            toast.info(n.title, {
+              description: n.message,
+              action: {
+                label: '🧪 Buka Kartu',
+                onClick: () => { window.location.href = buildNotificationDeepLink(n); },
+              },
+            });
+          });
         
         if (soundEnabled) {
           if (hasCritical) {
@@ -678,7 +781,7 @@ export function useNotifications() {
         // Send browser push notifications for critical alerts
         if (pushEnabled && 'Notification' in window && Notification.permission === 'granted') {
           newNotifs.forEach(n => {
-            if (n.type === 'expired' || n.type === 'low_stock' || n.type === 'approval_pending' || n.type === 'revision_requested' || n.type === 'urgent_request' || n.type === 'urgent_approved' || n.type === 'urgent_rejected') {
+            if (n.type === 'expired' || n.type === 'low_stock' || n.type === 'approval_pending' || n.type === 'revision_requested' || n.type === 'urgent_request' || n.type === 'urgent_approved' || n.type === 'urgent_rejected' || n.type === 'calibration_action') {
               const icon = n.type === 'urgent_request' || n.type === 'urgent_rejected' ? '🚨' : n.type === 'urgent_approved' ? '✅' : n.type === 'expired' ? '🚨' : n.type === 'low_stock' ? '⚠️' : n.type === 'revision_requested' ? '📝' : '🔔';
               sendBrowserNotification(
                 `${icon} ${n.title}`,
@@ -938,6 +1041,17 @@ export function useNotifications() {
       )
       .subscribe();
 
+    // Subscribe to calibration tracker checklist changes → recompute which
+    // cards now await this user's checklist action.
+    const calibrationChecklistChannel = supabase
+      .channel('calibration-checklist-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'calibration_tracker_checklists' },
+        () => { fetchNotifications(); }
+      )
+      .subscribe();
+
     // Also keep the polling as fallback (every 5 minutes)
     const interval = setInterval(fetchNotifications, 5 * 60 * 1000);
 
@@ -950,6 +1064,7 @@ export function useNotifications() {
       supabase.removeChannel(stockInChannel);
       supabase.removeChannel(stockOutChannel);
       supabase.removeChannel(deliveryCommentsChannel);
+      supabase.removeChannel(calibrationChecklistChannel);
     };
   }, [fetchNotifications]);
 

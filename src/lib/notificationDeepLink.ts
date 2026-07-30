@@ -35,6 +35,7 @@ export function buildNotificationDeepLink(notif: Notification): string {
     stock_in: { path: '/stock-in', legacyParam: 'id' },
     stock_out: { path: '/stock-out', legacyParam: 'id' },
     delivery: { path: '/request-delivery', legacyParam: 'card' },
+    calibration: { path: '/tracker-kalibrasi', legacyParam: 'card' },
   };
 
   const route = notif.module ? moduleRoutes[notif.module] : undefined;
