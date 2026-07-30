@@ -174,6 +174,7 @@ export async function generateSPKPdf(receiptId: string) {
       calibration_received_at, target_completion_date, service_location,
       service_pic_name, service_pic_phone, customer_request_notes,
       customer_po_number, tax_rate, total_amount,
+      created_by, approved_by,
       customer:customers(name, address, phone)
     `)
     .eq("id", receiptId)
@@ -441,10 +442,14 @@ export async function generateSPKPdf(receiptId: string) {
   }
   const sigY = y + 3;
   const colW = CONTENT_W / 3;
-  const sigLabels: [string, string][] = [
-    ["Dibuat oleh", "Koordinator Administrasi"],
-    ["Disetujui oleh", "Manajer Laboratorium"],
-    ["Disetujui oleh", "(Pihak II — Pelanggan)"],
+  const [spkMaker, spkApprover] = await Promise.all([
+    getSigner((header as any).created_by),
+    getSigner((header as any).approved_by),
+  ]);
+  const sigLabels: [string, string, string | null, string | null][] = [
+    ["Dibuat oleh", "Koordinator Teknis", spkMaker.name, spkMaker.sig],
+    ["Disetujui oleh", "Manajer Laboratorium", spkApprover.name, spkApprover.sig],
+    ["Disetujui oleh", "(Pihak II — Pelanggan)", null, null],
   ];
   doc.setDrawColor(180, 180, 180);
   doc.setLineWidth(0.2);
@@ -456,11 +461,25 @@ export async function generateSPKPdf(receiptId: string) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.text(sigLabels[i][0], x + colW / 2, sigY, { align: "center" });
+    // signature image (if the signer has one uploaded)
+    if (sigLabels[i][3]) {
+      try {
+        doc.addImage(sigLabels[i][3]!, "PNG", x + colW / 2 - 14, sigY + 2, 28, 12);
+      } catch {}
+    }
     // signature line
     doc.line(x + 8, sigY + SIG_BLOCK_H - 11, x + colW - 8, sigY + SIG_BLOCK_H - 11);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
-    doc.text(sigLabels[i][1], x + colW / 2, sigY + SIG_BLOCK_H - 7, { align: "center" });
+    if (sigLabels[i][2]) {
+      doc.setFont("helvetica", "bold");
+      doc.text(sigLabels[i][2]!, x + colW / 2, sigY + SIG_BLOCK_H - 7.5, { align: "center" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.text(sigLabels[i][1], x + colW / 2, sigY + SIG_BLOCK_H - 3.5, { align: "center" });
+    } else {
+      doc.text(sigLabels[i][1], x + colW / 2, sigY + SIG_BLOCK_H - 7, { align: "center" });
+    }
   }
 
   // ── Open preview in a new tab (user can download from viewer) ──
