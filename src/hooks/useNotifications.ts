@@ -785,6 +785,140 @@ export function useNotifications() {
         console.error('Error building calibration checklist notifications:', calErr);
       }
 
+      // ── Calibration card comments (chat) & document events ──
+      try {
+        if (user?.id) {
+          const sevenDaysAgoCal = new Date();
+          sevenDaysAgoCal.setDate(sevenDaysAgoCal.getDate() - 7);
+          const sinceIso = sevenDaysAgoCal.toISOString();
+
+          const [{ data: calComments }, { data: docLogs }, { data: revokedItems }] = await Promise.all([
+            (supabase as any)
+              .from('calibration_tracker_comments')
+              .select('id, sales_order_id, user_id, message, created_at, type')
+              .eq('type', 'comment')
+              .neq('user_id', user.id)
+              .gte('created_at', sinceIso)
+              .order('created_at', { ascending: false })
+              .limit(50),
+            (supabase as any)
+              .from('calibration_document_logs')
+              .select('id, sales_order_id, document_type, document_number, generated_by, generated_by_email, created_at')
+              .gte('created_at', sinceIso)
+              .order('created_at', { ascending: false })
+              .limit(50),
+            (supabase as any)
+              .from('sales_order_items')
+              .select('id, sales_order_id, instrument_name, certificate_number, certificate_revoked_at, certificate_revoked_reason')
+              .not('certificate_revoked_at', 'is', null)
+              .gte('certificate_revoked_at', sinceIso)
+              .order('certificate_revoked_at', { ascending: false })
+              .limit(50),
+          ]);
+
+          const soIds = Array.from(
+            new Set([
+              ...((calComments || []) as any[]).map((c) => c.sales_order_id),
+              ...((docLogs || []) as any[]).map((d) => d.sales_order_id),
+              ...((revokedItems || []) as any[]).map((r) => r.sales_order_id),
+            ].filter(Boolean)),
+          );
+
+          if (soIds.length) {
+            const senderIds = Array.from(
+              new Set(((calComments || []) as any[]).map((c) => c.user_id).filter(Boolean)),
+            );
+            const [{ data: calSoList }, { data: calSenders }] = await Promise.all([
+              (supabase as any)
+                .from('sales_order_headers')
+                .select('id, sales_order_number, spk_number')
+                .in('id', soIds),
+              senderIds.length
+                ? (supabase as any).from('profiles').select('id, full_name, email').in('id', senderIds)
+                : Promise.resolve({ data: [] as any[] }),
+            ]);
+
+            const calRefMap: Record<string, string> = {};
+            ((calSoList || []) as any[]).forEach((s) => {
+              calRefMap[s.id] = s.spk_number || s.sales_order_number || '';
+            });
+            const senderMap: Record<string, string> = {};
+            ((calSenders || []) as any[]).forEach((p) => {
+              senderMap[p.id] = p.full_name || p.email || 'Seseorang';
+            });
+
+            // Group comments per calibration card
+            const readSetCal = readCommentIdsRef.current;
+            const calGroups = new Map<string, any[]>();
+            ((calComments || []) as any[]).forEach((c) => {
+              if (readSetCal.has(c.id)) return;
+              const arr = calGroups.get(c.sales_order_id) || [];
+              arr.push(c);
+              calGroups.set(c.sales_order_id, arr);
+            });
+            calGroups.forEach((cs, soId) => {
+              const latest = cs[0];
+              const refNo = calRefMap[soId] || '';
+              const soLabel = refNo ? ` [${refNo}]` : '';
+              const senderName = senderMap[latest.user_id] || 'Seseorang';
+              const preview =
+                latest.message.length > 100 ? `${latest.message.substring(0, 100)}...` : latest.message;
+              const countLabel = cs.length > 1 ? ` (${cs.length} komentar)` : '';
+              notifs.push({
+                id: `card_comment_cal_${soId}`,
+                type: 'card_comment',
+                title: `💬 Komentar kalibrasi${soLabel}${countLabel}`,
+                message: `${senderName}: ${preview}`,
+                module: 'calibration',
+                refId: soId,
+                refNo,
+                createdAt: new Date(latest.created_at),
+                read: false,
+                commentIds: cs.map((x: any) => x.id),
+                count: cs.length,
+              });
+            });
+
+            // Document generation / upload events
+            ((docLogs || []) as any[]).forEach((d) => {
+              const refNo = calRefMap[d.sales_order_id] || d.document_number || '';
+              const by = d.generated_by_email || 'Sistem';
+              notifs.push({
+                id: `calibration_doc_${d.id}`,
+                type: 'calibration_event',
+                title: `📄 Dokumen ${d.document_type}${refNo ? ` — ${refNo}` : ''}`,
+                message: `${d.document_number ? `${d.document_number} • ` : ''}dibuat oleh ${by}`,
+                module: 'calibration',
+                refId: d.sales_order_id,
+                refNo,
+                createdAt: new Date(d.created_at),
+                read: false,
+              });
+            });
+
+            // Certificate revocation events
+            ((revokedItems || []) as any[]).forEach((r) => {
+              const refNo = calRefMap[r.sales_order_id] || r.certificate_number || '';
+              notifs.push({
+                id: `calibration_revoked_${r.id}`,
+                type: 'calibration_event',
+                title: `🚫 Sertifikat dicabut${r.certificate_number ? ` — ${r.certificate_number}` : ''}`,
+                message: `${r.instrument_name || 'Instrumen'}${
+                  r.certificate_revoked_reason ? `: ${r.certificate_revoked_reason}` : ''
+                }`,
+                module: 'calibration',
+                refId: r.sales_order_id,
+                refNo,
+                createdAt: new Date(r.certificate_revoked_at),
+                read: false,
+              });
+            });
+          }
+        }
+      } catch (calCommentErr) {
+        console.error('Error building calibration comment/document notifications:', calCommentErr);
+      }
+
       // Sort by priority and date
       notifs.sort((a, b) => {
         const priority: Record<string, number> = { 
