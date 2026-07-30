@@ -29,6 +29,7 @@ import {
 } from "@/hooks/useTrackerKalibrasi";
 import { useProducts } from "@/hooks/useMasterData";
 import { generateSPKPdf, generateCertificatePdf, generateBASTPdf } from "@/lib/calibrationPdf";
+import CertificatePreviewDialog from "@/components/tracker-kalibrasi/CertificatePreviewDialog";
 import { printCalibrationSparepartRequest } from "@/lib/calibrationSparepartRequestPdf";
 import CalibrationLabelPicker from "./CalibrationLabelPicker";
 import {
@@ -1914,27 +1915,10 @@ export default function TrackerKalibrasiCardDetail({
                     <Button
                       variant="outline" size="sm"
                       disabled={!receiptId || pdfLoading !== null || instruments.length === 0}
-                      onClick={async () => {
-                        if (!receiptId) return;
-                        setPdfLoading("cert");
-                        let issuedCerts: Array<{ certificate_number?: string | null }> = [];
-                        try {
-                          issuedCerts = await generateCertificatePdf(receiptId) as Array<{ certificate_number?: string | null }>;
-                        } catch (e) {
-                          toast.error("Gagal generate Sertifikat PDF");
-                          console.error(e);
-                          return;
-                        } finally {
-                          setPdfLoading(null);
-                        }
-                        await fetchReceipt();
-                        const firstCert = issuedCerts.find((i) => i.certificate_number)?.certificate_number
-                          ?? instruments.find(i => (i as any).certificate_number)?.['certificate_number' as any] as string | undefined;
-                        await logCalibrationDoc('certificate', firstCert ?? receipt?.spk_number ?? null);
-                      }}
+                      onClick={() => setShowCertPreview(true)}
                       className="gap-1.5 text-xs"
                     >
-                      {pdfLoading === "cert" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+                      <FileText className="w-3.5 h-3.5" />
                       Sertifikat (F-KAL-05)
                     </Button>
                     )}
