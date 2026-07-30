@@ -197,15 +197,15 @@ serve(async (req) => {
                     body,
                     icon: '/logo-kemika.png',
                     badge: '/favicon.png',
-                    tag: data?.tag || 'default',
-                    requireInteraction: data?.requireInteraction || false,
+                    tag: safeData?.tag || 'default',
+                    requireInteraction: safeData?.requireInteraction || false,
                   },
                   fcm_options: {
-                    link: data?.link || '/',
+                    link: safeLink,
                   },
                 },
-                data: data ? Object.fromEntries(
-                  Object.entries(data).map(([k, v]) => [k, String(v)])
+                data: safeData ? Object.fromEntries(
+                  Object.entries(safeData).map(([k, v]) => [k, String(v)])
                 ) : undefined,
               },
             }),
