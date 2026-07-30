@@ -36,7 +36,15 @@ self.addEventListener('notificationclick', (event) => {
   console.log('[firebase-messaging-sw.js] Notification click:', event);
   event.notification.close();
 
-  const link = event.notification.data?.link || '/';
+  // Only allow same-origin in-app paths; ignore attacker-supplied external URLs
+  const rawLink = event.notification.data?.link;
+  const link =
+    typeof rawLink === 'string' &&
+    rawLink.startsWith('/') &&
+    !rawLink.startsWith('//') &&
+    !rawLink.startsWith('/\\')
+      ? new URL(rawLink, self.location.origin).href
+      : self.location.origin + '/';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
