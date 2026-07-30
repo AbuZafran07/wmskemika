@@ -448,7 +448,7 @@ export async function generateSPKPdf(receiptId: string) {
   ]);
   const sigLabels: [string, string, string | null, string | null][] = [
     ["Dibuat oleh", "Koordinator Teknis", spkMaker.name, spkMaker.sig],
-    ["Disetujui oleh", "Manajer Laboratorium", spkApprover.name, spkApprover.sig],
+    ["Disetujui oleh", "Manajer Laboratorium", "Haris Pratama Putra", spkApprover.sig],
     ["Disetujui oleh", "(Pihak II — Pelanggan)", null, null],
   ];
   doc.setDrawColor(180, 180, 180);
@@ -467,19 +467,19 @@ export async function generateSPKPdf(receiptId: string) {
         doc.addImage(sigLabels[i][3]!, "PNG", x + colW / 2 - 14, sigY + 2, 28, 12);
       } catch {}
     }
-    // signature line
-    doc.line(x + 8, sigY + SIG_BLOCK_H - 11, x + colW - 8, sigY + SIG_BLOCK_H - 11);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8.5);
+    const lineY = sigY + SIG_BLOCK_H - 9;
+    // name sits ABOVE the signature line
     if (sigLabels[i][2]) {
       doc.setFont("helvetica", "bold");
-      doc.text(sigLabels[i][2]!, x + colW / 2, sigY + SIG_BLOCK_H - 7.5, { align: "center" });
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7.5);
-      doc.text(sigLabels[i][1], x + colW / 2, sigY + SIG_BLOCK_H - 3.5, { align: "center" });
-    } else {
-      doc.text(sigLabels[i][1], x + colW / 2, sigY + SIG_BLOCK_H - 7, { align: "center" });
+      doc.setFontSize(8.5);
+      doc.text(sigLabels[i][2]!, x + colW / 2, lineY - 1.5, { align: "center" });
     }
+    // signature line
+    doc.line(x + 8, lineY, x + colW - 8, lineY);
+    // role/position sits BELOW the line
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.text(sigLabels[i][1], x + colW / 2, lineY + 3.5, { align: "center" });
   }
 
   // ── Open preview in a new tab (user can download from viewer) ──
