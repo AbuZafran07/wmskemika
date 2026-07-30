@@ -1224,6 +1224,8 @@ export function useNotifications() {
   const markAsRead = (id: string) => {
     setNotifications(prev => prev.map(n => {
       if (n.id !== id) return n;
+      // Audit trail: record that this user opened/acknowledged the notification.
+      void logNotificationAudit('notification_read', [n]);
       // Persist underlying comment IDs so card_comment entries don't reappear
       if (n.type === 'card_comment' && n.commentIds?.length) {
         n.commentIds.forEach(cid => readCommentIdsRef.current.add(cid));
@@ -1254,6 +1256,7 @@ export function useNotifications() {
 
   const markAllAsRead = () => {
     setNotifications(prev => {
+      void logNotificationAudit('notification_read', prev.filter(n => !n.read));
       prev.forEach(n => {
         if (n.type === 'card_comment' && n.commentIds?.length) {
           n.commentIds.forEach(cid => readCommentIdsRef.current.add(cid));
