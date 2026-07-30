@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { FlaskConical, Loader2, RefreshCw, Building2, Package, Calendar as CalendarIcon, User, Search, X, Filter, CheckCircle2, Maximize2, Minimize2, ZoomIn, ZoomOut, Image as ImageIcon } from "lucide-react";
 import { format, isPast } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
@@ -243,6 +244,20 @@ export default function TrackerKalibrasi() {
   } = useTrackerKalibrasi();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Deep-link support: /tracker-kalibrasi?card=<sales_order_id>
+  useEffect(() => {
+    const cardId = searchParams.get('card') || searchParams.get('id');
+    if (cardId && cards.some((c) => c.id === cardId)) {
+      setSelectedId(cardId);
+      const next = new URLSearchParams(searchParams);
+      next.delete('card');
+      next.delete('id');
+      next.delete('type');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, cards, setSearchParams]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [customerFilter, setCustomerFilter] = useState<string>("all");
