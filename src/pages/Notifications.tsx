@@ -69,6 +69,8 @@ export default function Notifications() {
         return <MessageSquare className="w-5 h-5 text-info" />;
       case 'calibration_action':
         return <ClipboardList className="w-5 h-5 text-primary" />;
+      case 'calibration_event':
+        return <ClipboardList className="w-5 h-5 text-info" />;
       default:
         return <Bell className="w-5 h-5 text-info" />;
     }
@@ -88,6 +90,7 @@ export default function Notifications() {
       urgent_rejected: { variant: 'destructive', label: 'Urgent Ditolak' },
       card_comment: { variant: 'secondary', label: language === 'en' ? 'Comment' : 'Komentar' },
       calibration_action: { variant: 'default', label: language === 'en' ? 'Calibration Checklist' : 'Checklist Kalibrasi' },
+      calibration_event: { variant: 'secondary', label: language === 'en' ? 'Calibration Update' : 'Update Kalibrasi' },
       info: { variant: 'secondary', label: 'Info' },
     };
     const config = variants[type] || variants.info;
@@ -325,6 +328,7 @@ export default function Notifications() {
                   <SelectItem value="urgent_approved">{language === 'en' ? 'Urgent Approved' : 'Urgent Disetujui'}</SelectItem>
                   <SelectItem value="urgent_rejected">{language === 'en' ? 'Urgent Rejected' : 'Urgent Ditolak'}</SelectItem>
                   <SelectItem value="calibration_action">{language === 'en' ? 'Calibration Checklist' : 'Checklist Kalibrasi'}</SelectItem>
+                  <SelectItem value="calibration_event">{language === 'en' ? 'Calibration Update' : 'Update Kalibrasi'}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
