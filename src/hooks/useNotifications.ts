@@ -1254,6 +1254,22 @@ export function useNotifications() {
       )
       .subscribe();
 
+    // Subscribe to calibration card comments & document logs → surface new
+    // comments / generated documents in the bell immediately.
+    const calibrationActivityChannel = supabase
+      .channel('calibration-activity-changes')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'calibration_tracker_comments' },
+        () => { fetchNotifications(); }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'calibration_document_logs' },
+        () => { fetchNotifications(); }
+      )
+      .subscribe();
+
     // Also keep the polling as fallback (every 5 minutes)
     const interval = setInterval(fetchNotifications, 5 * 60 * 1000);
 
@@ -1267,6 +1283,7 @@ export function useNotifications() {
       supabase.removeChannel(stockOutChannel);
       supabase.removeChannel(deliveryCommentsChannel);
       supabase.removeChannel(calibrationChecklistChannel);
+      supabase.removeChannel(calibrationActivityChannel);
     };
   }, [fetchNotifications]);
 
