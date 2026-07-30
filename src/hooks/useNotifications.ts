@@ -816,11 +816,11 @@ export function useNotifications() {
       if (newNotifs.length > 0 && previousNotifIds.current.size > 0) {
         // Determine sound type based on notification priority
         const hasCritical = newNotifs.some(n => n.type === 'expired' || n.type === 'low_stock' || n.type === 'urgent_request' || n.type === 'urgent_rejected');
-        const hasWarning = newNotifs.some(n => n.type === 'expiring_soon' || n.type === 'approval_pending' || n.type === 'revision_requested' || n.type === 'urgent_approved' || n.type === 'calibration_action');
+        const hasWarning = newNotifs.some(n => n.type === 'expiring_soon' || n.type === 'approval_pending' || n.type === 'revision_requested' || n.type === 'urgent_approved' || n.type === 'calibration_action' || n.type === 'calibration_event');
 
-        // In-app toast for newly actionable calibration cards
+        // In-app toast for newly actionable calibration cards + stage transitions
         newNotifs
-          .filter(n => n.type === 'calibration_action')
+          .filter(n => n.type === 'calibration_action' || n.type === 'calibration_event')
           .slice(0, 3)
           .forEach(n => {
             toast.info(n.title, {
@@ -845,7 +845,7 @@ export function useNotifications() {
         // Send browser push notifications for critical alerts
         if (pushEnabled && 'Notification' in window && Notification.permission === 'granted') {
           newNotifs.forEach(n => {
-            if (n.type === 'expired' || n.type === 'low_stock' || n.type === 'approval_pending' || n.type === 'revision_requested' || n.type === 'urgent_request' || n.type === 'urgent_approved' || n.type === 'urgent_rejected' || n.type === 'calibration_action') {
+            if (n.type === 'expired' || n.type === 'low_stock' || n.type === 'approval_pending' || n.type === 'revision_requested' || n.type === 'urgent_request' || n.type === 'urgent_approved' || n.type === 'urgent_rejected' || n.type === 'calibration_action' || n.type === 'calibration_event') {
               const icon = n.type === 'urgent_request' || n.type === 'urgent_rejected' ? '🚨' : n.type === 'urgent_approved' ? '✅' : n.type === 'expired' ? '🚨' : n.type === 'low_stock' ? '⚠️' : n.type === 'revision_requested' ? '📝' : '🔔';
               sendBrowserNotification(
                 `${icon} ${n.title}`,
@@ -861,6 +861,10 @@ export function useNotifications() {
       }
       
       previousNotifIds.current = currentIds;
+      // Audit trail: record every notification surfaced to this user.
+      if (newNotifs.length > 0) {
+        void logNotificationAudit('notification_sent', newNotifs);
+      }
       // Apply persisted "auto-read" keys (type:refId / type:productId) so that
       // notifications for records the user has already opened stay marked read.
       const readKeys = readNotifKeysRef.current;
