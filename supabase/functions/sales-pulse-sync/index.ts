@@ -128,6 +128,17 @@ serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
+    // Enforce business-role authorization (not just authentication)
+    const { data: roleRows } = await adminClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId);
+    const allowedRoles = ["super_admin", "admin", "sales", "finance"];
+    const isAllowed = (roleRows || []).some((r: any) => allowedRoles.includes(r.role));
+    if (!isAllowed) {
+      return jsonResponse({ error: "Forbidden" }, 403);
+    }
+
     const body = req.method === "GET" ? {} : await parseBody(req);
     const action = req.method === "GET"
       ? sanitizeText(new URL(req.url).searchParams.get("action") || "")
