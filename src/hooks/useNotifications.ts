@@ -1193,6 +1193,8 @@ export function useNotifications() {
         const key = notifKey(n);
         if (key && readNotifKeysRef.current.has(key)) {
           touched++;
+          // Audit trail: auto-read via deep-link navigation.
+          void logNotificationAudit('notification_read', [n]);
           // Persist underlying comment ids for card_comment / urgent so realtime
           // refetch won't re-surface them.
           if (n.type === 'card_comment' && n.commentIds?.length) {
