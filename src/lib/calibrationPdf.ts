@@ -503,7 +503,7 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
   // 1. Fetch SO header
   const { data: hdr } = await (supabase as any)
     .from("sales_order_headers")
-    .select("id, sales_order_number, spk_number, calibration_received_at, service_location, customer:customers(name, address)")
+    .select("id, sales_order_number, spk_number, calibration_received_at, service_location, created_by, approved_by, customer:customers(name, address)")
     .eq("id", receiptId)
     .single();
 
@@ -512,7 +512,7 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
   // Fetch tracker checklist timestamps (entry to Calibration In Progress & Completed)
   const { data: progressChecks } = await (supabase as any)
     .from("calibration_tracker_checklists")
-    .select("checklist_key, checked_at, is_checked")
+    .select("checklist_key, checked_at, is_checked, checked_by")
     .eq("sales_order_id", receiptId)
     .in("checklist_key", ["spk_issued", "spk_confirmed", "calibration_completed"]);
   const progressAt = (() => {
@@ -528,6 +528,20 @@ export async function generateCertificatePdf(receiptId: string, instrumentId?: s
     (progressChecks || []).find(
       (c: any) => c.checklist_key === "calibration_completed" && c.is_checked && c.checked_at,
     )?.checked_at ?? null;
+
+  // ── Signer mapping (automated) ────────────────────────────────────────────
+  // Teknisi Kalibrasi      = user who ticked "Calibration Completed"
+  // Koordinator Teknis     = user who created the Sales Order
+  // Manajer Laboratorium   = user who approved the Sales Order
+  const technicianId =
+    (progressChecks || []).find(
+      (c: any) => c.checklist_key === "calibration_completed" && c.is_checked,
+    )?.checked_by ?? null;
+  const [technician, coordinator, labManager] = await Promise.all([
+    getSigner(technicianId),
+    getSigner(hdr?.created_by),
+    getSigner(hdr?.approved_by),
+  ]);
 
   // 2. Fetch instruments from sales_order_items
   let q = (supabase as any)
