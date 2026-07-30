@@ -252,6 +252,7 @@ export default function TrackerKalibrasiCardDetail({
 
   const [receipt, setReceipt] = useState<ReceiptDetail | null>(null);
   const [instruments, setInstruments] = useState<InstrumentDetail[]>([]);
+  const [showCertPreview, setShowCertPreview] = useState(false);
   const [editingCalDetail, setEditingCalDetail] = useState<InstrumentDetail | null>(null);
   const [savingCalDetail, setSavingCalDetail] = useState(false);
   const [spareParts, setSpareParts] = useState<SparePart[]>([]);
@@ -2314,6 +2315,22 @@ export default function TrackerKalibrasiCardDetail({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Preview sertifikat sebelum cetak */}
+      <CertificatePreviewDialog
+        open={showCertPreview}
+        onOpenChange={setShowCertPreview}
+        receiptId={receiptId}
+        instruments={instruments}
+        onGenerated={async (issued) => {
+          await fetchReceipt();
+          const firstCert =
+            issued.find((i) => i.certificate_number)?.certificate_number ??
+            instruments.find((i) => i.certificate_number)?.certificate_number ??
+            null;
+          await logCalibrationDoc('certificate', firstCert ?? receipt?.spk_number ?? null);
+        }}
+      />
     </div>
   );
 }
