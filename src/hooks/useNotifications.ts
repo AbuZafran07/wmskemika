@@ -659,7 +659,7 @@ export function useNotifications() {
           const isCalibrationChecker =
             user.role === 'super_admin' || checkerIds.includes(user.id);
 
-          if (isCalibrationChecker) {
+          {
             const { data: calCards } = await (supabase as any)
               .from('sales_order_headers')
               .select('id, sales_order_number, spk_number, status, customer:customers(name)')
@@ -680,6 +680,69 @@ export function useNotifications() {
                 (checklistByCard[c.sales_order_id] ||= []).push(c);
               });
             }
+
+            // Resolve actor names for transition events.
+            const actorIds = Array.from(
+              new Set(
+                Object.values(checklistByCard)
+                  .flat()
+                  .filter((c) => c.is_checked && (c as any).checked_by)
+                  .map((c) => (c as any).checked_by as string),
+              ),
+            );
+            let actorNames: Record<string, string> = {};
+            if (actorIds.length) {
+              const { data: actors } = await (supabase as any)
+                .from('profiles')
+                .select('id, full_name, email')
+                .in('id', actorIds);
+              (actors || []).forEach((a: any) => {
+                actorNames[a.id] = a.full_name || a.email || 'Pengguna';
+              });
+            }
+
+            // ── Stage transition events (visible to all users) ──
+            // Emitted whenever a card advances through the important stages:
+            // Scheduled → Instrument Received → Calibration In Progress →
+            // Completed → Delivered. Deep-links straight to the card.
+            const EVENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+            const now = Date.now();
+            (calCards || []).forEach((card: any) => {
+              const list = checklistByCard[card.id] || [];
+              const refNo = card.spk_number || card.sales_order_number;
+              const customer = card.customer?.name ? ` • ${card.customer.name}` : '';
+
+              list
+                .filter((c: any) => c.is_checked && c.checked_at)
+                .filter((c: any) => now - new Date(c.checked_at).getTime() <= EVENT_WINDOW_MS)
+                .forEach((c: any) => {
+                  const label = KALIBRASI_CHECKLIST_LABELS[c.checklist_key] || c.checklist_key;
+                  const nextColumn = computeKalibrasiColumn(
+                    list.filter((x: any) =>
+                      x.is_checked && x.checked_at
+                        ? new Date(x.checked_at).getTime() <= new Date(c.checked_at).getTime()
+                        : false,
+                    ),
+                    card.status,
+                  );
+                  const colLabel =
+                    COLUMN_DEFS.find((col) => col.id === nextColumn)?.label || nextColumn;
+                  const actor = c.checked_by ? actorNames[c.checked_by] || 'Pengguna' : 'Sistem';
+                  notifs.push({
+                    id: `calibration_event_${c.id}`,
+                    type: 'calibration_event',
+                    title: `🔄 ${label} — ${colLabel}`,
+                    message: `${refNo}${customer}: ${label} diselesaikan oleh ${actor}`,
+                    module: 'calibration',
+                    refId: card.id,
+                    refNo,
+                    createdAt: new Date(c.checked_at),
+                    read: false,
+                  });
+                });
+            });
+
+            if (!isCalibrationChecker) return;
 
             (calCards || []).forEach((card: any) => {
               const list = checklistByCard[card.id] || [];
