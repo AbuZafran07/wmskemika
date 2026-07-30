@@ -434,7 +434,7 @@ export async function generateSPKPdf(receiptId: string) {
   // ── Signatures: 3 columns — compact block, placed directly after T&C.
   // If it doesn't fit on the current page, move to next page but keep it
   // close to the top (not pushed to the bottom).
-  const SIG_BLOCK_H = 28;
+  const SIG_BLOCK_H = 32;
   if (y + SIG_BLOCK_H > A4_H - M_BOTTOM) {
     doc.addPage();
     addBg(doc, bgData);
