@@ -435,7 +435,12 @@ export async function generateSPKPdf(receiptId: string) {
   // If it doesn't fit on the current page, move to next page but keep it
   // close to the top (not pushed to the bottom).
   const SIG_BLOCK_H = 28;
-  if (y + SIG_BLOCK_H > A4_H - M_BOTTOM) {
+  // page-break-inside: avoid — the whole block (frame + safe gap to the kop
+  // surat footer) must fit on the current page, otherwise move it entirely
+  // to a fresh page instead of splitting it across pages.
+  const SIG_SAFE_GAP = 6; // clearance above the footer address block
+  const SIG_TOTAL_H = SIG_BLOCK_H + 3 /* frame offset from y */ + SIG_SAFE_GAP;
+  if (y + SIG_TOTAL_H > A4_H - M_BOTTOM) {
     doc.addPage();
     addBg(doc, bgData);
     y = M_TOP;
