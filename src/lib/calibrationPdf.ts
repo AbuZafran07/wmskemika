@@ -453,15 +453,33 @@ export async function generateSPKPdf(receiptId: string) {
   ];
   doc.setDrawColor(180, 180, 180);
   doc.setLineWidth(0.2);
+  // Auto-fit helper: shrink font until the text fits the available width.
+  const fitFont = (
+    text: string,
+    maxW: number,
+    base: number,
+    min: number,
+    style: "bold" | "normal",
+  ) => {
+    let size = base;
+    doc.setFont("helvetica", style);
+    doc.setFontSize(size);
+    while (size > min && doc.getTextWidth(text) > maxW) {
+      size -= 0.25;
+      doc.setFontSize(size);
+    }
+    return size;
+  };
   // outer frame (compact)
   const frameTop = sigY - 3;
   const frameBottom = frameTop + SIG_BLOCK_H;
   doc.rect(M_LEFT, frameTop, CONTENT_W, SIG_BLOCK_H);
+  const sigTextW = colW - 12; // usable width inside each cell
+  const lineY = frameBottom - 6; // identical for every column
   for (let i = 0; i < 3; i++) {
     const x = M_LEFT + colW * i;
     if (i > 0) doc.line(x, frameTop, x, frameBottom);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
+    fitFont(sigLabels[i][0], sigTextW, 9, 6.5, "bold");
     doc.text(sigLabels[i][0], x + colW / 2, sigY, { align: "center" });
     // signature image (if the signer has one uploaded)
     if (sigLabels[i][3]) {
@@ -469,19 +487,15 @@ export async function generateSPKPdf(receiptId: string) {
         doc.addImage(sigLabels[i][3]!, "PNG", x + colW / 2 - 13, sigY + 1.5, 26, 10);
       } catch {}
     }
-    // name–line–role cluster anchored to the bottom of the cell
-    const lineY = frameBottom - 6;
-    // name sits clearly ABOVE the signature line
+    // name sits tight ABOVE the signature line (auto-fit width)
     if (sigLabels[i][2]) {
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8.5);
+      fitFont(sigLabels[i][2]!, sigTextW, 8.5, 6, "bold");
       doc.text(sigLabels[i][2]!, x + colW / 2, lineY - 1.6, { align: "center" });
     }
     // signature line
     doc.line(x + 8, lineY, x + colW - 8, lineY);
-    // role/position sits just BELOW the line
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
+    // role/position sits tight BELOW the line (auto-fit width)
+    fitFont(sigLabels[i][1], sigTextW, 7.5, 5.5, "normal");
     doc.text(sigLabels[i][1], x + colW / 2, lineY + 3.4, { align: "center" });
   }
 
