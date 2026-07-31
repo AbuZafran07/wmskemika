@@ -43,6 +43,7 @@ import TrackerPO from "./pages/TrackerPO";
 import TrackerKalibrasi from "./pages/TrackerKalibrasi";
 import ArsipSertifikat from "./pages/ArsipSertifikat";
 import VerifyCertificate from "./pages/VerifyCertificate";
+import VerifyCertificateLanding from "./pages/VerifyCertificateLanding";
 import NotFound from "./pages/NotFound";
 import Notifications from "./pages/Notifications";
 import DeliveryOrder from "./pages/DeliveryOrder";
