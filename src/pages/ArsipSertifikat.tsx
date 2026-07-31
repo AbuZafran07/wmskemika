@@ -335,7 +335,7 @@ export default function ArsipSertifikat() {
                         size="sm"
                         variant="outline"
                         onClick={() => window.open(
-                          `/verify/${encodeURIComponent(r.certificate_number)}${r.certificate_verify_token ? `?t=${encodeURIComponent(r.certificate_verify_token)}` : ""}`,
+                          `${CERT_VERIFY_ORIGIN}/verify/${encodeURIComponent(r.certificate_number)}${r.certificate_verify_token ? `?t=${encodeURIComponent(r.certificate_verify_token)}` : ""}`,
                           "_blank",
                         )}
                         title="Halaman verifikasi publik"
