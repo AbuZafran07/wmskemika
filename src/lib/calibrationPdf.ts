@@ -1186,48 +1186,80 @@ export async function generateBASTPdf(receiptId: string) {
   });
   y = (doc as any).lastAutoTable.finalY + 3;
 
-  // Catatan / Kondisi Khusus
+  // ── Catatan / Kondisi Khusus (fleksibel) + blok tanda tangan (compact, gaya SPK) ──
+  const SIG_BLOCK_H = 28;     // tinggi frame tanda tangan (sama seperti SPK)
+  const SIG_SAFE_GAP = 8;     // jarak aman ke kop surat footer
+  const SIG_TOTAL_H = SIG_BLOCK_H + 3 + SIG_SAFE_GAP;
+  const NOTE_HEAD_H = 7;      // tinggi baris judul tabel catatan
+  const NOTE_MIN_H = 10;      // tinggi minimum area catatan
+  const NOTE_MAX_H = 18;      // tinggi maksimum area catatan
+
+  let avail = A4_H - M_BOTTOM - y - SIG_TOTAL_H - NOTE_HEAD_H - 4;
+  if (avail < NOTE_MIN_H) {
+    // tidak muat: pindahkan catatan + tanda tangan ke halaman berikutnya
+    doc.addPage();
+    addBg(doc, bgData);
+    y = M_TOP;
+    avail = A4_H - M_BOTTOM - y - SIG_TOTAL_H - NOTE_HEAD_H - 4;
+  }
+  const noteH = Math.max(NOTE_MIN_H, Math.min(NOTE_MAX_H, avail));
+
   autoTable(doc, {
     startY: y,
     margin: { left: M_LEFT, right: M_RIGHT, top: M_TOP, bottom: M_BOTTOM },
     head: [[{ content: "Catatan / Kondisi Khusus", styles: { halign: "left", fillColor: [245, 247, 252], textColor: 0, fontStyle: "bold" } }]],
-    body: [[{ content: "\n\n", styles: { minCellHeight: 18 } }]],
+    body: [[{ content: "", styles: { minCellHeight: noteH } }]],
     theme: "grid",
     styles: { fontSize: 8.5, cellPadding: 2.5, lineColor: [180, 180, 180], lineWidth: 0.2 },
     didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
   });
   y = (doc as any).lastAutoTable.finalY + 4;
 
-  // Signatures: 2 columns
-  const SIG_H = 38;
-  if (y + SIG_H > A4_H - M_BOTTOM) {
+  if (y + SIG_TOTAL_H > A4_H - M_BOTTOM) {
     doc.addPage();
     addBg(doc, bgData);
     y = M_TOP;
   }
-  // Keep signatures close to statement (like SPK), not pinned to bottom
-  const sigY = y;
+
+  const sigY = y + 3;
   const colW = CONTENT_W / 2;
   doc.setDrawColor(180, 180, 180);
   doc.setLineWidth(0.2);
-  doc.rect(M_LEFT, sigY - 3, CONTENT_W, SIG_H - 2);
-  doc.line(M_LEFT + colW, sigY - 3, M_LEFT + colW, sigY + SIG_H - 5);
-  const sigLabels: [string, string][] = [
-    ["Diserahkan oleh", `PT Kemika Karya Pratama\n(${salesName})`],
-    ["Diterima oleh", `${customer?.name || "Pelanggan"}\n(${header.service_pic_name || customer?.pic || "Pelanggan / PIC"})`],
+  const fitFontB = (text: string, maxW: number, base: number, min: number, style: "bold" | "normal") => {
+    let size = base;
+    doc.setFont("helvetica", style);
+    doc.setFontSize(size);
+    while (size > min && doc.getTextWidth(text) > maxW) {
+      size -= 0.25;
+      doc.setFontSize(size);
+    }
+  };
+  const frameTop = sigY - 3;
+  const frameBottom = frameTop + SIG_BLOCK_H;
+  doc.rect(M_LEFT, frameTop, CONTENT_W, SIG_BLOCK_H);
+  doc.line(M_LEFT + colW, frameTop, M_LEFT + colW, frameBottom);
+  const sigTextW = colW - 14;
+  const lineY = frameBottom - 8;
+  const sigCols: [string, string, string][] = [
+    ["Diserahkan oleh", salesName || "-", "PT Kemika Karya Pratama"],
+    [
+      "Diterima oleh",
+      header.service_pic_name || customer?.pic || "Pelanggan / PIC",
+      customer?.name || "Pelanggan",
+    ],
   ];
   for (let i = 0; i < 2; i++) {
     const x = M_LEFT + colW * i;
-    setFont(doc, "bold", FS.sigTitle);
-    doc.text(sigLabels[i][0], x + colW / 2, sigY, { align: "center" });
-    // Signature line sits well above the name so name text never crosses it
-    const lineY = sigY + SIG_H - 15;
+    const cx = x + colW / 2;
+    fitFontB(sigCols[i][0], sigTextW, 9, 6.5, "bold");
+    doc.text(sigCols[i][0], cx, sigY, { align: "center" });
+    // nama tepat DI ATAS garis
+    fitFontB(sigCols[i][1], sigTextW, 8.5, 6, "bold");
+    doc.text(sigCols[i][1], cx, lineY - 1.6, { align: "center" });
     doc.line(x + 8, lineY, x + colW - 8, lineY);
-    setFont(doc, "normal", FS.sigRole);
-    const lines = sigLabels[i][1].split("\n");
-    lines.forEach((ln, li) => {
-      doc.text(ln, x + colW / 2, lineY + 6 + li * 4.2, { align: "center" });
-    });
+    // nama perusahaan/pihak tepat DI BAWAH garis
+    fitFontB(sigCols[i][2], sigTextW, 7.5, 5.5, "normal");
+    doc.text(sigCols[i][2], cx, lineY + 3.4, { align: "center" });
   }
 
   const filename = docFileName("BAST-Kalibrasi", header.spk_number, header.sales_order_number);
