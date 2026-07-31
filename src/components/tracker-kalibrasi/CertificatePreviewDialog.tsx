@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Printer, Download, RefreshCw, FileText } from "lucide-react";
+import { Loader2, Printer, Download, RefreshCw, FileText, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { generateCertificatePdf } from "@/lib/calibrationPdf";
 
@@ -31,6 +31,19 @@ interface Props {
  * Pengguna memilih instrumen (checklist) yang ingin disertakan, melihat hasil
  * PDF di viewer, lalu mencetak atau mengunduhnya.
  */
+/**
+ * iOS Safari & sebagian besar browser mobile tidak bisa menampilkan PDF
+ * di dalam <iframe> (blob) — halaman jadi kosong/putih. Untuk perangkat
+ * tersebut kita tampilkan tombol "Buka di tab baru" sebagai gantinya.
+ */
+function canEmbedPdf() {
+  if (typeof navigator === "undefined") return true;
+  const ua = navigator.userAgent || "";
+  const isIOS = /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && (navigator as any).maxTouchPoints > 1);
+  const isAndroid = /Android/.test(ua);
+  return !isIOS && !isAndroid;
+}
+
 export default function CertificatePreviewDialog({
   open,
   onOpenChange,
@@ -44,6 +57,7 @@ export default function CertificatePreviewDialog({
   const [filename, setFilename] = useState<string>("Sertifikat.pdf");
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const urlRef = useRef<string | null>(null);
+  const [embeddable] = useState<boolean>(() => canEmbedPdf());
 
   const allIds = useMemo(() => instruments.map((i) => i.id), [instruments]);
 
@@ -95,13 +109,21 @@ export default function CertificatePreviewDialog({
   };
 
   const handlePrint = () => {
+    if (!previewUrl) return;
+    if (!embeddable) {
+      window.open(previewUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
     const win = iframeRef.current?.contentWindow;
-    if (!win) return;
+    if (!win) {
+      window.open(previewUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
     try {
       win.focus();
       win.print();
     } catch {
-      window.open(previewUrl!, "_blank");
+      window.open(previewUrl, "_blank", "noopener,noreferrer");
     }
   };
 
@@ -190,13 +212,28 @@ export default function CertificatePreviewDialog({
           {/* Viewer */}
           <div className="flex flex-col min-h-0">
             <div className="flex-1 min-h-0 bg-muted/40">
-              {previewUrl ? (
+              {previewUrl && embeddable ? (
                 <iframe
                   ref={iframeRef}
                   src={previewUrl}
                   title="Preview Sertifikat Kalibrasi"
                   className="w-full h-full border-0"
                 />
+              ) : previewUrl ? (
+                <div className="h-full flex flex-col items-center justify-center gap-3 text-center px-6">
+                  <FileText className="w-8 h-8 text-muted-foreground" />
+                  <p className="text-xs text-muted-foreground max-w-xs">
+                    Browser di perangkat ini tidak dapat menampilkan PDF secara langsung.
+                    Buka dokumen di tab baru untuk melihat hasilnya.
+                  </p>
+                  <Button
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => window.open(previewUrl, "_blank", "noopener,noreferrer")}
+                  >
+                    <ExternalLink className="w-4 h-4" /> Buka di Tab Baru
+                  </Button>
+                </div>
               ) : (
                 <div className="h-full flex items-center justify-center text-center px-6">
                   <p className="text-xs text-muted-foreground">
