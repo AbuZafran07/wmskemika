@@ -39,6 +39,20 @@
     <!-- Manifest -->
     <link rel="manifest" href="/manifest.webmanifest" />
 
+    <!-- Halaman verifikasi sertifikat bersifat publik: sembunyikan identitas aplikasi internal
+         dan cegah prompt "Install app" muncul untuk pemindai QR eksternal. -->
+    <script>
+      (function () {
+        if (!/^\/verify(\/|$)/.test(location.pathname)) return;
+        var m = document.querySelector('link[rel="manifest"]');
+        if (m && m.parentNode) m.parentNode.removeChild(m);
+        window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); }, true);
+        document.addEventListener('DOMContentLoaded', function () {
+          document.title = 'Verifikasi Sertifikat Kalibrasi — PT. Kemika Karya Pratama';
+        });
+      })();
+    </script>
+
     <!-- Favicon -->
     <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512x512.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png" />
