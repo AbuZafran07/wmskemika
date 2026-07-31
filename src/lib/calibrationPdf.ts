@@ -434,7 +434,7 @@ export async function generateSPKPdf(receiptId: string) {
   // ── Signatures: 3 columns — compact block, placed directly after T&C.
   // If it doesn't fit on the current page, move to next page but keep it
   // close to the top (not pushed to the bottom).
-  const SIG_BLOCK_H = 34;
+  const SIG_BLOCK_H = 28;
   if (y + SIG_BLOCK_H > A4_H - M_BOTTOM) {
     doc.addPage();
     addBg(doc, bgData);
@@ -454,32 +454,35 @@ export async function generateSPKPdf(receiptId: string) {
   doc.setDrawColor(180, 180, 180);
   doc.setLineWidth(0.2);
   // outer frame (compact)
-  doc.rect(M_LEFT, sigY - 3, CONTENT_W, SIG_BLOCK_H - 2);
+  const frameTop = sigY - 3;
+  const frameBottom = frameTop + SIG_BLOCK_H;
+  doc.rect(M_LEFT, frameTop, CONTENT_W, SIG_BLOCK_H);
   for (let i = 0; i < 3; i++) {
     const x = M_LEFT + colW * i;
-    if (i > 0) doc.line(x, sigY - 3, x, sigY + SIG_BLOCK_H - 5);
+    if (i > 0) doc.line(x, frameTop, x, frameBottom);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.text(sigLabels[i][0], x + colW / 2, sigY, { align: "center" });
     // signature image (if the signer has one uploaded)
     if (sigLabels[i][3]) {
       try {
-        doc.addImage(sigLabels[i][3]!, "PNG", x + colW / 2 - 14, sigY + 2, 28, 12);
+        doc.addImage(sigLabels[i][3]!, "PNG", x + colW / 2 - 13, sigY + 1.5, 26, 10);
       } catch {}
     }
-    const lineY = sigY + SIG_BLOCK_H - 10;
+    // name–line–role cluster anchored to the bottom of the cell
+    const lineY = frameBottom - 6;
     // name sits clearly ABOVE the signature line
     if (sigLabels[i][2]) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8.5);
-      doc.text(sigLabels[i][2]!, x + colW / 2, lineY - 2.5, { align: "center" });
+      doc.text(sigLabels[i][2]!, x + colW / 2, lineY - 1.6, { align: "center" });
     }
     // signature line
     doc.line(x + 8, lineY, x + colW - 8, lineY);
-    // role/position sits BELOW the line with a small gap so it doesn't touch the line
+    // role/position sits just BELOW the line
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
-    doc.text(sigLabels[i][1], x + colW / 2, lineY + 4.8, { align: "center" });
+    doc.text(sigLabels[i][1], x + colW / 2, lineY + 3.4, { align: "center" });
   }
 
   // ── Open preview in a new tab (user can download from viewer) ──
