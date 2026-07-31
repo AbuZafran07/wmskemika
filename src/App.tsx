@@ -43,12 +43,17 @@ import TrackerPO from "./pages/TrackerPO";
 import TrackerKalibrasi from "./pages/TrackerKalibrasi";
 import ArsipSertifikat from "./pages/ArsipSertifikat";
 import VerifyCertificate from "./pages/VerifyCertificate";
+import VerifyCertificateLanding from "./pages/VerifyCertificateLanding";
 import NotFound from "./pages/NotFound";
 import Notifications from "./pages/Notifications";
 import DeliveryOrder from "./pages/DeliveryOrder";
 import ProformaInvoice from "./pages/ProformaInvoice";
 
 const queryClient = new QueryClient();
+
+const isPortalHost =
+  typeof window !== "undefined" &&
+  window.location.host.includes("portal.kemika.web.id");
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -62,7 +67,16 @@ const App = () => (
               <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/verify/:certNumber" element={<VerifyCertificate />} />
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route
+                  path="/"
+                  element={
+                    isPortalHost ? (
+                      <VerifyCertificateLanding />
+                    ) : (
+                      <Navigate to="/dashboard" replace />
+                    )
+                  }
+                />
                 
                 <Route element={<MainLayout />}>
                   {/* Dashboard - All roles */}
