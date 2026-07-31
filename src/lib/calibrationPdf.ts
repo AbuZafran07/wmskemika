@@ -1186,21 +1186,22 @@ export async function generateBASTPdf(receiptId: string) {
   });
   y = (doc as any).lastAutoTable.finalY + 3;
 
-  // ── Catatan / Kondisi Khusus (fleksibel) + blok tanda tangan (compact, gaya SPK) ──
-  const SIG_BLOCK_H = 28;     // tinggi frame tanda tangan (sama seperti SPK)
-  const SIG_SAFE_GAP = 8;     // jarak aman ke kop surat footer
-  const SIG_TOTAL_H = SIG_BLOCK_H + 3 + SIG_SAFE_GAP;
-  const NOTE_HEAD_H = 7;      // tinggi baris judul tabel catatan
-  const NOTE_MIN_H = 10;      // tinggi minimum area catatan
-  const NOTE_MAX_H = 18;      // tinggi maksimum area catatan
+  // ── Catatan + tanda tangan diperlakukan sebagai satu blok agar TTD tidak
+  // terlempar sendirian ke halaman berikutnya. Area bawah dibatasi sebelum kop.
+  const BAST_CONTENT_BOTTOM = 222;
+  const SIG_BLOCK_H = 25;
+  const NOTE_HEAD_H = 7;
+  const NOTE_MIN_H = 7;
+  const NOTE_MAX_H = 10;
+  const GROUP_GAP = 3;
 
-  let avail = A4_H - M_BOTTOM - y - SIG_TOTAL_H - NOTE_HEAD_H - 4;
+  let avail = BAST_CONTENT_BOTTOM - y - SIG_BLOCK_H - NOTE_HEAD_H - GROUP_GAP;
   if (avail < NOTE_MIN_H) {
-    // tidak muat: pindahkan catatan + tanda tangan ke halaman berikutnya
+    // Jika seluruh grup benar-benar tidak muat, pindahkan keduanya bersama-sama.
     doc.addPage();
     addBg(doc, bgData);
     y = M_TOP;
-    avail = A4_H - M_BOTTOM - y - SIG_TOTAL_H - NOTE_HEAD_H - 4;
+    avail = BAST_CONTENT_BOTTOM - y - SIG_BLOCK_H - NOTE_HEAD_H - GROUP_GAP;
   }
   const noteH = Math.max(NOTE_MIN_H, Math.min(NOTE_MAX_H, avail));
 
@@ -1213,9 +1214,11 @@ export async function generateBASTPdf(receiptId: string) {
     styles: { fontSize: 8.5, cellPadding: 2.5, lineColor: [180, 180, 180], lineWidth: 0.2 },
     didDrawPage: (data) => { if (data.pageNumber > 1) addBg(doc, bgData); },
   });
-  y = (doc as any).lastAutoTable.finalY + 4;
+  y = (doc as any).lastAutoTable.finalY + GROUP_GAP;
 
-  if (y + SIG_TOTAL_H > A4_H - M_BOTTOM) {
+  // Guard berdasarkan tinggi frame sebenarnya, tanpa menghitung ulang tinggi
+  // catatan yang sebelumnya membuat blok TTD terlalu cepat pindah halaman.
+  if (y + SIG_BLOCK_H > BAST_CONTENT_BOTTOM) {
     doc.addPage();
     addBg(doc, bgData);
     y = M_TOP;
