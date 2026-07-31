@@ -123,18 +123,8 @@ function addBg(doc: jsPDF, bgData: string | null) {
   doc.rect(0, 0, INSET, A4_H, "F");
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/** Build a human-readable file name: "<Nama Dokumen>-<No Dokumen>.pdf".
- *  Never falls back to a raw UUID — uses the current date instead. */
-export function docFileName(docName: string, ...numbers: (string | null | undefined)[]) {
-  const num = numbers.find((n) => n && !UUID_RE.test(String(n).trim()));
-  const safe = (num ? String(num) : new Date().toISOString().slice(0, 10))
-    .replace(/[\\/:*?"<>|]+/g, "-")
-    .replace(/\s+/g, " ")
-    .trim();
-  return `${docName}-${safe}.pdf`;
-}
+export { docFileName } from "@/lib/fileNaming";
+import { docFileName } from "@/lib/fileNaming";
 
 function openPreviewAndDownload(doc: jsPDF, filename: string) {
   const blob = doc.output("blob");

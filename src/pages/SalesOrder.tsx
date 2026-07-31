@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 
 import { exportSectionBasedPdf } from "@/lib/pdfSectionExport";
+import { attachmentFileName } from "@/lib/fileNaming";
 import { CreateCalibrationSODialog } from "@/components/sales-order/CreateCalibrationSODialog";
 import { EditCalibrationHeaderDialog } from "@/components/sales-order/EditCalibrationHeaderDialog";
 import { CalibrationInstrumentsPanel } from "@/components/sales-order/CalibrationInstrumentsPanel";
@@ -2950,7 +2951,11 @@ export default function SalesOrder() {
                       if (documentViewerUrl) {
                         const link = document.createElement("a");
                         link.href = documentViewerUrl;
-                        link.download = "document";
+                        link.download = attachmentFileName(
+                          "Dokumen-PO",
+                          selectedOrder?.sales_order_number,
+                          documentViewerUrl,
+                        );
                         link.target = "_blank";
                         document.body.appendChild(link);
                         link.click();

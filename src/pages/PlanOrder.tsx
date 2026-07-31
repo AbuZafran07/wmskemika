@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 
 import { exportSectionBasedPdf } from "@/lib/pdfSectionExport";
+import { attachmentFileName } from "@/lib/fileNaming";
 
 import { securePrint, printStyles, sanitizeHtml } from "@/lib/printUtils";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -2752,7 +2753,11 @@ export default function PlanOrder() {
                       if (documentViewerUrl) {
                         const link = document.createElement("a");
                         link.href = documentViewerUrl;
-                        link.download = "document";
+                        link.download = attachmentFileName(
+                          "Dokumen-PO",
+                          selectedOrder?.plan_number,
+                          documentViewerUrl,
+                        );
                         link.target = "_blank";
                         document.body.appendChild(link);
                         link.click();
