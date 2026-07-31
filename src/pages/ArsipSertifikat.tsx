@@ -16,6 +16,9 @@ import { generateCertificatePdf } from "@/lib/calibrationPdf";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
+// Public subdomain for certificate verification — hides the internal WMS origin.
+const CERT_VERIFY_ORIGIN = "https://portal.kemika.web.id";
+
 interface Row {
   id: string;
   sales_order_id: string;
@@ -332,7 +335,7 @@ export default function ArsipSertifikat() {
                         size="sm"
                         variant="outline"
                         onClick={() => window.open(
-                          `/verify/${encodeURIComponent(r.certificate_number)}${r.certificate_verify_token ? `?t=${encodeURIComponent(r.certificate_verify_token)}` : ""}`,
+                          `${CERT_VERIFY_ORIGIN}/verify/${encodeURIComponent(r.certificate_number)}${r.certificate_verify_token ? `?t=${encodeURIComponent(r.certificate_verify_token)}` : ""}`,
                           "_blank",
                         )}
                         title="Halaman verifikasi publik"

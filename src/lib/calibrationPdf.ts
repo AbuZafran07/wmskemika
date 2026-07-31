@@ -5,6 +5,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 
+// Public subdomain used for certificate verification QR codes and links.
+// This keeps the internal WMS origin (wms.kemika.web.id) out of public scans.
+const CERT_VERIFY_ORIGIN = "https://portal.kemika.web.id";
+
 // ── page geometry ─────────────────────────────────────────────────────────────
 
 const A4_W = 210;
@@ -926,7 +930,7 @@ export async function generateCertificatePdf(
       const inst = instruments[instIdx];
       if (!inst?.certificate_number) continue;
       doc.setPage(p);
-      const verifyUrl = `${window.location.origin}/verify/${encodeURIComponent(inst.certificate_number)}${
+      const verifyUrl = `${CERT_VERIFY_ORIGIN}/verify/${encodeURIComponent(inst.certificate_number)}${
         inst.certificate_verify_token ? `?t=${encodeURIComponent(inst.certificate_verify_token)}` : ""
       }`;
       const qrData = await QRCode.toDataURL(verifyUrl, { margin: 0, width: 200 });
