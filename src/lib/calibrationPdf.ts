@@ -5,6 +5,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 
+// Public subdomain used for certificate verification QR codes and links.
+// This keeps the internal WMS origin (wms.kemika.web.id) out of public scans.
+const CERT_VERIFY_ORIGIN = "https://portal.kemika.web.id";
+
 // ── page geometry ─────────────────────────────────────────────────────────────
 
 const A4_W = 210;
