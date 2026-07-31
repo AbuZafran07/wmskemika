@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams, Link } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, CheckCircle2, XCircle, ShieldCheck, Ban, Clock } from "lucide-react";
 import { format } from "date-fns";
@@ -58,8 +58,8 @@ export default function VerifyCertificate() {
   const isExpired = status === "expired";
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-lg bg-card border rounded-2xl shadow-lg p-8 space-y-6">
+    <div className="min-h-[100dvh] w-full overflow-y-auto bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex items-start justify-center px-4 py-6 pb-[calc(2rem+env(safe-area-inset-bottom))]">
+      <div className="w-full max-w-lg bg-card border rounded-2xl shadow-lg p-5 sm:p-8 space-y-5">
         <div className="flex items-center gap-3 border-b pb-4">
           <ShieldCheck className="w-8 h-8 text-primary" />
           <div>
@@ -133,7 +133,7 @@ export default function VerifyCertificate() {
         )}
 
         <div className="pt-4 border-t text-center text-xs text-muted-foreground">
-          <Link to="/login" className="hover:text-primary">Masuk ke Sistem</Link> • www.kemika.co.id
+          PT. Kemika Karya Pratama • www.kemika.co.id
         </div>
       </div>
     </div>
