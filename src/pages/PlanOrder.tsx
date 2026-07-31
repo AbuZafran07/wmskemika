@@ -2752,7 +2752,11 @@ export default function PlanOrder() {
                       if (documentViewerUrl) {
                         const link = document.createElement("a");
                         link.href = documentViewerUrl;
-                        link.download = "document";
+                        link.download = attachmentFileName(
+                          "Dokumen-PO",
+                          selectedOrder?.plan_number,
+                          documentViewerUrl,
+                        );
                         link.target = "_blank";
                         document.body.appendChild(link);
                         link.click();
