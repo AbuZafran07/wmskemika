@@ -64,6 +64,13 @@ const App = () => (
             <Toaster />
             <Sonner />
             <BrowserRouter>
+              {isPortalHost ? (
+                <Routes>
+                  <Route path="/" element={<VerifyCertificateLanding />} />
+                  <Route path="/verify/:certNumber" element={<VerifyCertificate />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              ) : (
               <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/verify/:certNumber" element={<VerifyCertificate />} />
@@ -231,6 +238,7 @@ const App = () => (
                 
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              )}
             </BrowserRouter>
           </TooltipProvider>
         </AuthProvider>
