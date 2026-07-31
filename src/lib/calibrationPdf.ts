@@ -123,6 +123,19 @@ function addBg(doc: jsPDF, bgData: string | null) {
   doc.rect(0, 0, INSET, A4_H, "F");
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Build a human-readable file name: "<Nama Dokumen>-<No Dokumen>.pdf".
+ *  Never falls back to a raw UUID — uses the current date instead. */
+export function docFileName(docName: string, ...numbers: (string | null | undefined)[]) {
+  const num = numbers.find((n) => n && !UUID_RE.test(String(n).trim()));
+  const safe = (num ? String(num) : new Date().toISOString().slice(0, 10))
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+  return `${docName}-${safe}.pdf`;
+}
+
 function openPreviewAndDownload(doc: jsPDF, filename: string) {
   const blob = doc.output("blob");
   const url = URL.createObjectURL(blob);
@@ -505,16 +518,13 @@ export async function generateSPKPdf(receiptId: string) {
   }
 
   // ── Open preview in a new tab (user can download from viewer) ──
-  const filename = `SPK-${(receipt as any).spk_number || (receipt as any).receipt_number}.pdf`;
-  const blob = doc.output("blob");
-  const url = URL.createObjectURL(blob);
-  const win = window.open(url, "_blank");
-  if (!win) {
-    // Popup blocked — fallback to direct download
-    doc.save(filename);
-  }
-  // Also expose filename via document title of preview when possible
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  const filename = docFileName(
+    "SPK-Kalibrasi",
+    (receipt as any).spk_number,
+    (receipt as any).receipt_number,
+    (receipt as any).sales_order_number,
+  );
+  openPreviewAndDownload(doc, filename);
 }
 
 // ── Certificate PDF — F-KAL-05 ────────────────────────────────────────────────
@@ -914,8 +924,8 @@ export async function generateCertificatePdf(
   }
 
   const fname = instruments.length === 1
-    ? `Sertifikat-${instruments[0].certificate_number || instruments[0].id}.pdf`
-    : `Sertifikat-${(receipt as any)?.spk_number || receiptId}.pdf`;
+    ? docFileName("Sertifikat-Kalibrasi", instruments[0].certificate_number, (receipt as any)?.spk_number)
+    : docFileName("Sertifikat-Kalibrasi", (receipt as any)?.spk_number, (receipt as any)?.sales_order_number);
 
   // QR verifikasi di kanan bawah setiap halaman (sejajar footnote kop surat)
   try {
@@ -1230,10 +1240,6 @@ export async function generateBASTPdf(receiptId: string) {
     });
   }
 
-  const filename = `BAST-${header.spk_number || header.sales_order_number || receiptId}.pdf`;
-  const blob = doc.output("blob");
-  const url = URL.createObjectURL(blob);
-  const win = window.open(url, "_blank");
-  if (!win) doc.save(filename);
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  const filename = docFileName("BAST-Kalibrasi", header.spk_number, header.sales_order_number);
+  openPreviewAndDownload(doc, filename);
 }

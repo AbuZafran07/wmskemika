@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { docFileName } from "@/lib/calibrationPdf";
 
 export async function printCalibrationSparepartRequest(salesOrderId: string) {
   const { data: header, error: headerErr } = await supabase
@@ -111,6 +112,6 @@ export async function printCalibrationSparepartRequest(salesOrderId: string) {
     doc.text("Tgl: ______________", x, sigY + 32, { align: "center" });
   });
 
-  doc.save(`Permintaan-Sparepart-${h.sales_order_number || salesOrderId}.pdf`);
+  doc.save(docFileName("Permintaan-Sparepart", h.sales_order_number));
   toast.success("Form permintaan sparepart berhasil dicetak");
 }
