@@ -2,8 +2,9 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
-// Register PWA service worker
-if ('serviceWorker' in navigator) {
+// Register PWA service worker (kecuali di halaman verifikasi sertifikat publik)
+const isPublicVerifyPage = /^\/verify(\/|$)/.test(window.location.pathname);
+if ('serviceWorker' in navigator && !isPublicVerifyPage) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js', { scope: '/' })
       .then((registration) => {
