@@ -18,6 +18,13 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   COLUMN_DEFS,
   COLUMN_CHECKLISTS,
   computeKalibrasiColumn,
@@ -99,6 +106,7 @@ interface InstrumentDetail {
   monitoring_reading: string | null;
   correction: string | null;
   additional_information: string | null;
+  certificate_validity_months: number;
 }
 
 interface SparePart {
@@ -357,7 +365,8 @@ export default function TrackerKalibrasiCardDetail({
             feasibility_status, feasibility_notes, certificate_number,
             description, item_type, created_at,
             calibration_gas, traceability, env_temperature, env_humidity,
-            standard_applied, monitoring_reading, correction, additional_information
+            standard_applied, monitoring_reading, correction, additional_information,
+            certificate_validity_months
           `)
           .eq("sales_order_id", receiptId)
           .eq("item_type", "calibration")
@@ -386,6 +395,7 @@ export default function TrackerKalibrasiCardDetail({
         monitoring_reading: it.monitoring_reading ?? null,
         correction: it.correction ?? null,
         additional_information: it.additional_information ?? null,
+        certificate_validity_months: Number(it.certificate_validity_months ?? 12) === 6 ? 6 : 12,
       }));
 
       const h = (hdr as Record<string, any>) ?? null;
@@ -1023,6 +1033,7 @@ export default function TrackerKalibrasiCardDetail({
           monitoring_reading: null,
           correction: null,
           additional_information: null,
+          certificate_validity_months: 12,
         },
       ]);
       setNewInstrument({
@@ -2263,6 +2274,23 @@ export default function TrackerKalibrasiCardDetail({
                     <Textarea rows={2} value={editingCalDetail.additional_information ?? ''} disabled={readOnly}
                       onChange={(e) => upd({ additional_information: e.target.value })} placeholder="opsional" />
                   </div>
+                  <div className="mt-3 max-w-xs">
+                    <Label className="text-xs">Masa Berlaku / Kalibrasi Selanjutnya</Label>
+                    <Select
+                      value={String(editingCalDetail.certificate_validity_months ?? 12)}
+                      disabled={readOnly}
+                      onValueChange={(v) => upd({ certificate_validity_months: Number(v) })}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Pilih masa berlaku" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="12">12 bulan (1 tahun)</SelectItem>
+                        <SelectItem value="6">6 bulan</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Menentukan tanggal <b>Kalibrasi Selanjutnya</b> di sertifikat, notifikasi expired, dan verifikasi publik.
+                    </p>
+                  </div>
                 </div>
 
                 {readOnly && (
@@ -2295,6 +2323,8 @@ export default function TrackerKalibrasiCardDetail({
                       monitoring_reading: editingCalDetail.monitoring_reading,
                       correction: editingCalDetail.correction,
                       additional_information: editingCalDetail.additional_information,
+                      certificate_validity_months:
+                        Number(editingCalDetail.certificate_validity_months ?? 12) === 6 ? 6 : 12,
                     })
                     .eq('id', editingCalDetail.id);
                   setSavingCalDetail(false);

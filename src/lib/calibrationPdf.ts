@@ -827,7 +827,9 @@ export async function generateCertificatePdf(
               (completedAt || item.certificate_issued_at
                 ? (() => {
                     const d = new Date(completedAt || item.certificate_issued_at);
-                    d.setFullYear(d.getFullYear() + 1);
+                    const months =
+                      Number(item.certificate_validity_months ?? 12) === 6 ? 6 : 12;
+                    d.setMonth(d.getMonth() + months);
                     return d.toISOString();
                   })()
                 : null),

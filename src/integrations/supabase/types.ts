@@ -1804,6 +1804,7 @@ export type Database = {
           certificate_revoked_at: string | null
           certificate_revoked_by: string | null
           certificate_revoked_reason: string | null
+          certificate_validity_months: number
           certificate_verify_token: string | null
           condition_notes: string | null
           correction: string | null
@@ -1843,6 +1844,7 @@ export type Database = {
           certificate_revoked_at?: string | null
           certificate_revoked_by?: string | null
           certificate_revoked_reason?: string | null
+          certificate_validity_months?: number
           certificate_verify_token?: string | null
           condition_notes?: string | null
           correction?: string | null
@@ -1882,6 +1884,7 @@ export type Database = {
           certificate_revoked_at?: string | null
           certificate_revoked_by?: string | null
           certificate_revoked_reason?: string | null
+          certificate_validity_months?: number
           certificate_verify_token?: string | null
           condition_notes?: string | null
           correction?: string | null
@@ -2796,6 +2799,10 @@ export type Database = {
           p_stock_out_id: string
         }
         Returns: Json
+      }
+      sync_calibration_delivered: {
+        Args: { p_delivered: boolean; p_so_id: string }
+        Returns: undefined
       }
       sync_calibration_receipt_status: {
         Args: { p_received: boolean; p_so_id: string }
