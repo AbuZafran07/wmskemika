@@ -440,8 +440,9 @@ export function useTrackerKalibrasi() {
         }
 
         // Auto-confirm delivery on all related stock outs when "Instrument Delivered" is checked
-        if (checklistKey === 'instrument_delivered' && newValue) {
+        if (checklistKey === 'instrument_delivered') {
           try {
+            if (newValue) {
             const { data: sos } = await (supabase as any)
               .from('stock_out_headers')
               .select('id, booking_status')
@@ -455,8 +456,31 @@ export function useTrackerKalibrasi() {
                 if (rpcErr) console.error('stock_out_confirm_delivery error:', rpcErr);
               }
             }
+            }
           } catch (e) {
             console.error('auto-confirm delivery error:', e);
+          }
+
+          // Arsipkan / batalkan arsip SO kalibrasi mengikuti kolom Delivered
+          const chk = checklists[receiptId] || [];
+          const isOn = (k: string) =>
+            k === checklistKey
+              ? newValue
+              : chk.some((c) => c.checklist_key === k && c.is_checked);
+          const allDone =
+            isOn('payment_verified') && isOn('certificate_released') && isOn('instrument_delivered');
+          try {
+            const { error: archErr } = await (supabase as any).rpc('sync_calibration_delivered', {
+              p_so_id: receiptId,
+              p_delivered: allDone,
+            });
+            if (archErr) throw archErr;
+            if (allDone) {
+              toast.success('Sales Order kalibrasi dipindahkan ke Archived (status: delivered)');
+            }
+          } catch (e: any) {
+            console.error('sync_calibration_delivered error:', e);
+            toast.error(e?.message || 'Gagal memperbarui status Sales Order');
           }
         }
       } catch (err) {
