@@ -54,7 +54,7 @@ serve(async (req) => {
     const { data: items, error: itemsErr } = await supabase
       .from('sales_order_items')
       .select(`
-        id, sales_order_id, certificate_number, certificate_issued_at,
+        id, sales_order_id, certificate_number, certificate_issued_at, certificate_validity_months,
         instrument_name, instrument_serial_number,
         header:sales_order_headers!inner(sales_order_number, sales_name, created_by, customer:customers(name))
       `)
@@ -86,7 +86,8 @@ serve(async (req) => {
     for (const it of (items || []) as any[]) {
       const issued = new Date(it.certificate_issued_at);
       const expires = new Date(issued.getTime());
-      expires.setFullYear(expires.getFullYear() + 1);
+      const validityMonths = Number(it.certificate_validity_months ?? 12) === 6 ? 6 : 12;
+      expires.setMonth(expires.getMonth() + validityMonths);
       const msPerDay = 24 * 60 * 60 * 1000;
       const daysLeft = Math.ceil((expires.getTime() - now.getTime()) / msPerDay);
 
