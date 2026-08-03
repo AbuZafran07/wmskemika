@@ -37,14 +37,9 @@ export default function VerifyCertificate() {
   useEffect(() => {
     (async () => {
       if (!certNumber) return;
-      if (!token) {
-        setData({ status: "not_found", certificate_number: certNumber } as CertData);
-        setLoading(false);
-        return;
-      }
       const { data: rows } = await (supabase as any).rpc("verify_certificate", {
         p_number: certNumber,
-        p_token: token,
+        p_token: token || null,
       });
       const row = Array.isArray(rows) ? rows[0] : rows;
       setData(row || null);
