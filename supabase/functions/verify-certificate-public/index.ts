@@ -46,6 +46,7 @@ Deno.serve(async (req) => {
     if (!row) return json({ status: "not_found", certificate_number: number });
 
     // Whitelist of public-safe fields only.
+    const isMasked = !token || token.length < 8;
     return json({
       status: row.status,
       certificate_number: row.certificate_number,
@@ -63,6 +64,7 @@ Deno.serve(async (req) => {
       customer_name: row.customer_name,
       revoked_at: row.revoked_at,
       revoked_reason: row.revoked_reason,
+      is_masked: isMasked,
     });
   } catch (e) {
     console.error("unexpected", e instanceof Error ? e.message : String(e));
