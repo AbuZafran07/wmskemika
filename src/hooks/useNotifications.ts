@@ -1570,6 +1570,21 @@ export function useNotifications() {
 
     // Subscribe to calibration tracker checklist changes → recompute which
     // cards now await this user's checklist action.
+    // Aktivitas board delivery: checklist & perpindahan kolom
+    const deliveryActivityChannel = supabase
+      .channel('delivery-board-activity')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'delivery_checklists' },
+        () => { fetchNotifications(); }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'delivery_requests' },
+        () => { fetchNotifications(); }
+      )
+      .subscribe();
+
     const calibrationChecklistChannel = supabase
       .channel('calibration-checklist-changes')
       .on(
