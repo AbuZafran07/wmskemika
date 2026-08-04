@@ -103,6 +103,7 @@ const syncProductSalesPulseAsync = (product: {
 }) => {
   if (!product.sku?.trim()) {
     console.warn('[WMS] Product sync to Sales Pulse skipped: SKU kosong');
+    toast.warning('Produk tanpa SKU tidak dapat disinkronkan ke Sales Pulse. Isi SKU agar tersinkron.');
     return;
   }
 
@@ -114,7 +115,12 @@ const syncProductSalesPulseAsync = (product: {
     purchase_price: product.purchase_price ?? null,
     selling_price: product.selling_price ?? null,
     is_active: product.is_active,
-  }).catch((err) => console.warn('[WMS] Product sync to Sales Pulse failed:', err));
+  }).catch((err) => {
+    console.warn('[WMS] Product sync to Sales Pulse failed:', err);
+    toast.warning(
+      `Sinkronisasi produk "${product.name}" ke Sales Pulse gagal. Simpan ulang produk untuk mencoba lagi.`,
+    );
+  });
 };
 
 export default function Products() {
