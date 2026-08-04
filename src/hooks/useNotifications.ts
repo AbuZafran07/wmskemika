@@ -1574,7 +1574,7 @@ export function useNotifications() {
           void logNotificationAudit('notification_read', [n]);
           // Persist underlying comment ids for card_comment / urgent so realtime
           // refetch won't re-surface them.
-          if (n.type === 'card_comment' && n.commentIds?.length) {
+          if ((n.type === 'card_comment' || n.type === 'mention') && n.commentIds?.length) {
             n.commentIds.forEach(cid => readCommentIdsRef.current.add(cid));
             saveReadCommentIds(readCommentIdsRef.current);
           }
@@ -1606,7 +1606,7 @@ export function useNotifications() {
       // Audit trail: record that this user opened/acknowledged the notification.
       void logNotificationAudit('notification_read', [n]);
       // Persist underlying comment IDs so card_comment entries don't reappear
-      if (n.type === 'card_comment' && n.commentIds?.length) {
+      if ((n.type === 'card_comment' || n.type === 'mention') && n.commentIds?.length) {
         n.commentIds.forEach(cid => readCommentIdsRef.current.add(cid));
         saveReadCommentIds(readCommentIdsRef.current);
       }
@@ -1637,7 +1637,7 @@ export function useNotifications() {
     setNotifications(prev => {
       void logNotificationAudit('notification_read', prev.filter(n => !n.read));
       prev.forEach(n => {
-        if (n.type === 'card_comment' && n.commentIds?.length) {
+        if ((n.type === 'card_comment' || n.type === 'mention') && n.commentIds?.length) {
           n.commentIds.forEach(cid => readCommentIdsRef.current.add(cid));
         }
         const key = notifKey(n);
