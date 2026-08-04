@@ -91,6 +91,20 @@ function notifKey(n: { type: string; refId?: string; productId?: string }): stri
 }
 
 // Detect whether a comment mentions the given user by display name / email local part.
+const DELIVERY_COLUMN_LABELS: Record<string, string> = {
+  new_order: 'New Orders',
+  checking: 'Checking',
+  on_hold_delivery: 'On Hold Delivery Order',
+  approval_delivery: 'Approval Delivery Order',
+  pengiriman_senin: 'Pengiriman Senin',
+  pengiriman_selasa: 'Pengiriman Selasa',
+  pengiriman_rabu: 'Pengiriman Rabu',
+  pengiriman_kamis: 'Pengiriman Kamis',
+  pengiriman_jumat: 'Pengiriman Jumat',
+  delivered: 'Delivered',
+  delivered_sample: 'Delivered Sample',
+};
+
 function messageMentionsUser(message: string, displayName?: string, email?: string): boolean {
   if (!message) return false;
   const mentions = (message.match(/@[\w\s.\-']+/g) || []).map(m => m.slice(1).trim().toLowerCase());
