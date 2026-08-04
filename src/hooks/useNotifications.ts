@@ -1479,6 +1479,21 @@ export function useNotifications() {
     // Also keep the polling as fallback (every 5 minutes)
     const interval = setInterval(fetchNotifications, 5 * 60 * 1000);
 
+    // Subscribe to Tracker PO board activity (komentar & checklist)
+    const poTrackerChannel = supabase
+      .channel('po-tracker-activity')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'po_tracker_comments' },
+        () => { fetchNotifications(); }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'po_tracker_checklists' },
+        () => { fetchNotifications(); }
+      )
+      .subscribe();
+
     return () => {
       clearInterval(interval);
       supabase.removeChannel(planOrderChannel);
@@ -1490,6 +1505,7 @@ export function useNotifications() {
       supabase.removeChannel(deliveryCommentsChannel);
       supabase.removeChannel(calibrationChecklistChannel);
       supabase.removeChannel(calibrationActivityChannel);
+      supabase.removeChannel(poTrackerChannel);
     };
   }, [fetchNotifications]);
 
