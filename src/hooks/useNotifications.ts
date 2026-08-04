@@ -679,6 +679,106 @@ export function useNotifications() {
         }
       }
 
+      // ── Delivery board: aktivitas checklist & perpindahan kolom ──
+      try {
+        if (user?.id) {
+          const sevenDaysAgoDel = new Date();
+          sevenDaysAgoDel.setDate(sevenDaysAgoDel.getDate() - 7);
+          const sinceDel = sevenDaysAgoDel.toISOString();
+
+          const [{ data: delChecks }, { data: delMoves }] = await Promise.all([
+            (supabase as any)
+              .from('delivery_checklists')
+              .select('id, delivery_request_id, label, is_checked, checked_by, checked_at')
+              .eq('is_checked', true)
+              .gte('checked_at', sinceDel)
+              .order('checked_at', { ascending: false })
+              .limit(50),
+            (supabase as any)
+              .from('delivery_requests')
+              .select('id, sales_order_id, board_status, moved_by, moved_at')
+              .not('moved_at', 'is', null)
+              .gte('moved_at', sinceDel)
+              .order('moved_at', { ascending: false })
+              .limit(50),
+          ]);
+
+          const drIdsAct = Array.from(
+            new Set([
+              ...((delChecks || []) as any[]).map((c) => c.delivery_request_id),
+              ...((delMoves || []) as any[]).map((c) => c.id),
+            ].filter(Boolean)),
+          );
+
+          if (drIdsAct.length) {
+            const actorIds = Array.from(
+              new Set([
+                ...((delChecks || []) as any[]).map((c) => c.checked_by),
+                ...((delMoves || []) as any[]).map((c) => c.moved_by),
+              ].filter(Boolean)),
+            );
+            const [{ data: drRows }, { data: actors }] = await Promise.all([
+              (supabase as any)
+                .from('delivery_requests')
+                .select('id, sales_order_headers!inner(sales_order_number)')
+                .in('id', drIdsAct),
+              actorIds.length
+                ? (supabase as any).from('profiles').select('id, full_name, email').in('id', actorIds)
+                : Promise.resolve({ data: [] as any[] }),
+            ]);
+
+            const drRefMap: Record<string, string> = {};
+            ((drRows || []) as any[]).forEach((d) => {
+              drRefMap[d.id] = d.sales_order_headers?.sales_order_number || '';
+            });
+            cardSoMapRef.current = { ...cardSoMapRef.current, ...drRefMap };
+            const actorMap: Record<string, string> = {};
+            ((actors || []) as any[]).forEach((p) => {
+              actorMap[p.id] = p.full_name || p.email || 'Pengguna';
+            });
+
+            ((delChecks || []) as any[]).forEach((c) => {
+              if (c.checked_by === user.id) return;
+              const refNo = drRefMap[c.delivery_request_id] || '';
+              notifs.push({
+                id: `delivery_checklist_${c.id}_${c.checked_at}`,
+                type: 'calibration_event',
+                title: `✅ Checklist Delivery${refNo ? ` [${refNo}]` : ''}`,
+                message: `"${c.label}" diselesaikan oleh ${
+                  c.checked_by ? actorMap[c.checked_by] || 'Pengguna' : 'Sistem'
+                }`,
+                module: 'delivery',
+                refId: c.delivery_request_id,
+                refNo,
+                createdAt: new Date(c.checked_at),
+                read: false,
+              });
+            });
+
+            ((delMoves || []) as any[]).forEach((d) => {
+              if (d.moved_by === user.id) return;
+              const refNo = drRefMap[d.id] || '';
+              const colLabel = DELIVERY_COLUMN_LABELS[d.board_status] || String(d.board_status).replace(/_/g, ' ');
+              notifs.push({
+                id: `delivery_move_${d.id}_${d.moved_at}`,
+                type: 'calibration_event',
+                title: `🚚 Kartu pindah kolom${refNo ? ` [${refNo}]` : ''}`,
+                message: `Dipindahkan ke "${colLabel}" oleh ${
+                  d.moved_by ? actorMap[d.moved_by] || 'Pengguna' : 'Sistem'
+                }`,
+                module: 'delivery',
+                refId: d.id,
+                refNo,
+                createdAt: new Date(d.moved_at),
+                read: false,
+              });
+            });
+          }
+        }
+      } catch (delErr) {
+        console.error('Error building delivery board activity notifications:', delErr);
+      }
+
       // ── Calibration tracker: cards awaiting THIS user's checklist action ──
       // Applies to the stages Scheduled → Instrument Received → Calibration In
       // Progress → Completed. Only shown to super_admin and users registered as
