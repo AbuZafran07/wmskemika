@@ -1388,8 +1388,11 @@ export function useNotifications() {
           const KANBAN_ROLES = ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales'];
           const isKanbanRole = !!user.role && KANBAN_ROLES.includes(user.role);
 
+          // Mention selalu diprioritaskan, tanpa syarat keterlibatan kartu.
+          const isMention = messageMentionsUser(inserted.message, user.name, (user as any).email);
+
           // Fast-path: use cached involvement set – avoids extra queries on every INSERT.
-          let isInvolved = isKanbanRole || involvedCardIdsRef.current.has(inserted.delivery_request_id);
+          let isInvolved = isMention || isKanbanRole || involvedCardIdsRef.current.has(inserted.delivery_request_id);
           let soNumber = cardSoMapRef.current[inserted.delivery_request_id] || '';
 
           // Slow-path only if we don't know this card yet
@@ -1421,9 +1424,9 @@ export function useNotifications() {
             const preview = inserted.message?.length > 80
               ? `${inserted.message.substring(0, 80)}...`
               : (inserted.message || '');
-            toast.info(`💬 Komentar baru${soLabel}`, {
+            toast.info(`${isMention ? '🔔 Anda di-mention' : '💬 Komentar baru'}${soLabel}`, {
               description: `${senderName}: ${preview}`,
-              duration: 7000,
+              duration: isMention ? 12000 : 7000,
               action: {
                 label: '📋 Lihat Kartu',
                 onClick: () => {
@@ -1432,7 +1435,7 @@ export function useNotifications() {
                   saveReadCommentIds(readCommentIdsRef.current);
                   window.location.href = buildNotificationDeepLink({
                     id: '',
-                    type: 'card_comment',
+                    type: isMention ? 'mention' : 'card_comment',
                     title: '',
                     message: '',
                     module: 'delivery',
@@ -1443,7 +1446,7 @@ export function useNotifications() {
                 },
               },
             });
-            if (soundEnabled) playNotificationSound('info');
+            if (soundEnabled) playNotificationSound(isMention ? 'critical' : 'info');
             // Refresh aggregated bell list (debounced via React state)
             fetchNotifications();
           }
