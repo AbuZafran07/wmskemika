@@ -252,25 +252,35 @@ export async function syncSalesOrderCancelledToSalesPulse(payload: SyncCancelled
 }
 
 export async function syncCustomerToSalesPulse(payload: SyncCustomerPayload) {
-  const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
-    body: {
-      action: 'wms-customer-upsert',
-      ...payload,
-    },
-  });
+  const code = normalizeNaturalKey(payload.code);
+  if (!code) throw new Error('Customer code wajib diisi untuk sync ke Sales Pulse.');
 
-  if (error) throw error;
-  return data;
+  return withRetry(async () => {
+    const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
+      body: {
+        action: 'wms-customer-upsert',
+        ...payload,
+        code,
+      },
+    });
+    if (error) throw error;
+    return data;
+  }, { label: 'sales-pulse-customer-upsert' });
 }
 
 export async function syncProductToSalesPulse(payload: SyncProductPayload) {
-  const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
-    body: {
-      action: 'wms-product-upsert',
-      ...payload,
-    },
-  });
+  const sku = normalizeNaturalKey(payload.sku);
+  if (!sku) throw new Error('SKU wajib diisi untuk sync produk ke Sales Pulse.');
 
-  if (error) throw error;
-  return data;
+  return withRetry(async () => {
+    const { data, error } = await supabase.functions.invoke('sales-pulse-sync', {
+      body: {
+        action: 'wms-product-upsert',
+        ...payload,
+        sku,
+      },
+    });
+    if (error) throw error;
+    return data;
+  }, { label: 'sales-pulse-product-upsert' });
 }
