@@ -587,8 +587,11 @@ export function useNotifications() {
         // Refresh involvement cache for realtime fast-path (used as hint, not gate, for kanban roles)
         involvedCardIdsRef.current = involvedIds;
 
-        if (isKanbanRole || involvedIds.size > 0) {
-          let q = supabase
+        {
+          // Selalu ambil komentar terbaru tanpa filter keterlibatan supaya
+          // mention (@user) tetap terdeteksi walau user belum pernah terlibat
+          // di kartu tersebut. Komentar biasa difilter di bawah.
+          const q = supabase
             .from('delivery_comments')
             .select('id, delivery_request_id, user_id, message, created_at, type')
             .eq('type', 'comment')
@@ -596,9 +599,6 @@ export function useNotifications() {
             .gte('created_at', sevenDaysAgo.toISOString())
             .order('created_at', { ascending: false })
             .limit(50);
-          if (!isKanbanRole) {
-            q = q.in('delivery_request_id', Array.from(involvedIds));
-          }
           const { data: recentComments } = await q;
 
           if (recentComments && recentComments.length > 0) {
@@ -644,6 +644,8 @@ export function useNotifications() {
                 });
                 continue;
               }
+              // Komentar biasa hanya untuk role kanban / user yang terlibat
+              if (!isKanbanRole && !involvedIds.has(c.delivery_request_id)) continue;
               const arr = groups.get(c.delivery_request_id) || [];
               arr.push(c);
               groups.set(c.delivery_request_id, arr);
@@ -1386,8 +1388,11 @@ export function useNotifications() {
           const KANBAN_ROLES = ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales'];
           const isKanbanRole = !!user.role && KANBAN_ROLES.includes(user.role);
 
+          // Mention selalu diprioritaskan, tanpa syarat keterlibatan kartu.
+          const isMention = messageMentionsUser(inserted.message, user.name, (user as any).email);
+
           // Fast-path: use cached involvement set – avoids extra queries on every INSERT.
-          let isInvolved = isKanbanRole || involvedCardIdsRef.current.has(inserted.delivery_request_id);
+          let isInvolved = isMention || isKanbanRole || involvedCardIdsRef.current.has(inserted.delivery_request_id);
           let soNumber = cardSoMapRef.current[inserted.delivery_request_id] || '';
 
           // Slow-path only if we don't know this card yet
@@ -1419,9 +1424,9 @@ export function useNotifications() {
             const preview = inserted.message?.length > 80
               ? `${inserted.message.substring(0, 80)}...`
               : (inserted.message || '');
-            toast.info(`💬 Komentar baru${soLabel}`, {
+            toast.info(`${isMention ? '🔔 Anda di-mention' : '💬 Komentar baru'}${soLabel}`, {
               description: `${senderName}: ${preview}`,
-              duration: 7000,
+              duration: isMention ? 12000 : 7000,
               action: {
                 label: '📋 Lihat Kartu',
                 onClick: () => {
@@ -1430,7 +1435,7 @@ export function useNotifications() {
                   saveReadCommentIds(readCommentIdsRef.current);
                   window.location.href = buildNotificationDeepLink({
                     id: '',
-                    type: 'card_comment',
+                    type: isMention ? 'mention' : 'card_comment',
                     title: '',
                     message: '',
                     module: 'delivery',
@@ -1441,7 +1446,7 @@ export function useNotifications() {
                 },
               },
             });
-            if (soundEnabled) playNotificationSound('info');
+            if (soundEnabled) playNotificationSound(isMention ? 'critical' : 'info');
             // Refresh aggregated bell list (debounced via React state)
             fetchNotifications();
           }
