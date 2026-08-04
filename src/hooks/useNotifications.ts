@@ -624,6 +624,26 @@ export function useNotifications() {
             const groups = new Map<string, any[]>();
             for (const c of recentComments as any[]) {
               if (readSet.has(c.id)) continue; // skip already-acknowledged
+              // Mention → notifikasi prioritas terpisah (selalu tampil walau
+              // user belum pernah terlibat di kartu ini)
+              if (messageMentionsUser(c.message, user.name, (user as any).email)) {
+                const soNumberM = drSoMap[c.delivery_request_id] || '';
+                const senderNameM =
+                  senderProfiles?.find((p: any) => p.id === c.user_id)?.full_name || 'Seseorang';
+                notifs.push({
+                  id: `mention_delivery_${c.id}`,
+                  type: 'mention',
+                  title: `🔔 Anda di-mention${soNumberM ? ` [${soNumberM}]` : ''}`,
+                  message: `${senderNameM}: ${c.message.substring(0, 100)}`,
+                  module: 'delivery',
+                  refId: c.delivery_request_id,
+                  refNo: soNumberM,
+                  createdAt: new Date(c.created_at),
+                  read: false,
+                  commentIds: [c.id],
+                });
+                continue;
+              }
               const arr = groups.get(c.delivery_request_id) || [];
               arr.push(c);
               groups.set(c.delivery_request_id, arr);
@@ -866,6 +886,22 @@ export function useNotifications() {
             const calGroups = new Map<string, any[]>();
             ((calComments || []) as any[]).forEach((c) => {
               if (readSetCal.has(c.id)) return;
+              if (messageMentionsUser(c.message, user.name, (user as any).email)) {
+                const refNoM = calRefMap[c.sales_order_id] || '';
+                notifs.push({
+                  id: `mention_calibration_${c.id}`,
+                  type: 'mention',
+                  title: `🔔 Anda di-mention${refNoM ? ` [${refNoM}]` : ''}`,
+                  message: `${senderMap[c.user_id] || 'Seseorang'}: ${c.message.substring(0, 100)}`,
+                  module: 'calibration',
+                  refId: c.sales_order_id,
+                  refNo: refNoM,
+                  createdAt: new Date(c.created_at),
+                  read: false,
+                  commentIds: [c.id],
+                });
+                return;
+              }
               const arr = calGroups.get(c.sales_order_id) || [];
               arr.push(c);
               calGroups.set(c.sales_order_id, arr);
