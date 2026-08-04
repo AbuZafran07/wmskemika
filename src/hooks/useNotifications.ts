@@ -17,7 +17,7 @@ import {
 
 export interface Notification {
   id: string;
-  type: 'low_stock' | 'expiring_soon' | 'expired' | 'info' | 'approval_pending' | 'approved' | 'cancelled' | 'new_order' | 'revision_requested' | 'urgent_request' | 'urgent_approved' | 'urgent_rejected' | 'card_comment' | 'calibration_action' | 'calibration_event';
+  type: 'low_stock' | 'expiring_soon' | 'expired' | 'info' | 'approval_pending' | 'approved' | 'cancelled' | 'new_order' | 'revision_requested' | 'urgent_request' | 'urgent_approved' | 'urgent_rejected' | 'card_comment' | 'mention' | 'calibration_action' | 'calibration_event';
   title: string;
   message: string;
   productId?: string;
@@ -88,6 +88,20 @@ function notifKey(n: { type: string; refId?: string; productId?: string }): stri
   const id = n.refId || n.productId;
   if (!id) return null;
   return `${n.type}:${id}`;
+}
+
+// Detect whether a comment mentions the given user by display name / email local part.
+function messageMentionsUser(message: string, displayName?: string, email?: string): boolean {
+  if (!message) return false;
+  const mentions = (message.match(/@[\w\s.\-']+/g) || []).map(m => m.slice(1).trim().toLowerCase());
+  if (!mentions.length) return false;
+  const candidates: string[] = [];
+  if (displayName) candidates.push(displayName.toLowerCase());
+  if (email) {
+    candidates.push(email.toLowerCase());
+    candidates.push(email.split('@')[0].toLowerCase());
+  }
+  return mentions.some(m => candidates.some(c => c && (m === c || m.startsWith(c) || c.startsWith(m))));
 }
 
 // Sound notification utility
