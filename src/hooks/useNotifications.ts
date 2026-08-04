@@ -587,8 +587,11 @@ export function useNotifications() {
         // Refresh involvement cache for realtime fast-path (used as hint, not gate, for kanban roles)
         involvedCardIdsRef.current = involvedIds;
 
-        if (isKanbanRole || involvedIds.size > 0) {
-          let q = supabase
+        {
+          // Selalu ambil komentar terbaru tanpa filter keterlibatan supaya
+          // mention (@user) tetap terdeteksi walau user belum pernah terlibat
+          // di kartu tersebut. Komentar biasa difilter di bawah.
+          const q = supabase
             .from('delivery_comments')
             .select('id, delivery_request_id, user_id, message, created_at, type')
             .eq('type', 'comment')
@@ -596,9 +599,6 @@ export function useNotifications() {
             .gte('created_at', sevenDaysAgo.toISOString())
             .order('created_at', { ascending: false })
             .limit(50);
-          if (!isKanbanRole) {
-            q = q.in('delivery_request_id', Array.from(involvedIds));
-          }
           const { data: recentComments } = await q;
 
           if (recentComments && recentComments.length > 0) {
@@ -644,6 +644,8 @@ export function useNotifications() {
                 });
                 continue;
               }
+              // Komentar biasa hanya untuk role kanban / user yang terlibat
+              if (!isKanbanRole && !involvedIds.has(c.delivery_request_id)) continue;
               const arr = groups.get(c.delivery_request_id) || [];
               arr.push(c);
               groups.set(c.delivery_request_id, arr);
