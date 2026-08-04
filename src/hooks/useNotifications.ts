@@ -1638,6 +1638,7 @@ export function useNotifications() {
       supabase.removeChannel(stockOutChannel);
       supabase.removeChannel(deliveryCommentsChannel);
       supabase.removeChannel(calibrationChecklistChannel);
+      supabase.removeChannel(deliveryActivityChannel);
       supabase.removeChannel(calibrationActivityChannel);
       supabase.removeChannel(poTrackerChannel);
     };
