@@ -16,7 +16,7 @@ import {
   ClipboardCheck, AlertTriangle, Building2, Calendar as CalendarIcon, Filter,
   Archive, RefreshCw, X, Image, CheckCircle2, RotateCcw, Trash2, Rows3, ExternalLink
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { format, isPast, differenceInDays, isSameDay } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -102,6 +102,23 @@ export default function TrackerPO({ compact = false }: { compact?: boolean }) {
   const [cardMeta, setCardMeta] = useState<CardMetaMap>({});
   // Pending date inputs untuk checklist invoice: key = `${planOrderId}_${checklistKey}`
   const [pendingDates, setPendingDates] = useState<Record<string, string>>({});
+
+  // Deep-link support: /tracker-po?card=<plan_order_id> (dari notifikasi lonceng)
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const cardId = searchParams.get("card") || searchParams.get("id");
+    if (!cardId) return;
+    const card = planOrders.find((p) => p.id === cardId);
+    if (!card) return;
+    const col = BOARD_COLUMNS.find((c) => getColumnCards(c.id).some((p: any) => p.id === cardId));
+    setDetailColumn((col?.id || "plan_order") as TrackerColumn);
+    setDetailCard(card);
+    const next = new URLSearchParams(searchParams);
+    next.delete("card");
+    next.delete("id");
+    next.delete("type");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, planOrders, getColumnCards, setSearchParams]);
 
   // Filter state
   const [filterLabelNames, setFilterLabelNames] = useState<string[]>([]);
