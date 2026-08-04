@@ -477,7 +477,7 @@ export default function TrackerPOCardDetail({
 
     try {
       const senderName = (user as any).name || (user as any).email || "User";
-      notifyKanbanComment(planOrder.plan_number, senderName, text, planOrder.id, user.id);
+      notifyKanbanComment(planOrder.plan_number, senderName, text, planOrder.id, user.id, "/tracker-po");
 
       // Check mentions
       const mentions = text.match(/@[\w\s]+/g) || [];
@@ -492,7 +492,8 @@ export default function TrackerPOCardDetail({
           senderName,
           text,
           planOrder.id,
-          user.id
+          user.id,
+          "/tracker-po"
         );
       }
 
