@@ -1137,10 +1137,28 @@ export function useNotifications() {
       
       if (newNotifs.length > 0 && previousNotifIds.current.size > 0) {
         // Determine sound type based on notification priority
-        const hasCritical = newNotifs.some(n => n.type === 'expired' || n.type === 'low_stock' || n.type === 'urgent_request' || n.type === 'urgent_rejected');
+        const hasCritical = newNotifs.some(n => n.type === 'expired' || n.type === 'low_stock' || n.type === 'urgent_request' || n.type === 'urgent_rejected' || n.type === 'mention');
         const hasWarning = newNotifs.some(n => n.type === 'expiring_soon' || n.type === 'approval_pending' || n.type === 'revision_requested' || n.type === 'urgent_approved' || n.type === 'calibration_action' || n.type === 'calibration_event');
 
-        // In-app toast for newly actionable calibration cards + stage transitions
+        // In-app toast for mentions + newly actionable cards & stage transitions
+        newNotifs
+          .filter(n => n.type === 'mention')
+          .slice(0, 3)
+          .forEach(n => {
+            toast.warning(n.title, {
+              description: n.message,
+              duration: 10000,
+              action: {
+                label: '🔔 Buka Kartu',
+                onClick: () => {
+                  n.commentIds?.forEach(cid => readCommentIdsRef.current.add(cid));
+                  saveReadCommentIds(readCommentIdsRef.current);
+                  window.location.href = buildNotificationDeepLink(n);
+                },
+              },
+            });
+          });
+
         newNotifs
           .filter(n => n.type === 'calibration_action' || n.type === 'calibration_event')
           .slice(0, 3)
@@ -1167,8 +1185,8 @@ export function useNotifications() {
         // Send browser push notifications for critical alerts
         if (pushEnabled && 'Notification' in window && Notification.permission === 'granted') {
           newNotifs.forEach(n => {
-            if (n.type === 'expired' || n.type === 'low_stock' || n.type === 'approval_pending' || n.type === 'revision_requested' || n.type === 'urgent_request' || n.type === 'urgent_approved' || n.type === 'urgent_rejected' || n.type === 'calibration_action' || n.type === 'calibration_event') {
-              const icon = n.type === 'urgent_request' || n.type === 'urgent_rejected' ? '🚨' : n.type === 'urgent_approved' ? '✅' : n.type === 'expired' ? '🚨' : n.type === 'low_stock' ? '⚠️' : n.type === 'revision_requested' ? '📝' : '🔔';
+            if (n.type === 'expired' || n.type === 'low_stock' || n.type === 'approval_pending' || n.type === 'revision_requested' || n.type === 'urgent_request' || n.type === 'urgent_approved' || n.type === 'urgent_rejected' || n.type === 'calibration_action' || n.type === 'calibration_event' || n.type === 'mention' || n.type === 'card_comment') {
+              const icon = n.type === 'urgent_request' || n.type === 'urgent_rejected' ? '🚨' : n.type === 'urgent_approved' ? '✅' : n.type === 'expired' ? '🚨' : n.type === 'low_stock' ? '⚠️' : n.type === 'revision_requested' ? '📝' : n.type === 'card_comment' ? '💬' : '🔔';
               sendBrowserNotification(
                 `${icon} ${n.title}`,
                 n.message,
