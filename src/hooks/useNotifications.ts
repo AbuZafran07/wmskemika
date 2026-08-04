@@ -969,10 +969,148 @@ export function useNotifications() {
         console.error('Error building calibration comment/document notifications:', calCommentErr);
       }
 
+      // ── Tracker PO: komentar kartu, mention, & aktivitas checklist ──
+      try {
+        if (user?.id) {
+          const sevenDaysAgoPo = new Date();
+          sevenDaysAgoPo.setDate(sevenDaysAgoPo.getDate() - 7);
+          const sincePo = sevenDaysAgoPo.toISOString();
+
+          const [{ data: poComments }, { data: poChecks }] = await Promise.all([
+            (supabase as any)
+              .from('po_tracker_comments')
+              .select('id, plan_order_id, user_id, message, created_at, type')
+              .eq('type', 'comment')
+              .neq('user_id', user.id)
+              .gte('created_at', sincePo)
+              .order('created_at', { ascending: false })
+              .limit(50),
+            (supabase as any)
+              .from('po_tracker_checklists')
+              .select('id, plan_order_id, checklist_key, is_checked, checked_by, checked_at')
+              .eq('is_checked', true)
+              .gte('checked_at', sincePo)
+              .order('checked_at', { ascending: false })
+              .limit(50),
+          ]);
+
+          const poIds = Array.from(
+            new Set(
+              [
+                ...((poComments || []) as any[]).map((c) => c.plan_order_id),
+                ...((poChecks || []) as any[]).map((c) => c.plan_order_id),
+              ].filter(Boolean),
+            ),
+          );
+
+          if (poIds.length) {
+            const poActorIds = Array.from(
+              new Set(
+                [
+                  ...((poComments || []) as any[]).map((c) => c.user_id),
+                  ...((poChecks || []) as any[]).map((c) => c.checked_by),
+                ].filter(Boolean),
+              ),
+            );
+            const [{ data: poList }, { data: poActors }] = await Promise.all([
+              (supabase as any)
+                .from('plan_order_headers')
+                .select('id, plan_number, suppliers(name)')
+                .in('id', poIds),
+              poActorIds.length
+                ? (supabase as any).from('profiles').select('id, full_name, email').in('id', poActorIds)
+                : Promise.resolve({ data: [] as any[] }),
+            ]);
+
+            const poRefMap: Record<string, string> = {};
+            const poSupplierMap: Record<string, string> = {};
+            ((poList || []) as any[]).forEach((p) => {
+              poRefMap[p.id] = p.plan_number || '';
+              poSupplierMap[p.id] = p.suppliers?.name || '';
+            });
+            const poActorMap: Record<string, string> = {};
+            ((poActors || []) as any[]).forEach((p) => {
+              poActorMap[p.id] = p.full_name || p.email || 'Pengguna';
+            });
+
+            const readSetPo = readCommentIdsRef.current;
+            const poGroups = new Map<string, any[]>();
+            ((poComments || []) as any[]).forEach((c) => {
+              if (readSetPo.has(c.id)) return;
+              const refNoM = poRefMap[c.plan_order_id] || '';
+              if (messageMentionsUser(c.message, user.name, (user as any).email)) {
+                notifs.push({
+                  id: `mention_po_${c.id}`,
+                  type: 'mention',
+                  title: `🔔 Anda di-mention${refNoM ? ` [${refNoM}]` : ''}`,
+                  message: `${poActorMap[c.user_id] || 'Seseorang'}: ${c.message.substring(0, 100)}`,
+                  module: 'plan_order_tracker',
+                  refId: c.plan_order_id,
+                  refNo: refNoM,
+                  createdAt: new Date(c.created_at),
+                  read: false,
+                  commentIds: [c.id],
+                });
+                return;
+              }
+              const arr = poGroups.get(c.plan_order_id) || [];
+              arr.push(c);
+              poGroups.set(c.plan_order_id, arr);
+            });
+
+            poGroups.forEach((cs, poId) => {
+              const latest = cs[0];
+              const refNo = poRefMap[poId] || '';
+              const preview =
+                latest.message.length > 100 ? `${latest.message.substring(0, 100)}...` : latest.message;
+              notifs.push({
+                id: `card_comment_po_${poId}`,
+                type: 'card_comment',
+                title: `💬 Komentar Tracker PO${refNo ? ` [${refNo}]` : ''}${cs.length > 1 ? ` (${cs.length} komentar)` : ''}`,
+                message: `${poActorMap[latest.user_id] || 'Seseorang'}: ${preview}`,
+                module: 'plan_order_tracker',
+                refId: poId,
+                refNo,
+                createdAt: new Date(latest.created_at),
+                read: false,
+                commentIds: cs.map((x: any) => x.id),
+                count: cs.length,
+              });
+            });
+
+            // Aktivitas checklist board PO (perpindahan tahap)
+            ((poChecks || []) as any[]).forEach((c) => {
+              if (c.checked_by === user.id) return;
+              const refNo = poRefMap[c.plan_order_id] || '';
+              const supplier = poSupplierMap[c.plan_order_id]
+                ? ` • ${poSupplierMap[c.plan_order_id]}`
+                : '';
+              const label = String(c.checklist_key).replace(/_/g, ' ');
+              notifs.push({
+                id: `po_checklist_${c.id}_${c.checked_at}`,
+                type: 'calibration_event',
+                title: `🔄 Tracker PO — ${label}`,
+                message: `${refNo}${supplier}: ${label} diselesaikan oleh ${
+                  c.checked_by ? poActorMap[c.checked_by] || 'Pengguna' : 'Sistem'
+                }`,
+                module: 'plan_order_tracker',
+                refId: c.plan_order_id,
+                refNo,
+                createdAt: new Date(c.checked_at),
+                read: false,
+              });
+            });
+          }
+        }
+      } catch (poErr) {
+        console.error('Error building tracker PO notifications:', poErr);
+      }
+
       // Sort by priority and date
       notifs.sort((a, b) => {
         const priority: Record<string, number> = { 
           expired: 0, 
+          mention: 0.5,
           urgent_request: 1,
           urgent_rejected: 2,
           urgent_approved: 3,
