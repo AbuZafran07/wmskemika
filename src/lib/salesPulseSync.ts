@@ -110,22 +110,6 @@ export function normalizeNaturalKey(value: string | null | undefined): string | 
   return cleaned || null;
 }
 
-interface UnusedSalesPulseReference {
-  deal_id: string;
-  reference_number: string;
-  deal_name: string;
-  customer_name: string;
-  customer_code: string | null;
-  segment: string | null;
-  stage: string;
-  value: number;
-  sales_name: string | null;
-  already_synced: boolean;
-  wms_so_number: string | null;
-  wms_so_date: string | null;
-  expected_close_date?: string | null;
-}
-
 interface ListOpenReferencesParams {
   search?: string;
   segment?: string;
