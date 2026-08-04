@@ -118,26 +118,16 @@ serve(async (req) => {
     });
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims?.sub) {
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !userData?.user?.id) {
+      console.error("[sales-pulse-sync] auth failed:", userError?.message);
       return jsonResponse({ error: "Unauthorized" }, 401);
     }
 
-    const userId = claimsData.claims.sub;
+    const userId = userData.user.id;
     const adminClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
-
-    // Enforce business-role authorization (not just authentication)
-    const { data: roleRows } = await adminClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId);
-    const allowedRoles = ["super_admin", "admin", "sales", "finance"];
-    const isAllowed = (roleRows || []).some((r: any) => allowedRoles.includes(r.role));
-    if (!isAllowed) {
-      return jsonResponse({ error: "Forbidden" }, 403);
-    }
 
     const body = req.method === "GET" ? {} : await parseBody(req);
     const action = req.method === "GET"
@@ -146,6 +136,22 @@ serve(async (req) => {
 
     if (!action) {
       return jsonResponse({ error: "Missing action" }, 400);
+    }
+
+    // Enforce business-role authorization (not just authentication).
+    // Master data upsert (produk/customer) juga dilakukan oleh purchasing & warehouse.
+    const { data: roleRows } = await adminClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId);
+    const isMasterDataAction = action === "wms-product-upsert" || action === "wms-customer-upsert";
+    const allowedRoles = isMasterDataAction
+      ? ["super_admin", "admin", "sales", "finance", "purchasing", "warehouse"]
+      : ["super_admin", "admin", "sales", "finance"];
+    const userRoles = (roleRows || []).map((r: any) => r.role);
+    if (!userRoles.some((role: string) => allowedRoles.includes(role))) {
+      console.warn(`[sales-pulse-sync] forbidden action=${action} roles=${userRoles.join(",")}`);
+      return jsonResponse({ error: "Forbidden" }, 403);
     }
 
     if (action === "list-open-references") {
