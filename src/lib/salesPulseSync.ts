@@ -99,6 +99,33 @@ export interface SalesPulseReference {
   expected_close_date?: string | null;
 }
 
+/**
+ * Normalisasi natural key (SKU produk / kode customer) agar upsert di Sales Pulse
+ * selalu idempotent: trim, rapikan spasi ganda, dan uppercase.
+ * Tanpa normalisasi, "abc 01" dan "ABC 01" bisa membuat record duplikat.
+ */
+export function normalizeNaturalKey(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+  const cleaned = String(value).trim().replace(/\s+/g, ' ').toUpperCase();
+  return cleaned || null;
+}
+
+interface UnusedSalesPulseReference {
+  deal_id: string;
+  reference_number: string;
+  deal_name: string;
+  customer_name: string;
+  customer_code: string | null;
+  segment: string | null;
+  stage: string;
+  value: number;
+  sales_name: string | null;
+  already_synced: boolean;
+  wms_so_number: string | null;
+  wms_so_date: string | null;
+  expected_close_date?: string | null;
+}
+
 interface ListOpenReferencesParams {
   search?: string;
   segment?: string;
