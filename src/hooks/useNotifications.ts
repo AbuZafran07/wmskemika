@@ -91,6 +91,20 @@ function notifKey(n: { type: string; refId?: string; productId?: string }): stri
 }
 
 // Detect whether a comment mentions the given user by display name / email local part.
+const DELIVERY_COLUMN_LABELS: Record<string, string> = {
+  new_order: 'New Orders',
+  checking: 'Checking',
+  on_hold_delivery: 'On Hold Delivery Order',
+  approval_delivery: 'Approval Delivery Order',
+  pengiriman_senin: 'Pengiriman Senin',
+  pengiriman_selasa: 'Pengiriman Selasa',
+  pengiriman_rabu: 'Pengiriman Rabu',
+  pengiriman_kamis: 'Pengiriman Kamis',
+  pengiriman_jumat: 'Pengiriman Jumat',
+  delivered: 'Delivered',
+  delivered_sample: 'Delivered Sample',
+};
+
 function messageMentionsUser(message: string, displayName?: string, email?: string): boolean {
   if (!message) return false;
   const mentions = (message.match(/@[\w\s.\-']+/g) || []).map(m => m.slice(1).trim().toLowerCase());
@@ -677,6 +691,106 @@ export function useNotifications() {
             });
           }
         }
+      }
+
+      // ── Delivery board: aktivitas checklist & perpindahan kolom ──
+      try {
+        if (user?.id) {
+          const sevenDaysAgoDel = new Date();
+          sevenDaysAgoDel.setDate(sevenDaysAgoDel.getDate() - 7);
+          const sinceDel = sevenDaysAgoDel.toISOString();
+
+          const [{ data: delChecks }, { data: delMoves }] = await Promise.all([
+            (supabase as any)
+              .from('delivery_checklists')
+              .select('id, delivery_request_id, label, is_checked, checked_by, checked_at')
+              .eq('is_checked', true)
+              .gte('checked_at', sinceDel)
+              .order('checked_at', { ascending: false })
+              .limit(50),
+            (supabase as any)
+              .from('delivery_requests')
+              .select('id, sales_order_id, board_status, moved_by, moved_at')
+              .not('moved_at', 'is', null)
+              .gte('moved_at', sinceDel)
+              .order('moved_at', { ascending: false })
+              .limit(50),
+          ]);
+
+          const drIdsAct = Array.from(
+            new Set([
+              ...((delChecks || []) as any[]).map((c) => c.delivery_request_id),
+              ...((delMoves || []) as any[]).map((c) => c.id),
+            ].filter(Boolean)),
+          );
+
+          if (drIdsAct.length) {
+            const actorIds = Array.from(
+              new Set([
+                ...((delChecks || []) as any[]).map((c) => c.checked_by),
+                ...((delMoves || []) as any[]).map((c) => c.moved_by),
+              ].filter(Boolean)),
+            );
+            const [{ data: drRows }, { data: actors }] = await Promise.all([
+              (supabase as any)
+                .from('delivery_requests')
+                .select('id, sales_order_headers!inner(sales_order_number)')
+                .in('id', drIdsAct),
+              actorIds.length
+                ? (supabase as any).from('profiles').select('id, full_name, email').in('id', actorIds)
+                : Promise.resolve({ data: [] as any[] }),
+            ]);
+
+            const drRefMap: Record<string, string> = {};
+            ((drRows || []) as any[]).forEach((d) => {
+              drRefMap[d.id] = d.sales_order_headers?.sales_order_number || '';
+            });
+            cardSoMapRef.current = { ...cardSoMapRef.current, ...drRefMap };
+            const actorMap: Record<string, string> = {};
+            ((actors || []) as any[]).forEach((p) => {
+              actorMap[p.id] = p.full_name || p.email || 'Pengguna';
+            });
+
+            ((delChecks || []) as any[]).forEach((c) => {
+              if (c.checked_by === user.id) return;
+              const refNo = drRefMap[c.delivery_request_id] || '';
+              notifs.push({
+                id: `delivery_checklist_${c.id}_${c.checked_at}`,
+                type: 'calibration_event',
+                title: `✅ Checklist Delivery${refNo ? ` [${refNo}]` : ''}`,
+                message: `"${c.label}" diselesaikan oleh ${
+                  c.checked_by ? actorMap[c.checked_by] || 'Pengguna' : 'Sistem'
+                }`,
+                module: 'delivery',
+                refId: c.delivery_request_id,
+                refNo,
+                createdAt: new Date(c.checked_at),
+                read: false,
+              });
+            });
+
+            ((delMoves || []) as any[]).forEach((d) => {
+              if (d.moved_by === user.id) return;
+              const refNo = drRefMap[d.id] || '';
+              const colLabel = DELIVERY_COLUMN_LABELS[d.board_status] || String(d.board_status).replace(/_/g, ' ');
+              notifs.push({
+                id: `delivery_move_${d.id}_${d.moved_at}`,
+                type: 'calibration_event',
+                title: `🚚 Kartu pindah kolom${refNo ? ` [${refNo}]` : ''}`,
+                message: `Dipindahkan ke "${colLabel}" oleh ${
+                  d.moved_by ? actorMap[d.moved_by] || 'Pengguna' : 'Sistem'
+                }`,
+                module: 'delivery',
+                refId: d.id,
+                refNo,
+                createdAt: new Date(d.moved_at),
+                read: false,
+              });
+            });
+          }
+        }
+      } catch (delErr) {
+        console.error('Error building delivery board activity notifications:', delErr);
       }
 
       // ── Calibration tracker: cards awaiting THIS user's checklist action ──
@@ -1456,6 +1570,21 @@ export function useNotifications() {
 
     // Subscribe to calibration tracker checklist changes → recompute which
     // cards now await this user's checklist action.
+    // Aktivitas board delivery: checklist & perpindahan kolom
+    const deliveryActivityChannel = supabase
+      .channel('delivery-board-activity')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'delivery_checklists' },
+        () => { fetchNotifications(); }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'delivery_requests' },
+        () => { fetchNotifications(); }
+      )
+      .subscribe();
+
     const calibrationChecklistChannel = supabase
       .channel('calibration-checklist-changes')
       .on(
@@ -1509,6 +1638,7 @@ export function useNotifications() {
       supabase.removeChannel(stockOutChannel);
       supabase.removeChannel(deliveryCommentsChannel);
       supabase.removeChannel(calibrationChecklistChannel);
+      supabase.removeChannel(deliveryActivityChannel);
       supabase.removeChannel(calibrationActivityChannel);
       supabase.removeChannel(poTrackerChannel);
     };
