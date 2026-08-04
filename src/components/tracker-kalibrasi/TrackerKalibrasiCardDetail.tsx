@@ -54,6 +54,7 @@ import {
   useMateraiSetting,
 } from "@/hooks/useProformaInvoices";
 import { useNavigate } from "react-router-dom";
+import { notifyKanbanComment, notifyKanbanMention } from "@/lib/pushNotifications";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -906,15 +907,49 @@ export default function TrackerKalibrasiCardDetail({
   const sendComment = async () => {
     if (!newComment.trim() || !user?.id || !receiptId) return;
     setSending(true);
+    const text = newComment.trim();
     const { error } = await (supabase as any).from("calibration_tracker_comments").insert({
       sales_order_id: receiptId,
       user_id: user.id,
-      message: newComment.trim(),
+      message: text,
       type: "comment",
     });
     setSending(false);
     if (error) { toast.error("Gagal kirim komentar"); return; }
     setNewComment("");
+
+    // Push notifikasi: komentar kartu + mention (@nama)
+    try {
+      const refNo = receipt?.spk_number || receipt?.receipt_number || "Kartu Kalibrasi";
+      const senderName = (user as any).name || user.email || "Pengguna";
+      notifyKanbanComment(refNo, senderName, text, receiptId, user.id, "/tracker-kalibrasi");
+
+      const mentionNames = (text.match(/@[\w\s.]+/g) || []).map((m) => m.slice(1).trim().toLowerCase());
+      if (mentionNames.length) {
+        const { data: allUsers } = await supabase
+          .from("profiles_chat_view")
+          .select("id, full_name");
+        const mentioned = (allUsers || []).filter(
+          (u: any) =>
+            u.id !== user.id &&
+            u.full_name &&
+            mentionNames.some((n) => n === String(u.full_name).toLowerCase() || n.startsWith(String(u.full_name).toLowerCase())),
+        );
+        if (mentioned.length) {
+          notifyKanbanMention(
+            mentioned.map((u: any) => u.id),
+            refNo,
+            senderName,
+            text,
+            receiptId,
+            user.id,
+            "/tracker-kalibrasi",
+          );
+        }
+      }
+    } catch {
+      /* push notification best-effort */
+    }
   };
 
   // ── spare parts CRUD ────────────────────────────────────────────────────

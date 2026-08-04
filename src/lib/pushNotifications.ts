@@ -261,11 +261,12 @@ export function notifyKanbanComment(
   messagePreview: string,
   cardId: string,
   excludeUserId?: string,
+  basePath: string = '/request-delivery',
 ) {
   return sendApprovalPushNotification({
     title: `💬 Komentar Baru: ${soNumber}`,
     body: `${commenterName}: ${messagePreview.substring(0, 100)}`,
-    data: { tag: 'kanban-comment', link: `/request-delivery?card=${cardId}` },
+    data: { tag: 'kanban-comment', link: `${basePath}?card=${cardId}` },
     targetRoles: ['super_admin', 'admin', 'finance', 'purchasing', 'warehouse', 'sales'],
     excludeUserId,
   });
@@ -279,12 +280,13 @@ export function notifyKanbanMention(
   messagePreview: string,
   cardId: string,
   excludeUserId?: string,
+  basePath: string = '/request-delivery',
 ) {
   return sendPushToUsers(
     mentionedUserIds,
     `🔔 Anda di-mention di ${soNumber}`,
     `${commenterName}: ${messagePreview.substring(0, 100)}`,
-    { tag: 'kanban-mention', link: `/request-delivery?card=${cardId}` },
+    { tag: 'kanban-mention', link: `${basePath}?card=${cardId}` },
     excludeUserId,
   );
 }

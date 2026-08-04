@@ -67,6 +67,8 @@ export default function Notifications() {
         return <AlertTriangle className="w-5 h-5 text-destructive" />;
       case 'card_comment':
         return <MessageSquare className="w-5 h-5 text-info" />;
+      case 'mention':
+        return <MessageSquare className="w-5 h-5 text-destructive" />;
       case 'calibration_action':
         return <ClipboardList className="w-5 h-5 text-primary" />;
       case 'calibration_event':
@@ -89,6 +91,7 @@ export default function Notifications() {
       urgent_approved: { variant: 'secondary', label: 'Urgent Disetujui' },
       urgent_rejected: { variant: 'destructive', label: 'Urgent Ditolak' },
       card_comment: { variant: 'secondary', label: language === 'en' ? 'Comment' : 'Komentar' },
+      mention: { variant: 'destructive', label: language === 'en' ? 'Mention' : 'Mention' },
       calibration_action: { variant: 'default', label: language === 'en' ? 'Calibration Checklist' : 'Checklist Kalibrasi' },
       calibration_event: { variant: 'secondary', label: language === 'en' ? 'Calibration Update' : 'Update Kalibrasi' },
       info: { variant: 'secondary', label: 'Info' },

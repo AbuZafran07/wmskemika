@@ -17,7 +17,7 @@ import {
 
 export interface Notification {
   id: string;
-  type: 'low_stock' | 'expiring_soon' | 'expired' | 'info' | 'approval_pending' | 'approved' | 'cancelled' | 'new_order' | 'revision_requested' | 'urgent_request' | 'urgent_approved' | 'urgent_rejected' | 'card_comment' | 'calibration_action' | 'calibration_event';
+  type: 'low_stock' | 'expiring_soon' | 'expired' | 'info' | 'approval_pending' | 'approved' | 'cancelled' | 'new_order' | 'revision_requested' | 'urgent_request' | 'urgent_approved' | 'urgent_rejected' | 'card_comment' | 'mention' | 'calibration_action' | 'calibration_event';
   title: string;
   message: string;
   productId?: string;
@@ -88,6 +88,20 @@ function notifKey(n: { type: string; refId?: string; productId?: string }): stri
   const id = n.refId || n.productId;
   if (!id) return null;
   return `${n.type}:${id}`;
+}
+
+// Detect whether a comment mentions the given user by display name / email local part.
+function messageMentionsUser(message: string, displayName?: string, email?: string): boolean {
+  if (!message) return false;
+  const mentions = (message.match(/@[\w\s.\-']+/g) || []).map(m => m.slice(1).trim().toLowerCase());
+  if (!mentions.length) return false;
+  const candidates: string[] = [];
+  if (displayName) candidates.push(displayName.toLowerCase());
+  if (email) {
+    candidates.push(email.toLowerCase());
+    candidates.push(email.split('@')[0].toLowerCase());
+  }
+  return mentions.some(m => candidates.some(c => c && (m === c || m.startsWith(c) || c.startsWith(m))));
 }
 
 // Sound notification utility
@@ -610,6 +624,26 @@ export function useNotifications() {
             const groups = new Map<string, any[]>();
             for (const c of recentComments as any[]) {
               if (readSet.has(c.id)) continue; // skip already-acknowledged
+              // Mention → notifikasi prioritas terpisah (selalu tampil walau
+              // user belum pernah terlibat di kartu ini)
+              if (messageMentionsUser(c.message, user.name, (user as any).email)) {
+                const soNumberM = drSoMap[c.delivery_request_id] || '';
+                const senderNameM =
+                  senderProfiles?.find((p: any) => p.id === c.user_id)?.full_name || 'Seseorang';
+                notifs.push({
+                  id: `mention_delivery_${c.id}`,
+                  type: 'mention',
+                  title: `🔔 Anda di-mention${soNumberM ? ` [${soNumberM}]` : ''}`,
+                  message: `${senderNameM}: ${c.message.substring(0, 100)}`,
+                  module: 'delivery',
+                  refId: c.delivery_request_id,
+                  refNo: soNumberM,
+                  createdAt: new Date(c.created_at),
+                  read: false,
+                  commentIds: [c.id],
+                });
+                continue;
+              }
               const arr = groups.get(c.delivery_request_id) || [];
               arr.push(c);
               groups.set(c.delivery_request_id, arr);
@@ -852,6 +886,22 @@ export function useNotifications() {
             const calGroups = new Map<string, any[]>();
             ((calComments || []) as any[]).forEach((c) => {
               if (readSetCal.has(c.id)) return;
+              if (messageMentionsUser(c.message, user.name, (user as any).email)) {
+                const refNoM = calRefMap[c.sales_order_id] || '';
+                notifs.push({
+                  id: `mention_calibration_${c.id}`,
+                  type: 'mention',
+                  title: `🔔 Anda di-mention${refNoM ? ` [${refNoM}]` : ''}`,
+                  message: `${senderMap[c.user_id] || 'Seseorang'}: ${c.message.substring(0, 100)}`,
+                  module: 'calibration',
+                  refId: c.sales_order_id,
+                  refNo: refNoM,
+                  createdAt: new Date(c.created_at),
+                  read: false,
+                  commentIds: [c.id],
+                });
+                return;
+              }
               const arr = calGroups.get(c.sales_order_id) || [];
               arr.push(c);
               calGroups.set(c.sales_order_id, arr);
@@ -919,10 +969,148 @@ export function useNotifications() {
         console.error('Error building calibration comment/document notifications:', calCommentErr);
       }
 
+      // ── Tracker PO: komentar kartu, mention, & aktivitas checklist ──
+      try {
+        if (user?.id) {
+          const sevenDaysAgoPo = new Date();
+          sevenDaysAgoPo.setDate(sevenDaysAgoPo.getDate() - 7);
+          const sincePo = sevenDaysAgoPo.toISOString();
+
+          const [{ data: poComments }, { data: poChecks }] = await Promise.all([
+            (supabase as any)
+              .from('po_tracker_comments')
+              .select('id, plan_order_id, user_id, message, created_at, type')
+              .eq('type', 'comment')
+              .neq('user_id', user.id)
+              .gte('created_at', sincePo)
+              .order('created_at', { ascending: false })
+              .limit(50),
+            (supabase as any)
+              .from('po_tracker_checklists')
+              .select('id, plan_order_id, checklist_key, is_checked, checked_by, checked_at')
+              .eq('is_checked', true)
+              .gte('checked_at', sincePo)
+              .order('checked_at', { ascending: false })
+              .limit(50),
+          ]);
+
+          const poIds = Array.from(
+            new Set(
+              [
+                ...((poComments || []) as any[]).map((c) => c.plan_order_id),
+                ...((poChecks || []) as any[]).map((c) => c.plan_order_id),
+              ].filter(Boolean),
+            ),
+          );
+
+          if (poIds.length) {
+            const poActorIds = Array.from(
+              new Set(
+                [
+                  ...((poComments || []) as any[]).map((c) => c.user_id),
+                  ...((poChecks || []) as any[]).map((c) => c.checked_by),
+                ].filter(Boolean),
+              ),
+            );
+            const [{ data: poList }, { data: poActors }] = await Promise.all([
+              (supabase as any)
+                .from('plan_order_headers')
+                .select('id, plan_number, suppliers(name)')
+                .in('id', poIds),
+              poActorIds.length
+                ? (supabase as any).from('profiles').select('id, full_name, email').in('id', poActorIds)
+                : Promise.resolve({ data: [] as any[] }),
+            ]);
+
+            const poRefMap: Record<string, string> = {};
+            const poSupplierMap: Record<string, string> = {};
+            ((poList || []) as any[]).forEach((p) => {
+              poRefMap[p.id] = p.plan_number || '';
+              poSupplierMap[p.id] = p.suppliers?.name || '';
+            });
+            const poActorMap: Record<string, string> = {};
+            ((poActors || []) as any[]).forEach((p) => {
+              poActorMap[p.id] = p.full_name || p.email || 'Pengguna';
+            });
+
+            const readSetPo = readCommentIdsRef.current;
+            const poGroups = new Map<string, any[]>();
+            ((poComments || []) as any[]).forEach((c) => {
+              if (readSetPo.has(c.id)) return;
+              const refNoM = poRefMap[c.plan_order_id] || '';
+              if (messageMentionsUser(c.message, user.name, (user as any).email)) {
+                notifs.push({
+                  id: `mention_po_${c.id}`,
+                  type: 'mention',
+                  title: `🔔 Anda di-mention${refNoM ? ` [${refNoM}]` : ''}`,
+                  message: `${poActorMap[c.user_id] || 'Seseorang'}: ${c.message.substring(0, 100)}`,
+                  module: 'plan_order_tracker',
+                  refId: c.plan_order_id,
+                  refNo: refNoM,
+                  createdAt: new Date(c.created_at),
+                  read: false,
+                  commentIds: [c.id],
+                });
+                return;
+              }
+              const arr = poGroups.get(c.plan_order_id) || [];
+              arr.push(c);
+              poGroups.set(c.plan_order_id, arr);
+            });
+
+            poGroups.forEach((cs, poId) => {
+              const latest = cs[0];
+              const refNo = poRefMap[poId] || '';
+              const preview =
+                latest.message.length > 100 ? `${latest.message.substring(0, 100)}...` : latest.message;
+              notifs.push({
+                id: `card_comment_po_${poId}`,
+                type: 'card_comment',
+                title: `💬 Komentar Tracker PO${refNo ? ` [${refNo}]` : ''}${cs.length > 1 ? ` (${cs.length} komentar)` : ''}`,
+                message: `${poActorMap[latest.user_id] || 'Seseorang'}: ${preview}`,
+                module: 'plan_order_tracker',
+                refId: poId,
+                refNo,
+                createdAt: new Date(latest.created_at),
+                read: false,
+                commentIds: cs.map((x: any) => x.id),
+                count: cs.length,
+              });
+            });
+
+            // Aktivitas checklist board PO (perpindahan tahap)
+            ((poChecks || []) as any[]).forEach((c) => {
+              if (c.checked_by === user.id) return;
+              const refNo = poRefMap[c.plan_order_id] || '';
+              const supplier = poSupplierMap[c.plan_order_id]
+                ? ` • ${poSupplierMap[c.plan_order_id]}`
+                : '';
+              const label = String(c.checklist_key).replace(/_/g, ' ');
+              notifs.push({
+                id: `po_checklist_${c.id}_${c.checked_at}`,
+                type: 'calibration_event',
+                title: `🔄 Tracker PO — ${label}`,
+                message: `${refNo}${supplier}: ${label} diselesaikan oleh ${
+                  c.checked_by ? poActorMap[c.checked_by] || 'Pengguna' : 'Sistem'
+                }`,
+                module: 'plan_order_tracker',
+                refId: c.plan_order_id,
+                refNo,
+                createdAt: new Date(c.checked_at),
+                read: false,
+              });
+            });
+          }
+        }
+      } catch (poErr) {
+        console.error('Error building tracker PO notifications:', poErr);
+      }
+
       // Sort by priority and date
       notifs.sort((a, b) => {
         const priority: Record<string, number> = { 
           expired: 0, 
+          mention: 0.5,
           urgent_request: 1,
           urgent_rejected: 2,
           urgent_approved: 3,
@@ -949,10 +1137,28 @@ export function useNotifications() {
       
       if (newNotifs.length > 0 && previousNotifIds.current.size > 0) {
         // Determine sound type based on notification priority
-        const hasCritical = newNotifs.some(n => n.type === 'expired' || n.type === 'low_stock' || n.type === 'urgent_request' || n.type === 'urgent_rejected');
+        const hasCritical = newNotifs.some(n => n.type === 'expired' || n.type === 'low_stock' || n.type === 'urgent_request' || n.type === 'urgent_rejected' || n.type === 'mention');
         const hasWarning = newNotifs.some(n => n.type === 'expiring_soon' || n.type === 'approval_pending' || n.type === 'revision_requested' || n.type === 'urgent_approved' || n.type === 'calibration_action' || n.type === 'calibration_event');
 
-        // In-app toast for newly actionable calibration cards + stage transitions
+        // In-app toast for mentions + newly actionable cards & stage transitions
+        newNotifs
+          .filter(n => n.type === 'mention')
+          .slice(0, 3)
+          .forEach(n => {
+            toast.warning(n.title, {
+              description: n.message,
+              duration: 10000,
+              action: {
+                label: '🔔 Buka Kartu',
+                onClick: () => {
+                  n.commentIds?.forEach(cid => readCommentIdsRef.current.add(cid));
+                  saveReadCommentIds(readCommentIdsRef.current);
+                  window.location.href = buildNotificationDeepLink(n);
+                },
+              },
+            });
+          });
+
         newNotifs
           .filter(n => n.type === 'calibration_action' || n.type === 'calibration_event')
           .slice(0, 3)
@@ -979,8 +1185,8 @@ export function useNotifications() {
         // Send browser push notifications for critical alerts
         if (pushEnabled && 'Notification' in window && Notification.permission === 'granted') {
           newNotifs.forEach(n => {
-            if (n.type === 'expired' || n.type === 'low_stock' || n.type === 'approval_pending' || n.type === 'revision_requested' || n.type === 'urgent_request' || n.type === 'urgent_approved' || n.type === 'urgent_rejected' || n.type === 'calibration_action' || n.type === 'calibration_event') {
-              const icon = n.type === 'urgent_request' || n.type === 'urgent_rejected' ? '🚨' : n.type === 'urgent_approved' ? '✅' : n.type === 'expired' ? '🚨' : n.type === 'low_stock' ? '⚠️' : n.type === 'revision_requested' ? '📝' : '🔔';
+            if (n.type === 'expired' || n.type === 'low_stock' || n.type === 'approval_pending' || n.type === 'revision_requested' || n.type === 'urgent_request' || n.type === 'urgent_approved' || n.type === 'urgent_rejected' || n.type === 'calibration_action' || n.type === 'calibration_event' || n.type === 'mention' || n.type === 'card_comment') {
+              const icon = n.type === 'urgent_request' || n.type === 'urgent_rejected' ? '🚨' : n.type === 'urgent_approved' ? '✅' : n.type === 'expired' ? '🚨' : n.type === 'low_stock' ? '⚠️' : n.type === 'revision_requested' ? '📝' : n.type === 'card_comment' ? '💬' : '🔔';
               sendBrowserNotification(
                 `${icon} ${n.title}`,
                 n.message,
@@ -1273,6 +1479,21 @@ export function useNotifications() {
     // Also keep the polling as fallback (every 5 minutes)
     const interval = setInterval(fetchNotifications, 5 * 60 * 1000);
 
+    // Subscribe to Tracker PO board activity (komentar & checklist)
+    const poTrackerChannel = supabase
+      .channel('po-tracker-activity')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'po_tracker_comments' },
+        () => { fetchNotifications(); }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'po_tracker_checklists' },
+        () => { fetchNotifications(); }
+      )
+      .subscribe();
+
     return () => {
       clearInterval(interval);
       supabase.removeChannel(planOrderChannel);
@@ -1284,6 +1505,7 @@ export function useNotifications() {
       supabase.removeChannel(deliveryCommentsChannel);
       supabase.removeChannel(calibrationChecklistChannel);
       supabase.removeChannel(calibrationActivityChannel);
+      supabase.removeChannel(poTrackerChannel);
     };
   }, [fetchNotifications]);
 
@@ -1308,7 +1530,11 @@ export function useNotifications() {
     const matchAny = (id: string) => {
       if (!id) return;
       if (path.startsWith('/request-delivery')) {
-        ['urgent_request', 'urgent_approved', 'urgent_rejected', 'card_comment'].forEach(t =>
+        ['urgent_request', 'urgent_approved', 'urgent_rejected', 'card_comment', 'mention'].forEach(t =>
+          candidates.push({ type: t, id })
+        );
+      } else if (path.startsWith('/tracker-po') || path.startsWith('/tracker-kalibrasi')) {
+        ['card_comment', 'mention', 'calibration_action', 'calibration_event'].forEach(t =>
           candidates.push({ type: t, id })
         );
       } else if (path.startsWith('/plan-order') || path.startsWith('/sales-order') || path.startsWith('/stock-adjustment') || path.startsWith('/stock-in') || path.startsWith('/stock-out')) {
@@ -1348,7 +1574,7 @@ export function useNotifications() {
           void logNotificationAudit('notification_read', [n]);
           // Persist underlying comment ids for card_comment / urgent so realtime
           // refetch won't re-surface them.
-          if (n.type === 'card_comment' && n.commentIds?.length) {
+          if ((n.type === 'card_comment' || n.type === 'mention') && n.commentIds?.length) {
             n.commentIds.forEach(cid => readCommentIdsRef.current.add(cid));
             saveReadCommentIds(readCommentIdsRef.current);
           }
@@ -1380,7 +1606,7 @@ export function useNotifications() {
       // Audit trail: record that this user opened/acknowledged the notification.
       void logNotificationAudit('notification_read', [n]);
       // Persist underlying comment IDs so card_comment entries don't reappear
-      if (n.type === 'card_comment' && n.commentIds?.length) {
+      if ((n.type === 'card_comment' || n.type === 'mention') && n.commentIds?.length) {
         n.commentIds.forEach(cid => readCommentIdsRef.current.add(cid));
         saveReadCommentIds(readCommentIdsRef.current);
       }
@@ -1411,7 +1637,7 @@ export function useNotifications() {
     setNotifications(prev => {
       void logNotificationAudit('notification_read', prev.filter(n => !n.read));
       prev.forEach(n => {
-        if (n.type === 'card_comment' && n.commentIds?.length) {
+        if ((n.type === 'card_comment' || n.type === 'mention') && n.commentIds?.length) {
           n.commentIds.forEach(cid => readCommentIdsRef.current.add(cid));
         }
         const key = notifKey(n);

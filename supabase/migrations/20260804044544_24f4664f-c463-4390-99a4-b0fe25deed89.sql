@@ -1,0 +1,2 @@
+ALTER PUBLICATION supabase_realtime ADD TABLE public.po_tracker_comments;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.po_tracker_checklists;
