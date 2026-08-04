@@ -1530,7 +1530,11 @@ export function useNotifications() {
     const matchAny = (id: string) => {
       if (!id) return;
       if (path.startsWith('/request-delivery')) {
-        ['urgent_request', 'urgent_approved', 'urgent_rejected', 'card_comment'].forEach(t =>
+        ['urgent_request', 'urgent_approved', 'urgent_rejected', 'card_comment', 'mention'].forEach(t =>
+          candidates.push({ type: t, id })
+        );
+      } else if (path.startsWith('/tracker-po') || path.startsWith('/tracker-kalibrasi')) {
+        ['card_comment', 'mention', 'calibration_action', 'calibration_event'].forEach(t =>
           candidates.push({ type: t, id })
         );
       } else if (path.startsWith('/plan-order') || path.startsWith('/sales-order') || path.startsWith('/stock-adjustment') || path.startsWith('/stock-in') || path.startsWith('/stock-out')) {
