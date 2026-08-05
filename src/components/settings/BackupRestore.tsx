@@ -667,6 +667,85 @@ export default function BackupRestore() {
         </CardContent>
       </Card>
 
+      {/* Google Drive Backup */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-info/10">
+                <Cloud className="w-5 h-5 text-info" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Google Drive Backup</CardTitle>
+                <CardDescription>
+                  Backup otomatis ke Google Drive setiap malam (01.00 WIB) tanpa perlu PC menyala
+                </CardDescription>
+              </div>
+            </div>
+            <Badge variant={gdriveConfig.enabled ? 'default' : 'secondary'}>
+              {gdriveConfig.enabled ? 'Aktif' : 'Nonaktif'}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm">Aktifkan Backup Harian ke Google Drive</span>
+            </div>
+            <Button
+              variant={gdriveConfig.enabled ? 'destructive' : 'default'}
+              size="sm"
+              onClick={toggleGdriveBackup}
+            >
+              {gdriveConfig.enabled ? 'Nonaktifkan' : 'Aktifkan'}
+            </Button>
+          </div>
+
+          <div className="rounded-lg border bg-muted/30 p-3 space-y-1 text-sm">
+            <p>
+              <span className="text-muted-foreground">Backup terakhir: </span>
+              <span className="font-medium">
+                {gdriveConfig.last_backup_at
+                  ? `${format(new Date(gdriveConfig.last_backup_at), 'dd MMM yyyy, HH:mm', { locale: idLocale })} WIB`
+                  : 'Belum pernah'}
+              </span>
+            </p>
+            {gdriveConfig.last_backup_file && (
+              <p className="text-xs text-muted-foreground font-mono break-all">
+                {gdriveConfig.last_backup_file}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Records: {gdriveConfig.last_backup_records.toLocaleString('id-ID')} data • Retensi 30 file terakhir
+            </p>
+          </div>
+
+          <div className="rounded-lg bg-warning/10 border border-warning/20 p-3">
+            <div className="flex gap-2">
+              <AlertTriangle className="w-4 h-4 text-warning mt-0.5 shrink-0" />
+              <div className="text-sm">
+                <p className="font-medium">Perlu setup sekali</p>
+                <p className="text-muted-foreground">
+                  Service Account Google Drive & ID folder harus dikonfigurasi terlebih dahulu. Klik "Test Koneksi Drive" untuk memastikan setup sudah benar, atau hubungi admin IT.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={testGdriveConnection} disabled={gdriveTesting}>
+              {gdriveTesting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <PlugZap className="w-4 h-4 mr-2" />}
+              Test Koneksi Drive
+            </Button>
+            <Button size="sm" onClick={runGdriveBackupNow} disabled={gdriveLoading}>
+              {gdriveLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CloudDownload className="w-4 h-4 mr-2" />}
+              Jalankan Backup Sekarang
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Manual Backup */}
       <Card>
         <CardHeader>
