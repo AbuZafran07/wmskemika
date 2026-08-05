@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   CloudDownload, Download, Upload, Loader2, CheckCircle2, 
-  AlertTriangle, RefreshCw, Trash2, FileJson, Clock, Shield, Cloud, PlugZap
+  AlertTriangle, RefreshCw, Trash2, FileJson, Clock, Shield, Cloud, PlugZap,
+  History as HistoryIcon
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -83,10 +84,20 @@ const BACKUP_TABLES = [
 
 type BackupTableKey = typeof BACKUP_TABLES[number]['key'];
 
+interface BackupHistoryEntry {
+  file: string;
+  created_at: string;
+  size: number;
+  table_count: number;
+  total_records: number;
+  status?: string;
+}
+
 interface AutoBackupInfo {
   enabled: boolean;
   last_backup_at: string | null;
   backups: Array<{ name: string; created_at: string; size: number }>;
+  history: BackupHistoryEntry[];
 }
 
 export default function BackupRestore() {
@@ -115,6 +126,7 @@ export default function BackupRestore() {
     enabled: false,
     last_backup_at: null,
     backups: [],
+    history: [],
   });
   const [loadingAuto, setLoadingAuto] = useState(true);
 
@@ -222,7 +234,17 @@ export default function BackupRestore() {
       // List backup files from storage
       const { data: files } = await supabase.storage
         .from('backups')
-        .list('auto', { limit: 4, sortBy: { column: 'created_at', order: 'desc' } });
+        .list('auto', { limit: 12, sortBy: { column: 'created_at', order: 'desc' } });
+
+      const rawHistory = Array.isArray((config as any)?.history) ? (config as any).history : [];
+      const history: BackupHistoryEntry[] = rawHistory.map((h: any) => ({
+        file: String(h?.file ?? ''),
+        created_at: String(h?.created_at ?? ''),
+        size: Number(h?.size ?? 0),
+        table_count: Number(h?.table_count ?? 0),
+        total_records: Number(h?.total_records ?? 0),
+        status: h?.status ? String(h.status) : 'success',
+      }));
 
       setAutoBackup({
         enabled: config?.enabled === true,
@@ -232,6 +254,7 @@ export default function BackupRestore() {
           created_at: f.created_at || '',
           size: f.metadata?.size || 0,
         })),
+        history,
       });
     } catch (err) {
       console.error('Error fetching auto backup info:', err);
@@ -537,7 +560,11 @@ export default function BackupRestore() {
       
       await supabase.from('settings').upsert({
         key: 'auto_backup_config',
-        value: { enabled: newEnabled, last_backup_at: autoBackup.last_backup_at } as any,
+        value: {
+          enabled: newEnabled,
+          last_backup_at: autoBackup.last_backup_at,
+          history: autoBackup.history,
+        } as any,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'key' });
 
@@ -560,18 +587,18 @@ export default function BackupRestore() {
     }
   };
 
-  const downloadAutoBackup = async (fileName: string) => {
+  const downloadBackupPath = async (path: string, downloadName?: string) => {
     try {
       const { data, error } = await supabase.storage
         .from('backups')
-        .download(`auto/${fileName}`);
+        .download(path);
       
       if (error) throw error;
       
       const url = URL.createObjectURL(data);
       const a = document.createElement('a');
       a.href = url;
-      a.download = fileName;
+      a.download = downloadName || path.split('/').pop() || 'backup.json';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -581,6 +608,8 @@ export default function BackupRestore() {
       toast.error('Gagal mengunduh backup');
     }
   };
+
+  const downloadAutoBackup = (fileName: string) => downloadBackupPath(`auto/${fileName}`, fileName);
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 B';
@@ -663,6 +692,107 @@ export default function BackupRestore() {
             <p className="text-xs text-muted-foreground">
               Backup terakhir: {format(new Date(autoBackup.last_backup_at), 'dd MMM yyyy, HH:mm', { locale: idLocale })}
             </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Dashboard Riwayat Backup Mingguan */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <HistoryIcon className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Riwayat Backup Mingguan</CardTitle>
+                <CardDescription>
+                  Ringkasan jumlah tabel, jumlah record, ukuran arsip, dan unduhan tiap backup otomatis
+                </CardDescription>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" onClick={fetchAutoBackupInfo} disabled={loadingAuto}>
+              <RefreshCw className={`w-4 h-4 mr-2 ${loadingAuto ? 'animate-spin' : ''}`} />
+              Muat Ulang
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {loadingAuto ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : autoBackup.history.length === 0 ? (
+            <div className="text-center py-6 text-sm text-muted-foreground">
+              <Clock className="w-8 h-8 mx-auto mb-2 opacity-40" />
+              Belum ada riwayat backup mingguan. Riwayat akan terisi setelah backup otomatis berjalan.
+            </div>
+          ) : (
+            <>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="p-3 rounded-lg border bg-muted/30">
+                  <p className="text-xs text-muted-foreground">Total Backup Tercatat</p>
+                  <p className="text-lg font-semibold">{autoBackup.history.length}</p>
+                </div>
+                <div className="p-3 rounded-lg border bg-muted/30">
+                  <p className="text-xs text-muted-foreground">Record Backup Terakhir</p>
+                  <p className="text-lg font-semibold">
+                    {autoBackup.history[0].total_records.toLocaleString('id-ID')}
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg border bg-muted/30">
+                  <p className="text-xs text-muted-foreground">Ukuran Arsip Terakhir</p>
+                  <p className="text-lg font-semibold">{formatFileSize(autoBackup.history[0].size)}</p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto rounded-lg border">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50">
+                    <tr className="text-left">
+                      <th className="px-3 py-2 font-medium whitespace-nowrap">Tanggal</th>
+                      <th className="px-3 py-2 font-medium whitespace-nowrap">Tabel</th>
+                      <th className="px-3 py-2 font-medium whitespace-nowrap">Records</th>
+                      <th className="px-3 py-2 font-medium whitespace-nowrap">Ukuran</th>
+                      <th className="px-3 py-2 font-medium whitespace-nowrap">Status</th>
+                      <th className="px-3 py-2 font-medium whitespace-nowrap text-right">Unduh</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {autoBackup.history.map((h, idx) => (
+                      <tr key={`${h.file}-${idx}`} className="border-t">
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          {h.created_at
+                            ? format(new Date(h.created_at), 'dd MMM yyyy, HH:mm', { locale: idLocale })
+                            : '-'}
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap">{h.table_count}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">{h.total_records.toLocaleString('id-ID')}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">{formatFileSize(h.size)}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <Badge variant={h.status === 'success' ? 'default' : 'destructive'}>
+                            {h.status === 'success' ? 'Sukses' : h.status || 'Gagal'}
+                          </Badge>
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => downloadBackupPath(h.file)}
+                            disabled={!h.file}
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Catatan: file arsip lama otomatis dibersihkan (4 backup terakhir disimpan), sehingga baris riwayat lama mungkin tidak bisa diunduh lagi.
+              </p>
+            </>
           )}
         </CardContent>
       </Card>
