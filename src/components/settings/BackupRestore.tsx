@@ -83,10 +83,20 @@ const BACKUP_TABLES = [
 
 type BackupTableKey = typeof BACKUP_TABLES[number]['key'];
 
+interface BackupHistoryEntry {
+  file: string;
+  created_at: string;
+  size: number;
+  table_count: number;
+  total_records: number;
+  status?: string;
+}
+
 interface AutoBackupInfo {
   enabled: boolean;
   last_backup_at: string | null;
   backups: Array<{ name: string; created_at: string; size: number }>;
+  history: BackupHistoryEntry[];
 }
 
 export default function BackupRestore() {
@@ -115,6 +125,7 @@ export default function BackupRestore() {
     enabled: false,
     last_backup_at: null,
     backups: [],
+    history: [],
   });
   const [loadingAuto, setLoadingAuto] = useState(true);
 
