@@ -1163,6 +1163,87 @@ export default function BackupRestore() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-success/10">
+              <FileSpreadsheet className="w-5 h-5 text-success" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Export ke Excel</CardTitle>
+              <CardDescription>
+                Download data sebagai file .xlsx yang bisa langsung dibuka di Microsoft Excel / Google Sheets
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">Pilih tabel yang ingin diexport:</p>
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedExcelTables(new Set(BACKUP_TABLES.map(t => t.key)))}
+              >
+                Pilih Semua
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedExcelTables(new Set())}>
+                Hapus Semua
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {BACKUP_TABLES.map((table) => (
+              <label
+                key={table.key}
+                className="flex items-center gap-3 p-3 rounded-lg border bg-card cursor-pointer hover:bg-accent/50 transition-colors"
+              >
+                <Checkbox
+                  checked={selectedExcelTables.has(table.key)}
+                  onCheckedChange={() => toggleExcelTable(table.key)}
+                />
+                <span className="text-base">{table.icon}</span>
+                <span className="text-sm font-medium">{table.label}</span>
+              </label>
+            ))}
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Opsi:</p>
+            <label className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30 cursor-pointer hover:bg-accent/40 transition-colors">
+              <Checkbox
+                checked={!excelSingleSheet}
+                onCheckedChange={() => setExcelSingleSheet(false)}
+              />
+              <span className="text-sm">Satu sheet per tabel (rekomendasi)</span>
+            </label>
+            <label className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30 cursor-pointer hover:bg-accent/40 transition-colors">
+              <Checkbox
+                checked={excelSingleSheet}
+                onCheckedChange={() => setExcelSingleSheet(true)}
+              />
+              <span className="text-sm">Gabung semua dalam satu sheet</span>
+            </label>
+          </div>
+
+          <Button onClick={handleExportExcel} disabled={exportingExcel || selectedExcelTables.size === 0}>
+            {exportingExcel ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="w-4 h-4 mr-2" />
+            )}
+            Download Excel
+            {selectedExcelTables.size > 0 && (
+              <Badge variant="secondary" className="ml-2">{selectedExcelTables.size} tabel</Badge>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-warning/10">
               <Upload className="w-5 h-5 text-warning" />
             </div>
