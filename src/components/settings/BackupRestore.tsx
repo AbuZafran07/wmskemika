@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   CloudDownload, Download, Upload, Loader2, CheckCircle2, 
-  AlertTriangle, RefreshCw, Trash2, FileJson, Clock, Shield
+  AlertTriangle, RefreshCw, Trash2, FileJson, Clock, Shield, Cloud, PlugZap
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -118,9 +118,94 @@ export default function BackupRestore() {
   });
   const [loadingAuto, setLoadingAuto] = useState(true);
 
+  // Google Drive backup state
+  const [gdriveConfig, setGdriveConfig] = useState<{
+    enabled: boolean;
+    last_backup_at: string | null;
+    last_backup_file: string | null;
+    last_backup_records: number;
+  }>({
+    enabled: false,
+    last_backup_at: null,
+    last_backup_file: null,
+    last_backup_records: 0,
+  });
+  const [gdriveLoading, setGdriveLoading] = useState(false);
+  const [gdriveTesting, setGdriveTesting] = useState(false);
+
   useEffect(() => {
     fetchAutoBackupInfo();
+    fetchGdriveConfig();
   }, []);
+
+  const fetchGdriveConfig = async () => {
+    try {
+      const { data } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'gdrive_backup_config')
+        .maybeSingle();
+      const cfg = (data?.value ?? {}) as Record<string, unknown>;
+      setGdriveConfig({
+        enabled: cfg.enabled === true,
+        last_backup_at: (cfg.last_backup_at as string) || null,
+        last_backup_file: (cfg.last_backup_file as string) || null,
+        last_backup_records: Number(cfg.last_backup_records ?? 0),
+      });
+    } catch (err) {
+      console.error('Error fetching gdrive config:', err);
+    }
+  };
+
+  const toggleGdriveBackup = async () => {
+    try {
+      const newEnabled = !gdriveConfig.enabled;
+      const { error } = await supabase.from('settings').upsert({
+        key: 'gdrive_backup_config',
+        value: { ...gdriveConfig, enabled: newEnabled } as any,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'key' });
+      if (error) throw error;
+      setGdriveConfig(prev => ({ ...prev, enabled: newEnabled }));
+      toast.success(newEnabled
+        ? 'Google Drive backup diaktifkan — jalan otomatis tiap 01.00 WIB'
+        : 'Google Drive backup dinonaktifkan');
+    } catch (err) {
+      console.error('Toggle gdrive backup error:', err);
+      toast.error('Gagal mengubah pengaturan Google Drive backup');
+    }
+  };
+
+  const testGdriveConnection = async () => {
+    setGdriveTesting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('gdrive-backup', {
+        body: { test: true },
+      });
+      if (error) throw error;
+      if (data?.success) toast.success(data.message || 'Koneksi Google Drive OK');
+      else toast.error(data?.message || data?.error || 'Koneksi Google Drive gagal');
+    } catch (err: any) {
+      console.error('Test gdrive error:', err);
+      toast.error(err.message || 'Gagal menguji koneksi Google Drive');
+    }
+    setGdriveTesting(false);
+  };
+
+  const runGdriveBackupNow = async () => {
+    setGdriveLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('gdrive-backup', { body: {} });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Backup terkirim ke Google Drive — ${Number(data?.total_records || 0).toLocaleString('id-ID')} record`);
+      await fetchGdriveConfig();
+    } catch (err: any) {
+      console.error('Run gdrive backup error:', err);
+      toast.error(err.message || 'Gagal menjalankan backup Google Drive');
+    }
+    setGdriveLoading(false);
+  };
 
   const fetchAutoBackupInfo = async () => {
     setLoadingAuto(true);
