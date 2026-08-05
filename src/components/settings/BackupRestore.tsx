@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   CloudDownload, Download, Upload, Loader2, CheckCircle2, 
   AlertTriangle, RefreshCw, Trash2, FileJson, Clock, Shield, Cloud, PlugZap,
-  History as HistoryIcon
+  History as HistoryIcon, FileSpreadsheet
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import JSZip from 'jszip';
+import * as XLSX from 'xlsx';
 import { Progress } from '@/components/ui/progress';
 
 const STORAGE_BUCKETS = ['avatars', 'chat-attachments', 'documents', 'product-photos', 'signatures'] as const;
@@ -161,6 +162,14 @@ export default function BackupRestore() {
   });
   const [gdriveLoading, setGdriveLoading] = useState(false);
   const [gdriveTesting, setGdriveTesting] = useState(false);
+  const [gdriveIncludeFiles, setGdriveIncludeFiles] = useState(false);
+
+  // Export Excel state
+  const [exportingExcel, setExportingExcel] = useState(false);
+  const [selectedExcelTables, setSelectedExcelTables] = useState<Set<BackupTableKey>>(
+    new Set(BACKUP_TABLES.map(t => t.key))
+  );
+  const [excelSingleSheet, setExcelSingleSheet] = useState(false);
 
   useEffect(() => {
     fetchAutoBackupInfo();
@@ -181,9 +190,165 @@ export default function BackupRestore() {
         last_backup_file: (cfg.last_backup_file as string) || null,
         last_backup_records: Number(cfg.last_backup_records ?? 0),
       });
+      const { data: incl } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'gdrive_backup_include_files')
+        .maybeSingle();
+      setGdriveIncludeFiles(incl?.value === true);
     } catch (err) {
       console.error('Error fetching gdrive config:', err);
     }
+  };
+
+  const toggleGdriveIncludeFiles = async (next: boolean) => {
+    try {
+      const { error } = await supabase.from('settings').upsert({
+        key: 'gdrive_backup_include_files',
+        value: next as any,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'key' });
+      if (error) throw error;
+      setGdriveIncludeFiles(next);
+      toast.success(next
+        ? 'File storage (foto, TTD, lampiran) akan disertakan ke Google Drive'
+        : 'Backup Google Drive hanya menyertakan data database (JSON)');
+    } catch (err) {
+      console.error('Toggle include files error:', err);
+      toast.error('Gagal mengubah pengaturan sertakan file');
+    }
+  };
+
+  const toggleExcelTable = (key: BackupTableKey) => {
+    setSelectedExcelTables(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const handleExportExcel = async () => {
+    setExportingExcel(true);
+    try {
+      const wb = XLSX.utils.book_new();
+      const tableKeys = Array.from(selectedExcelTables);
+
+      const results = await Promise.all(
+        tableKeys.map(async (table) => {
+          let query = supabase.from(table as any).select('*');
+          if (table === 'audit_logs') {
+            const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+            query = query.gte('created_at', since);
+          }
+          const { data } = await query;
+          return { table, data: (data || []) as Record<string, any>[] };
+        })
+      );
+
+      if (excelSingleSheet) {
+        const allRows: Record<string, any>[] = [];
+        for (const { table, data } of results) {
+          if (data.length === 0) continue;
+          allRows.push({ '': `=== ${table.toUpperCase()} ===` });
+          allRows.push({});
+          const headers = Object.keys(data[0]);
+          allRows.push(headers.reduce((acc, h) => ({ ...acc, [h]: h }), {}));
+          allRows.push(...data);
+          allRows.push({});
+        }
+        const ws = XLSX.utils.json_to_sheet(allRows);
+        XLSX.utils.book_append_sheet(wb, ws, 'WMS Kemika Data');
+      } else {
+        for (const { table, data } of results) {
+          if (data.length === 0) continue;
+
+          const formattedData = data.map((row) => {
+            const formatted: Record<string, any> = {};
+            for (const [key, value] of Object.entries(row)) {
+              if (value === null || value === undefined) {
+                formatted[key] = '';
+              } else if (
+                typeof value === 'string' &&
+                (key.includes('_at') || key.includes('_date') || key === 'date')
+              ) {
+                const d = new Date(value);
+                formatted[key] = isNaN(d.getTime())
+                  ? value
+                  : d.toLocaleString('id-ID', {
+                      year: 'numeric', month: '2-digit', day: '2-digit',
+                      hour: '2-digit', minute: '2-digit',
+                    });
+              } else if (typeof value === 'object') {
+                formatted[key] = JSON.stringify(value);
+              } else {
+                formatted[key] = value;
+              }
+            }
+            return formatted;
+          });
+
+          const ws = XLSX.utils.json_to_sheet(formattedData);
+          ws['!cols'] = Object.keys(formattedData[0] || {}).map((key) => ({
+            wch: Math.min(60, Math.max(
+              key.length,
+              ...formattedData.slice(0, 100).map((row) => String(row[key] ?? '').length),
+              10
+            )),
+          }));
+
+          const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+          for (let col = range.s.c; col <= range.e.c; col++) {
+            const addr = XLSX.utils.encode_cell({ r: 0, c: col });
+            if (!ws[addr]) continue;
+            (ws[addr] as any).s = {
+              font: { bold: true },
+              fill: { fgColor: { rgb: 'E8F5ED' } },
+            };
+          }
+
+          XLSX.utils.book_append_sheet(wb, ws, table.slice(0, 31));
+        }
+
+        const indexData = results
+          .filter(r => r.data.length > 0)
+          .map(({ table, data }) => ({
+            'Nama Tabel': table,
+            'Jumlah Record': data.length,
+            'Kolom': Object.keys(data[0] || {}).join(', '),
+          }));
+        const indexWs = XLSX.utils.json_to_sheet(indexData);
+        indexWs['!cols'] = [{ wch: 35 }, { wch: 15 }, { wch: 80 }];
+        XLSX.utils.book_append_sheet(wb, indexWs, 'Index');
+        wb.SheetNames = ['Index', ...wb.SheetNames.filter(n => n !== 'Index')];
+      }
+
+      if (wb.SheetNames.length === 0) {
+        toast.warning('Tidak ada data untuk diexport');
+        setExportingExcel(false);
+        return;
+      }
+
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      XLSX.writeFile(wb, `WMS-Kemika-Export-${stamp}.xlsx`);
+
+      const { data: userData } = await supabase.auth.getUser();
+      await supabase.from('audit_logs').insert({
+        user_id: userData.user?.id,
+        user_email: userData.user?.email,
+        action: 'EXPORT_EXCEL',
+        module: 'backup',
+        new_data: {
+          tables: tableKeys,
+          total_records: results.reduce((sum, r) => sum + r.data.length, 0),
+        } as any,
+      });
+
+      toast.success(`Export berhasil! ${tableKeys.length} tabel diexport ke Excel.`);
+    } catch (err: any) {
+      console.error('Export Excel error:', err);
+      toast.error(err.message || 'Gagal export ke Excel');
+    }
+    setExportingExcel(false);
   };
 
   const toggleGdriveBackup = async () => {
