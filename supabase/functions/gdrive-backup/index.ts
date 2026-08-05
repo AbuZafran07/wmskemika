@@ -271,6 +271,162 @@ serve(async (req) => {
     }
     const uploadResult = await uploadResponse.json();
 
+    // ===== 4. Backup file storage ke GDrive (opsional) =====
+    const { data: inclSetting } = await supabase
+      .from("settings")
+      .select("value")
+      .eq("key", "gdrive_backup_include_files")
+      .maybeSingle();
+    const inclValue = inclSetting?.value as unknown;
+    const includeFiles = inclValue === true ||
+      (typeof inclValue === "object" && inclValue !== null &&
+        (inclValue as Record<string, unknown>).enabled === true) ||
+      body.include_files === true;
+
+    let totalFilesUploaded = 0;
+    let totalFilesFailed = 0;
+    let filesFolderName: string | null = null;
+
+    if (includeFiles) {
+      const BUCKETS_TO_BACKUP = ["documents", "signatures", "product-photos", "avatars"];
+
+      const createFolder = async (name: string, parent: string) => {
+        const res = await fetch(
+          "https://www.googleapis.com/drive/v3/files?supportsAllDrives=true&fields=id,name",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              name,
+              parents: [parent],
+              mimeType: "application/vnd.google-apps.folder",
+            }),
+          },
+        );
+        const data = await res.json();
+        if (!res.ok || !data.id) throw new Error(`Gagal membuat folder "${name}": ${JSON.stringify(data)}`);
+        return data.id as string;
+      };
+
+      filesFolderName = `files-${dateStr}`;
+      const filesFolderId = await createFolder(filesFolderName, gdriveFolderId);
+
+      const mimeMap: Record<string, string> = {
+        jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif",
+        webp: "image/webp", pdf: "application/pdf", json: "application/json",
+        docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      };
+
+      for (const bucket of BUCKETS_TO_BACKUP) {
+        let bucketFolderId: string;
+        try {
+          bucketFolderId = await createFolder(bucket, filesFolderId);
+        } catch (e) {
+          console.error("createFolder gagal:", e);
+          totalFilesFailed++;
+          continue;
+        }
+
+        const listAllFiles = async (prefix = ""): Promise<string[]> => {
+          const { data, error } = await supabase.storage.from(bucket).list(prefix, { limit: 1000 });
+          if (error || !data) return [];
+          const paths: string[] = [];
+          for (const item of data) {
+            const full = prefix ? `${prefix}/${item.name}` : item.name;
+            if ((item as Record<string, unknown>).id === null) {
+              paths.push(...await listAllFiles(full));
+            } else {
+              paths.push(full);
+            }
+          }
+          return paths;
+        };
+
+        const allPaths = await listAllFiles();
+        const BATCH = 5;
+        for (let i = 0; i < allPaths.length; i += BATCH) {
+          const batch = allPaths.slice(i, i + BATCH);
+          await Promise.all(batch.map(async (filePath) => {
+            try {
+              const { data: fileBlob, error } = await supabase.storage.from(bucket).download(filePath);
+              if (error || !fileBlob) {
+                totalFilesFailed++;
+                return;
+              }
+              const ext = filePath.split(".").pop()?.toLowerCase();
+              const mimeType = mimeMap[ext || ""] || "application/octet-stream";
+              const gdriveFileName = filePath.replace(/\//g, "_");
+              const fileBoundary = `file_boundary_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+              const meta = JSON.stringify({
+                name: gdriveFileName,
+                parents: [bucketFolderId],
+                mimeType,
+              });
+              const uint8 = new Uint8Array(await fileBlob.arrayBuffer());
+              const metaPart = new TextEncoder().encode(
+                `--${fileBoundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${fileBoundary}\r\nContent-Type: ${mimeType}\r\n\r\n`,
+              );
+              const closePart = new TextEncoder().encode(`\r\n--${fileBoundary}--`);
+              const multipart = new Uint8Array(metaPart.length + uint8.length + closePart.length);
+              multipart.set(metaPart, 0);
+              multipart.set(uint8, metaPart.length);
+              multipart.set(closePart, metaPart.length + uint8.length);
+
+              const res = await fetch(
+                "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id",
+                {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    "Content-Type": `multipart/related; boundary=${fileBoundary}`,
+                  },
+                  body: multipart,
+                },
+              );
+              if (!res.ok) {
+                console.error(`Upload file gagal (${bucket}/${filePath}):`, res.status, await res.text());
+                totalFilesFailed++;
+                return;
+              }
+              totalFilesUploaded++;
+            } catch (e) {
+              console.error("Upload file error:", e);
+              totalFilesFailed++;
+            }
+          }));
+        }
+      }
+
+      // Retensi folder files-*: simpan 7 terakhir
+      try {
+        const folderListRes = await fetch(
+          `https://www.googleapis.com/drive/v3/files?q=${
+            encodeURIComponent(
+              `'${gdriveFolderId}' in parents and name contains 'files-' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+            )
+          }&orderBy=createdTime&fields=files(id,name)&pageSize=100&supportsAllDrives=true`,
+          { headers: { Authorization: `Bearer ${accessToken}` } },
+        );
+        const folderList = await folderListRes.json();
+        const folders: Array<{ id: string }> = folderList.files || [];
+        if (folders.length > 7) {
+          const toDelete = folders.slice(0, folders.length - 7);
+          await Promise.all(toDelete.map((f) =>
+            fetch(`https://www.googleapis.com/drive/v3/files/${f.id}?supportsAllDrives=true`, {
+              method: "DELETE",
+              headers: { Authorization: `Bearer ${accessToken}` },
+            })
+          ));
+        }
+      } catch (e) {
+        console.error("Retensi folder files gagal:", e);
+      }
+    }
+
     // ===== 4. Retensi 30 file =====
     const listResponse = await fetch(
       `https://www.googleapis.com/drive/v3/files?q=${
@@ -308,6 +464,10 @@ serve(async (req) => {
         last_backup_file: fileName,
         last_backup_records: totalRecords,
         gdrive_file_id: uploadResult.id,
+        include_files: includeFiles,
+        last_files_folder: filesFolderName,
+        last_files_uploaded: totalFilesUploaded,
+        last_files_failed: totalFilesFailed,
       },
       updated_at: now.toISOString(),
     }, { onConflict: "key" });
@@ -323,6 +483,9 @@ serve(async (req) => {
         total_records: totalRecords,
         deleted_old_files: deletedOld,
         failed_tables: failed,
+        files_folder: filesFolderName,
+        files_uploaded: totalFilesUploaded,
+        files_failed: totalFilesFailed,
       },
     });
 
@@ -332,6 +495,9 @@ serve(async (req) => {
       gdrive_file_id: uploadResult.id,
       total_records: totalRecords,
       failed_tables: failed,
+      files_folder: filesFolderName,
+      files_uploaded: totalFilesUploaded,
+      files_failed: totalFilesFailed,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
