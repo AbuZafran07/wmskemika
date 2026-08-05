@@ -1033,6 +1033,20 @@ export default function BackupRestore() {
             </p>
           </div>
 
+          <label className="flex items-start gap-3 p-3 rounded-lg border bg-muted/30 cursor-pointer hover:bg-accent/40 transition-colors">
+            <Checkbox
+              checked={gdriveIncludeFiles}
+              onCheckedChange={(v) => toggleGdriveIncludeFiles(v === true)}
+              className="mt-0.5"
+            />
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium">Sertakan file (foto, TTD, lampiran) ke GDrive</p>
+              <p className="text-xs text-muted-foreground">
+                File dari Storage diunggah ke subfolder <span className="font-mono">files-YYYY-MM-DD</span> (documents, signatures, product-photos, avatars). Proses lebih lama & butuh ruang lebih besar di Drive. Hanya 7 folder file terakhir yang disimpan.
+              </p>
+            </div>
+          </label>
+
           <div className="rounded-lg bg-warning/10 border border-warning/20 p-3">
             <div className="flex gap-2">
               <AlertTriangle className="w-4 h-4 text-warning mt-0.5 shrink-0" />
