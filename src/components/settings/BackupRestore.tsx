@@ -19,6 +19,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import JSZip from 'jszip';
+import { Progress } from '@/components/ui/progress';
 
 const STORAGE_BUCKETS = ['avatars', 'chat-attachments', 'documents', 'product-photos', 'signatures'] as const;
 
@@ -53,6 +54,20 @@ const BACKUP_TABLES = [
   { key: 'delivery_checklists', label: 'Delivery Checklists', icon: '✅' },
   { key: 'delivery_labels', label: 'Delivery Labels', icon: '🏷️' },
   { key: 'delivery_card_labels', label: 'Delivery Card Labels', icon: '🏷️' },
+  // Tracker PO
+  { key: 'po_tracker_checklists', label: 'Tracker PO - Checklists', icon: '📋' },
+  { key: 'po_tracker_comments', label: 'Tracker PO - Komentar', icon: '💬' },
+  { key: 'po_tracker_labels', label: 'Tracker PO - Labels', icon: '🏷️' },
+  { key: 'po_tracker_card_labels', label: 'Tracker PO - Card Labels', icon: '🏷️' },
+  { key: 'po_tracker_archived', label: 'Tracker PO - Archived', icon: '🗄️' },
+  // Kalibrasi
+  { key: 'calibration_items', label: 'Kalibrasi - Data Alat', icon: '⚙️' },
+  { key: 'calibration_spare_parts', label: 'Kalibrasi - Spare Parts', icon: '🔧' },
+  { key: 'calibration_tracker_checklists', label: 'Kalibrasi - Checklists', icon: '✅' },
+  { key: 'calibration_tracker_comments', label: 'Kalibrasi - Komentar', icon: '💬' },
+  { key: 'calibration_labels', label: 'Kalibrasi - Labels', icon: '🏷️' },
+  { key: 'calibration_card_labels', label: 'Kalibrasi - Card Labels', icon: '🏷️' },
+  { key: 'calibration_document_logs', label: 'Kalibrasi - Log Dokumen', icon: '📄' },
   // Chat K'talk
   { key: 'chat_messages', label: "K'talk Messages", icon: '💬' },
   { key: 'chat_reactions', label: "K'talk Reactions", icon: '😀' },
@@ -62,7 +77,7 @@ const BACKUP_TABLES = [
   { key: 'profiles', label: 'Profiles (User)', icon: '👤' },
   { key: 'user_roles', label: 'User Roles', icon: '🔐' },
   { key: 'user_signatures', label: 'User Signatures', icon: '✍️' },
-  { key: 'audit_logs', label: 'Audit Logs', icon: '📜' },
+  { key: 'audit_logs', label: 'Audit Logs (30 hari terakhir)', icon: '📜' },
   { key: 'settings', label: 'Pengaturan Sistem', icon: '⚙️' },
 ] as const;
 
@@ -85,6 +100,9 @@ export default function BackupRestore() {
   const [backingUp, setBackingUp] = useState(false);
   const [includeFiles, setIncludeFiles] = useState(false);
   const [backupProgress, setBackupProgress] = useState<string>('');
+  const [progressPercent, setProgressPercent] = useState(0);
+  const [progressEta, setProgressEta] = useState<string>('');
+  const [progressBytes, setProgressBytes] = useState(0);
   
   // Restore state
   const [restoring, setRestoring] = useState(false);
@@ -161,6 +179,9 @@ export default function BackupRestore() {
     }
 
     setBackingUp(true);
+    setProgressPercent(0);
+    setProgressEta('');
+    setProgressBytes(0);
     try {
       setBackupProgress('Mengambil data dari tabel...');
       const backupData: Record<string, unknown[]> = {};
@@ -169,7 +190,13 @@ export default function BackupRestore() {
       // Fetch all selected tables in parallel
       const results = await Promise.all(
         tableKeys.map(async (table) => {
-          const { data, error } = await supabase.from(table).select('*');
+          let query = supabase.from(table).select('*');
+          if (table === 'audit_logs') {
+            query = query
+              .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+              .order('created_at', { ascending: false });
+          }
+          const { data, error } = await query;
           if (error) throw new Error(`Gagal fetch ${table}: ${error.message}`);
           return { table, data: data || [] };
         })
@@ -178,6 +205,7 @@ export default function BackupRestore() {
       results.forEach(({ table, data }) => {
         backupData[table] = data;
       });
+      setProgressPercent(30);
 
       const exportPayload = {
         _meta: {
@@ -201,33 +229,65 @@ export default function BackupRestore() {
         const zip = new JSZip();
         zip.file('data.json', JSON.stringify(exportPayload, null, 2));
 
+        const BATCH_SIZE = 10;
+        // Kumpulkan daftar file semua bucket dulu agar persentase akurat
+        setBackupProgress('Menyusun daftar file storage...');
+        const bucketPaths: Array<{ bucket: string; paths: string[] }> = [];
         for (const bucket of STORAGE_BUCKETS) {
-          setBackupProgress(`Mengunduh file dari bucket "${bucket}"...`);
-          const allPaths = await listBucketRecursive(bucket);
-          for (let i = 0; i < allPaths.length; i++) {
-            const path = allPaths[i];
-            try {
-              const { data: fileBlob, error } = await supabase.storage.from(bucket).download(path);
-              if (error || !fileBlob) continue;
-              zip.file(`files/${bucket}/${path}`, fileBlob);
-              totalFiles++;
-              totalFileBytes += fileBlob.size;
-              if (i % 5 === 0) {
-                setBackupProgress(`Bucket "${bucket}": ${i + 1}/${allPaths.length} file`);
-              }
-            } catch (e) {
-              console.warn(`Skip file ${bucket}/${path}:`, e);
-            }
+          bucketPaths.push({ bucket, paths: await listBucketRecursive(bucket) });
+        }
+        const totalToDownload = bucketPaths.reduce((s, b) => s + b.paths.length, 0) || 1;
+        let processed = 0;
+        const startedAt = Date.now();
+
+        for (const { bucket, paths } of bucketPaths) {
+          for (let i = 0; i < paths.length; i += BATCH_SIZE) {
+            const batch = paths.slice(i, i + BATCH_SIZE);
+            await Promise.all(
+              batch.map(async (path) => {
+                try {
+                  const { data: fileBlob, error } = await supabase.storage.from(bucket).download(path);
+                  if (error || !fileBlob) return;
+                  zip.file(`files/${bucket}/${path}`, fileBlob);
+                  totalFiles++;
+                  totalFileBytes += fileBlob.size;
+                } catch (e) {
+                  console.warn(`Skip file ${bucket}/${path}:`, e);
+                }
+              })
+            );
+            processed += batch.length;
+            const elapsed = (Date.now() - startedAt) / 1000;
+            const rate = processed / Math.max(elapsed, 0.001);
+            const remaining = Math.max(totalToDownload - processed, 0);
+            const etaSec = rate > 0 ? Math.round(remaining / rate) : 0;
+            setProgressEta(
+              remaining > 0
+                ? etaSec >= 60
+                  ? `± ${Math.ceil(etaSec / 60)} menit tersisa`
+                  : `± ${etaSec} detik tersisa`
+                : ''
+            );
+            setProgressBytes(totalFileBytes);
+            setProgressPercent(30 + Math.round((processed / totalToDownload) * 60));
+            setBackupProgress(
+              `Bucket "${bucket}": ${Math.min(i + BATCH_SIZE, paths.length)}/${paths.length} file...`
+            );
           }
         }
 
+        setProgressEta('');
         setBackupProgress(`Mengompres ZIP (${totalFiles} file)...`);
+        setProgressPercent(95);
         blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
         fileName = `backup-kemika-full-${stamp}.zip`;
       } else {
         blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: 'application/json' });
         fileName = `backup-kemika-${stamp}.json`;
+        setProgressPercent(95);
       }
+      setProgressBytes(blob.size);
+      setProgressPercent(100);
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -263,6 +323,9 @@ export default function BackupRestore() {
       toast.error(err.message || 'Gagal membuat backup');
     }
     setBackupProgress('');
+    setProgressPercent(0);
+    setProgressEta('');
+    setProgressBytes(0);
     setBackingUp(false);
   };
 
@@ -587,10 +650,20 @@ export default function BackupRestore() {
             )}
           </Button>
           {backingUp && backupProgress && (
-            <p className="text-xs text-muted-foreground flex items-center gap-2">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              {backupProgress}
-            </p>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm gap-2">
+                <span className="flex items-center gap-2 truncate">
+                  <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+                  <span className="truncate">{backupProgress}</span>
+                </span>
+                <span className="text-muted-foreground shrink-0">{progressPercent}%</span>
+              </div>
+              <Progress value={progressPercent} className="h-2" />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>{progressBytes > 0 ? formatFileSize(progressBytes) : ''}</span>
+                <span>{progressEta}</span>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
