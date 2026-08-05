@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   CloudDownload, Download, Upload, Loader2, CheckCircle2, 
-  AlertTriangle, RefreshCw, Trash2, FileJson, Clock, Shield, Cloud, PlugZap
+  AlertTriangle, RefreshCw, Trash2, FileJson, Clock, Shield, Cloud, PlugZap,
+  History as HistoryIcon
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -701,7 +702,7 @@ export default function BackupRestore() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-primary/10">
-                <History className="w-5 h-5 text-primary" />
+                <HistoryIcon className="w-5 h-5 text-primary" />
               </div>
               <div>
                 <CardTitle className="text-lg">Riwayat Backup Mingguan</CardTitle>
