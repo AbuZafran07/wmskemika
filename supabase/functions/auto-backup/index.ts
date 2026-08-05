@@ -102,7 +102,9 @@ serve(async (req) => {
     };
 
     const fileName = `auto/backup-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
-    const blob = new Blob([JSON.stringify(exportPayload)], { type: "application/json" });
+    const payloadText = JSON.stringify(exportPayload);
+    const archiveSize = new TextEncoder().encode(payloadText).length;
+    const blob = new Blob([payloadText], { type: "application/json" });
 
     // Upload to storage
     const { error: uploadError } = await supabase.storage
@@ -121,10 +123,28 @@ serve(async (req) => {
       await supabase.storage.from("backups").remove(toDelete);
     }
 
-    // Update last backup timestamp
+    // Update last backup timestamp + append history (keep last 12 entries)
+    const tableCounts: Record<string, number> = {};
+    for (const [t, rows] of Object.entries(backupData)) {
+      tableCounts[t] = (rows as unknown[]).length;
+    }
+    const prevHistory = Array.isArray(configValue?.history)
+      ? (configValue!.history as Record<string, unknown>[])
+      : [];
+    const historyEntry = {
+      file: fileName,
+      created_at: new Date().toISOString(),
+      size: archiveSize,
+      table_count: Object.keys(tableCounts).length,
+      total_records: totalRecords,
+      table_counts: tableCounts,
+      status: "success",
+    };
+    const history = [historyEntry, ...prevHistory].slice(0, 12);
+
     await supabase.from("settings").upsert({
       key: "auto_backup_config",
-      value: { enabled: true, last_backup_at: new Date().toISOString() },
+      value: { ...(configValue || {}), enabled: true, last_backup_at: new Date().toISOString(), history },
       updated_at: new Date().toISOString(),
     }, { onConflict: "key" });
 
