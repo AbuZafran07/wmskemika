@@ -288,7 +288,13 @@ serve(async (req) => {
     let filesFolderName: string | null = null;
 
     if (includeFiles) {
-      const BUCKETS_TO_BACKUP = ["documents", "signatures", "product-photos", "avatars"];
+      const BUCKETS_TO_BACKUP = [
+        "documents",
+        "signatures",
+        "product-photos",
+        "avatars",
+        "chat-attachments",
+      ];
 
       const createFolder = async (name: string, parent: string) => {
         const res = await fetch(
@@ -332,22 +338,32 @@ serve(async (req) => {
         }
 
         const listAllFiles = async (prefix = ""): Promise<string[]> => {
-          const { data, error } = await supabase.storage.from(bucket).list(prefix, { limit: 1000 });
-          if (error || !data) return [];
           const paths: string[] = [];
-          for (const item of data) {
-            const full = prefix ? `${prefix}/${item.name}` : item.name;
-            if ((item as Record<string, unknown>).id === null) {
-              paths.push(...await listAllFiles(full));
-            } else {
-              paths.push(full);
+          const PAGE = 1000;
+          let offset = 0;
+          // Supabase storage.list() dibatasi 1000 item per panggilan -> paginasi wajib
+          while (true) {
+            const { data, error } = await supabase.storage
+              .from(bucket)
+              .list(prefix, { limit: PAGE, offset, sortBy: { column: "name", order: "asc" } });
+            if (error || !data) break;
+            for (const item of data) {
+              const full = prefix ? `${prefix}/${item.name}` : item.name;
+              if ((item as Record<string, unknown>).id === null) {
+                paths.push(...await listAllFiles(full));
+              } else {
+                paths.push(full);
+              }
             }
+            if (data.length < PAGE) break;
+            offset += PAGE;
           }
           return paths;
         };
 
         const allPaths = await listAllFiles();
-        const BATCH = 5;
+        console.log(`[gdrive-backup] ${bucket}: ${allPaths.length} file ditemukan`);
+        const BATCH = 8;
         for (let i = 0; i < allPaths.length; i += BATCH) {
           const batch = allPaths.slice(i, i + BATCH);
           await Promise.all(batch.map(async (filePath) => {
