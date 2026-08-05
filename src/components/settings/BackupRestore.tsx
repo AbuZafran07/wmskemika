@@ -194,12 +194,12 @@ export default function BackupRestore() {
       const { data, error } = await supabase.functions.invoke('gdrive-backup', {
         body: { test: true },
       });
-      if (error) throw error;
+      if (error) throw new Error(await readFunctionError(error));
       if (data?.success) toast.success(data.message || 'Koneksi Google Drive OK');
       else toast.error(data?.message || data?.error || 'Koneksi Google Drive gagal');
     } catch (err: any) {
       console.error('Test gdrive error:', err);
-      toast.error(err.message || 'Gagal menguji koneksi Google Drive');
+      toast.error(err.message || 'Gagal menguji koneksi Google Drive', { duration: 12000 });
     }
     setGdriveTesting(false);
   };
@@ -208,13 +208,13 @@ export default function BackupRestore() {
     setGdriveLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('gdrive-backup', { body: {} });
-      if (error) throw error;
+      if (error) throw new Error(await readFunctionError(error));
       if (data?.error) throw new Error(data.error);
       toast.success(`Backup terkirim ke Google Drive — ${Number(data?.total_records || 0).toLocaleString('id-ID')} record`);
       await fetchGdriveConfig();
     } catch (err: any) {
       console.error('Run gdrive backup error:', err);
-      toast.error(err.message || 'Gagal menjalankan backup Google Drive');
+      toast.error(err.message || 'Gagal menjalankan backup Google Drive', { duration: 12000 });
     }
     setGdriveLoading(false);
   };
