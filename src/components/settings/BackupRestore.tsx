@@ -130,6 +130,23 @@ export default function BackupRestore() {
   });
   const [loadingAuto, setLoadingAuto] = useState(true);
 
+  // Baca pesan error asli dari edge function (bukan "non-2xx status code")
+  const readFunctionError = async (error: any): Promise<string> => {
+    try {
+      const ctx = error?.context;
+      if (ctx && typeof ctx.text === 'function') {
+        const text = await ctx.text();
+        try {
+          const parsed = JSON.parse(text);
+          return parsed.error || parsed.message || text;
+        } catch {
+          return text || error?.message;
+        }
+      }
+    } catch { /* ignore */ }
+    return error?.message || 'Terjadi kesalahan';
+  };
+
   // Google Drive backup state
   const [gdriveConfig, setGdriveConfig] = useState<{
     enabled: boolean;
