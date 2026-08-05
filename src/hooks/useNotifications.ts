@@ -799,14 +799,22 @@ export function useNotifications() {
       // "Petugas Kalibrasi" in Settings.
       try {
         if (user?.id) {
-          const { data: checkerSetting } = await (supabase as any)
-            .from('settings')
-            .select('value')
-            .eq('key', 'calibration_checklist_users')
-            .maybeSingle();
-          const checkerIds: string[] = Array.isArray(checkerSetting?.value)
-            ? (checkerSetting!.value as string[])
-            : [];
+          // RPC (security definer) — `settings` is admin-only readable, so a
+          // direct select silently returns empty for warehouse/other roles.
+          const { data: checkerRpc } = await (supabase as any).rpc(
+            'get_calibration_checklist_users',
+          );
+          let checkerIds: string[] = Array.isArray(checkerRpc) ? (checkerRpc as string[]) : [];
+          if (!checkerIds.length) {
+            const { data: checkerSetting } = await (supabase as any)
+              .from('settings')
+              .select('value')
+              .eq('key', 'calibration_checklist_users')
+              .maybeSingle();
+            checkerIds = Array.isArray(checkerSetting?.value)
+              ? (checkerSetting!.value as string[])
+              : [];
+          }
           const isCalibrationChecker =
             user.role === 'super_admin' || checkerIds.includes(user.id);
 
