@@ -101,13 +101,22 @@ export function useCalibrationCheckers() {
   useEffect(() => {
     let active = true;
     (async () => {
-      const { data } = await (supabase as any)
+      // Use the security-definer RPC: table `settings` is only readable by
+      // admin/super_admin, so a direct select returns empty for warehouse users
+      // and would wrongly block their calibration checklists.
+      const { data, error } = await (supabase as any).rpc('get_calibration_checklist_users');
+      if (!active) return;
+      if (!error && Array.isArray(data)) {
+        setCheckerIds(data as string[]);
+        return;
+      }
+      const { data: row } = await (supabase as any)
         .from('settings')
         .select('value')
         .eq('key', 'calibration_checklist_users')
         .maybeSingle();
       if (!active) return;
-      const val = data?.value;
+      const val = row?.value;
       setCheckerIds(Array.isArray(val) ? (val as string[]) : []);
     })();
     return () => {
