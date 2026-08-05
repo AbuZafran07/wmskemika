@@ -233,7 +233,17 @@ export default function BackupRestore() {
       // List backup files from storage
       const { data: files } = await supabase.storage
         .from('backups')
-        .list('auto', { limit: 4, sortBy: { column: 'created_at', order: 'desc' } });
+        .list('auto', { limit: 12, sortBy: { column: 'created_at', order: 'desc' } });
+
+      const rawHistory = Array.isArray((config as any)?.history) ? (config as any).history : [];
+      const history: BackupHistoryEntry[] = rawHistory.map((h: any) => ({
+        file: String(h?.file ?? ''),
+        created_at: String(h?.created_at ?? ''),
+        size: Number(h?.size ?? 0),
+        table_count: Number(h?.table_count ?? 0),
+        total_records: Number(h?.total_records ?? 0),
+        status: h?.status ? String(h.status) : 'success',
+      }));
 
       setAutoBackup({
         enabled: config?.enabled === true,
@@ -243,6 +253,7 @@ export default function BackupRestore() {
           created_at: f.created_at || '',
           size: f.metadata?.size || 0,
         })),
+        history,
       });
     } catch (err) {
       console.error('Error fetching auto backup info:', err);
