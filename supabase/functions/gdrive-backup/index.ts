@@ -278,10 +278,14 @@ serve(async (req) => {
       .eq("key", "gdrive_backup_include_files")
       .maybeSingle();
     const inclValue = inclSetting?.value as unknown;
-    const includeFiles = inclValue === true ||
+    const settingDisabled = inclValue === false ||
       (typeof inclValue === "object" && inclValue !== null &&
-        (inclValue as Record<string, unknown>).enabled === true) ||
-      body.include_files === true;
+        (inclValue as Record<string, unknown>).enabled === false);
+    // Default: SERTAKAN file (cakupan backup harian = mingguan).
+    // Hanya dinonaktifkan bila setting bernilai false, atau request eksplisit include_files: false.
+    const includeFiles = body.include_files === false
+      ? false
+      : body.include_files === true || !settingDisabled;
 
     let totalFilesUploaded = 0;
     let totalFilesFailed = 0;
