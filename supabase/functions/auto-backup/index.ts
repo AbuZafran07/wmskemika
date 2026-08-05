@@ -57,6 +57,13 @@ serve(async (req) => {
       // Delivery / Kanban
       "delivery_requests", "delivery_orders", "delivery_comments",
       "delivery_checklists", "delivery_labels", "delivery_card_labels",
+      // Tracker PO
+      "po_tracker_checklists", "po_tracker_comments",
+      "po_tracker_labels", "po_tracker_card_labels", "po_tracker_archived",
+      // Kalibrasi
+      "calibration_items", "calibration_spare_parts",
+      "calibration_tracker_checklists", "calibration_tracker_comments",
+      "calibration_labels", "calibration_card_labels", "calibration_document_logs",
       // Chat K'talk
       "chat_messages", "chat_reactions",
       // Lainnya
@@ -69,7 +76,13 @@ serve(async (req) => {
     let totalRecords = 0;
 
     for (const table of tables) {
-      const { data, error } = await supabase.from(table).select("*");
+      let query = supabase.from(table).select("*");
+      if (table === "audit_logs") {
+        query = query
+          .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+          .order("created_at", { ascending: false });
+      }
+      const { data, error } = await query;
       if (!error && data) {
         backupData[table] = data;
         totalRecords += data.length;
