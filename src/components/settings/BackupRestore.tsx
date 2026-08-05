@@ -1159,7 +1159,7 @@ export default function BackupRestore() {
       </Card>
 
       {/* Restore Data */}
-      {/* placeholder-excel-anchor */}
+
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
