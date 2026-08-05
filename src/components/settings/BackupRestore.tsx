@@ -559,7 +559,11 @@ export default function BackupRestore() {
       
       await supabase.from('settings').upsert({
         key: 'auto_backup_config',
-        value: { enabled: newEnabled, last_backup_at: autoBackup.last_backup_at } as any,
+        value: {
+          enabled: newEnabled,
+          last_backup_at: autoBackup.last_backup_at,
+          history: autoBackup.history,
+        } as any,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'key' });
 
@@ -582,18 +586,18 @@ export default function BackupRestore() {
     }
   };
 
-  const downloadAutoBackup = async (fileName: string) => {
+  const downloadBackupPath = async (path: string, downloadName?: string) => {
     try {
       const { data, error } = await supabase.storage
         .from('backups')
-        .download(`auto/${fileName}`);
+        .download(path);
       
       if (error) throw error;
       
       const url = URL.createObjectURL(data);
       const a = document.createElement('a');
       a.href = url;
-      a.download = fileName;
+      a.download = downloadName || path.split('/').pop() || 'backup.json';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -603,6 +607,8 @@ export default function BackupRestore() {
       toast.error('Gagal mengunduh backup');
     }
   };
+
+  const downloadAutoBackup = (fileName: string) => downloadBackupPath(`auto/${fileName}`, fileName);
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 B';
