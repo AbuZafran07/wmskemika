@@ -149,7 +149,7 @@ serve(async (req) => {
     if (body.test === true) {
       const accessToken = await getGoogleAccessToken(serviceAccount);
       const folderRes = await fetch(
-        `https://www.googleapis.com/drive/v3/files/${gdriveFolderId}?fields=id,name&supportsAllDrives=true`,
+        `https://www.googleapis.com/drive/v3/files/${gdriveFolderId}?fields=id,name,driveId,owners(emailAddress)&supportsAllDrives=true`,
         { headers: { Authorization: `Bearer ${accessToken}` } },
       );
       const folderData = await folderRes.json();
@@ -159,9 +159,17 @@ serve(async (req) => {
           message: `Folder Google Drive tidak dapat diakses: ${JSON.stringify(folderData)}`,
         }, 400);
       }
+      if (!folderData.driveId) {
+        return json({
+          success: false,
+          message:
+            `Folder "${folderData.name}" berada di My Drive pribadi. Service Account tidak punya kuota penyimpanan, ` +
+            `jadi upload akan gagal. Pindahkan folder backup ke Shared Drive (Drive Bersama) lalu bagikan ke ${serviceAccount.client_email} sebagai Content manager, dan isi GDRIVE_FOLDER_ID dengan ID folder di Shared Drive tersebut.`,
+        }, 400);
+      }
       return json({
         success: true,
-        message: `Koneksi Google Drive OK — folder "${folderData.name}"`,
+        message: `Koneksi Google Drive OK — folder "${folderData.name}" (Shared Drive)`,
         folder: folderData.name,
         service_account: serviceAccount.client_email,
       });
@@ -248,7 +256,18 @@ serve(async (req) => {
     );
 
     if (!uploadResponse.ok) {
-      throw new Error(`Google Drive upload gagal: ${await uploadResponse.text()}`);
+      const errText = await uploadResponse.text();
+      console.error("Google Drive upload gagal:", uploadResponse.status, errText);
+      if (errText.includes("storageQuotaExceeded") || errText.includes("do not have storage quota")) {
+        return json({
+          error:
+            "Upload gagal: folder tujuan ada di My Drive pribadi. Service Account Google tidak memiliki kuota penyimpanan. " +
+            `Buat folder backup di Shared Drive (Drive Bersama), bagikan ke ${serviceAccount.client_email} sebagai Content manager, ` +
+            "lalu perbarui GDRIVE_FOLDER_ID dengan ID folder tersebut.",
+          reason: "storage_quota",
+        }, 400);
+      }
+      return json({ error: `Google Drive upload gagal (${uploadResponse.status}): ${errText}` }, 502);
     }
     const uploadResult = await uploadResponse.json();
 
