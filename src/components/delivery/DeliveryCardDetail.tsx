@@ -1402,7 +1402,18 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         await supabase.from("delivery_checklists").delete().eq("delivery_request_id", card.id);
         await supabase.from("delivery_card_labels").delete().eq("delivery_request_id", card.id);
         await supabase.from("delivery_comments").delete().eq("delivery_request_id", card.id);
-        await supabase.from("delivery_requests").delete().eq("id", card.id);
+        await supabase.from("attachments").delete().eq("ref_table", "delivery_requests").eq("ref_id", card.id);
+
+        const { data: removed, error: removeError } = await supabase
+          .from("delivery_requests")
+          .delete()
+          .eq("id", card.id)
+          .select("id");
+
+        if (removeError) throw removeError;
+        if (!removed || removed.length === 0) {
+          throw new Error("Card tidak terhapus (kemungkinan akses ditolak). Silakan hubungi super admin.");
+        }
 
         toast.success("Card dihapus dari board. SO dapat ditambahkan kembali ke board.");
       }
