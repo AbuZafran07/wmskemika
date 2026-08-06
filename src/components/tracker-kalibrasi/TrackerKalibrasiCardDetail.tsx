@@ -330,6 +330,11 @@ export default function TrackerKalibrasiCardDetail({
   const receivedDateInputRef = useRef<HTMLInputElement>(null);
   const spkConfirmedDateInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Keputusan Kalibrasi ────────────────────────────────────────────────
+  // Default kosong; nilai tersimpan diturunkan dari feasibility_status
+  // instrumen (bukan dari calibration_status yang ikut berubah oleh workflow).
+  const [decisionOverride, setDecisionOverride] = useState<'' | 'accepted' | 'rejected'>('');
+
   // ── Proforma Invoice (PI) generation ────────────────────────────────────
   const navigate = useNavigate();
   const { data: materaiAmount = 10000 } = useMateraiSetting();
