@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   FlaskConical, X, Send, Loader2, CheckSquare, Square,
   MapPin, Phone, User, CalendarDays, FileText, Download, Eye,
@@ -329,6 +329,22 @@ export default function TrackerKalibrasiCardDetail({
   const commentEndRef = useRef<HTMLDivElement>(null);
   const receivedDateInputRef = useRef<HTMLInputElement>(null);
   const spkConfirmedDateInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Keputusan Kalibrasi ────────────────────────────────────────────────
+  // Default kosong; nilai tersimpan diturunkan dari feasibility_status
+  // instrumen (bukan dari calibration_status yang ikut berubah oleh workflow).
+  const [decisionOverride, setDecisionOverride] = useState<'' | 'accepted' | 'rejected'>('');
+  useEffect(() => {
+    setDecisionOverride('');
+  }, [receiptId]);
+  const persistedDecision: '' | 'accepted' | 'rejected' = useMemo(() => {
+    if (receipt?.status === 'rejected') return 'rejected';
+    const fs = instruments.map((i) => i.feasibility_status);
+    if (fs.some((s) => s === 'not_feasible')) return 'rejected';
+    if (fs.some((s) => s === 'feasible')) return 'accepted';
+    return '';
+  }, [receipt?.status, instruments]);
+  const decisionValue = decisionOverride || persistedDecision;
 
   // ── Proforma Invoice (PI) generation ────────────────────────────────────
   const navigate = useNavigate();
@@ -1658,15 +1674,12 @@ export default function TrackerKalibrasiCardDetail({
                                   <select
                                     className="w-full h-8 rounded-md border text-sm px-2 bg-background"
                                     value={
-                                      receipt?.status === 'rejected'
-                                        ? 'rejected'
-                                        : ['accepted','spk_issued','in_progress','completed','invoiced','delivered'].includes(String(receipt?.status || ''))
-                                          ? 'accepted'
-                                          : ''
+                                      decisionValue
                                     }
                                     onChange={(e) => {
                                       const v = e.target.value as '' | 'accepted' | 'rejected';
                                       if (!v || !receiptId) return;
+                                      setDecisionOverride(v);
                                       onSetDecision?.(receiptId, v);
                                     }}
                                   >
