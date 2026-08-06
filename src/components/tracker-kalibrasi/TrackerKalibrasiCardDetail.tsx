@@ -264,6 +264,13 @@ export default function TrackerKalibrasiCardDetail({
     canToggle ||
     canToggleChecklistKey(user?.role, 'instrument_received', user?.id, calibrationCheckerIds);
 
+  // Detail data kalibrasi (Section B & C sertifikat) boleh diisi saat card sudah
+  // masuk tahap kalibrasi hingga Completed, oleh role toggle maupun petugas
+  // kalibrasi terdaftar.
+  const canCalDetailEdit =
+    canStageEdit &&
+    ['calibration_in_progress', 'completed'].includes(currentColumnId || '');
+
   const [receipt, setReceipt] = useState<ReceiptDetail | null>(null);
   const [instruments, setInstruments] = useState<InstrumentDetail[]>([]);
   const [showCertPreview, setShowCertPreview] = useState(false);
@@ -2259,11 +2266,11 @@ export default function TrackerKalibrasiCardDetail({
           <DialogHeader>
             <DialogTitle>Detail Data Kalibrasi — {editingCalDetail?.instrument_name}</DialogTitle>
             <DialogDescription>
-              Data ini akan otomatis tercantum pada Sertifikat Kalibrasi (Section B & C). Dapat diedit oleh role yang berwenang saat card berada di kolom <b>Calibration Progress</b>.
+              Data ini akan otomatis tercantum pada Sertifikat Kalibrasi (Section B & C). Dapat diedit oleh role berwenang atau petugas kalibrasi terdaftar saat card berada di kolom <b>Calibration In Progress</b> atau <b>Completed</b>.
             </DialogDescription>
           </DialogHeader>
           {editingCalDetail && (() => {
-            const readOnly = !(canToggle && currentColumnId === 'calibration_in_progress');
+            const readOnly = !canCalDetailEdit;
             const upd = (patch: Partial<InstrumentDetail>) =>
               setEditingCalDetail((prev) => (prev ? { ...prev, ...patch } as InstrumentDetail : prev));
             return (
@@ -2348,7 +2355,7 @@ export default function TrackerKalibrasiCardDetail({
 
                 {readOnly && (
                   <div className="text-xs text-muted-foreground bg-muted/40 rounded p-2">
-                    Data hanya dapat diedit saat card berada di kolom <b>Calibration Progress</b> oleh role yang berwenang.
+                    Data hanya dapat diedit saat card berada di kolom <b>Calibration In Progress</b> atau <b>Completed</b> oleh role berwenang / petugas kalibrasi terdaftar.
                   </div>
                 )}
               </div>
@@ -2356,9 +2363,9 @@ export default function TrackerKalibrasiCardDetail({
           })()}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingCalDetail(null)} disabled={savingCalDetail}>
-              {(canToggle && currentColumnId === 'calibration_in_progress') ? 'Batal' : 'Tutup'}
+              {canCalDetailEdit ? 'Batal' : 'Tutup'}
             </Button>
-            {(canToggle && currentColumnId === 'calibration_in_progress') && (
+            {canCalDetailEdit && (
               <Button
                 disabled={savingCalDetail || !editingCalDetail}
                 onClick={async () => {
