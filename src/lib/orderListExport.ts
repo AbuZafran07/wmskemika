@@ -107,6 +107,81 @@ export interface OrderExportRow {
   items: Record<string, string | number>[];
 }
 
+export interface OrderExportPreviewGroup {
+  label: string;
+  count: number;
+  total: number;
+}
+
+export interface OrderExportPreview {
+  groups: OrderExportPreviewGroup[];
+  totalDocs: number;
+  totalAmount: number;
+}
+
+/**
+ * Ringkasan sebelum export: jumlah dokumen & total nominal (grand total)
+ * dikelompokkan per sales (SO) atau per supplier (PO).
+ */
+export async function fetchOrderExportPreview(
+  kind: OrderExportKind,
+  filter: OrderExportFilter = {},
+): Promise<OrderExportPreview> {
+  const map = new Map<string, { label: string; count: number; total: number }>();
+
+  if (kind === "sales_order") {
+    let q = supabase.from("sales_order_headers").select(sel("sales_name, grand_total, is_deleted"));
+    if (filter.dateFrom) q = q.gte("order_date", filter.dateFrom);
+    if (filter.dateTo) q = q.lte("order_date", filter.dateTo);
+    if (filter.salesNames?.length) q = q.in("sales_name", filter.salesNames);
+    else if (filter.salesName) q = q.eq("sales_name", filter.salesName);
+    if (filter.status) q = q.eq("status", filter.status);
+    if (!filter.includeDeleted) q = q.eq("is_deleted", false);
+
+    const { data, error } = await q.returns<{ sales_name: string | null; grand_total: number | null }[]>();
+    if (error) throw error;
+
+    (data || []).forEach((r) => {
+      const raw = (r.sales_name || "").trim() || "(tanpa nama sales)";
+      const key = normalizeSalesKey(raw) || raw;
+      const cur = map.get(key) || { label: raw, count: 0, total: 0 };
+      if (prettyScore(raw) > prettyScore(cur.label)) cur.label = raw;
+      cur.count += 1;
+      cur.total += num(r.grand_total);
+      map.set(key, cur);
+    });
+  } else {
+    let q = supabase
+      .from("plan_order_headers")
+      .select(sel("grand_total, is_deleted, supplier:suppliers(name)"));
+    if (filter.dateFrom) q = q.gte("plan_date", filter.dateFrom);
+    if (filter.dateTo) q = q.lte("plan_date", filter.dateTo);
+    if (filter.supplierId) q = q.eq("supplier_id", filter.supplierId);
+    if (filter.status) q = q.eq("status", filter.status);
+    if (!filter.includeDeleted) q = q.eq("is_deleted", false);
+
+    const { data, error } = await q.returns<
+      { grand_total: number | null; supplier: { name: string | null } | null }[]
+    >();
+    if (error) throw error;
+
+    (data || []).forEach((r) => {
+      const label = (r.supplier?.name || "").trim() || "(tanpa supplier)";
+      const cur = map.get(label) || { label, count: 0, total: 0 };
+      cur.count += 1;
+      cur.total += num(r.grand_total);
+      map.set(label, cur);
+    });
+  }
+
+  const groups = Array.from(map.values()).sort((a, b) => b.total - a.total);
+  return {
+    groups,
+    totalDocs: groups.reduce((a, g) => a + g.count, 0),
+    totalAmount: groups.reduce((a, g) => a + g.total, 0),
+  };
+}
+
 /** Fetch sales orders (header + items) sesuai filter, newest first. */
 async function fetchSalesOrders(filter: OrderExportFilter = {}) {
   let q = supabase
