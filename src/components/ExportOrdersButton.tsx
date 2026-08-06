@@ -199,6 +199,10 @@ export const ExportOrdersButton: React.FC<ExportOrdersButtonProps> = ({
       prev.includes(label) ? prev.filter((s) => s !== label) : [...prev, label],
     );
 
+  const showAmount = kind === "sales_order" || showPrice;
+  const fmtRp = (v: number) =>
+    `Rp${Number(v || 0).toLocaleString("id-ID", { maximumFractionDigits: 0 })}`;
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -207,7 +211,7 @@ export const ExportOrdersButton: React.FC<ExportOrdersButtonProps> = ({
           Export Data
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {en ? "Export Data" : "Export Data"}{" "}
@@ -375,6 +379,75 @@ export const ExportOrdersButton: React.FC<ExportOrdersButtonProps> = ({
             <Label htmlFor="exp-deleted" className="font-normal">
               {en ? "Include deleted documents" : "Sertakan dokumen yang sudah dihapus"}
             </Label>
+          </div>
+
+          <div className="rounded-md border bg-muted/40 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm">
+                {en ? "Export preview" : "Preview data yang akan di-export"}
+              </Label>
+              {previewLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
+            </div>
+
+            {!preview ? (
+              <p className="text-xs text-muted-foreground">
+                {previewLoading
+                  ? en
+                    ? "Calculating..."
+                    : "Menghitung..."
+                  : en
+                    ? "No data"
+                    : "Belum ada data"}
+              </p>
+            ) : preview.totalDocs === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                {en ? "No data matches this filter" : "Tidak ada data sesuai filter ini"}
+              </p>
+            ) : (
+              <>
+                <div className="max-h-40 overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead className="text-muted-foreground">
+                      <tr className="border-b">
+                        <th className="text-left font-medium py-1">
+                          {kind === "sales_order" ? "Sales" : "Supplier"}
+                        </th>
+                        <th className="text-right font-medium py-1">{en ? "Docs" : "Dokumen"}</th>
+                        {showAmount && (
+                          <th className="text-right font-medium py-1">
+                            {en ? "Amount" : "Total Nominal"}
+                          </th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {preview.groups.map((g) => (
+                        <tr key={g.label} className="border-b last:border-0">
+                          <td className="py-1 pr-2">{g.label}</td>
+                          <td className="py-1 text-right tabular-nums">{g.count}</td>
+                          {showAmount && (
+                            <td className="py-1 text-right tabular-nums">{fmtRp(g.total)}</td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex items-center justify-between border-t pt-2 text-sm font-semibold">
+                  <span>
+                    {en ? "Total" : "Total"} — {preview.totalDocs} {en ? "documents" : "dokumen"}
+                  </span>
+                  {showAmount && <span className="tabular-nums">{fmtRp(preview.totalAmount)}</span>}
+                </div>
+                {showAmount && (
+                  <p className="text-[11px] text-muted-foreground">
+                    {en
+                      ? "Amount = grand total per document (incl. tax & shipping)."
+                      : "Total nominal = grand total per dokumen (termasuk PPN & biaya kirim)."}
+                  </p>
+                )}
+              </>
+            )}
           </div>
         </div>
 
