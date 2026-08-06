@@ -258,6 +258,11 @@ export default function TrackerKalibrasiCardDetail({
   const { user } = useAuth();
   const { products } = useProducts();
   const calibrationCheckerIds = useCalibrationCheckers();
+  // Petugas kalibrasi terdaftar boleh mengisi field tahap awal walau role-nya
+  // tidak termasuk role toggle default (mis. sales).
+  const canStageEdit =
+    canToggle ||
+    canToggleChecklistKey(user?.role, 'instrument_received', user?.id, calibrationCheckerIds);
 
   const [receipt, setReceipt] = useState<ReceiptDetail | null>(null);
   const [instruments, setInstruments] = useState<InstrumentDetail[]>([]);
@@ -1645,7 +1650,7 @@ export default function TrackerKalibrasiCardDetail({
                             </div>
                             <div className="space-y-1.5">
                               {/* Instrument Received: keputusan di atas checklist SPK */}
-                              {col.id === 'instrument_received' && canToggle && receiptId && (
+                              {col.id === 'instrument_received' && canStageEdit && receiptId && (
                                 <div className="rounded-lg border border-dashed p-2.5 bg-muted/20 mb-2">
                                   <label className="text-[11px] text-muted-foreground block mb-1">
                                     Keputusan Kalibrasi
@@ -1770,7 +1775,7 @@ export default function TrackerKalibrasiCardDetail({
                               )}
 
                               {/* Instrument Received: input Tgl SPK Confirmed di bawah checklist */}
-                              {col.id === 'instrument_received' && canToggle && receiptId && (
+                              {col.id === 'instrument_received' && canStageEdit && receiptId && (
                                 <div className="rounded-lg border border-dashed p-2.5 bg-muted/20 mt-2">
                                   <label className="text-[11px] text-muted-foreground block mb-1">
                                     Tgl SPK Confirmed
@@ -1856,7 +1861,7 @@ export default function TrackerKalibrasiCardDetail({
                               )}
 
                               {/* Scheduled: tanggal terima di bawah checklist */}
-                              {col.id === 'scheduled' && canToggle && receiptId && (
+                              {col.id === 'scheduled' && canStageEdit && receiptId && (
                                 <div className="rounded-lg border border-dashed p-2.5 bg-muted/20 mt-2">
                                   <label className="text-[11px] text-muted-foreground block mb-1">
                                     Tanggal Terima Alat
