@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Download, FileSpreadsheet, FileText, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -26,9 +26,11 @@ import {
   exportOrdersToPdf,
   fetchSalesNameGroups,
   fetchSupplierOptions,
+  fetchOrderExportPreview,
   type OrderExportFilter,
   type OrderExportKind,
   type SalesNameGroup,
+  type OrderExportPreview,
 } from "@/lib/orderListExport";
 
 interface ExportOrdersButtonProps {
@@ -87,6 +89,8 @@ export const ExportOrdersButton: React.FC<ExportOrdersButtonProps> = ({
 
   const [salesGroups, setSalesGroups] = useState<SalesNameGroup[]>([]);
   const [supplierOptions, setSupplierOptions] = useState<{ id: string; name: string }[]>([]);
+  const [preview, setPreview] = useState<OrderExportPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -106,13 +110,8 @@ export const ExportOrdersButton: React.FC<ExportOrdersButtonProps> = ({
     setDateTo(r.to);
   };
 
-  const run = async (format: "xlsx" | "pdf") => {
-    if (dateFrom && dateTo && dateFrom > dateTo) {
-      toast.error(en ? "Start date is after end date" : "Tanggal awal melebihi tanggal akhir");
-      return;
-    }
-
-    const filter: OrderExportFilter = {
+  const buildFilter = useCallback((): OrderExportFilter => {
+    return {
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
       salesNames:
@@ -124,6 +123,38 @@ export const ExportOrdersButton: React.FC<ExportOrdersButtonProps> = ({
       status: status !== ALL ? status : undefined,
       includeDeleted,
     };
+  }, [dateFrom, dateTo, kind, selectedSales, salesGroups, supplierId, status, includeDeleted]);
+
+  // Preview jumlah dokumen & total nominal, dihitung ulang otomatis saat filter berubah.
+  useEffect(() => {
+    if (!open) return;
+    if (dateFrom && dateTo && dateFrom > dateTo) return;
+    let cancelled = false;
+    setPreviewLoading(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetchOrderExportPreview(kind, buildFilter());
+        if (!cancelled) setPreview(res);
+      } catch (err) {
+        console.error("export preview error:", err);
+        if (!cancelled) setPreview(null);
+      } finally {
+        if (!cancelled) setPreviewLoading(false);
+      }
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [open, kind, buildFilter, dateFrom, dateTo]);
+
+  const run = async (format: "xlsx" | "pdf") => {
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+      toast.error(en ? "Start date is after end date" : "Tanggal awal melebihi tanggal akhir");
+      return;
+    }
+
+    const filter = buildFilter();
 
     setBusy(format);
     const loadingId = toast.loading(en ? "Preparing export..." : "Menyiapkan data export...");
@@ -168,6 +199,10 @@ export const ExportOrdersButton: React.FC<ExportOrdersButtonProps> = ({
       prev.includes(label) ? prev.filter((s) => s !== label) : [...prev, label],
     );
 
+  const showAmount = kind === "sales_order" || showPrice;
+  const fmtRp = (v: number) =>
+    `Rp${Number(v || 0).toLocaleString("id-ID", { maximumFractionDigits: 0 })}`;
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -176,7 +211,7 @@ export const ExportOrdersButton: React.FC<ExportOrdersButtonProps> = ({
           Export Data
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {en ? "Export Data" : "Export Data"}{" "}
@@ -344,6 +379,75 @@ export const ExportOrdersButton: React.FC<ExportOrdersButtonProps> = ({
             <Label htmlFor="exp-deleted" className="font-normal">
               {en ? "Include deleted documents" : "Sertakan dokumen yang sudah dihapus"}
             </Label>
+          </div>
+
+          <div className="rounded-md border bg-muted/40 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm">
+                {en ? "Export preview" : "Preview data yang akan di-export"}
+              </Label>
+              {previewLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
+            </div>
+
+            {!preview ? (
+              <p className="text-xs text-muted-foreground">
+                {previewLoading
+                  ? en
+                    ? "Calculating..."
+                    : "Menghitung..."
+                  : en
+                    ? "No data"
+                    : "Belum ada data"}
+              </p>
+            ) : preview.totalDocs === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                {en ? "No data matches this filter" : "Tidak ada data sesuai filter ini"}
+              </p>
+            ) : (
+              <>
+                <div className="max-h-40 overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead className="text-muted-foreground">
+                      <tr className="border-b">
+                        <th className="text-left font-medium py-1">
+                          {kind === "sales_order" ? "Sales" : "Supplier"}
+                        </th>
+                        <th className="text-right font-medium py-1">{en ? "Docs" : "Dokumen"}</th>
+                        {showAmount && (
+                          <th className="text-right font-medium py-1">
+                            {en ? "Amount" : "Total Nominal"}
+                          </th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {preview.groups.map((g) => (
+                        <tr key={g.label} className="border-b last:border-0">
+                          <td className="py-1 pr-2">{g.label}</td>
+                          <td className="py-1 text-right tabular-nums">{g.count}</td>
+                          {showAmount && (
+                            <td className="py-1 text-right tabular-nums">{fmtRp(g.total)}</td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex items-center justify-between border-t pt-2 text-sm font-semibold">
+                  <span>
+                    {en ? "Total" : "Total"} — {preview.totalDocs} {en ? "documents" : "dokumen"}
+                  </span>
+                  {showAmount && <span className="tabular-nums">{fmtRp(preview.totalAmount)}</span>}
+                </div>
+                {showAmount && (
+                  <p className="text-[11px] text-muted-foreground">
+                    {en
+                      ? "Amount = grand total per document (incl. tax & shipping)."
+                      : "Total nominal = grand total per dokumen (termasuk PPN & biaya kirim)."}
+                  </p>
+                )}
+              </>
+            )}
           </div>
         </div>
 
