@@ -470,7 +470,16 @@ export function useTrackerKalibrasi() {
             console.error('auto-confirm delivery error:', e);
           }
 
-          // Arsipkan / batalkan arsip SO kalibrasi mengikuti kolom Delivered
+        }
+
+        // Arsipkan / batalkan arsip SO kalibrasi mengikuti kolom Delivered.
+        // Harus dievaluasi setiap kali salah satu dari 3 checklist kolom
+        // Delivered berubah — bukan hanya saat "Instrument Delivered".
+        if (
+          checklistKey === 'payment_verified' ||
+          checklistKey === 'certificate_released' ||
+          checklistKey === 'instrument_delivered'
+        ) {
           const chk = checklists[receiptId] || [];
           const isOn = (k: string) =>
             k === checklistKey
@@ -491,6 +500,7 @@ export function useTrackerKalibrasi() {
             console.error('sync_calibration_delivered error:', e);
             toast.error(e?.message || 'Gagal memperbarui status Sales Order');
           }
+          fetchData();
         }
       } catch (err) {
         console.error('toggleChecklist error:', err);
