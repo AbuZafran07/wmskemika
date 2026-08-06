@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Download, FileSpreadsheet, FileText, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -26,9 +26,11 @@ import {
   exportOrdersToPdf,
   fetchSalesNameGroups,
   fetchSupplierOptions,
+  fetchOrderExportPreview,
   type OrderExportFilter,
   type OrderExportKind,
   type SalesNameGroup,
+  type OrderExportPreview,
 } from "@/lib/orderListExport";
 
 interface ExportOrdersButtonProps {
@@ -87,6 +89,8 @@ export const ExportOrdersButton: React.FC<ExportOrdersButtonProps> = ({
 
   const [salesGroups, setSalesGroups] = useState<SalesNameGroup[]>([]);
   const [supplierOptions, setSupplierOptions] = useState<{ id: string; name: string }[]>([]);
+  const [preview, setPreview] = useState<OrderExportPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -106,13 +110,8 @@ export const ExportOrdersButton: React.FC<ExportOrdersButtonProps> = ({
     setDateTo(r.to);
   };
 
-  const run = async (format: "xlsx" | "pdf") => {
-    if (dateFrom && dateTo && dateFrom > dateTo) {
-      toast.error(en ? "Start date is after end date" : "Tanggal awal melebihi tanggal akhir");
-      return;
-    }
-
-    const filter: OrderExportFilter = {
+  const buildFilter = useCallback((): OrderExportFilter => {
+    return {
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
       salesNames:
@@ -124,6 +123,38 @@ export const ExportOrdersButton: React.FC<ExportOrdersButtonProps> = ({
       status: status !== ALL ? status : undefined,
       includeDeleted,
     };
+  }, [dateFrom, dateTo, kind, selectedSales, salesGroups, supplierId, status, includeDeleted]);
+
+  // Preview jumlah dokumen & total nominal, dihitung ulang otomatis saat filter berubah.
+  useEffect(() => {
+    if (!open) return;
+    if (dateFrom && dateTo && dateFrom > dateTo) return;
+    let cancelled = false;
+    setPreviewLoading(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetchOrderExportPreview(kind, buildFilter());
+        if (!cancelled) setPreview(res);
+      } catch (err) {
+        console.error("export preview error:", err);
+        if (!cancelled) setPreview(null);
+      } finally {
+        if (!cancelled) setPreviewLoading(false);
+      }
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [open, kind, buildFilter, dateFrom, dateTo]);
+
+  const run = async (format: "xlsx" | "pdf") => {
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+      toast.error(en ? "Start date is after end date" : "Tanggal awal melebihi tanggal akhir");
+      return;
+    }
+
+    const filter = buildFilter();
 
     setBusy(format);
     const loadingId = toast.loading(en ? "Preparing export..." : "Menyiapkan data export...");
