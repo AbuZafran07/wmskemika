@@ -2684,6 +2684,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_calibration_checker: { Args: { _user_id: string }; Returns: boolean }
       issue_calibration_certificates: {
         Args: { p_so_id: string }
         Returns: {
