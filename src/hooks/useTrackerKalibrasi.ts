@@ -184,6 +184,11 @@ export function useTrackerKalibrasi() {
 
   const canToggle = CHECKLIST_TOGGLE_ROLES.includes(role || '');
   const checkerIds = useCalibrationCheckers();
+  // Petugas kalibrasi terdaftar (Settings > Petugas Kalibrasi) juga boleh mengisi
+  // field tahap Scheduled → Calibration In Progress, meskipun role-nya di luar
+  // CHECKLIST_TOGGLE_ROLES (mis. sales).
+  const canStageEdit =
+    canToggle || (!!user?.id && checkerIds.includes(user.id));
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -513,7 +518,7 @@ export function useTrackerKalibrasi() {
 
   const setReceivedDate = useCallback(
     async (receiptId: string, dateISO: string | null) => {
-      if (!canToggle) return;
+      if (!canStageEdit) return;
       try {
         const value = dateISO || null;
         const { error } = await (supabase as any)
@@ -527,12 +532,12 @@ export function useTrackerKalibrasi() {
         toast.error('Gagal update tanggal terima');
       }
     },
-    [canToggle, fetchData],
+    [canStageEdit, fetchData],
   );
 
   const setSpkConfirmedDate = useCallback(
     async (receiptId: string, dateISO: string | null) => {
-      if (!canToggle) return;
+      if (!canStageEdit) return;
       try {
         const value = dateISO || null;
         const { error } = await (supabase as any)
@@ -546,7 +551,7 @@ export function useTrackerKalibrasi() {
         toast.error('Gagal update tanggal SPK confirmed');
       }
     },
-    [canToggle, fetchData],
+    [canStageEdit, fetchData],
   );
 
   const setPaymentVerifiedDate = useCallback(
@@ -574,7 +579,7 @@ export function useTrackerKalibrasi() {
 
   const setDecision = useCallback(
     async (receiptId: string, decision: 'accepted' | 'rejected') => {
-      if (!canToggle) return;
+      if (!canStageEdit) return;
       try {
         const patch: Record<string, any> =
           decision === 'rejected'
@@ -600,7 +605,7 @@ export function useTrackerKalibrasi() {
         toast.error(err?.message || 'Gagal update keputusan');
       }
     },
-    [canToggle, fetchData],
+    [canStageEdit, fetchData],
   );
 
   return {
@@ -608,6 +613,7 @@ export function useTrackerKalibrasi() {
     checklists,
     loading,
     canToggle,
+    canStageEdit,
     getColumnCards,
     getCardColumn,
     toggleChecklist,
