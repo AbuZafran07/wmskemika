@@ -1161,18 +1161,21 @@ export default function SalesOrder() {
             {t("menu.salesOrderSub")} - {language === "en" ? "Manage customer orders" : "Kelola pesanan customer"}
           </p>
         </div>
-        {canCreate("sales_order") && (
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={handleOpenDialog}>
-              <Plus className="w-4 h-4 mr-2" />
-              {language === "en" ? "Create Sales Order" : "Buat Sales Order"}
-            </Button>
-            <Button variant="outline" onClick={() => setIsCalibDialogOpen(true)}>
-              <Wrench className="w-4 h-4 mr-2" />
-              {language === "en" ? "Create Calibration SO" : "Buat SO Kalibrasi"}
-            </Button>
-          </div>
-        )}
+        <div className="flex flex-wrap gap-2">
+          <ExportOrdersButton kind="sales_order" language={language} />
+          {canCreate("sales_order") && (
+            <>
+              <Button onClick={handleOpenDialog}>
+                <Plus className="w-4 h-4 mr-2" />
+                {language === "en" ? "Create Sales Order" : "Buat Sales Order"}
+              </Button>
+              <Button variant="outline" onClick={() => setIsCalibDialogOpen(true)}>
+                <Wrench className="w-4 h-4 mr-2" />
+                {language === "en" ? "Create Calibration SO" : "Buat SO Kalibrasi"}
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       <CreateCalibrationSODialog
