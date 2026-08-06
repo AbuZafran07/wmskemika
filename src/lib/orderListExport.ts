@@ -12,6 +12,10 @@ export interface OrderExportFilter {
   dateTo?: string;
   /** Nama sales (khusus Sales Order) */
   salesName?: string;
+  /** Beberapa nama sales sekaligus (varian ejaan digabung) */
+  salesNames?: string[];
+  /** Label sales yang dipilih (untuk caption/nama file) */
+  salesLabels?: string[];
   /** Supplier id (khusus Plan Order) */
   supplierId?: string;
   /** Status dokumen */
@@ -27,18 +31,64 @@ const sel = (s: string): string => s;
 
 const num = (v: unknown) => (v === null || v === undefined || v === "" ? 0 : Number(v));
 
-/** Ambil daftar nama sales unik untuk pilihan filter. */
-export async function fetchSalesNames(): Promise<string[]> {
+export interface SalesNameGroup {
+  /** Nama tampilan (ejaan paling rapi) */
+  label: string;
+  /** Semua varian ejaan di database yang dianggap orang yang sama */
+  variants: string[];
+  /** Jumlah dokumen SO untuk grup ini */
+  count: number;
+}
+
+const normalizeSalesKey = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+
+const prettyScore = (s: string) => {
+  // Prioritaskan ejaan Title Case & tanpa spasi ganda
+  const words = s.trim().split(/\s+/);
+  const titled = words.filter((w) => /^[A-Z][a-z'’.-]*$/.test(w)).length;
+  return titled * 10 + (s.trim() === s ? 1 : 0);
+};
+
+/**
+ * Ambil daftar nama sales, dikelompokkan agar varian ejaan
+ * ("fahrur rozi", "Fahrur rozi", "Fahrur Rozi") menjadi satu pilihan.
+ */
+export async function fetchSalesNameGroups(): Promise<SalesNameGroup[]> {
   const { data, error } = await supabase
     .from("sales_order_headers")
     .select("sales_name")
     .order("sales_name", { ascending: true });
   if (error) throw error;
-  const set = new Set<string>();
+
+  const map = new Map<string, { variants: Map<string, number> }>();
   (data || []).forEach((r: { sales_name: string | null }) => {
-    if (r.sales_name && r.sales_name.trim()) set.add(r.sales_name.trim());
+    const raw = (r.sales_name || "").trim();
+    if (!raw) return;
+    const key = normalizeSalesKey(raw);
+    if (!key) return;
+    if (!map.has(key)) map.set(key, { variants: new Map() });
+    const v = map.get(key)!.variants;
+    v.set(raw, (v.get(raw) || 0) + 1);
   });
-  return Array.from(set);
+
+  const groups: SalesNameGroup[] = Array.from(map.values()).map((g) => {
+    const variants = Array.from(g.variants.keys());
+    const label = variants.slice().sort((a, b) => prettyScore(b) - prettyScore(a))[0];
+    const count = Array.from(g.variants.values()).reduce((a, b) => a + b, 0);
+    return { label, variants, count };
+  });
+
+  return groups.sort((a, b) => a.label.localeCompare(b.label, "id"));
+}
+
+/** Kompatibilitas lama: daftar nama sales unik (sudah dikelompokkan). */
+export async function fetchSalesNames(): Promise<string[]> {
+  return (await fetchSalesNameGroups()).map((g) => g.label);
 }
 
 /** Ambil daftar supplier aktif untuk pilihan filter Plan Order. */
@@ -76,7 +126,8 @@ async function fetchSalesOrders(filter: OrderExportFilter = {}) {
 
   if (filter.dateFrom) q = q.gte("order_date", filter.dateFrom);
   if (filter.dateTo) q = q.lte("order_date", filter.dateTo);
-  if (filter.salesName) q = q.eq("sales_name", filter.salesName);
+  if (filter.salesNames?.length) q = q.in("sales_name", filter.salesNames);
+  else if (filter.salesName) q = q.eq("sales_name", filter.salesName);
   if (filter.status) q = q.eq("status", filter.status);
   if (!filter.includeDeleted) q = q.eq("is_deleted", false);
 
@@ -211,7 +262,9 @@ const stamp = () => new Date().toISOString().slice(0, 10);
 
 const filterSuffix = (f: OrderExportFilter) => {
   const parts: string[] = [];
-  if (f.salesName) parts.push(f.salesName.replace(/[^a-zA-Z0-9]+/g, "-"));
+  const labels = f.salesLabels?.length ? f.salesLabels : f.salesName ? [f.salesName] : [];
+  if (labels.length === 1) parts.push(labels[0].replace(/[^a-zA-Z0-9]+/g, "-"));
+  else if (labels.length > 1) parts.push(`${labels.length}-sales`);
   if (f.dateFrom || f.dateTo) parts.push(`${f.dateFrom || "awal"}_sd_${f.dateTo || "akhir"}`);
   if (f.status) parts.push(f.status);
   return parts.length ? `-${parts.join("-")}` : "";
@@ -224,7 +277,8 @@ const filterCaption = (f: OrderExportFilter) => {
       ? `Periode: ${f.dateFrom ? fmtDate(f.dateFrom) : "awal"} s/d ${f.dateTo ? fmtDate(f.dateTo) : "akhir"}`
       : "Periode: semua tanggal",
   );
-  if (f.salesName) parts.push(`Sales: ${f.salesName}`);
+  const labels = f.salesLabels?.length ? f.salesLabels : f.salesName ? [f.salesName] : [];
+  if (labels.length) parts.push(`Sales: ${labels.join(", ")}`);
   if (f.status) parts.push(`Status: ${f.status}`);
   return parts.join("  |  ");
 };

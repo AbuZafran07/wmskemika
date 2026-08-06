@@ -24,10 +24,11 @@ import {
 import {
   exportOrdersToExcel,
   exportOrdersToPdf,
-  fetchSalesNames,
+  fetchSalesNameGroups,
   fetchSupplierOptions,
   type OrderExportFilter,
   type OrderExportKind,
+  type SalesNameGroup,
 } from "@/lib/orderListExport";
 
 interface ExportOrdersButtonProps {
@@ -78,19 +79,20 @@ export const ExportOrdersButton: React.FC<ExportOrdersButtonProps> = ({
 
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [salesName, setSalesName] = useState(ALL);
+  const [selectedSales, setSelectedSales] = useState<string[]>([]);
+  const [salesSearch, setSalesSearch] = useState("");
   const [supplierId, setSupplierId] = useState(ALL);
   const [status, setStatus] = useState(ALL);
   const [includeDeleted, setIncludeDeleted] = useState(false);
 
-  const [salesOptions, setSalesOptions] = useState<string[]>([]);
+  const [salesGroups, setSalesGroups] = useState<SalesNameGroup[]>([]);
   const [supplierOptions, setSupplierOptions] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
     if (!open) return;
     (async () => {
       try {
-        if (kind === "sales_order") setSalesOptions(await fetchSalesNames());
+        if (kind === "sales_order") setSalesGroups(await fetchSalesNameGroups());
         else setSupplierOptions(await fetchSupplierOptions());
       } catch (err) {
         console.error("load export filter options error:", err);
@@ -113,7 +115,11 @@ export const ExportOrdersButton: React.FC<ExportOrdersButtonProps> = ({
     const filter: OrderExportFilter = {
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
-      salesName: kind === "sales_order" && salesName !== ALL ? salesName : undefined,
+      salesNames:
+        kind === "sales_order" && selectedSales.length
+          ? salesGroups.filter((g) => selectedSales.includes(g.label)).flatMap((g) => g.variants)
+          : undefined,
+      salesLabels: kind === "sales_order" && selectedSales.length ? selectedSales : undefined,
       supplierId: kind === "plan_order" && supplierId !== ALL ? supplierId : undefined,
       status: status !== ALL ? status : undefined,
       includeDeleted,
@@ -151,6 +157,16 @@ export const ExportOrdersButton: React.FC<ExportOrdersButtonProps> = ({
   };
 
   const statusList = kind === "sales_order" ? SO_STATUS : PO_STATUS;
+
+  const filteredSales = salesGroups.filter((g) =>
+    g.label.toLowerCase().includes(salesSearch.trim().toLowerCase()),
+  );
+  const allSelected = salesGroups.length > 0 && selectedSales.length === salesGroups.length;
+
+  const toggleSales = (label: string) =>
+    setSelectedSales((prev) =>
+      prev.includes(label) ? prev.filter((s) => s !== label) : [...prev, label],
+    );
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -218,20 +234,70 @@ export const ExportOrdersButton: React.FC<ExportOrdersButtonProps> = ({
 
           {kind === "sales_order" ? (
             <div className="space-y-1.5">
-              <Label>Sales</Label>
-              <Select value={salesName} onValueChange={setSalesName}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL}>{en ? "All sales" : "Semua sales"}</SelectItem>
-                  {salesOptions.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center justify-between">
+                <Label>
+                  Sales{" "}
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {selectedSales.length === 0
+                      ? en
+                        ? "(all sales)"
+                        : "(semua sales)"
+                      : `(${selectedSales.length} ${en ? "selected" : "dipilih"})`}
+                  </span>
+                </Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-xs"
+                  onClick={() =>
+                    setSelectedSales(allSelected ? [] : salesGroups.map((g) => g.label))
+                  }
+                >
+                  {allSelected ? (en ? "Clear" : "Kosongkan") : en ? "Select all" : "Pilih semua"}
+                </Button>
+              </div>
+              <Input
+                placeholder={en ? "Search sales name..." : "Cari nama sales..."}
+                value={salesSearch}
+                onChange={(e) => setSalesSearch(e.target.value)}
+                className="h-8"
+              />
+              <div className="max-h-40 overflow-y-auto rounded-md border p-2 space-y-1.5">
+                {filteredSales.length === 0 ? (
+                  <p className="text-xs text-muted-foreground px-1 py-2">
+                    {en ? "No sales found" : "Nama sales tidak ditemukan"}
+                  </p>
+                ) : (
+                  filteredSales.map((g) => (
+                    <div key={g.label} className="flex items-start gap-2">
+                      <Checkbox
+                        id={`sales-${g.label}`}
+                        checked={selectedSales.includes(g.label)}
+                        onCheckedChange={() => toggleSales(g.label)}
+                        className="mt-0.5"
+                      />
+                      <Label
+                        htmlFor={`sales-${g.label}`}
+                        className="font-normal flex-1 cursor-pointer text-sm"
+                      >
+                        {g.label}
+                        <span className="text-muted-foreground text-xs"> ({g.count})</span>
+                        {g.variants.length > 1 && (
+                          <span className="text-muted-foreground text-[11px] block">
+                            {en ? "variants" : "varian"}: {g.variants.join(" • ")}
+                          </span>
+                        )}
+                      </Label>
+                    </div>
+                  ))
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {en
+                  ? "Spelling variants of the same name are grouped, so no rows are missed."
+                  : "Varian ejaan nama yang sama otomatis digabung, jadi data tidak ada yang terlewat."}
+              </p>
             </div>
           ) : (
             <div className="space-y-1.5">
