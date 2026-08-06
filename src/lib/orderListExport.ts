@@ -23,6 +23,8 @@ export interface OrderExportFilter {
 const fmtDate = (d?: string | null) =>
   d ? new Date(d).toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric" }) : "";
 
+const sel = (s: string): string => s;
+
 const num = (v: unknown) => (v === null || v === undefined || v === "" ? 0 : Number(v));
 
 /** Ambil daftar nama sales unik untuk pilihan filter. */
@@ -59,7 +61,7 @@ export interface OrderExportRow {
 async function fetchSalesOrders(filter: OrderExportFilter = {}) {
   let q = supabase
     .from("sales_order_headers")
-    .select(`
+    .select(sel(`
       sales_order_number, order_date, status, order_type, sales_name, customer_po_number,
       sales_pulse_reference_number, project_instansi, allocation_type, delivery_deadline,
       total_amount, discount, tax_rate, shipping_cost, grand_total, notes, is_deleted,
@@ -69,7 +71,7 @@ async function fetchSalesOrders(filter: OrderExportFilter = {}) {
         unit_price, discount, subtotal, notes,
         product:products(sku, name)
       )
-    `)
+    `))
     .order("order_date", { ascending: false });
 
   if (filter.dateFrom) q = q.gte("order_date", filter.dateFrom);
@@ -87,7 +89,7 @@ async function fetchSalesOrders(filter: OrderExportFilter = {}) {
 async function fetchPlanOrders(filter: OrderExportFilter = {}) {
   let q = supabase
     .from("plan_order_headers")
-    .select(`
+    .select(sel(`
       plan_number, plan_date, status, reference_no, expected_delivery_date,
       total_amount, discount, tax_rate, shipping_cost, grand_total, notes, is_deleted,
       supplier:suppliers(name, code),
@@ -95,7 +97,7 @@ async function fetchPlanOrders(filter: OrderExportFilter = {}) {
         planned_qty, qty_received, qty_remaining, unit_price, subtotal, notes,
         product:products(sku, name)
       )
-    `)
+    `))
     .order("plan_date", { ascending: false });
 
   if (filter.dateFrom) q = q.gte("plan_date", filter.dateFrom);
