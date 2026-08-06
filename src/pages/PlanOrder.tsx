@@ -194,7 +194,7 @@ export default function PlanOrder() {
   const { allowAdminApprove } = useSettings();
 
   // RBAC
-  const { canCreate, canEdit, canDelete, canCancel, canApproveOrder, isAdminOrAbove } = usePermissions();
+  const { canCreate, canEdit, canDelete, canCancel, canApproveOrder, isAdminOrAbove, canViewPurchasePrice } = usePermissions();
   const canApprove = canApproveOrder("plan_order");
 
   // List/filter state
