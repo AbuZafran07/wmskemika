@@ -81,15 +81,29 @@ async function imgToBase64(src: string): Promise<string | null> {
 
 async function getSignatureBase64(userId: string | null | undefined): Promise<string | null> {
   if (!userId) return null;
-  const { data } = await supabase
-    .from("user_signatures")
-    .select("signature_path")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (!data?.signature_path) return null;
-  const { data: pub } = supabase.storage.from("signatures").getPublicUrl(data.signature_path);
-  if (!pub?.publicUrl) return null;
-  return imgToBase64(pub.publicUrl);
+  try {
+    const { data } = await supabase
+      .from("user_signatures")
+      .select("signature_path")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!data?.signature_path) return null;
+    // The "signatures" bucket is PRIVATE — getPublicUrl() returns a URL that 400s.
+    // Download the object with the authenticated client and inline it as a PNG
+    // data URL so transparency is preserved in the PDF.
+    const { data: blob, error } = await supabase.storage
+      .from("signatures")
+      .download(data.signature_path);
+    if (error || !blob) return null;
+    return await new Promise<string | null>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : null);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
 }
 
 /** Resolve a signer's display name + signature image from a user id. */
