@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 
 import { exportSectionBasedPdf } from "@/lib/pdfSectionExport";
+import { ExportOrdersButton } from "@/components/ExportOrdersButton";
 import { attachmentFileName } from "@/lib/fileNaming";
 
 import { securePrint, printStyles, sanitizeHtml } from "@/lib/printUtils";
@@ -193,7 +194,7 @@ export default function PlanOrder() {
   const { allowAdminApprove } = useSettings();
 
   // RBAC
-  const { canCreate, canEdit, canDelete, canCancel, canApproveOrder, isAdminOrAbove } = usePermissions();
+  const { canCreate, canEdit, canDelete, canCancel, canApproveOrder, isAdminOrAbove, canViewPurchasePrice } = usePermissions();
   const canApprove = canApproveOrder("plan_order");
 
   // List/filter state
@@ -1396,20 +1397,27 @@ export default function PlanOrder() {
           </p>
         </div>
 
-        {canCreate("plan_order") && (
-          <Button
-            onClick={() => {
-              resetForm();
-              generatePlanNumber();
-              setIsFormOpen(true);
-              setIsEditMode(false);
-              setEditingOrderId(null);
-            }}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            {language === "en" ? "Create Plan Order" : "Buat Plan Order"}
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          <ExportOrdersButton
+            kind="plan_order"
+            language={language}
+            showPrice={canViewPurchasePrice()}
+          />
+          {canCreate("plan_order") && (
+            <Button
+              onClick={() => {
+                resetForm();
+                generatePlanNumber();
+                setIsFormOpen(true);
+                setIsEditMode(false);
+                setEditingOrderId(null);
+              }}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              {language === "en" ? "Create Plan Order" : "Buat Plan Order"}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}
