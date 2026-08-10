@@ -573,10 +573,6 @@ export async function cancelSalesOrder(orderId: string): Promise<{ success: bool
 }
 
 export async function deleteSalesOrder(orderId: string): Promise<{ success: boolean; error?: string }> {
-  return deleteSalesOrderInternal(orderId);
-}
-
-async function deleteSalesOrderInternal(orderId: string): Promise<{ success: boolean; error?: string }> {
   try {
     const { data, error } = await supabase.rpc('sales_order_soft_delete', { order_id: orderId });
     if (error) throw error;
