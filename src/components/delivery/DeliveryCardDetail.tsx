@@ -2758,7 +2758,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
             salesOrderNumber={card.sales_order_number}
             boardStatus={card.board_status}
             soStatus={card.so_status}
-            onChanged={() => { onUpdate?.(); fetchComments(); }}
+            onChanged={() => { fetchComments(); }}
           />
           {/* Generate PI button - CBD / DP+Termin payment terms OR matching label, sales/super_admin/finance */}
           {(() => {
