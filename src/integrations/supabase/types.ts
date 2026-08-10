@@ -2740,6 +2740,10 @@ export type Database = {
         Returns: Json
       }
       sales_order_cancel: { Args: { order_id: string }; Returns: Json }
+      sales_order_cancel_delivered: {
+        Args: { order_id: string; reason: string }
+        Returns: Json
+      }
       sales_order_create: {
         Args: { attachment_meta?: Json; header_data: Json; items_data: Json }
         Returns: Json
