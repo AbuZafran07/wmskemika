@@ -2911,6 +2911,72 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       </Dialog>
     </Dialog>
 
+      {/* Cancel Delivered SO Dialog (super_admin only) */}
+      <Dialog
+        open={showCancelDeliveredDialog}
+        onOpenChange={(open) => {
+          setShowCancelDeliveredDialog(open);
+          if (!open) { setCancelDeliveredReason(""); setCancelDeliveredSoConfirm(""); }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Batalkan Sales Order yang Sudah Terkirim
+            </DialogTitle>
+            <DialogDescription className="text-destructive font-medium">
+              Aksi ini membatalkan SO yang barangnya sudah terkirim dan tidak bisa dibatalkan kembali.
+              Stok TIDAK dikembalikan otomatis — sistem akan membuat draft Stock Adjustment yang WAJIB Anda
+              review (barang kembali vs write-off). Bukti pengiriman (attachment) tetap tersimpan karena card
+              diarsipkan, bukan dihapus.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div>
+              <Label htmlFor="cancel-delivered-reason" className="text-xs">Alasan pembatalan (min 20 karakter)</Label>
+              <Textarea
+                id="cancel-delivered-reason"
+                value={cancelDeliveredReason}
+                onChange={(e) => setCancelDeliveredReason(e.target.value.slice(0, 500))}
+                placeholder="Jelaskan alasan pembatalan SO yang sudah terkirim..."
+                rows={3}
+                className="mt-1 text-sm"
+              />
+              <p className="text-[10px] text-muted-foreground text-right">{cancelDeliveredReason.length}/500</p>
+            </div>
+            <div>
+              <Label htmlFor="cancel-delivered-confirm" className="text-xs">
+                Ketik ulang nomor SO <span className="font-semibold text-foreground">{card.sales_order_number}</span> untuk konfirmasi
+              </Label>
+              <Input
+                id="cancel-delivered-confirm"
+                value={cancelDeliveredSoConfirm}
+                onChange={(e) => setCancelDeliveredSoConfirm(e.target.value)}
+                placeholder={card.sales_order_number}
+                className="mt-1 text-sm"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" size="sm" onClick={() => setShowCancelDeliveredDialog(false)}>Tutup</Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleCancelDelivered}
+              disabled={
+                cancellingDelivered ||
+                cancelDeliveredReason.trim().length < 20 ||
+                cancelDeliveredSoConfirm.trim() !== card.sales_order_number
+              }
+            >
+              {cancellingDelivered && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              Batalkan SO
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* DP + Termin Setup Dialog */}
       <Dialog open={showDpTerminDialog} onOpenChange={setShowDpTerminDialog}>
         <DialogContent className="max-w-md">
