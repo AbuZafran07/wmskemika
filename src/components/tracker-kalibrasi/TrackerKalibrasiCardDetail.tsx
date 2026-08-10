@@ -264,13 +264,6 @@ export default function TrackerKalibrasiCardDetail({
     canToggle ||
     canToggleChecklistKey(user?.role, 'instrument_received', user?.id, calibrationCheckerIds);
 
-  // Detail data kalibrasi (Section B & C sertifikat) boleh diisi saat card sudah
-  // masuk tahap kalibrasi hingga Completed, oleh role toggle maupun petugas
-  // kalibrasi terdaftar.
-  const canCalDetailEdit =
-    canStageEdit &&
-    ['calibration_in_progress', 'completed'].includes(currentColumnId || '');
-
   const [receipt, setReceipt] = useState<ReceiptDetail | null>(null);
   const [instruments, setInstruments] = useState<InstrumentDetail[]>([]);
   const [showCertPreview, setShowCertPreview] = useState(false);
@@ -287,6 +280,13 @@ export default function TrackerKalibrasiCardDetail({
   // Kunci penambahan alat/sparepart ketika kartu sudah di kolom Completed atau Delivered
   const currentColumnId = getBoardColumn(checklists, receipt?.status)?.id;
   const isCardLocked = currentColumnId === 'completed' || currentColumnId === 'delivered';
+
+  // Detail data kalibrasi (Section B & C sertifikat) boleh diisi saat card sudah
+  // masuk tahap kalibrasi hingga Completed, oleh role toggle maupun petugas
+  // kalibrasi terdaftar.
+  const canCalDetailEdit =
+    canStageEdit &&
+    ['calibration_in_progress', 'completed'].includes(currentColumnId || '');
 
   // ── document generation history ─────────────────────────────────────────
   type DocLog = {
