@@ -31,6 +31,7 @@ import { generateUniqueDONumber, getColumnDeliveryDate } from "@/lib/transaction
 import { generateUniquePINumber, calculateMaterai, useMateraiSetting } from "@/hooks/useProformaInvoices";
 import { cancelDeliveredSalesOrder } from "@/hooks/useSalesOrders";
 import { SoRevisionActions } from "@/components/delivery/SoRevisionActions";
+import { SoUnifiedRevisionDialog } from "@/components/delivery/SoUnifiedRevisionDialog";
 import { useNavigate } from "react-router-dom";
 
 const BOARD_COLUMNS = [
@@ -351,10 +352,12 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const [cancellingDelivered, setCancellingDelivered] = useState(false);
   const canCancelDelivered = user?.role === 'super_admin' && card?.board_status === 'delivered';
 
-  // Controlled dialog open state untuk dropdown Delete & Revisi
-  const [revisePricingOpen, setRevisePricingOpen] = useState(false);
-  const [reviseForceOpen, setReviseForceOpen] = useState(false);
-  const [reviseQtyOpen, setReviseQtyOpen] = useState(false);
+  // Dialog revisi terpadu (Qty & Harga) — super_admin, card delivered/partially_delivered
+  const [unifiedReviseOpen, setUnifiedReviseOpen] = useState(false);
+  const canReviseSo =
+    user?.role === 'super_admin' &&
+    !!card?.board_status &&
+    ['delivered', 'partially_delivered'].includes(card.board_status);
 
   const handleCancelDelivered = async () => {
     if (!user || !card || !canCancelDelivered) return;
@@ -2750,58 +2753,68 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         </div>
 
         <DialogFooter className="px-6 py-3 border-t flex-col sm:flex-row gap-2">
-          {/* Dropdown gabungan: Hapus Card + Batalkan SO + Revisi */}
-          {(canDeleteCard || canCancelDelivered || isSuperAdmin) && (
+          {/* Dropdown gabungan: Revisi + Batalkan SO + Hapus Card */}
+          {(canDeleteCard || canCancelDelivered || canReviseSo) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="mr-auto">
                   Delete & Revisi <ChevronDown className="h-4 w-4 ml-1" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56">
-                {isSuperAdmin && (
+              <DropdownMenuContent align="start" className="w-80">
+                {canReviseSo && (
                   <>
-                    <DropdownMenuLabel>Revisi</DropdownMenuLabel>
-                    {card?.board_status === 'delivered' && (
-                      <DropdownMenuItem onClick={() => setRevisePricingOpen(true)}>
-                        <Tag className="h-4 w-4 mr-2" /> Koreksi Harga
-                      </DropdownMenuItem>
-                    )}
-                    {card?.board_status === 'delivered' && (
-                      <DropdownMenuItem onClick={() => setReviseForceOpen(true)}>
-                        <Pencil className="h-4 w-4 mr-2" /> Revisi Qty (delivered)
-                      </DropdownMenuItem>
-                    )}
-                    {(card?.so_status === 'revision_requested' || card?.so_status === 'draft') && (
-                      <DropdownMenuItem onClick={() => setReviseQtyOpen(true)}>
-                        <Pencil className="h-4 w-4 mr-2" /> Lanjutkan Edit Qty
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => setUnifiedReviseOpen(true)}
+                      className="flex-col items-start gap-0.5 py-2"
+                    >
+                      <span className="flex items-center gap-2 font-medium">
+                        <Pencil className="h-4 w-4" /> Revisi (Qty &amp; Harga)
+                      </span>
+                      <span className="text-xs text-muted-foreground whitespace-normal">
+                        Ubah jumlah dan/atau harga barang. Jika qty berubah, pengiriman diulang &amp; stok disesuaikan.
+                      </span>
+                    </DropdownMenuItem>
+                    {(canCancelDelivered || canDeleteCard) && <DropdownMenuSeparator />}
                   </>
-                )}
-                {(canCancelDelivered || canDeleteCard) && (
-                  <DropdownMenuLabel>Hapus / Batalkan</DropdownMenuLabel>
                 )}
                 {canCancelDelivered && (
                   <DropdownMenuItem
                     onClick={() => setShowCancelDeliveredDialog(true)}
-                    className="text-destructive focus:text-destructive"
+                    className="flex-col items-start gap-0.5 py-2"
                   >
-                    <AlertTriangle className="h-4 w-4 mr-2" /> Batalkan SO (delivered)
+                    <span className="flex items-center gap-2 font-medium text-destructive focus:text-destructive">
+                      <AlertTriangle className="h-4 w-4" /> Batalkan SO
+                    </span>
+                    <span className="text-xs text-muted-foreground whitespace-normal">
+                      Batalkan SO yang sudah terkirim. Stok direview lewat stock adjustment.
+                    </span>
                   </DropdownMenuItem>
                 )}
                 {canDeleteCard && (
                   <DropdownMenuItem
                     onClick={() => setShowDeleteDialog(true)}
-                    className="text-destructive focus:text-destructive"
+                    className="flex-col items-start gap-0.5 py-2"
                   >
-                    <Trash2 className="h-4 w-4 mr-2" /> Hapus Card
+                    <span className="flex items-center gap-2 font-medium text-destructive focus:text-destructive">
+                      <Trash2 className="h-4 w-4" /> Hapus Card
+                    </span>
+                    <span className="text-xs text-muted-foreground whitespace-normal">
+                      Hapus kartu dari board saja. SO tidak terhapus.
+                    </span>
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+          <SoUnifiedRevisionDialog
+            open={unifiedReviseOpen}
+            onOpenChange={setUnifiedReviseOpen}
+            cardId={card.id}
+            salesOrderId={card.sales_order_id}
+            salesOrderNumber={card.sales_order_number}
+            onChanged={() => { fetchComments(); }}
+          />
           <SoRevisionActions
             cardId={card.id}
             salesOrderId={card.sales_order_id}
@@ -2810,12 +2823,6 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
             soStatus={card.so_status}
             onChanged={() => { fetchComments(); }}
             hideTriggers
-            pricingOpen={revisePricingOpen}
-            onPricingOpenChange={setRevisePricingOpen}
-            forceOpen={reviseForceOpen}
-            onForceOpenChange={setReviseForceOpen}
-            qtyOpen={reviseQtyOpen}
-            onQtyOpenChange={setReviseQtyOpen}
           />
           {/* Generate PI button - CBD / DP+Termin payment terms OR matching label, sales/super_admin/finance */}
           {(() => {
