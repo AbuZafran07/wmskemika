@@ -22,6 +22,7 @@ import { DeliveryOrderPdf, DeliveryOrderData } from "@/components/delivery/Deliv
 import { generateUniqueDONumber, getColumnDeliveryDate } from "@/lib/transactionNumberUtils";
 import { generateUniquePINumber, calculateMaterai, useMateraiSetting } from "@/hooks/useProformaInvoices";
 import { cancelDeliveredSalesOrder } from "@/hooks/useSalesOrders";
+import { SoRevisionActions } from "@/components/delivery/SoRevisionActions";
 import { useNavigate } from "react-router-dom";
 
 const BOARD_COLUMNS = [
@@ -2751,6 +2752,14 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
               <AlertTriangle className="h-4 w-4 mr-1" /> Batalkan SO (delivered)
             </Button>
           )}
+          <SoRevisionActions
+            cardId={card.id}
+            salesOrderId={card.sales_order_id}
+            salesOrderNumber={card.sales_order_number}
+            boardStatus={card.board_status}
+            soStatus={card.so_status}
+            onChanged={() => { fetchComments(); }}
+          />
           {/* Generate PI button - CBD / DP+Termin payment terms OR matching label, sales/super_admin/finance */}
           {(() => {
             const termsUpper = customerPaymentTerms?.toUpperCase() || '';

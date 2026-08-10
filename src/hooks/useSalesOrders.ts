@@ -701,3 +701,145 @@ export async function rejectSalesOrderRevision(orderId: string, reason?: string)
     return { success: false, error: error instanceof Error ? error.message : 'Failed to reject revision' };
   }
 }
+
+// ============================================================================
+// REVISI SO DELIVERED (super_admin only) — Tier 1 harga/diskon, Tier 2 qty
+// Catatan: item di-UPDATE di tempat (id item dipertahankan). Invoice AR TIDAK diubah.
+// ============================================================================
+
+export interface DeliveredSnapshotEntry {
+  item_id: string;
+  product_id: string;
+  batch_id: string;
+  qty: number;
+}
+
+/** TIER 1 — koreksi harga/diskon tanpa menyentuh stok & qty */
+export async function reviseSalesOrderPricing(
+  orderId: string,
+  reason: string,
+  items: Array<{ item_id: string; unit_price: number; discount: number }>,
+): Promise<{ success: boolean; error?: string; grandTotal?: number }> {
+  try {
+    const { data, error } = await supabase.rpc('sales_order_revise_pricing' as never, {
+      order_id: orderId,
+      reason,
+      items,
+    } as never);
+    if (error) throw error;
+    const result = data as unknown as { success: boolean; error?: string; grand_total?: number };
+    if (!result?.success) return { success: false, error: result?.error || 'Gagal koreksi harga' };
+    return { success: true, grandTotal: Number(result.grand_total || 0) };
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to revise pricing' };
+  }
+}
+
+/** TIER 2a — paksa SO delivered masuk siklus revisi qty (undo delivery + release booking) */
+export async function forceSalesOrderRevisionQty(
+  orderId: string,
+  reason: string,
+): Promise<{ success: boolean; error?: string; deliveredSnapshot?: DeliveredSnapshotEntry[]; salesOrderNumber?: string }> {
+  try {
+    const { data, error } = await supabase.rpc('sales_order_force_revision_qty' as never, {
+      order_id: orderId,
+      reason,
+    } as never);
+    if (error) throw error;
+    const result = data as unknown as {
+      success: boolean;
+      error?: string;
+      sales_order_number?: string;
+      delivered_snapshot?: DeliveredSnapshotEntry[];
+    };
+    if (!result?.success) return { success: false, error: result?.error || 'Gagal memaksa revisi qty' };
+    return {
+      success: true,
+      salesOrderNumber: result.sales_order_number,
+      deliveredSnapshot: (result.delivered_snapshot || []).map((s) => ({ ...s, qty: Number(s.qty) })),
+    };
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to force revision' };
+  }
+}
+
+/**
+ * TIER 2b — revisi qty in-place. Jika qty turun dibanding qty yang ASLI terkirim,
+ * sistem membuat DRAFT stock adjustment (write-off selisih) untuk direview.
+ */
+export async function reviseSalesOrderQty(
+  orderId: string,
+  reason: string,
+  items: Array<{ item_id: string; ordered_qty: number }>,
+  deliveredSnapshot: DeliveredSnapshotEntry[] = [],
+): Promise<{ success: boolean; error?: string; grandTotal?: number; adjustmentNumber?: string; warning?: string }> {
+  try {
+    const { data, error } = await supabase.rpc('sales_order_revise_qty' as never, {
+      order_id: orderId,
+      reason,
+      items,
+    } as never);
+    if (error) throw error;
+    const result = data as unknown as { success: boolean; error?: string; grand_total?: number; sales_order_number?: string };
+    if (!result?.success) return { success: false, error: result?.error || 'Gagal revisi qty' };
+
+    const soNumber = result.sales_order_number || '';
+    const grandTotal = Number(result.grand_total || 0);
+
+    // Hitung selisih kelebihan kirim per (item, batch) untuk item yang qty-nya TURUN
+    const adjItems: Array<{ product_id: string; batch_id: string; adjustment_qty: number; notes: string }> = [];
+    for (const it of items) {
+      const rows = deliveredSnapshot.filter((s) => s.item_id === it.item_id);
+      const deliveredTotal = rows.reduce((sum, r) => sum + Number(r.qty || 0), 0);
+      let excess = deliveredTotal - Number(it.ordered_qty || 0);
+      if (excess <= 0) continue;
+      for (const r of rows) {
+        if (excess <= 0) break;
+        const take = Math.min(excess, Number(r.qty || 0));
+        excess -= take;
+        adjItems.push({
+          product_id: r.product_id,
+          batch_id: r.batch_id,
+          adjustment_qty: -take,
+          notes: `Kelebihan kirim SO ${soNumber}: APPROVE hanya jika barang TIDAK kembali (write-off). Jika barang dikembalikan customer, batalkan draft ini.`,
+        });
+      }
+    }
+
+    if (adjItems.length === 0) return { success: true, grandTotal };
+
+    const adjustmentNumber = await generateUniqueStockAdjustmentNumber();
+    const today = new Date().toISOString().slice(0, 10);
+
+    const { data: adjData, error: adjError } = await supabase.rpc('stock_adjustment_create', {
+      header_data: {
+        adjustment_number: adjustmentNumber,
+        adjustment_date: today,
+        reason: `Auto-draft: revisi qty SO ${soNumber} (qty diturunkan). Write-off selisih kelebihan kirim — batalkan draft ini bila barang dikembalikan customer.`,
+        status: 'draft',
+      },
+      items_data: adjItems,
+      attachment_meta: null,
+    });
+    if (adjError) throw adjError;
+
+    const adjResult = adjData as unknown as { success: boolean; error?: string };
+    if (!adjResult?.success) {
+      return {
+        success: true,
+        grandTotal,
+        warning: `Qty direvisi, namun draft Stock Adjustment gagal dibuat: ${adjResult?.error || 'unknown'}`,
+      };
+    }
+
+    try {
+      notifyNewStockAdjustment(adjustmentNumber);
+    } catch (notifErr) {
+      console.warn('[WMS] Gagal kirim notifikasi draft adjustment:', notifErr);
+    }
+
+    return { success: true, grandTotal, adjustmentNumber };
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to revise qty' };
+  }
+}

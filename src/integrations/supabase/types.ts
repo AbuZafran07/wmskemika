@@ -2748,12 +2748,24 @@ export type Database = {
         Args: { attachment_meta?: Json; header_data: Json; items_data: Json }
         Returns: Json
       }
+      sales_order_force_revision_qty: {
+        Args: { order_id: string; reason: string }
+        Returns: Json
+      }
       sales_order_reject_revision: {
         Args: { order_id: string; reject_reason?: string }
         Returns: Json
       }
       sales_order_request_revision: {
         Args: { order_id: string; revision_reason: string }
+        Returns: Json
+      }
+      sales_order_revise_pricing: {
+        Args: { items: Json; order_id: string; reason: string }
+        Returns: Json
+      }
+      sales_order_revise_qty: {
+        Args: { items: Json; order_id: string; reason: string }
         Returns: Json
       }
       sales_order_soft_delete: { Args: { order_id: string }; Returns: Json }
