@@ -335,6 +335,56 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const canCheckChecklist = user?.role && ['super_admin', 'purchasing', 'finance'].includes(user.role);
   const canDeleteCard = user?.role && ['super_admin', 'finance'].includes(user.role);
 
+  // ── Aksi baru: Batalkan SO yang sudah delivered (khusus super_admin) ──
+  const [showCancelDeliveredDialog, setShowCancelDeliveredDialog] = useState(false);
+  const [cancelDeliveredReason, setCancelDeliveredReason] = useState("");
+  const [cancelDeliveredSoConfirm, setCancelDeliveredSoConfirm] = useState("");
+  const [cancellingDelivered, setCancellingDelivered] = useState(false);
+  const canCancelDelivered = user?.role === 'super_admin' && card?.board_status === 'delivered';
+
+  const handleCancelDelivered = async () => {
+    if (!user || !card || !canCancelDelivered) return;
+    const reason = cancelDeliveredReason.trim();
+    if (reason.length < 20) return;
+    if (cancelDeliveredSoConfirm.trim() !== card.sales_order_number) return;
+
+    setCancellingDelivered(true);
+    try {
+      const res = await cancelDeliveredSalesOrder(card.sales_order_id, reason);
+      if (!res.success) {
+        toast.error(res.error || "Gagal membatalkan SO");
+        return;
+      }
+
+      const adjNumber = res.adjustmentNumber;
+      if (res.error) {
+        toast.warning(res.error);
+      } else if (adjNumber) {
+        toast.success(`SO ${card.sales_order_number} dibatalkan. Draft Stock Adjustment ${adjNumber} dibuat — segera direview.`);
+      } else {
+        toast.success(`SO ${card.sales_order_number} dibatalkan. Tidak ada item terkirim, draft Stock Adjustment tidak dibuat.`);
+      }
+
+      try {
+        await supabase.from("delivery_comments").insert({
+          delivery_request_id: card.id,
+          user_id: user.id,
+          message: `🚫 SO dibatalkan setelah delivery oleh ${user.full_name || user.email}. Alasan: ${reason}.${adjNumber ? ` Draft Stock Adjustment: ${adjNumber}.` : ""}`,
+          type: "activity",
+        });
+      } catch (commentErr) {
+        console.warn("Gagal menambah komentar aktivitas:", commentErr);
+      }
+
+      setShowCancelDeliveredDialog(false);
+      setCancelDeliveredReason("");
+      setCancelDeliveredSoConfirm("");
+      onClose();
+    } finally {
+      setCancellingDelivered(false);
+    }
+  };
+
   // Fetch labels & card labels
   const fetchLabels = useCallback(async () => {
     if (!card) return;
