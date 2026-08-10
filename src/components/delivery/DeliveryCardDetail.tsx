@@ -369,7 +369,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         await supabase.from("delivery_comments").insert({
           delivery_request_id: card.id,
           user_id: user.id,
-          message: `🚫 SO dibatalkan setelah delivery oleh ${user.full_name || user.email}. Alasan: ${reason}.${adjNumber ? ` Draft Stock Adjustment: ${adjNumber}.` : ""}`,
+          message: `🚫 SO dibatalkan setelah delivery oleh ${user.name || user.email}. Alasan: ${reason}.${adjNumber ? ` Draft Stock Adjustment: ${adjNumber}.` : ""}`,
           type: "activity",
         });
       } catch (commentErr) {
