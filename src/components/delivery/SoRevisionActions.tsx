@@ -34,6 +34,15 @@ interface SoRevisionActionsProps {
   boardStatus: string;
   soStatus: string;
   onChanged?: () => void;
+  /** Jika true, tombol trigger tidak dirender (digantikan dropdown di parent). */
+  hideTriggers?: boolean;
+  /** Controlled dialog open props. Jika tidak diset, komponen mengelola sendiri. */
+  pricingOpen?: boolean;
+  onPricingOpenChange?: (open: boolean) => void;
+  forceOpen?: boolean;
+  onForceOpenChange?: (open: boolean) => void;
+  qtyOpen?: boolean;
+  onQtyOpenChange?: (open: boolean) => void;
 }
 
 interface SoItemRow {
