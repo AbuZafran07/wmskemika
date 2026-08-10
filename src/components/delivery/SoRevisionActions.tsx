@@ -79,6 +79,13 @@ export function SoRevisionActions({
   boardStatus,
   soStatus,
   onChanged,
+  hideTriggers = false,
+  pricingOpen: pricingOpenProp,
+  onPricingOpenChange,
+  forceOpen: forceOpenProp,
+  onForceOpenChange,
+  qtyOpen: qtyOpenProp,
+  onQtyOpenChange,
 }: SoRevisionActionsProps) {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === "super_admin";
@@ -88,18 +95,33 @@ export function SoRevisionActions({
   const [loading, setLoading] = useState(false);
 
   // Tier 1
-  const [pricingOpen, setPricingOpen] = useState(false);
+  const [internalPricingOpen, setInternalPricingOpen] = useState(false);
+  const pricingOpen = pricingOpenProp ?? internalPricingOpen;
+  const setPricingOpen = (open: boolean) => {
+    setInternalPricingOpen(open);
+    onPricingOpenChange?.(open);
+  };
   const [pricingReason, setPricingReason] = useState("");
   const [pricingDraft, setPricingDraft] = useState<Record<string, { unit_price: number; discount: number }>>({});
   const [savingPricing, setSavingPricing] = useState(false);
 
   // Tier 2
-  const [forceOpen, setForceOpen] = useState(false);
+  const [internalForceOpen, setInternalForceOpen] = useState(false);
+  const forceOpen = forceOpenProp ?? internalForceOpen;
+  const setForceOpen = (open: boolean) => {
+    setInternalForceOpen(open);
+    onForceOpenChange?.(open);
+  };
   const [forceReason, setForceReason] = useState("");
   const [forceConfirm, setForceConfirm] = useState("");
   const [forcing, setForcing] = useState(false);
 
-  const [qtyOpen, setQtyOpen] = useState(false);
+  const [internalQtyOpen, setInternalQtyOpen] = useState(false);
+  const qtyOpen = qtyOpenProp ?? internalQtyOpen;
+  const setQtyOpen = (open: boolean) => {
+    setInternalQtyOpen(open);
+    onQtyOpenChange?.(open);
+  };
   const [qtyReason, setQtyReason] = useState("");
   const [qtyDraft, setQtyDraft] = useState<Record<string, number>>({});
   const [savingQty, setSavingQty] = useState(false);
