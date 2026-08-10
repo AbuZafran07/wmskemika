@@ -21,6 +21,7 @@ import { notifyDeliveryCardMoved, notifyUrgentLabelRequest, notifyUrgentLabelApp
 import { DeliveryOrderPdf, DeliveryOrderData } from "@/components/delivery/DeliveryOrderPdf";
 import { generateUniqueDONumber, getColumnDeliveryDate } from "@/lib/transactionNumberUtils";
 import { generateUniquePINumber, calculateMaterai, useMateraiSetting } from "@/hooks/useProformaInvoices";
+import { cancelDeliveredSalesOrder } from "@/hooks/useSalesOrders";
 import { useNavigate } from "react-router-dom";
 
 const BOARD_COLUMNS = [
