@@ -2741,6 +2741,16 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
               <Trash2 className="h-4 w-4 mr-1" /> Hapus Card
             </Button>
           )}
+          {canCancelDelivered && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive border-destructive/50 hover:bg-destructive/10"
+              onClick={() => setShowCancelDeliveredDialog(true)}
+            >
+              <AlertTriangle className="h-4 w-4 mr-1" /> Batalkan SO (delivered)
+            </Button>
+          )}
           {/* Generate PI button - CBD / DP+Termin payment terms OR matching label, sales/super_admin/finance */}
           {(() => {
             const termsUpper = customerPaymentTerms?.toUpperCase() || '';
