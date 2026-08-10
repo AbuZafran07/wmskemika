@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getUserFriendlyError, ErrorMessages } from '@/lib/errorHandler';
+import { generateUniqueStockAdjustmentNumber } from '@/lib/transactionNumberUtils';
+import { notifyNewStockAdjustment } from '@/lib/pushNotifications';
 import { syncSalesOrderToAr } from '@/lib/arApSync';
 import {
   syncSalesOrderApprovedToSalesPulse,
@@ -571,12 +573,92 @@ export async function cancelSalesOrder(orderId: string): Promise<{ success: bool
 }
 
 export async function deleteSalesOrder(orderId: string): Promise<{ success: boolean; error?: string }> {
+  return deleteSalesOrderInternal(orderId);
+}
+
+async function deleteSalesOrderInternal(orderId: string): Promise<{ success: boolean; error?: string }> {
   try {
     const { data, error } = await supabase.rpc('sales_order_soft_delete', { order_id: orderId });
     if (error) throw error;
     return data as { success: boolean; error?: string };
   } catch (error: unknown) {
     return { success: false, error: error instanceof Error ? error.message : 'Failed to delete' };
+  }
+}
+
+/**
+ * Batalkan SO yang SUDAH delivered (khusus super_admin).
+ * - Tidak mengubah stok. Membuat DRAFT stock adjustment untuk direview manual.
+ * - Card delivery diarsipkan (tidak dihapus) oleh RPC.
+ */
+export async function cancelDeliveredSalesOrder(
+  orderId: string,
+  reason: string,
+): Promise<{ success: boolean; error?: string; adjustmentNumber?: string; salesOrderNumber?: string }> {
+  try {
+    const { data, error } = await supabase.rpc('sales_order_cancel_delivered' as never, {
+      order_id: orderId,
+      reason,
+    } as never);
+    if (error) throw error;
+
+    const result = data as unknown as {
+      success: boolean;
+      error?: string;
+      sales_order_number?: string;
+      delivered_items?: Array<{ product_id: string; batch_id: string; qty: number }>;
+    };
+    if (!result?.success) {
+      return { success: false, error: result?.error || 'Gagal membatalkan SO' };
+    }
+
+    const soNumber = result.sales_order_number || '';
+    const deliveredItems = (result.delivered_items || []).filter(
+      (i) => i.product_id && i.batch_id && Number(i.qty) > 0,
+    );
+
+    if (deliveredItems.length === 0) {
+      return { success: true, salesOrderNumber: soNumber };
+    }
+
+    const adjustmentNumber = await generateUniqueStockAdjustmentNumber();
+    const today = new Date().toISOString().slice(0, 10);
+
+    const { data: adjData, error: adjError } = await supabase.rpc('stock_adjustment_create', {
+      header_data: {
+        adjustment_number: adjustmentNumber,
+        adjustment_date: today,
+        reason: `Auto-draft: SO ${soNumber} dibatalkan setelah delivery. Review: barang kembali (isi qty +) atau write-off (set 0).`,
+        status: 'draft',
+      },
+      items_data: deliveredItems.map((i) => ({
+        product_id: i.product_id,
+        batch_id: i.batch_id,
+        adjustment_qty: Number(i.qty),
+        notes: `Qty terkirim dari SO ${soNumber}. Ubah ke 0 jika barang TIDAK kembali (write-off).`,
+      })),
+      attachment_meta: null,
+    });
+
+    if (adjError) throw adjError;
+    const adjResult = adjData as unknown as { success: boolean; error?: string };
+    if (!adjResult?.success) {
+      return {
+        success: true,
+        salesOrderNumber: soNumber,
+        error: `SO dibatalkan, namun draft Stock Adjustment gagal dibuat: ${adjResult?.error || 'unknown'}`,
+      };
+    }
+
+    try {
+      notifyNewStockAdjustment(adjustmentNumber);
+    } catch (notifErr) {
+      console.warn('[WMS] Gagal kirim notifikasi draft adjustment:', notifErr);
+    }
+
+    return { success: true, adjustmentNumber, salesOrderNumber: soNumber };
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to cancel delivered SO' };
   }
 }
 
