@@ -351,6 +351,11 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const [cancellingDelivered, setCancellingDelivered] = useState(false);
   const canCancelDelivered = user?.role === 'super_admin' && card?.board_status === 'delivered';
 
+  // Controlled dialog open state untuk dropdown Delete & Revisi
+  const [revisePricingOpen, setRevisePricingOpen] = useState(false);
+  const [reviseForceOpen, setReviseForceOpen] = useState(false);
+  const [reviseQtyOpen, setReviseQtyOpen] = useState(false);
+
   const handleCancelDelivered = async () => {
     if (!user || !card || !canCancelDelivered) return;
     const reason = cancelDeliveredReason.trim();
