@@ -301,13 +301,13 @@ export function SoRevisionActions({
         </Badge>
       )}
 
-      {canPricing && (
+      {!hideTriggers && canPricing && (
         <Button variant="outline" size="sm" onClick={() => setPricingOpen(true)}>
           <Tag className="h-4 w-4 mr-1" /> Koreksi Harga
         </Button>
       )}
 
-      {canForceQty && (
+      {!hideTriggers && canForceQty && (
         <Button
           variant="outline"
           size="sm"
@@ -318,7 +318,7 @@ export function SoRevisionActions({
         </Button>
       )}
 
-      {pendingRedeliver && (
+      {!hideTriggers && pendingRedeliver && (
         <Button variant="outline" size="sm" onClick={() => setQtyOpen(true)}>
           <Pencil className="h-4 w-4 mr-1" /> Lanjutkan Edit Qty
         </Button>
