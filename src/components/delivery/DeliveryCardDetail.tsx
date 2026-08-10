@@ -31,6 +31,7 @@ import { generateUniqueDONumber, getColumnDeliveryDate } from "@/lib/transaction
 import { generateUniquePINumber, calculateMaterai, useMateraiSetting } from "@/hooks/useProformaInvoices";
 import { cancelDeliveredSalesOrder } from "@/hooks/useSalesOrders";
 import { SoRevisionActions } from "@/components/delivery/SoRevisionActions";
+import { SoUnifiedRevisionDialog } from "@/components/delivery/SoUnifiedRevisionDialog";
 import { useNavigate } from "react-router-dom";
 
 const BOARD_COLUMNS = [
@@ -351,10 +352,12 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const [cancellingDelivered, setCancellingDelivered] = useState(false);
   const canCancelDelivered = user?.role === 'super_admin' && card?.board_status === 'delivered';
 
-  // Controlled dialog open state untuk dropdown Delete & Revisi
-  const [revisePricingOpen, setRevisePricingOpen] = useState(false);
-  const [reviseForceOpen, setReviseForceOpen] = useState(false);
-  const [reviseQtyOpen, setReviseQtyOpen] = useState(false);
+  // Dialog revisi terpadu (Qty & Harga) — super_admin, card delivered/partially_delivered
+  const [unifiedReviseOpen, setUnifiedReviseOpen] = useState(false);
+  const canReviseSo =
+    user?.role === 'super_admin' &&
+    !!card?.board_status &&
+    ['delivered', 'partially_delivered'].includes(card.board_status);
 
   const handleCancelDelivered = async () => {
     if (!user || !card || !canCancelDelivered) return;
