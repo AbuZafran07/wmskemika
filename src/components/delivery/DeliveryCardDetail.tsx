@@ -21,6 +21,7 @@ import { notifyDeliveryCardMoved, notifyUrgentLabelRequest, notifyUrgentLabelApp
 import { DeliveryOrderPdf, DeliveryOrderData } from "@/components/delivery/DeliveryOrderPdf";
 import { generateUniqueDONumber, getColumnDeliveryDate } from "@/lib/transactionNumberUtils";
 import { generateUniquePINumber, calculateMaterai, useMateraiSetting } from "@/hooks/useProformaInvoices";
+import { cancelDeliveredSalesOrder } from "@/hooks/useSalesOrders";
 import { useNavigate } from "react-router-dom";
 
 const BOARD_COLUMNS = [
@@ -333,6 +334,56 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const isAdmin = user?.role && ['super_admin', 'admin'].includes(user.role);
   const canCheckChecklist = user?.role && ['super_admin', 'purchasing', 'finance'].includes(user.role);
   const canDeleteCard = user?.role && ['super_admin', 'finance'].includes(user.role);
+
+  // ── Aksi baru: Batalkan SO yang sudah delivered (khusus super_admin) ──
+  const [showCancelDeliveredDialog, setShowCancelDeliveredDialog] = useState(false);
+  const [cancelDeliveredReason, setCancelDeliveredReason] = useState("");
+  const [cancelDeliveredSoConfirm, setCancelDeliveredSoConfirm] = useState("");
+  const [cancellingDelivered, setCancellingDelivered] = useState(false);
+  const canCancelDelivered = user?.role === 'super_admin' && card?.board_status === 'delivered';
+
+  const handleCancelDelivered = async () => {
+    if (!user || !card || !canCancelDelivered) return;
+    const reason = cancelDeliveredReason.trim();
+    if (reason.length < 20) return;
+    if (cancelDeliveredSoConfirm.trim() !== card.sales_order_number) return;
+
+    setCancellingDelivered(true);
+    try {
+      const res = await cancelDeliveredSalesOrder(card.sales_order_id, reason);
+      if (!res.success) {
+        toast.error(res.error || "Gagal membatalkan SO");
+        return;
+      }
+
+      const adjNumber = res.adjustmentNumber;
+      if (res.error) {
+        toast.warning(res.error);
+      } else if (adjNumber) {
+        toast.success(`SO ${card.sales_order_number} dibatalkan. Draft Stock Adjustment ${adjNumber} dibuat — segera direview.`);
+      } else {
+        toast.success(`SO ${card.sales_order_number} dibatalkan. Tidak ada item terkirim, draft Stock Adjustment tidak dibuat.`);
+      }
+
+      try {
+        await supabase.from("delivery_comments").insert({
+          delivery_request_id: card.id,
+          user_id: user.id,
+          message: `🚫 SO dibatalkan setelah delivery oleh ${user.name || user.email}. Alasan: ${reason}.${adjNumber ? ` Draft Stock Adjustment: ${adjNumber}.` : ""}`,
+          type: "activity",
+        });
+      } catch (commentErr) {
+        console.warn("Gagal menambah komentar aktivitas:", commentErr);
+      }
+
+      setShowCancelDeliveredDialog(false);
+      setCancelDeliveredReason("");
+      setCancelDeliveredSoConfirm("");
+      onClose();
+    } finally {
+      setCancellingDelivered(false);
+    }
+  };
 
   // Fetch labels & card labels
   const fetchLabels = useCallback(async () => {
@@ -2690,6 +2741,16 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
               <Trash2 className="h-4 w-4 mr-1" /> Hapus Card
             </Button>
           )}
+          {canCancelDelivered && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive border-destructive/50 hover:bg-destructive/10"
+              onClick={() => setShowCancelDeliveredDialog(true)}
+            >
+              <AlertTriangle className="h-4 w-4 mr-1" /> Batalkan SO (delivered)
+            </Button>
+          )}
           {/* Generate PI button - CBD / DP+Termin payment terms OR matching label, sales/super_admin/finance */}
           {(() => {
             const termsUpper = customerPaymentTerms?.toUpperCase() || '';
@@ -2849,6 +2910,72 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         </DialogContent>
       </Dialog>
     </Dialog>
+
+      {/* Cancel Delivered SO Dialog (super_admin only) */}
+      <Dialog
+        open={showCancelDeliveredDialog}
+        onOpenChange={(open) => {
+          setShowCancelDeliveredDialog(open);
+          if (!open) { setCancelDeliveredReason(""); setCancelDeliveredSoConfirm(""); }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Batalkan Sales Order yang Sudah Terkirim
+            </DialogTitle>
+            <DialogDescription className="text-destructive font-medium">
+              Aksi ini membatalkan SO yang barangnya sudah terkirim dan tidak bisa dibatalkan kembali.
+              Stok TIDAK dikembalikan otomatis — sistem akan membuat draft Stock Adjustment yang WAJIB Anda
+              review (barang kembali vs write-off). Bukti pengiriman (attachment) tetap tersimpan karena card
+              diarsipkan, bukan dihapus.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div>
+              <Label htmlFor="cancel-delivered-reason" className="text-xs">Alasan pembatalan (min 20 karakter)</Label>
+              <Textarea
+                id="cancel-delivered-reason"
+                value={cancelDeliveredReason}
+                onChange={(e) => setCancelDeliveredReason(e.target.value.slice(0, 500))}
+                placeholder="Jelaskan alasan pembatalan SO yang sudah terkirim..."
+                rows={3}
+                className="mt-1 text-sm"
+              />
+              <p className="text-[10px] text-muted-foreground text-right">{cancelDeliveredReason.length}/500</p>
+            </div>
+            <div>
+              <Label htmlFor="cancel-delivered-confirm" className="text-xs">
+                Ketik ulang nomor SO <span className="font-semibold text-foreground">{card.sales_order_number}</span> untuk konfirmasi
+              </Label>
+              <Input
+                id="cancel-delivered-confirm"
+                value={cancelDeliveredSoConfirm}
+                onChange={(e) => setCancelDeliveredSoConfirm(e.target.value)}
+                placeholder={card.sales_order_number}
+                className="mt-1 text-sm"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" size="sm" onClick={() => setShowCancelDeliveredDialog(false)}>Tutup</Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleCancelDelivered}
+              disabled={
+                cancellingDelivered ||
+                cancelDeliveredReason.trim().length < 20 ||
+                cancelDeliveredSoConfirm.trim() !== card.sales_order_number
+              }
+            >
+              {cancellingDelivered && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              Batalkan SO
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* DP + Termin Setup Dialog */}
       <Dialog open={showDpTerminDialog} onOpenChange={setShowDpTerminDialog}>
