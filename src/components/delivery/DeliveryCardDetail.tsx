@@ -9,9 +9,17 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { Truck, ChevronRight, Tag, MessageSquare, Send, X, Plus, Trash2, Paperclip, FileText, Image, Download, Loader2, CheckSquare, AlertTriangle, Calendar, AtSign, Pencil, Check, Search, Eye, ExternalLink, Camera, MapPin, RotateCcw, Printer, Receipt } from "lucide-react";
+import { Truck, ChevronRight, ChevronDown, Tag, MessageSquare, Send, X, Plus, Trash2, Paperclip, FileText, Image, Download, Loader2, CheckSquare, AlertTriangle, Calendar, AtSign, Pencil, Check, Search, Eye, ExternalLink, Camera, MapPin, RotateCcw, Printer, Receipt } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { format, formatDistanceToNow } from "date-fns";
@@ -342,6 +350,11 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
   const [cancelDeliveredSoConfirm, setCancelDeliveredSoConfirm] = useState("");
   const [cancellingDelivered, setCancellingDelivered] = useState(false);
   const canCancelDelivered = user?.role === 'super_admin' && card?.board_status === 'delivered';
+
+  // Controlled dialog open state untuk dropdown Delete & Revisi
+  const [revisePricingOpen, setRevisePricingOpen] = useState(false);
+  const [reviseForceOpen, setReviseForceOpen] = useState(false);
+  const [reviseQtyOpen, setReviseQtyOpen] = useState(false);
 
   const handleCancelDelivered = async () => {
     if (!user || !card || !canCancelDelivered) return;
@@ -2737,20 +2750,57 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         </div>
 
         <DialogFooter className="px-6 py-3 border-t flex-col sm:flex-row gap-2">
-          {canDeleteCard && (
-            <Button variant="destructive" size="sm" onClick={() => setShowDeleteDialog(true)} className="mr-auto">
-              <Trash2 className="h-4 w-4 mr-1" /> Hapus Card
-            </Button>
-          )}
-          {canCancelDelivered && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-destructive border-destructive/50 hover:bg-destructive/10"
-              onClick={() => setShowCancelDeliveredDialog(true)}
-            >
-              <AlertTriangle className="h-4 w-4 mr-1" /> Batalkan SO (delivered)
-            </Button>
+          {/* Dropdown gabungan: Hapus Card + Batalkan SO + Revisi */}
+          {(canDeleteCard || canCancelDelivered || isSuperAdmin) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="mr-auto">
+                  Delete & Revisi <ChevronDown className="h-4 w-4 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                {isSuperAdmin && (
+                  <>
+                    <DropdownMenuLabel>Revisi</DropdownMenuLabel>
+                    {card?.board_status === 'delivered' && (
+                      <DropdownMenuItem onClick={() => setRevisePricingOpen(true)}>
+                        <Tag className="h-4 w-4 mr-2" /> Koreksi Harga
+                      </DropdownMenuItem>
+                    )}
+                    {card?.board_status === 'delivered' && (
+                      <DropdownMenuItem onClick={() => setReviseForceOpen(true)}>
+                        <Pencil className="h-4 w-4 mr-2" /> Revisi Qty (delivered)
+                      </DropdownMenuItem>
+                    )}
+                    {(card?.so_status === 'revision_requested' || card?.so_status === 'draft') && (
+                      <DropdownMenuItem onClick={() => setReviseQtyOpen(true)}>
+                        <Pencil className="h-4 w-4 mr-2" /> Lanjutkan Edit Qty
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                {(canCancelDelivered || canDeleteCard) && (
+                  <DropdownMenuLabel>Hapus / Batalkan</DropdownMenuLabel>
+                )}
+                {canCancelDelivered && (
+                  <DropdownMenuItem
+                    onClick={() => setShowCancelDeliveredDialog(true)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <AlertTriangle className="h-4 w-4 mr-2" /> Batalkan SO (delivered)
+                  </DropdownMenuItem>
+                )}
+                {canDeleteCard && (
+                  <DropdownMenuItem
+                    onClick={() => setShowDeleteDialog(true)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" /> Hapus Card
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
           <SoRevisionActions
             cardId={card.id}
@@ -2759,6 +2809,13 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
             boardStatus={card.board_status}
             soStatus={card.so_status}
             onChanged={() => { fetchComments(); }}
+            hideTriggers
+            pricingOpen={revisePricingOpen}
+            onPricingOpenChange={setRevisePricingOpen}
+            forceOpen={reviseForceOpen}
+            onForceOpenChange={setReviseForceOpen}
+            qtyOpen={reviseQtyOpen}
+            onQtyOpenChange={setReviseQtyOpen}
           />
           {/* Generate PI button - CBD / DP+Termin payment terms OR matching label, sales/super_admin/finance */}
           {(() => {
