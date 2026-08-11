@@ -879,6 +879,7 @@ export type Database = {
           created_by: string | null
           delivery_date_target: string | null
           id: string
+          move_source: string
           moved_at: string | null
           moved_by: string | null
           notes: string | null
@@ -892,6 +893,7 @@ export type Database = {
           created_by?: string | null
           delivery_date_target?: string | null
           id?: string
+          move_source?: string
           moved_at?: string | null
           moved_by?: string | null
           notes?: string | null
@@ -905,6 +907,7 @@ export type Database = {
           created_by?: string | null
           delivery_date_target?: string | null
           id?: string
+          move_source?: string
           moved_at?: string | null
           moved_by?: string | null
           notes?: string | null
