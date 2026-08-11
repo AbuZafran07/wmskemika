@@ -538,7 +538,7 @@ export async function cancelSalesOrder(orderId: string): Promise<{ success: bool
       try {
         await supabase
           .from('delivery_requests')
-          .update({ board_status: 'archived', moved_at: new Date().toISOString() })
+          .update({ board_status: 'archived', moved_at: new Date().toISOString(), move_source: 'system' })
           .eq('sales_order_id', orderId);
       } catch (archiveErr) {
         console.warn('Failed to auto-archive delivery card:', archiveErr);

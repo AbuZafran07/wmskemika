@@ -383,6 +383,7 @@ export default function RequestDelivery() {
             await supabase.from("delivery_requests").update({
               board_status: "on_hold_delivery",
               moved_at: new Date().toISOString(),
+              move_source: "system",
               updated_at: new Date().toISOString(),
             }).eq("id", card.id);
           }
@@ -400,6 +401,7 @@ export default function RequestDelivery() {
             await supabase.from("delivery_requests").update({
               board_status: "approval_delivery",
               moved_at: new Date().toISOString(),
+              move_source: "system",
               updated_at: new Date().toISOString(),
             }).eq("id", card.id);
           }
@@ -619,6 +621,7 @@ export default function RequestDelivery() {
           board_status: newStatus, 
           moved_by: user.id, 
           moved_at: new Date().toISOString(),
+          move_source: "manual",
           updated_at: new Date().toISOString(),
         })
         .eq("id", cardId);
@@ -840,6 +843,7 @@ export default function RequestDelivery() {
           board_status: "new_order",
           moved_by: user.id,
           moved_at: new Date().toISOString(),
+          move_source: "manual",
           updated_at: new Date().toISOString(),
         })
         .eq("id", cardId);

@@ -710,7 +710,7 @@ export function useNotifications() {
               .limit(50),
             (supabase as any)
               .from('delivery_requests')
-              .select('id, sales_order_id, board_status, moved_by, moved_at')
+              .select('id, sales_order_id, board_status, moved_by, moved_at, move_source')
               .not('moved_at', 'is', null)
               .gte('moved_at', sinceDel)
               .order('moved_at', { ascending: false })
@@ -770,16 +770,23 @@ export function useNotifications() {
             });
 
             ((delMoves || []) as any[]).forEach((d) => {
-              if (d.moved_by === user.id) return;
+              const source = d.move_source || 'manual';
+              // Perpindahan manual oleh diri sendiri tidak perlu dinotifikasi
+              if (source === 'manual' && d.moved_by === user.id) return;
               const refNo = drRefMap[d.id] || '';
               const colLabel = DELIVERY_COLUMN_LABELS[d.board_status] || String(d.board_status).replace(/_/g, ' ');
+              const actorName = d.moved_by ? actorMap[d.moved_by] || 'Pengguna' : null;
+              const byText =
+                source === 'system'
+                  ? 'otomatis oleh sistem'
+                  : source === 'automation'
+                    ? `otomatis oleh sistem${actorName ? ` (dipicu aksi ${actorName})` : ''}`
+                    : `oleh ${actorName || 'Sistem'}`;
               notifs.push({
                 id: `delivery_move_${d.id}_${d.moved_at}`,
                 type: 'calibration_event',
-                title: `🚚 Kartu pindah kolom${refNo ? ` [${refNo}]` : ''}`,
-                message: `Dipindahkan ke "${colLabel}" oleh ${
-                  d.moved_by ? actorMap[d.moved_by] || 'Pengguna' : 'Sistem'
-                }`,
+                title: `${source === 'manual' ? '🚚' : '⚙️'} Kartu pindah kolom${refNo ? ` [${refNo}]` : ''}`,
+                message: `Dipindahkan ke "${colLabel}" ${byText}`,
                 module: 'delivery',
                 refId: d.id,
                 refNo,

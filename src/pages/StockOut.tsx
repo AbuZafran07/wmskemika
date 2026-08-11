@@ -442,6 +442,7 @@ export default function StockOut() {
               board_status: targetStatus,
               moved_by: userId,
               moved_at: new Date().toISOString(),
+              move_source: "automation",
               updated_at: new Date().toISOString(),
             })
             .eq("id", deliveryCard.id);

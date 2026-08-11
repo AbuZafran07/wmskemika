@@ -43,6 +43,7 @@ Deno.serve(async (req) => {
         .update({
           board_status: "on_hold_delivery",
           moved_at: new Date().toISOString(),
+          move_source: "system",
           updated_at: new Date().toISOString(),
         })
         .eq("board_status", "approval_delivery")
@@ -72,6 +73,7 @@ Deno.serve(async (req) => {
         .update({
           board_status: "approval_delivery",
           moved_at: new Date().toISOString(),
+          move_source: "system",
           updated_at: new Date().toISOString(),
         })
         .eq("board_status", "on_hold_delivery")
