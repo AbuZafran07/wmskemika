@@ -1111,6 +1111,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
             board_status: "checking",
             moved_by: user.id,
             moved_at: new Date().toISOString(),
+            move_source: "automation",
             updated_at: new Date().toISOString(),
           })
           .eq("id", card.id);
@@ -1135,6 +1136,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
             board_status: "new_order",
             moved_by: user.id,
             moved_at: new Date().toISOString(),
+            move_source: "automation",
             updated_at: new Date().toISOString(),
           })
           .eq("id", card.id);
@@ -1186,6 +1188,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
             board_status: targetStatus,
             moved_by: user.id,
             moved_at: new Date().toISOString(),
+            move_source: "automation",
             updated_at: new Date().toISOString(),
           })
           .eq("id", card.id);
@@ -1285,6 +1288,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
               board_status: targetStatus,
               moved_by: user.id,
               moved_at: new Date().toISOString(),
+              move_source: "automation",
               updated_at: new Date().toISOString(),
             })
             .eq("id", card.id);
@@ -1424,6 +1428,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
             board_status: "delivered",
             moved_by: user.id,
             moved_at: new Date().toISOString(),
+            move_source: "manual",
             updated_at: new Date().toISOString(),
             notes: `Sudah terkirim pada ${deliveredDate}. ${card.notes || ""}`.trim(),
           })
@@ -1449,6 +1454,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
             board_status: "archived",
             moved_by: user.id,
             moved_at: new Date().toISOString(),
+            move_source: "manual",
             updated_at: new Date().toISOString(),
           })
           .eq("id", card.id);
