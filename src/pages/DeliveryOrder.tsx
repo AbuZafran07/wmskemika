@@ -380,6 +380,7 @@ export default function DeliveryOrder() {
                       <TableHead>Customer</TableHead>
                       <TableHead>PO Customer</TableHead>
                       <TableHead>Tanggal Generate</TableHead>
+                      <TableHead className="text-center">Status</TableHead>
                       <TableHead className="text-center">Aksi</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -395,8 +396,32 @@ export default function DeliveryOrder() {
                         <TableCell className="font-medium">{row.customer_name}</TableCell>
                         <TableCell>{row.customer_po}</TableCell>
                         <TableCell>{formatDate(row.created_at)}</TableCell>
+                        <TableCell className="text-center">
+                          {row.status === 'released' ? (
+                            <Badge className="bg-green-100 text-green-700 border-green-300 gap-1">
+                              <CheckCircle className="w-3 h-3" />
+                              Released
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-amber-600 border-amber-400 gap-1">
+                              <Clock className="w-3 h-3" />
+                              Pending
+                            </Badge>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center justify-center gap-1">
+                            {hasRole(['finance', 'admin', 'super_admin']) && row.status === 'pending' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs gap-1 text-amber-600 border-amber-400 hover:bg-amber-50"
+                                onClick={() => handleSignRelease(row)}
+                              >
+                                <PenLine className="h-3 w-3" />
+                                Sign & Release
+                              </Button>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
@@ -411,6 +436,23 @@ export default function DeliveryOrder() {
                               )}
                               Lihat DO
                             </Button>
+                            {hasRole(['warehouse', 'admin', 'super_admin', 'finance', 'sales']) && row.status === 'released' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs gap-1 text-green-700 border-green-400 hover:bg-green-50"
+                                onClick={() => handlePrintDO(row)}
+                                disabled={loadingDO === row.id}
+                              >
+                                <Printer className="h-3 w-3" />
+                                Print
+                              </Button>
+                            )}
+                            {hasRole(['warehouse']) && row.status === 'pending' && (
+                              <span className="text-xs text-muted-foreground italic">
+                                Menunggu Finance
+                              </span>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -438,6 +480,50 @@ export default function DeliveryOrder() {
         onOpenChange={setPdfOpen}
         data={selectedDO}
       />
+
+      <AlertDialog open={showSignConfirm} onOpenChange={setShowSignConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <PenLine className="w-5 h-5 text-amber-500" />
+              Sign &amp; Release Delivery Order
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>Anda akan men-sign dan me-release DO berikut:</p>
+                <div className="bg-muted rounded-lg p-3 space-y-1">
+                  <p className="font-semibold text-foreground text-base">{signTarget?.do_number}</p>
+                  <p className="text-sm">Customer: {signTarget?.customer_name}</p>
+                  <p className="text-sm">SO: {signTarget?.so_number}</p>
+                </div>
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-sm">
+                  <p className="font-medium mb-1">⚠️ Setelah di-release:</p>
+                  <ul className="space-y-1 list-disc list-inside">
+                    <li>TTD Anda akan otomatis muncul di PDF DO</li>
+                    <li>Warehouse akan mendapat notifikasi</li>
+                    <li>DO bisa langsung diprint oleh Warehouse</li>
+                  </ul>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={signingDO}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); confirmSignRelease(); }}
+              disabled={signingDO}
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+            >
+              {signingDO ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <PenLine className="w-4 h-4 mr-2" />
+              )}
+              Ya, Sign &amp; Release
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
