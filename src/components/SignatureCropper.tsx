@@ -1,10 +1,9 @@
 import React, { useState, useRef, useCallback } from 'react';
-import ReactCrop, { Crop, PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
+import ReactCrop, { Crop, PixelCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
-import { Loader2, ZoomIn, RotateCw, Check, X, FileSignature } from 'lucide-react';
+import { Loader2, RotateCw, Check, X, FileSignature, Maximize2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { validateImageFile, formatFileSize } from '@/lib/imageUtils';
 
@@ -15,68 +14,119 @@ interface SignatureCropperProps {
   onCropComplete: (blob: Blob) => void;
 }
 
-// Signature aspect ratio (width:height = 2.5:1 for landscape signatures)
+// Signature canvas ratio (width:height = 2.5:1 landscape) — the signature is
+// fitted INSIDE this canvas (contain), never stretched and never cut off.
 const SIGNATURE_ASPECT_RATIO = 2.5;
-// Output dimensions for signature (max 1000x400)
-const OUTPUT_WIDTH = 800;
-const OUTPUT_HEIGHT = 320;
+const OUTPUT_WIDTH = 1000;
+const OUTPUT_HEIGHT = 400;
+// Inner padding so strokes never touch the canvas edge (looks "terpotong" in PDF)
+const PADDING_RATIO = 0.04;
 
-function centerAspectCrop(
-  mediaWidth: number,
-  mediaHeight: number,
-  aspect: number
-): Crop {
-  return centerCrop(
-    makeAspectCrop(
-      {
-        unit: '%',
-        width: 90,
-      },
-      aspect,
-      mediaWidth,
-      mediaHeight
-    ),
-    mediaWidth,
-    mediaHeight
-  );
-}
-
-// Custom getCroppedCanvas for signature (non-square, landscape)
-function getSignatureCroppedCanvas(
+/** Extract the selected region at natural resolution. */
+function getCropCanvas(
   image: HTMLImageElement,
-  crop: { x: number; y: number; width: number; height: number },
-  outputWidth: number,
-  outputHeight: number
+  crop: { x: number; y: number; width: number; height: number }
 ): HTMLCanvasElement {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-
-  if (!ctx) {
-    throw new Error('Failed to get canvas context');
-  }
-
-  // Set output size (landscape for signature)
-  canvas.width = outputWidth;
-  canvas.height = outputHeight;
-
-  // Calculate scale factors
   const scaleX = image.naturalWidth / image.width;
   const scaleY = image.naturalHeight / image.height;
 
-  // Draw cropped and resized image
-  ctx.drawImage(
-    image,
-    crop.x * scaleX,
-    crop.y * scaleY,
-    crop.width * scaleX,
-    crop.height * scaleY,
-    0,
-    0,
-    outputWidth,
-    outputHeight
-  );
+  const sx = Math.max(0, Math.round(crop.x * scaleX));
+  const sy = Math.max(0, Math.round(crop.y * scaleY));
+  const sw = Math.max(1, Math.round(crop.width * scaleX));
+  const sh = Math.max(1, Math.round(crop.height * scaleY));
 
+  const canvas = document.createElement('canvas');
+  canvas.width = sw;
+  canvas.height = sh;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Failed to get canvas context');
+  ctx.drawImage(image, sx, sy, sw, sh, 0, 0, sw, sh);
   return canvas;
+}
+
+/**
+ * Trim surrounding empty space (transparent or near-white) so the signature
+ * uses the whole output area consistently.
+ */
+function trimCanvas(source: HTMLCanvasElement): HTMLCanvasElement {
+  const ctx = source.getContext('2d');
+  if (!ctx) return source;
+  let data: ImageData;
+  try {
+    data = ctx.getImageData(0, 0, source.width, source.height);
+  } catch {
+    return source; // tainted canvas — skip trimming
+  }
+
+  const { width, height } = source;
+  let minX = width, minY = height, maxX = -1, maxY = -1;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      const a = data.data[i + 3];
+      if (a < 16) continue;
+      const r = data.data[i], g = data.data[i + 1], b = data.data[i + 2];
+      // treat near-white as background
+      if (r > 244 && g > 244 && b > 244) continue;
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+  }
+
+  if (maxX < 0 || maxY < 0) return source; // nothing detected
+
+  const w = maxX - minX + 1;
+  const h = maxY - minY + 1;
+  const out = document.createElement('canvas');
+  out.width = w;
+  out.height = h;
+  out.getContext('2d')!.drawImage(source, minX, minY, w, h, 0, 0, w, h);
+  return out;
+}
+
+/** Fit (contain) the signature inside the 2.5:1 transparent canvas. */
+function fitToSignatureCanvas(source: HTMLCanvasElement): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = OUTPUT_WIDTH;
+  canvas.height = OUTPUT_HEIGHT;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Failed to get canvas context');
+  ctx.imageSmoothingQuality = 'high';
+
+  const padX = OUTPUT_WIDTH * PADDING_RATIO;
+  const padY = OUTPUT_HEIGHT * PADDING_RATIO;
+  const boxW = OUTPUT_WIDTH - padX * 2;
+  const boxH = OUTPUT_HEIGHT - padY * 2;
+
+  const ratio = Math.min(boxW / source.width, boxH / source.height);
+  const drawW = source.width * ratio;
+  const drawH = source.height * ratio;
+  const dx = (OUTPUT_WIDTH - drawW) / 2;
+  const dy = (OUTPUT_HEIGHT - drawH) / 2;
+
+  ctx.drawImage(source, 0, 0, source.width, source.height, dx, dy, drawW, drawH);
+  return canvas;
+}
+
+/** Rotate an image source by 90° steps and return a new data URL. */
+async function rotateImageSrc(src: string): Promise<string> {
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = reject;
+    el.src = src;
+  });
+  const canvas = document.createElement('canvas');
+  canvas.width = img.naturalHeight;
+  canvas.height = img.naturalWidth;
+  const ctx = canvas.getContext('2d')!;
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate(Math.PI / 2);
+  ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+  return canvas.toDataURL('image/png');
 }
 
 // Compress with transparent background support (PNG)
