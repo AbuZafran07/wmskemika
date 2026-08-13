@@ -7,13 +7,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Search, FileText, Eye, RefreshCw } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Loader2, Search, FileText, Eye, RefreshCw, CheckCircle, Clock, PenLine, Printer } from "lucide-react";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { toast } from "sonner";
 import { DeliveryOrderPdf, DeliveryOrderData } from "@/components/delivery/DeliveryOrderPdf";
 import { usePagination } from "@/hooks/usePagination";
 import { DataTablePagination } from "@/components/DataTablePagination";
+import { sendApprovalPushNotification } from "@/lib/pushNotifications";
 
 interface DORow {
   id: string;
@@ -36,6 +48,10 @@ interface DORow {
   sales_name: string;
   customer_pic: string | null;
   customer_phone: string | null;
+  status: 'pending' | 'released';
+  signed_by: string | null;
+  signed_at: string | null;
+  signer_name: string | null;
 }
 
 export default function DeliveryOrder() {
@@ -49,6 +65,12 @@ export default function DeliveryOrder() {
   const [selectedDO, setSelectedDO] = useState<DeliveryOrderData | null>(null);
   const [pdfOpen, setPdfOpen] = useState(false);
   const [loadingDO, setLoadingDO] = useState<string | null>(null);
+  const [signTarget, setSignTarget] = useState<DORow | null>(null);
+  const [showSignConfirm, setShowSignConfirm] = useState(false);
+  const [signingDO, setSigningDO] = useState(false);
+
+  const role = user?.role;
+  const hasRole = (roles: string[]) => !!role && roles.includes(role);
 
   const fetchData = async () => {
     setLoading(true);
@@ -56,7 +78,7 @@ export default function DeliveryOrder() {
       const { data, error } = await supabase
         .from("delivery_orders")
         .select(`
-          id, do_number, stock_out_id, sales_order_id, created_at,
+          id, do_number, stock_out_id, sales_order_id, created_at, status, signed_by, signed_at,
           stock_out_headers!inner(
             stock_out_number, delivery_date, delivery_actual_date, delivery_number, notes
           ),
@@ -68,6 +90,18 @@ export default function DeliveryOrder() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
+
+      const signerIds = Array.from(
+        new Set((data || []).map((d: any) => d.signed_by).filter(Boolean))
+      );
+      const signerMap: Record<string, string> = {};
+      if (signerIds.length > 0) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", signerIds);
+        (profs || []).forEach((p: any) => { signerMap[p.id] = p.full_name; });
+      }
 
       const mapped: DORow[] = (data || []).map((d: any) => {
         const so = d.stock_out_headers;
@@ -92,6 +126,10 @@ export default function DeliveryOrder() {
           sales_name: soh?.sales_name || '-',
           customer_pic: soh?.customers?.pic || null,
           customer_phone: soh?.customers?.phone || null,
+          status: (d.status === 'pending' ? 'pending' : 'released') as 'pending' | 'released',
+          signed_by: d.signed_by || null,
+          signed_at: d.signed_at || null,
+          signer_name: d.signed_by ? (signerMap[d.signed_by] || null) : null,
         };
       });
 
@@ -105,6 +143,83 @@ export default function DeliveryOrder() {
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  // Realtime sync status DO
+  useEffect(() => {
+    const channel = supabase
+      .channel('delivery-orders-status')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'delivery_orders',
+      }, () => { fetchData(); })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  const handleSignRelease = (row: DORow) => {
+    setSignTarget(row);
+    setShowSignConfirm(true);
+  };
+
+  const confirmSignRelease = async () => {
+    if (!signTarget) return;
+    setSigningDO(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+
+      const { error } = await supabase
+        .from('delivery_orders')
+        .update({
+          status: 'released',
+          signed_by: userId,
+          signed_at: new Date().toISOString(),
+        })
+        .eq('id', signTarget.id);
+
+      if (error) throw error;
+
+      await supabase.from('audit_logs').insert({
+        user_id: userId,
+        user_email: userData.user?.email,
+        action: 'RELEASE_DO',
+        module: 'Delivery Order',
+        ref_table: 'delivery_orders',
+        ref_id: signTarget.id,
+        ref_no: signTarget.do_number,
+        new_data: { do_number: signTarget.do_number, status: 'released' },
+      });
+
+      await sendApprovalPushNotification({
+        title: '🚚 DO Siap Diprint',
+        body: `DO ${signTarget.do_number} sudah di-release oleh Finance. Silakan print.`,
+        data: {
+          tag: 'do-released',
+          link: '/delivery-order',
+          do_number: signTarget.do_number,
+        },
+        targetRoles: ['warehouse', 'sales', 'super_admin', 'admin'],
+        excludeUserId: userId,
+      });
+
+      toast.success(`DO ${signTarget.do_number} berhasil di-release!`);
+      setShowSignConfirm(false);
+      setSignTarget(null);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || 'Gagal release DO');
+    }
+    setSigningDO(false);
+  };
+
+  const handlePrintDO = async (row: DORow) => {
+    if (row.status !== 'released') {
+      toast.warning('DO belum di-release oleh Finance');
+      return;
+    }
+    await handleViewDO(row);
+  };
 
   const filtered = useMemo(() => {
     return rows.filter(r => {
@@ -135,6 +250,22 @@ export default function DeliveryOrder() {
 
       if (error) throw error;
 
+      // Fetch TTD Finance jika DO sudah released
+      let signerSignatureUrl: string | null = null;
+      if (row.signed_by) {
+        const { data: sig } = await supabase
+          .from('user_signatures')
+          .select('signature_path')
+          .eq('user_id', row.signed_by)
+          .maybeSingle();
+        if (sig?.signature_path) {
+          const { data: urlData } = await supabase.storage
+            .from('signatures')
+            .createSignedUrl(sig.signature_path, 3600);
+          signerSignatureUrl = urlData?.signedUrl || null;
+        }
+      }
+
       // Extract date from DO number (DO/YYYYMMDD.XX) for accurate DO date
       const doDateMatch = row.do_number.match(/(\d{4})(\d{2})(\d{2})/);
       const doDateStr = doDateMatch
@@ -157,6 +288,11 @@ export default function DeliveryOrder() {
         sales_name: row.sales_name,
         customer_pic: row.customer_pic || null,
         customer_phone: row.customer_phone || null,
+        status: row.status,
+        signed_by: row.signed_by,
+        signed_at: row.signed_at,
+        signer_name: row.signer_name,
+        signer_signature_url: signerSignatureUrl,
         items: (items || []).map((it: any) => ({
           id: it.id,
           product_name: it.products?.name || '-',
