@@ -324,12 +324,9 @@ export function SignatureCropper({
               <span className="text-sm min-w-16">
                 {language === 'en' ? 'Rotate' : 'Putar'}
               </span>
-              <Button variant="outline" size="sm" onClick={handleRotate}>
+              <Button variant="outline" size="sm" onClick={handleRotate} disabled={!imgSrc || isProcessing}>
                 +90°
               </Button>
-              <span className="text-sm text-muted-foreground">
-                {rotate}°
-              </span>
             </div>
           </div>
 
@@ -342,8 +339,8 @@ export function SignatureCropper({
             </p>
             <p>
               {language === 'en' 
-                ? '• Use zoom to adjust image size'
-                : '• Gunakan zoom untuk menyesuaikan ukuran gambar'}
+                ? '• Empty margins are trimmed automatically; the signature is fitted (never stretched or cut)'
+                : '• Ruang kosong dipangkas otomatis; tanda tangan disesuaikan (tidak gepeng/terpotong)'}
             </p>
             <p>
               {language === 'en' 
