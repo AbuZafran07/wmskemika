@@ -184,8 +184,6 @@ export function SignatureCropper({
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
   const [imgSrc, setImgSrc] = useState('');
-  const [scale, setScale] = useState(1);
-  const [rotate, setRotate] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Load image when file changes
@@ -205,18 +203,38 @@ export function SignatureCropper({
     } else {
       setImgSrc('');
       setCrop(undefined);
-      setScale(1);
-      setRotate(0);
+      setCompletedCrop(undefined);
     }
   }, [file, language, onClose]);
 
+  // Default selection = the WHOLE image, so nothing is cut off unless the user
+  // deliberately narrows the area.
   const onImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
     const { width, height } = e.currentTarget;
-    setCrop(centerAspectCrop(width, height, SIGNATURE_ASPECT_RATIO));
+    setCrop({ unit: '%', x: 0, y: 0, width: 100, height: 100 });
+    setCompletedCrop({ unit: 'px', x: 0, y: 0, width, height });
   }, []);
 
-  const handleRotate = () => {
-    setRotate((prev) => (prev + 90) % 360);
+  const handleSelectAll = () => {
+    const img = imgRef.current;
+    if (!img) return;
+    setCrop({ unit: '%', x: 0, y: 0, width: 100, height: 100 });
+    setCompletedCrop({ unit: 'px', x: 0, y: 0, width: img.width, height: img.height });
+  };
+
+  const handleRotate = async () => {
+    if (!imgSrc) return;
+    setIsProcessing(true);
+    try {
+      const rotated = await rotateImageSrc(imgSrc);
+      setCrop(undefined);
+      setCompletedCrop(undefined);
+      setImgSrc(rotated);
+    } catch (error) {
+      console.error('Error rotating signature:', error);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleComplete = async () => {
@@ -224,20 +242,17 @@ export function SignatureCropper({
 
     setIsProcessing(true);
     try {
-      // Create a canvas with the cropped signature
-      const canvas = getSignatureCroppedCanvas(
-        imgRef.current,
-        {
-          x: completedCrop.x,
-          y: completedCrop.y,
-          width: completedCrop.width,
-          height: completedCrop.height
-        },
-        OUTPUT_WIDTH,
-        OUTPUT_HEIGHT
-      );
+      // 1) take the selected region, 2) trim empty margins,
+      // 3) fit it inside the 2.5:1 canvas without stretching or clipping
+      const cropped = getCropCanvas(imgRef.current, {
+        x: completedCrop.x,
+        y: completedCrop.y,
+        width: completedCrop.width,
+        height: completedCrop.height,
+      });
+      const trimmed = trimCanvas(cropped);
+      const canvas = fitToSignatureCanvas(trimmed);
 
-      // Compress the signature
       const blob = await compressSignature(canvas);
       
       onCropComplete(blob);
@@ -252,8 +267,7 @@ export function SignatureCropper({
   const handleClose = () => {
     setImgSrc('');
     setCrop(undefined);
-    setScale(1);
-    setRotate(0);
+    setCompletedCrop(undefined);
     onClose();
   };
 
@@ -275,7 +289,6 @@ export function SignatureCropper({
                 crop={crop}
                 onChange={(_, percentCrop) => setCrop(percentCrop)}
                 onComplete={(c) => setCompletedCrop(c)}
-                aspect={SIGNATURE_ASPECT_RATIO}
                 className="max-h-[300px]"
               >
                 <img
@@ -284,7 +297,6 @@ export function SignatureCropper({
                   src={imgSrc}
                   onLoad={onImageLoad}
                   style={{
-                    transform: `scale(${scale}) rotate(${rotate}deg)`,
                     maxHeight: '300px',
                     maxWidth: '100%'
                   }}
@@ -295,23 +307,15 @@ export function SignatureCropper({
 
           {/* Controls */}
           <div className="space-y-3">
-            {/* Zoom */}
+            {/* Use whole image */}
             <div className="flex items-center gap-3">
-              <ZoomIn className="w-4 h-4 text-muted-foreground" />
+              <Maximize2 className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm min-w-16">
-                {language === 'en' ? 'Zoom' : 'Zoom'}
+                {language === 'en' ? 'Area' : 'Area'}
               </span>
-              <Slider
-                value={[scale]}
-                onValueChange={([value]) => setScale(value)}
-                min={0.5}
-                max={3}
-                step={0.1}
-                className="flex-1"
-              />
-              <span className="text-sm text-muted-foreground min-w-12">
-                {Math.round(scale * 100)}%
-              </span>
+              <Button variant="outline" size="sm" onClick={handleSelectAll} disabled={!imgSrc}>
+                {language === 'en' ? 'Use full image' : 'Gunakan seluruh gambar'}
+              </Button>
             </div>
 
             {/* Rotate Button */}
