@@ -7,13 +7,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Search, FileText, Eye, RefreshCw } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Loader2, Search, FileText, Eye, RefreshCw, CheckCircle, Clock, PenLine, Printer } from "lucide-react";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { toast } from "sonner";
 import { DeliveryOrderPdf, DeliveryOrderData } from "@/components/delivery/DeliveryOrderPdf";
 import { usePagination } from "@/hooks/usePagination";
 import { DataTablePagination } from "@/components/DataTablePagination";
+import { sendApprovalPushNotification } from "@/lib/pushNotifications";
 
 interface DORow {
   id: string;
@@ -36,6 +48,10 @@ interface DORow {
   sales_name: string;
   customer_pic: string | null;
   customer_phone: string | null;
+  status: 'pending' | 'released';
+  signed_by: string | null;
+  signed_at: string | null;
+  signer_name: string | null;
 }
 
 export default function DeliveryOrder() {
@@ -49,6 +65,12 @@ export default function DeliveryOrder() {
   const [selectedDO, setSelectedDO] = useState<DeliveryOrderData | null>(null);
   const [pdfOpen, setPdfOpen] = useState(false);
   const [loadingDO, setLoadingDO] = useState<string | null>(null);
+  const [signTarget, setSignTarget] = useState<DORow | null>(null);
+  const [showSignConfirm, setShowSignConfirm] = useState(false);
+  const [signingDO, setSigningDO] = useState(false);
+
+  const role = user?.role;
+  const hasRole = (roles: string[]) => !!role && roles.includes(role);
 
   const fetchData = async () => {
     setLoading(true);
@@ -56,7 +78,7 @@ export default function DeliveryOrder() {
       const { data, error } = await supabase
         .from("delivery_orders")
         .select(`
-          id, do_number, stock_out_id, sales_order_id, created_at,
+          id, do_number, stock_out_id, sales_order_id, created_at, status, signed_by, signed_at,
           stock_out_headers!inner(
             stock_out_number, delivery_date, delivery_actual_date, delivery_number, notes
           ),
@@ -68,6 +90,18 @@ export default function DeliveryOrder() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
+
+      const signerIds = Array.from(
+        new Set((data || []).map((d: any) => d.signed_by).filter(Boolean))
+      );
+      const signerMap: Record<string, string> = {};
+      if (signerIds.length > 0) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", signerIds);
+        (profs || []).forEach((p: any) => { signerMap[p.id] = p.full_name; });
+      }
 
       const mapped: DORow[] = (data || []).map((d: any) => {
         const so = d.stock_out_headers;
@@ -92,6 +126,10 @@ export default function DeliveryOrder() {
           sales_name: soh?.sales_name || '-',
           customer_pic: soh?.customers?.pic || null,
           customer_phone: soh?.customers?.phone || null,
+          status: (d.status === 'pending' ? 'pending' : 'released') as 'pending' | 'released',
+          signed_by: d.signed_by || null,
+          signed_at: d.signed_at || null,
+          signer_name: d.signed_by ? (signerMap[d.signed_by] || null) : null,
         };
       });
 
@@ -105,6 +143,83 @@ export default function DeliveryOrder() {
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  // Realtime sync status DO
+  useEffect(() => {
+    const channel = supabase
+      .channel('delivery-orders-status')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'delivery_orders',
+      }, () => { fetchData(); })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  const handleSignRelease = (row: DORow) => {
+    setSignTarget(row);
+    setShowSignConfirm(true);
+  };
+
+  const confirmSignRelease = async () => {
+    if (!signTarget) return;
+    setSigningDO(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+
+      const { error } = await supabase
+        .from('delivery_orders')
+        .update({
+          status: 'released',
+          signed_by: userId,
+          signed_at: new Date().toISOString(),
+        })
+        .eq('id', signTarget.id);
+
+      if (error) throw error;
+
+      await supabase.from('audit_logs').insert({
+        user_id: userId,
+        user_email: userData.user?.email,
+        action: 'RELEASE_DO',
+        module: 'Delivery Order',
+        ref_table: 'delivery_orders',
+        ref_id: signTarget.id,
+        ref_no: signTarget.do_number,
+        new_data: { do_number: signTarget.do_number, status: 'released' },
+      });
+
+      await sendApprovalPushNotification({
+        title: '🚚 DO Siap Diprint',
+        body: `DO ${signTarget.do_number} sudah di-release oleh Finance. Silakan print.`,
+        data: {
+          tag: 'do-released',
+          link: '/delivery-order',
+          do_number: signTarget.do_number,
+        },
+        targetRoles: ['warehouse', 'sales', 'super_admin', 'admin'],
+        excludeUserId: userId,
+      });
+
+      toast.success(`DO ${signTarget.do_number} berhasil di-release!`);
+      setShowSignConfirm(false);
+      setSignTarget(null);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || 'Gagal release DO');
+    }
+    setSigningDO(false);
+  };
+
+  const handlePrintDO = async (row: DORow) => {
+    if (row.status !== 'released') {
+      toast.warning('DO belum di-release oleh Finance');
+      return;
+    }
+    await handleViewDO(row);
+  };
 
   const filtered = useMemo(() => {
     return rows.filter(r => {
@@ -135,6 +250,22 @@ export default function DeliveryOrder() {
 
       if (error) throw error;
 
+      // Fetch TTD Finance jika DO sudah released
+      let signerSignatureUrl: string | null = null;
+      if (row.signed_by) {
+        const { data: sig } = await supabase
+          .from('user_signatures')
+          .select('signature_path')
+          .eq('user_id', row.signed_by)
+          .maybeSingle();
+        if (sig?.signature_path) {
+          const { data: urlData } = await supabase.storage
+            .from('signatures')
+            .createSignedUrl(sig.signature_path, 3600);
+          signerSignatureUrl = urlData?.signedUrl || null;
+        }
+      }
+
       // Extract date from DO number (DO/YYYYMMDD.XX) for accurate DO date
       const doDateMatch = row.do_number.match(/(\d{4})(\d{2})(\d{2})/);
       const doDateStr = doDateMatch
@@ -157,6 +288,11 @@ export default function DeliveryOrder() {
         sales_name: row.sales_name,
         customer_pic: row.customer_pic || null,
         customer_phone: row.customer_phone || null,
+        status: row.status,
+        signed_by: row.signed_by,
+        signed_at: row.signed_at,
+        signer_name: row.signer_name,
+        signer_signature_url: signerSignatureUrl,
         items: (items || []).map((it: any) => ({
           id: it.id,
           product_name: it.products?.name || '-',
@@ -244,6 +380,7 @@ export default function DeliveryOrder() {
                       <TableHead>Customer</TableHead>
                       <TableHead>PO Customer</TableHead>
                       <TableHead>Tanggal Generate</TableHead>
+                      <TableHead className="text-center">Status</TableHead>
                       <TableHead className="text-center">Aksi</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -259,8 +396,32 @@ export default function DeliveryOrder() {
                         <TableCell className="font-medium">{row.customer_name}</TableCell>
                         <TableCell>{row.customer_po}</TableCell>
                         <TableCell>{formatDate(row.created_at)}</TableCell>
+                        <TableCell className="text-center">
+                          {row.status === 'released' ? (
+                            <Badge className="bg-green-100 text-green-700 border-green-300 gap-1">
+                              <CheckCircle className="w-3 h-3" />
+                              Released
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-amber-600 border-amber-400 gap-1">
+                              <Clock className="w-3 h-3" />
+                              Pending
+                            </Badge>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center justify-center gap-1">
+                            {hasRole(['finance', 'admin', 'super_admin']) && row.status === 'pending' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs gap-1 text-amber-600 border-amber-400 hover:bg-amber-50"
+                                onClick={() => handleSignRelease(row)}
+                              >
+                                <PenLine className="h-3 w-3" />
+                                Sign & Release
+                              </Button>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
@@ -275,6 +436,23 @@ export default function DeliveryOrder() {
                               )}
                               Lihat DO
                             </Button>
+                            {hasRole(['warehouse', 'admin', 'super_admin', 'finance', 'sales']) && row.status === 'released' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs gap-1 text-green-700 border-green-400 hover:bg-green-50"
+                                onClick={() => handlePrintDO(row)}
+                                disabled={loadingDO === row.id}
+                              >
+                                <Printer className="h-3 w-3" />
+                                Print
+                              </Button>
+                            )}
+                            {hasRole(['warehouse']) && row.status === 'pending' && (
+                              <span className="text-xs text-muted-foreground italic">
+                                Menunggu Finance
+                              </span>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -302,6 +480,50 @@ export default function DeliveryOrder() {
         onOpenChange={setPdfOpen}
         data={selectedDO}
       />
+
+      <AlertDialog open={showSignConfirm} onOpenChange={setShowSignConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <PenLine className="w-5 h-5 text-amber-500" />
+              Sign &amp; Release Delivery Order
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>Anda akan men-sign dan me-release DO berikut:</p>
+                <div className="bg-muted rounded-lg p-3 space-y-1">
+                  <p className="font-semibold text-foreground text-base">{signTarget?.do_number}</p>
+                  <p className="text-sm">Customer: {signTarget?.customer_name}</p>
+                  <p className="text-sm">SO: {signTarget?.so_number}</p>
+                </div>
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-sm">
+                  <p className="font-medium mb-1">⚠️ Setelah di-release:</p>
+                  <ul className="space-y-1 list-disc list-inside">
+                    <li>TTD Anda akan otomatis muncul di PDF DO</li>
+                    <li>Warehouse akan mendapat notifikasi</li>
+                    <li>DO bisa langsung diprint oleh Warehouse</li>
+                  </ul>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={signingDO}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); confirmSignRelease(); }}
+              disabled={signingDO}
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+            >
+              {signingDO ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <PenLine className="w-4 h-4 mr-2" />
+              )}
+              Ya, Sign &amp; Release
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

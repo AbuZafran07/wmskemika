@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
-import { Printer, X, Loader2, Download } from 'lucide-react';
+import { Printer, X, Loader2, Download, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -28,6 +28,11 @@ export interface DeliveryOrderData {
   sales_name: string;
   customer_pic: string | null;
   customer_phone: string | null;
+  status?: 'pending' | 'released';
+  signed_by?: string | null;
+  signed_at?: string | null;
+  signer_name?: string | null;
+  signer_signature_url?: string | null;
   items: {
     id: string;
     product_name: string;
@@ -231,14 +236,25 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
                 {['Received by', 'Shipped by', 'Warehouse by', 'Approved by'].map((label, i) => (
                   <div key={label} style={{ borderRight: i < 3 ? '1px solid #000' : 'none' }}>
                     <div style={{ borderBottom: '1px solid #000', padding: '8px 10px', fontSize: '11px' }}>
-                      Date :
+                      Date : {label === 'Approved by' && data.signed_at ? formatDate(data.signed_at) : ''}
                     </div>
                     <div style={{ padding: '8px 10px', fontSize: '11px', fontStyle: 'italic' }}>
                       {label},
                     </div>
-                    <div style={{ height: '90px' }}></div>
+                    <div style={{ height: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {label === 'Approved by' && data.signer_signature_url && (
+                        <img
+                          src={data.signer_signature_url}
+                          alt="TTD Finance"
+                          crossOrigin="anonymous"
+                          style={{ maxHeight: '80px', maxWidth: '95%', objectFit: 'contain' }}
+                        />
+                      )}
+                    </div>
                     <div style={{ padding: '4px 10px 12px', textAlign: 'center', fontSize: '10px', color: '#333' }}>
-                      (........................................)
+                      {label === 'Approved by' && data.signer_name
+                        ? `(${data.signer_name})`
+                        : '(........................................)'}
                     </div>
                   </div>
                 ))}
@@ -257,23 +273,32 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
             <X className="w-4 h-4 mr-2" />
             Tutup
           </Button>
-          <Button variant="outline" onClick={handleBrowserPrint}>
-            <Printer className="w-4 h-4 mr-2" />
-            Print Langsung
-          </Button>
-          <Button onClick={handleSavePdf} disabled={isPrinting}>
-            {isPrinting ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Memproses...
-              </>
-            ) : (
-              <>
-                <Download className="w-4 h-4 mr-2" />
-                Simpan PDF
-              </>
-            )}
-          </Button>
+          {data.status === 'pending' ? (
+            <div className="flex items-center gap-2 text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
+              <Clock className="w-4 h-4" />
+              <span className="text-sm">DO belum di-release oleh Finance</span>
+            </div>
+          ) : (
+            <>
+              <Button variant="outline" onClick={handleBrowserPrint}>
+                <Printer className="w-4 h-4 mr-2" />
+                Print Langsung
+              </Button>
+              <Button onClick={handleSavePdf} disabled={isPrinting}>
+                {isPrinting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Memproses...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 mr-2" />
+                    Simpan PDF
+                  </>
+                )}
+              </Button>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>

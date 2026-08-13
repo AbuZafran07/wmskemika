@@ -834,6 +834,9 @@ export type Database = {
           id: string
           notes: string | null
           sales_order_id: string
+          signed_at: string | null
+          signed_by: string | null
+          status: string
           stock_out_id: string
         }
         Insert: {
@@ -843,6 +846,9 @@ export type Database = {
           id?: string
           notes?: string | null
           sales_order_id: string
+          signed_at?: string | null
+          signed_by?: string | null
+          status?: string
           stock_out_id: string
         }
         Update: {
@@ -852,6 +858,9 @@ export type Database = {
           id?: string
           notes?: string | null
           sales_order_id?: string
+          signed_at?: string | null
+          signed_by?: string | null
+          status?: string
           stock_out_id?: string
         }
         Relationships: [
