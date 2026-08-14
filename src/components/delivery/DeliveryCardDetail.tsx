@@ -222,15 +222,44 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       // Check if DO already exists for this stock_out_id
       const { data: existingDO } = await supabase
         .from("delivery_orders")
-        .select("id, do_number")
+        .select("id, do_number, status, signed_by, signed_at")
         .eq("stock_out_id", so.id)
         .limit(1);
 
       let doNumber: string;
       let isNewDO = false;
+      let doStatus: 'pending' | 'released' = 'pending';
+      let signedBy: string | null = null;
+      let signedAt: string | null = null;
+      let signerName: string | null = null;
+      let signerSignatureUrl: string | null = null;
 
       if (existingDO && existingDO.length > 0) {
         doNumber = existingDO[0].do_number;
+        doStatus = existingDO[0].status === 'released' ? 'released' : 'pending';
+        signedBy = existingDO[0].signed_by || null;
+        signedAt = existingDO[0].signed_at || null;
+
+        if (signedBy) {
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', signedBy)
+            .maybeSingle();
+          signerName = prof?.full_name || null;
+
+          const { data: sig } = await supabase
+            .from('user_signatures')
+            .select('signature_path')
+            .eq('user_id', signedBy)
+            .maybeSingle();
+          if (sig?.signature_path) {
+            const { data: urlData } = await supabase.storage
+              .from('signatures')
+              .createSignedUrl(sig.signature_path, 3600);
+            signerSignatureUrl = urlData?.signedUrl || null;
+          }
+        }
       } else {
         isNewDO = true;
         // Generate DO number based on the actual generation date (today)
