@@ -12,6 +12,30 @@ import {
 import { exportSectionBasedPdf } from '@/lib/pdfSectionExport';
 import { PdfGeneratingOverlay } from '@/components/PdfGeneratingOverlay';
 
+function DraftWatermark() {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%) rotate(-35deg)',
+        pointerEvents: 'none',
+        zIndex: 50,
+        opacity: 0.18,
+        fontSize: '110px',
+        fontWeight: 900,
+        color: '#dc2626',
+        letterSpacing: '8px',
+        whiteSpace: 'nowrap',
+        userSelect: 'none',
+      }}
+    >
+      DRAFT
+    </div>
+  );
+}
+
 export interface DeliveryOrderData {
   id: string;
   delivery_number: string | null;
