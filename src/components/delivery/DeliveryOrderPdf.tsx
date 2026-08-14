@@ -12,6 +12,30 @@ import {
 import { exportSectionBasedPdf } from '@/lib/pdfSectionExport';
 import { PdfGeneratingOverlay } from '@/components/PdfGeneratingOverlay';
 
+function DraftWatermark() {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%) rotate(-35deg)',
+        pointerEvents: 'none',
+        zIndex: 50,
+        opacity: 0.18,
+        fontSize: '110px',
+        fontWeight: 900,
+        color: '#dc2626',
+        letterSpacing: '8px',
+        whiteSpace: 'nowrap',
+        userSelect: 'none',
+      }}
+    >
+      DRAFT
+    </div>
+  );
+}
+
 export interface DeliveryOrderData {
   id: string;
   delivery_number: string | null;
@@ -134,7 +158,8 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
           }}>
 
             {/* Section 1: Header */}
-            <div data-pdf-section>
+            <div data-pdf-section style={{ position: 'relative' }}>
+              {data.status !== 'released' && <DraftWatermark />}
               {/* Top space for letterhead logo */}
               <div style={{ height: '95px' }}></div>
 
@@ -191,7 +216,8 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
             </div>
 
             {/* Section 2: Items Table */}
-            <div data-pdf-section>
+            <div data-pdf-section style={{ position: 'relative' }}>
+              {data.status !== 'released' && <DraftWatermark />}
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
                 <thead>
                   <tr>
@@ -221,7 +247,8 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
             </div>
 
             {/* Section 3: Separator + Notes + Signature — pushed to bottom */}
-            <div data-pdf-section data-pdf-bottom style={{ marginTop: 'auto' }}>
+            <div data-pdf-section data-pdf-bottom style={{ position: 'relative', marginTop: 'auto' }}>
+              {data.status !== 'released' && <DraftWatermark />}
               {/* Separator line */}
               <div style={{ borderBottom: '1.5px solid #111', marginBottom: '16px' }}></div>
 
