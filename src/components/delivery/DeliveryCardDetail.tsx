@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { notifyDeliveryCardMoved, notifyUrgentLabelRequest, notifyUrgentLabelApproved, notifyUrgentLabelRejected, notifyKanbanComment, notifyKanbanMention } from "@/lib/pushNotifications";
 import { DeliveryOrderPdf, DeliveryOrderData } from "@/components/delivery/DeliveryOrderPdf";
 import { generateUniqueDONumber, getColumnDeliveryDate } from "@/lib/transactionNumberUtils";
+import { getPastedImageFile } from "@/lib/pasteImage";
 import { generateUniquePINumber, calculateMaterai, useMateraiSetting } from "@/hooks/useProformaInvoices";
 import { cancelDeliveredSalesOrder } from "@/hooks/useSalesOrders";
 import { SoRevisionActions } from "@/components/delivery/SoRevisionActions";
@@ -232,9 +233,8 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         doNumber = existingDO[0].do_number;
       } else {
         isNewDO = true;
-        // Generate DO number based on the column's delivery date
-        const columnDate = getColumnDeliveryDate(card.board_status);
-        doNumber = await generateUniqueDONumber(columnDate);
+        // Generate DO number based on the actual generation date (today)
+        doNumber = await generateUniqueDONumber(new Date());
         const { error: insertErr } = await supabase
           .from("delivery_orders")
           .insert({
@@ -1900,6 +1900,39 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     }
   };
 
+  // Paste gambar (screenshot) langsung dari clipboard di kolom komentar
+  const handleCommentPaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const file = getPastedImageFile(e, "Paste");
+    if (!file || !card || !user) return;
+    e.preventDefault();
+    setUploadingFile(true);
+    setUploadProgress(0);
+    try {
+      const fileKey = `delivery/${card.id}/${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage.from("documents").upload(fileKey, file);
+      if (uploadError) throw uploadError;
+      const { data: urlData } = await supabase.storage.from("documents").createSignedUrl(fileKey, 1800);
+      await supabase.from("attachments").insert({
+        ref_table: "delivery_requests",
+        ref_id: card.id,
+        module_name: "delivery",
+        file_key: fileKey,
+        url: urlData?.signedUrl || fileKey,
+        mime_type: file.type,
+        file_size: file.size,
+        uploaded_by: user.id,
+        file_name: file.name,
+      });
+      toast.success("Gambar dari clipboard berhasil dilampirkan");
+      fetchAttachments();
+    } catch (err: any) {
+      toast.error("Gagal upload gambar: " + (err?.message || "unknown"));
+    } finally {
+      setUploadingFile(false);
+      setUploadProgress(0);
+    }
+  };
+
   // Open attachment (preview for image/pdf, new tab for others)
   const handleOpenAttachment = (att: Attachment) => {
     if (att.mime_type?.startsWith("image/") || att.mime_type === "application/pdf") {
@@ -2608,6 +2641,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                     ref={commentRef}
                     value={newComment}
                     onChange={handleCommentChange}
+                    onPaste={handleCommentPaste}
                     placeholder="Tulis komentar... (ketik @ untuk mention)"
                     className="text-xs min-h-[50px] resize-none"
                     onKeyDown={e => {
