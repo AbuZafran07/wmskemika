@@ -1899,6 +1899,39 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     }
   };
 
+  // Paste gambar (screenshot) langsung dari clipboard di kolom komentar
+  const handleCommentPaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const file = getPastedImageFile(e, "Paste");
+    if (!file || !card || !user) return;
+    e.preventDefault();
+    setUploadingFile(true);
+    setUploadProgress(0);
+    try {
+      const fileKey = `delivery/${card.id}/${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage.from("documents").upload(fileKey, file);
+      if (uploadError) throw uploadError;
+      const { data: urlData } = await supabase.storage.from("documents").createSignedUrl(fileKey, 1800);
+      await supabase.from("attachments").insert({
+        ref_table: "delivery_requests",
+        ref_id: card.id,
+        module_name: "delivery",
+        file_key: fileKey,
+        url: urlData?.signedUrl || fileKey,
+        mime_type: file.type,
+        file_size: file.size,
+        uploaded_by: user.id,
+        file_name: file.name,
+      });
+      toast.success("Gambar dari clipboard berhasil dilampirkan");
+      fetchAttachments();
+    } catch (err: any) {
+      toast.error("Gagal upload gambar: " + (err?.message || "unknown"));
+    } finally {
+      setUploadingFile(false);
+      setUploadProgress(0);
+    }
+  };
+
   // Open attachment (preview for image/pdf, new tab for others)
   const handleOpenAttachment = (att: Attachment) => {
     if (att.mime_type?.startsWith("image/") || att.mime_type === "application/pdf") {
