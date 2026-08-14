@@ -216,7 +216,8 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
             </div>
 
             {/* Section 2: Items Table */}
-            <div data-pdf-section>
+            <div data-pdf-section style={{ position: 'relative' }}>
+              {data.status !== 'released' && <DraftWatermark />}
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
                 <thead>
                   <tr>
