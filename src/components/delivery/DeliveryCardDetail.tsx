@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { notifyDeliveryCardMoved, notifyUrgentLabelRequest, notifyUrgentLabelApproved, notifyUrgentLabelRejected, notifyKanbanComment, notifyKanbanMention } from "@/lib/pushNotifications";
 import { DeliveryOrderPdf, DeliveryOrderData } from "@/components/delivery/DeliveryOrderPdf";
 import { generateUniqueDONumber, getColumnDeliveryDate } from "@/lib/transactionNumberUtils";
+import { getPastedImageFile } from "@/lib/pasteImage";
 import { generateUniquePINumber, calculateMaterai, useMateraiSetting } from "@/hooks/useProformaInvoices";
 import { cancelDeliveredSalesOrder } from "@/hooks/useSalesOrders";
 import { SoRevisionActions } from "@/components/delivery/SoRevisionActions";
@@ -2640,6 +2641,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                     ref={commentRef}
                     value={newComment}
                     onChange={handleCommentChange}
+                    onPaste={handleCommentPaste}
                     placeholder="Tulis komentar... (ketik @ untuk mention)"
                     className="text-xs min-h-[50px] resize-none"
                     onKeyDown={e => {
