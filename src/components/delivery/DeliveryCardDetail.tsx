@@ -343,6 +343,11 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         sales_name: soHeader?.sales_name || card.sales_name,
         customer_pic: (soHeader?.customers as any)?.pic || null,
         customer_phone: (soHeader?.customers as any)?.phone || null,
+        status: doStatus,
+        signed_by: signedBy,
+        signed_at: signedAt,
+        signer_name: signerName,
+        signer_signature_url: signerSignatureUrl,
         items: (items || []).map((it: any) => ({
           id: it.id,
           product_name: it.products?.name || '-',
