@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { getPastedImageFile } from "@/lib/pasteImage";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -846,6 +847,38 @@ export default function TrackerKalibrasiCardDetail({
     } finally {
       setUploadingFile(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  // Paste gambar (screenshot) dari clipboard di kolom komentar → jadi lampiran
+  const handleCommentPaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const file = getPastedImageFile(e, "Paste");
+    if (!file || !receiptId || !user) return;
+    e.preventDefault();
+    setUploadingFile(true);
+    try {
+      const fileKey = `calibration/${receiptId}/${Date.now()}_${file.name}`;
+      const { error: upErr } = await supabase.storage.from("documents").upload(fileKey, file);
+      if (upErr) throw upErr;
+      const { data: urlData } = await supabase.storage.from("documents").createSignedUrl(fileKey, 1800);
+      const { error: insErr } = await supabase.from("attachments").insert({
+        ref_table: "sales_order_headers",
+        ref_id: receiptId,
+        module_name: "tracker-kalibrasi",
+        file_key: fileKey,
+        url: urlData?.signedUrl || fileKey,
+        mime_type: file.type,
+        file_size: file.size,
+        uploaded_by: user.id,
+        file_name: file.name,
+      });
+      if (insErr) throw insErr;
+      toast.success("Gambar dari clipboard berhasil dilampirkan");
+      fetchAttachments();
+    } catch (err: any) {
+      toast.error("Gagal upload gambar: " + (err?.message || 'unknown'));
+    } finally {
+      setUploadingFile(false);
     }
   };
 
@@ -2116,6 +2149,7 @@ export default function TrackerKalibrasiCardDetail({
                       <Textarea
                         value={newComment}
                         onChange={(e) => setNewComment(e.target.value)}
+                        onPaste={handleCommentPaste}
                         placeholder="Tulis komentar... (ketik @ untuk mention)"
                         className="text-xs min-h-[50px] resize-none"
                         onKeyDown={(e) => {

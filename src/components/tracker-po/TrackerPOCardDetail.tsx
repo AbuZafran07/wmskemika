@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { getPastedImageFile } from "@/lib/pasteImage";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -556,6 +557,45 @@ export default function TrackerPOCardDetail({
     }
   };
 
+  // Paste gambar (screenshot) dari clipboard di kolom komentar → jadi lampiran
+  const handleCommentPaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const file = getPastedImageFile(e, "Paste");
+    if (!file || !user) return;
+    e.preventDefault();
+    setUploadingFile(true);
+    try {
+      const fileKey = `tracker-po/${planOrder.id}/${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage.from("documents").upload(fileKey, file);
+      if (uploadError) throw uploadError;
+      const { data: urlData } = await supabase.storage.from("documents").createSignedUrl(fileKey, 1800);
+      await supabase.from("attachments").insert({
+        file_key: fileKey,
+        file_name: file.name,
+        url: urlData?.signedUrl || "",
+        mime_type: file.type,
+        file_size: file.size,
+        module_name: "Tracker PO",
+        ref_table: "plan_order_headers",
+        ref_id: planOrder.id,
+        uploaded_by: user.id,
+      });
+      const userName = (user as any).name || (user as any).email || "User";
+      await supabase.from("po_tracker_comments").insert({
+        plan_order_id: planOrder.id,
+        user_id: user.id,
+        message: `${userName} menambahkan lampiran '${file.name}'`,
+        type: "activity",
+      });
+      await fetchAttachments();
+      await fetchComments();
+      toast.success("Gambar dari clipboard berhasil dilampirkan");
+    } catch {
+      toast.error("Gagal mengupload gambar");
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
   const downloadAttachment = async (att: Attachment) => {
     setDownloadingId(att.id);
     try {
@@ -975,6 +1015,7 @@ export default function TrackerPOCardDetail({
                     value={newComment}
                     onChange={handleCommentChange}
                     onKeyDown={handleCommentKeyDown}
+                    onPaste={handleCommentPaste}
                     placeholder="Tulis komentar... (ketik @ untuk mention)"
                     className="text-xs min-h-[50px] resize-none"
                   />
