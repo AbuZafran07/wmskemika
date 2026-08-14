@@ -232,9 +232,8 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         doNumber = existingDO[0].do_number;
       } else {
         isNewDO = true;
-        // Generate DO number based on the column's delivery date
-        const columnDate = getColumnDeliveryDate(card.board_status);
-        doNumber = await generateUniqueDONumber(columnDate);
+        // Generate DO number based on the actual generation date (today)
+        doNumber = await generateUniqueDONumber(new Date());
         const { error: insertErr } = await supabase
           .from("delivery_orders")
           .insert({
