@@ -158,7 +158,8 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
           }}>
 
             {/* Section 1: Header */}
-            <div data-pdf-section>
+            <div data-pdf-section style={{ position: 'relative' }}>
+              {data.status !== 'released' && <DraftWatermark />}
               {/* Top space for letterhead logo */}
               <div style={{ height: '95px' }}></div>
 
