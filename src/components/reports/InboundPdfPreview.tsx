@@ -124,7 +124,7 @@ export function InboundPdfPreview({ open, onOpenChange, record }: InboundPdfPrev
         </DialogHeader>
 
         {/* PDF Preview Content */}
-        <div className="border rounded-lg p-6 bg-white" ref={contentRef}>
+        <div className="border rounded-lg p-6 bg-white text-black" ref={contentRef}>
           {/* Header */}
           <div className="flex items-start justify-between mb-6 pb-4 border-b-2 border-gray-800">
             <div className="flex items-center gap-4">
@@ -223,7 +223,7 @@ export function InboundPdfPreview({ open, onOpenChange, record }: InboundPdfPrev
                   <td className="border border-gray-300 px-3 py-3">1</td>
                   <td className="border border-gray-300 px-3 py-3">Kesesuaian Barang dengan PO</td>
                   <td className="border border-gray-300 px-3 py-3 text-center" style={{ whiteSpace: 'nowrap' }}>
-                    <span className="text-gray-400" style={{ display: 'inline-flex', gap: '16px' }}>
+                    <span className="text-gray-700" style={{ display: 'inline-flex', gap: '16px' }}>
                       <span>☐ Sesuai</span>
                       <span>☐ Tidak</span>
                     </span>
@@ -234,7 +234,7 @@ export function InboundPdfPreview({ open, onOpenChange, record }: InboundPdfPrev
                   <td className="border border-gray-300 px-3 py-3">2</td>
                   <td className="border border-gray-300 px-3 py-3">Kondisi Kemasan</td>
                   <td className="border border-gray-300 px-3 py-3 text-center" style={{ whiteSpace: 'nowrap' }}>
-                    <span className="text-gray-400" style={{ display: 'inline-flex', gap: '12px' }}>
+                    <span className="text-gray-700" style={{ display: 'inline-flex', gap: '12px' }}>
                       <span>☐ Baik</span>
                       <span>☐ Rusak</span>
                       <span>☐ Bocor</span>
@@ -246,7 +246,7 @@ export function InboundPdfPreview({ open, onOpenChange, record }: InboundPdfPrev
                   <td className="border border-gray-300 px-3 py-3">3</td>
                   <td className="border border-gray-300 px-3 py-3">Label & Batch Terbaca</td>
                   <td className="border border-gray-300 px-3 py-3 text-center">
-                    <span className="text-gray-400">☐ Ya &nbsp; ☐ Tidak</span>
+                    <span className="text-gray-700">☐ Ya &nbsp; ☐ Tidak</span>
                   </td>
                   <td className="border border-gray-300 px-3 py-3"></td>
                 </tr>
@@ -254,7 +254,7 @@ export function InboundPdfPreview({ open, onOpenChange, record }: InboundPdfPrev
                   <td className="border border-gray-300 px-3 py-3">4</td>
                   <td className="border border-gray-300 px-3 py-3">Expired Date Sesuai</td>
                   <td className="border border-gray-300 px-3 py-3 text-center">
-                    <span className="text-gray-400">☐ Ya &nbsp; ☐ Tidak</span>
+                    <span className="text-gray-700">☐ Ya &nbsp; ☐ Tidak</span>
                   </td>
                   <td className="border border-gray-300 px-3 py-3"></td>
                 </tr>
@@ -262,7 +262,7 @@ export function InboundPdfPreview({ open, onOpenChange, record }: InboundPdfPrev
                   <td className="border border-gray-300 px-3 py-3">5</td>
                   <td className="border border-gray-300 px-3 py-3">Qty Sesuai dengan Dokumen</td>
                   <td className="border border-gray-300 px-3 py-3 text-center">
-                    <span className="text-gray-400">☐ Ya &nbsp; ☐ Tidak</span>
+                    <span className="text-gray-700">☐ Ya &nbsp; ☐ Tidak</span>
                   </td>
                   <td className="border border-gray-300 px-3 py-3"></td>
                 </tr>
@@ -274,7 +274,7 @@ export function InboundPdfPreview({ open, onOpenChange, record }: InboundPdfPrev
           <div className="mb-8">
             <h3 className="font-bold text-gray-900 mb-2">Catatan QC</h3>
             <div className="border border-gray-300 rounded p-3 min-h-[80px] bg-gray-50">
-              <p className="text-gray-400 text-sm italic">Tuliskan catatan pemeriksaan di sini...</p>
+              <p className="text-gray-500 text-sm italic">Tuliskan catatan pemeriksaan di sini...</p>
             </div>
           </div>
 

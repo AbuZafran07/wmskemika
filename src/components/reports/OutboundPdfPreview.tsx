@@ -134,7 +134,7 @@ export function OutboundPdfPreview({ open, onOpenChange, record }: OutboundPdfPr
         </DialogHeader>
 
         {/* PDF Preview Content */}
-        <div className="border rounded-lg p-6 bg-white" ref={contentRef}>
+        <div className="border rounded-lg p-6 bg-white text-black" ref={contentRef}>
           {/* Header */}
           <div className="flex items-start justify-between mb-6 pb-4 border-b-2 border-gray-800">
             <div className="flex items-center gap-4">
@@ -294,7 +294,7 @@ export function OutboundPdfPreview({ open, onOpenChange, record }: OutboundPdfPr
           <div className="mb-8">
             <h3 className="font-bold text-gray-900 mb-2">Catatan Pengiriman</h3>
             <div className="border border-gray-300 rounded p-3 min-h-[80px] bg-gray-50">
-              <p className="text-gray-400 text-sm italic">Tuliskan catatan pengiriman di sini...</p>
+              <p className="text-gray-500 text-sm italic">Tuliskan catatan pengiriman di sini...</p>
             </div>
           </div>
 
