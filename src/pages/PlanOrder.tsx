@@ -85,6 +85,9 @@ import {
   requestPlanOrderRevision,
   approvePlanOrderRevision,
   rejectPlanOrderRevision,
+  requestPlanOrderShortClose,
+  approvePlanOrderShortClose,
+  rejectPlanOrderShortClose,
   PlanOrderHeader,
   PlanOrderItem,
 } from "@/hooks/usePlanOrders";
