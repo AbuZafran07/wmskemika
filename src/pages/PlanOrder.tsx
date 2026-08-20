@@ -143,6 +143,7 @@ const statusConfig: Record<
   draft: { label: "Draft", labelId: "Draft", variant: "draft" },
   approved: { label: "Approved", labelId: "Disetujui", variant: "approved" },
   revision_requested: { label: "Revision Requested", labelId: "Revisi Diminta", variant: "pending" },
+  short_close_requested: { label: "Short Close Requested", labelId: "Tutup Sisa Diajukan", variant: "pending" },
   partially_received: { label: "Partially Received", labelId: "Diterima Sebagian", variant: "pending" },
   received: { label: "Received", labelId: "Diterima", variant: "success" },
   cancelled: { label: "Cancelled", labelId: "Dibatalkan", variant: "cancelled" },
