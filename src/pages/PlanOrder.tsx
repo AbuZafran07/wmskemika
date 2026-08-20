@@ -261,6 +261,17 @@ export default function PlanOrder() {
   const [isApprovingRevision, setIsApprovingRevision] = useState(false);
   const [isRejectingRevision, setIsRejectingRevision] = useState(false);
   const [revisionReasonDisplay, setRevisionReasonDisplay] = useState<{ reason: string; requestedBy: string; requestedAt: string } | null>(null);
+
+  // Short Close (Tutup Sisa PO) state
+  const [isShortCloseDialogOpen, setIsShortCloseDialogOpen] = useState(false);
+  const [shortCloseReason, setShortCloseReason] = useState("");
+  const [shortCloseFollowup, setShortCloseFollowup] = useState(false);
+  const [isRequestingShortClose, setIsRequestingShortClose] = useState(false);
+  const [isApproveShortCloseOpen, setIsApproveShortCloseOpen] = useState(false);
+  const [isApprovingShortClose, setIsApprovingShortClose] = useState(false);
+  const [isRejectShortCloseOpen, setIsRejectShortCloseOpen] = useState(false);
+  const [rejectShortCloseReason, setRejectShortCloseReason] = useState("");
+  const [isRejectingShortClose, setIsRejectingShortClose] = useState(false);
   const [approveReasonDisplay, setApproveReasonDisplay] = useState<{ reason: string; approvedBy: string; approvedAt: string } | null>(null);
 
   // Stock In history
