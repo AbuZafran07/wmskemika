@@ -1943,6 +1943,127 @@ export default function PlanOrder() {
         </DialogContent>
       </Dialog>
 
+      {/* Short Close Request Dialog */}
+      <Dialog open={isShortCloseDialogOpen} onOpenChange={setIsShortCloseDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{language === "en" ? "Request Short Close" : "Ajukan Tutup Sisa PO"}</DialogTitle>
+            <DialogDescription>
+              {language === "en"
+                ? `Close the outstanding quantity of "${selectedOrder?.plan_number}" because the supplier cannot fulfill it. Needs Finance approval.`
+                : `Tutup sisa qty pada "${selectedOrder?.plan_number}" karena supplier tidak bisa memenuhi. Perlu persetujuan Finance.`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>{language === "en" ? "Reason" : "Alasan"} *</Label>
+              <Textarea
+                value={shortCloseReason}
+                onChange={(e) => setShortCloseReason(e.target.value)}
+                placeholder={language === "en" ? "e.g. Supplier stock unavailable, remaining 1 pcs cancelled..." : "cth: Stok supplier habis, sisa 1 pcs dibatalkan..."}
+                rows={3}
+              />
+              <div className="flex items-center justify-between">
+                <p className={`text-xs ${shortCloseReason.trim().length < 20 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                  {shortCloseReason.trim().length}/20 {language === "en" ? "min characters" : "karakter minimum"}
+                </p>
+                {shortCloseReason.trim().length >= 20 && <span className="text-xs text-green-600">✓</span>}
+              </div>
+            </div>
+            <label className="flex items-start gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={shortCloseFollowup}
+                onChange={(e) => setShortCloseFollowup(e.target.checked)}
+              />
+              <span>
+                {language === "en"
+                  ? "Create a new draft PO for the remaining quantity"
+                  : "Buat PO draft baru untuk sisa qty yang belum terpenuhi"}
+              </span>
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsShortCloseDialogOpen(false)} disabled={isRequestingShortClose}>
+              {t("common.cancel")}
+            </Button>
+            <Button onClick={handleRequestShortClose} disabled={isRequestingShortClose || shortCloseReason.trim().length < 20}>
+              {isRequestingShortClose && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {language === "en" ? "Submit Request" : "Kirim Permintaan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approve Short Close Dialog */}
+      <AlertDialog open={isApproveShortCloseOpen} onOpenChange={setIsApproveShortCloseOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{language === "en" ? "Approve Short Close" : "Setujui Tutup Sisa PO"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === "en"
+                ? `Outstanding quantity on "${selectedOrder?.plan_number}" will be closed and the PO marked as received. Continue?`
+                : `Sisa qty pada "${selectedOrder?.plan_number}" akan ditutup dan PO ditandai selesai (received). Lanjutkan?`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {selectedOrder?.short_close_reason && (
+            <div className="rounded-md bg-muted p-3 text-sm">
+              <p className="font-medium mb-1">{language === "en" ? "Requested reason" : "Alasan pengajuan"}</p>
+              <p className="text-muted-foreground">{selectedOrder.short_close_reason}</p>
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isApprovingShortClose}>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleApproveShortClose}
+              disabled={isApprovingShortClose}
+              className="bg-success text-success-foreground hover:bg-success/90"
+            >
+              {isApprovingShortClose && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {language === "en" ? "Approve" : "Setujui"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reject Short Close Dialog */}
+      <Dialog open={isRejectShortCloseOpen} onOpenChange={setIsRejectShortCloseOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{language === "en" ? "Reject Short Close" : "Tolak Tutup Sisa PO"}</DialogTitle>
+            <DialogDescription>
+              {language === "en"
+                ? `"${selectedOrder?.plan_number}" will return to its previous status.`
+                : `"${selectedOrder?.plan_number}" akan kembali ke status sebelumnya.`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label>{language === "en" ? "Rejection Reason" : "Alasan Penolakan"} *</Label>
+            <Textarea
+              value={rejectShortCloseReason}
+              onChange={(e) => setRejectShortCloseReason(e.target.value)}
+              rows={3}
+            />
+            <div className="flex items-center justify-between">
+              <p className={`text-xs ${rejectShortCloseReason.trim().length < 20 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                {rejectShortCloseReason.trim().length}/20 {language === "en" ? "min characters" : "karakter minimum"}
+              </p>
+              {rejectShortCloseReason.trim().length >= 20 && <span className="text-xs text-green-600">✓</span>}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRejectShortCloseOpen(false)} disabled={isRejectingShortClose}>
+              {t("common.cancel")}
+            </Button>
+            <Button variant="destructive" onClick={handleRejectShortClose} disabled={isRejectingShortClose || rejectShortCloseReason.trim().length < 20}>
+              {isRejectingShortClose && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {language === "en" ? "Reject" : "Tolak"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Detail Dialog (with Preview / Download / Print / View Doc) */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
