@@ -2314,6 +2314,22 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                         <div className="bg-primary/10 px-2 py-1.5 flex items-center justify-between">
                           <span className="text-[11px] font-bold text-primary">{so.stock_out_number}</span>
                           <div className="flex items-center gap-1.5">
+                            {so.booking_status === 'booked' && ['delivered', 'delivered_sample'].includes(card.board_status) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-5 text-[10px] px-1.5 gap-0.5"
+                                onClick={async () => {
+                                  const ok = await confirmBookedStockOuts();
+                                  if (ok) {
+                                    toast.success("Stok berhasil dikonfirmasi terkirim (booking dilepas)");
+                                    await fetchStockOutDetails();
+                                  }
+                                }}
+                              >
+                                Konfirmasi Stok Terkirim
+                              </Button>
+                            )}
                             {card.board_status.startsWith('pengiriman_') || card.board_status === 'delivered' || card.board_status === 'delivered_sample' ? (
                               user?.role && ['super_admin', 'admin', 'finance', 'purchasing'].includes(user.role) ? (
                                 <Button
