@@ -191,6 +191,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     id: string;
     stock_out_number: string;
     delivery_date: string;
+    booking_status?: string;
     items: {
       product_name: string;
       qty_out: number;
@@ -523,6 +524,30 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     setChecklists((data as ChecklistItem[]) || []);
   }, [card]);
 
+  // Konfirmasi semua stock out yang masih "booked" agar stok benar-benar terpotong
+  const confirmBookedStockOuts = useCallback(async (): Promise<boolean> => {
+    if (!card) return true;
+    const { data: bookedList, error } = await supabase
+      .from("stock_out_headers")
+      .select("id, stock_out_number")
+      .eq("sales_order_id", card.sales_order_id)
+      .eq("booking_status", "booked");
+    if (error) {
+      toast.error("Gagal memeriksa status booking stok: " + error.message);
+      return false;
+    }
+    for (const so of bookedList || []) {
+      const { error: confirmErr } = await supabase.rpc("stock_out_confirm_delivery", {
+        p_stock_out_id: so.id,
+      });
+      if (confirmErr) {
+        toast.error(`Gagal konfirmasi pengiriman untuk ${so.stock_out_number}: ${confirmErr.message}`);
+        return false;
+      }
+    }
+    return true;
+  }, [card]);
+
   // Fetch stock out details for this SO
   const fetchStockOutDetails = useCallback(async () => {
     if (!card) return;
@@ -530,7 +555,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       // Get all stock out headers for this SO
       const { data: stockOuts } = await supabase
         .from("stock_out_headers")
-        .select("id, stock_out_number, delivery_date, delivery_number, delivery_actual_date")
+        .select("id, stock_out_number, delivery_date, delivery_number, delivery_actual_date, booking_status")
         .eq("sales_order_id", card.sales_order_id)
         .order("created_at", { ascending: false });
 
@@ -552,6 +577,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           id: so.id,
           stock_out_number: so.stock_out_number,
           delivery_date: so.delivery_date,
+          booking_status: (so as any).booking_status || undefined,
           items: (outItems || []).map((item: any) => ({
             product_name: item.product?.name || "-",
             qty_out: item.qty_out,
@@ -1216,6 +1242,12 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         const targetStatus = hasSampleLabel ? "delivered_sample" : "delivered";
         const targetLabel = hasSampleLabel ? "Delivered Sample" : "Delivered";
 
+        const bookingOk = await confirmBookedStockOuts();
+        if (!bookingOk) {
+          fetchChecklists();
+          return;
+        }
+
         await supabase
           .from("delivery_requests")
           .update({
@@ -1315,6 +1347,9 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
           const targetStatus = hasSampleLabel ? "delivered_sample" : "delivered";
           const targetLabel = hasSampleLabel ? "Delivered Sample" : "Delivered";
+
+          const bookingOk = await confirmBookedStockOuts();
+          if (!bookingOk) return;
 
           await supabase
             .from("delivery_requests")
@@ -1455,6 +1490,11 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       }
 
       if (deleteAction === "delivered") {
+        const bookingOk = await confirmBookedStockOuts();
+        if (!bookingOk) {
+          setDeletingCard(false);
+          return;
+        }
         // Move to delivered with date note
         const { error: updateError } = await supabase
           .from("delivery_requests")
@@ -2274,6 +2314,22 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
                         <div className="bg-primary/10 px-2 py-1.5 flex items-center justify-between">
                           <span className="text-[11px] font-bold text-primary">{so.stock_out_number}</span>
                           <div className="flex items-center gap-1.5">
+                            {so.booking_status === 'booked' && ['delivered', 'delivered_sample'].includes(card.board_status) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-5 text-[10px] px-1.5 gap-0.5"
+                                onClick={async () => {
+                                  const ok = await confirmBookedStockOuts();
+                                  if (ok) {
+                                    toast.success("Stok berhasil dikonfirmasi terkirim (booking dilepas)");
+                                    await fetchStockOutDetails();
+                                  }
+                                }}
+                              >
+                                Konfirmasi Stok Terkirim
+                              </Button>
+                            )}
                             {card.board_status.startsWith('pengiriman_') || card.board_status === 'delivered' || card.board_status === 'delivered_sample' ? (
                               user?.role && ['super_admin', 'admin', 'finance', 'purchasing'].includes(user.role) ? (
                                 <Button
