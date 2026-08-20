@@ -827,9 +827,66 @@ export default function PlanOrder() {
     setSelectedOrder(null);
   };
 
+  // ===== Short Close Handlers =====
+  const handleRequestShortClose = async () => {
+    if (!selectedOrder || shortCloseReason.trim().length < 20) return;
+    setIsRequestingShortClose(true);
+    try {
+      const result = await requestPlanOrderShortClose(selectedOrder.id, shortCloseReason.trim(), shortCloseFollowup);
+      if (!result.success) throw new Error(result.error || "Gagal mengajukan tutup sisa PO");
+      toast.success(language === "en" ? "Short close request submitted" : "Permintaan tutup sisa PO terkirim");
+      refetch();
+      setIsShortCloseDialogOpen(false);
+      setIsDetailDialogOpen(false);
+      setShortCloseReason("");
+      setShortCloseFollowup(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal mengajukan tutup sisa PO");
+    }
+    setIsRequestingShortClose(false);
+  };
+
+  const handleApproveShortClose = async () => {
+    if (!selectedOrder) return;
+    setIsApprovingShortClose(true);
+    try {
+      const result = await approvePlanOrderShortClose(selectedOrder.id);
+      if (!result.success) throw new Error(result.error || "Gagal menyetujui tutup sisa PO");
+      toast.success(
+        result.followup_plan_number
+          ? (language === "en"
+              ? `Short close approved. Follow-up PO ${result.followup_plan_number} created as draft.`
+              : `Tutup sisa PO disetujui. PO lanjutan ${result.followup_plan_number} dibuat sebagai draft.`)
+          : (language === "en" ? "Short close approved" : "Tutup sisa PO disetujui")
+      );
+      refetch();
+      setIsApproveShortCloseOpen(false);
+      setIsDetailDialogOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal menyetujui tutup sisa PO");
+    }
+    setIsApprovingShortClose(false);
+  };
+
+  const handleRejectShortClose = async () => {
+    if (!selectedOrder || rejectShortCloseReason.trim().length < 20) return;
+    setIsRejectingShortClose(true);
+    try {
+      const result = await rejectPlanOrderShortClose(selectedOrder.id, rejectShortCloseReason.trim());
+      if (!result.success) throw new Error(result.error || "Gagal menolak tutup sisa PO");
+      toast.success(language === "en" ? "Short close rejected" : "Tutup sisa PO ditolak");
+      refetch();
+      setIsRejectShortCloseOpen(false);
+      setIsDetailDialogOpen(false);
+      setRejectShortCloseReason("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal menolak tutup sisa PO");
+    }
+    setIsRejectingShortClose(false);
+  };
+
   // ===== Detail view =====
   const handleViewDetail = async (order: PlanOrderHeader) => {
-*** MARKER ***
     setSelectedOrder(order);
     setIsDetailDialogOpen(true);
     setRevisionReasonDisplay(null);
