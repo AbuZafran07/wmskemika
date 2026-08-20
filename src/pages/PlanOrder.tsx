@@ -1535,6 +1535,9 @@ export default function PlanOrder() {
                 <SelectItem value="partially_received">
                   {language === "en" ? "Partially Received" : "Diterima Sebagian"}
                 </SelectItem>
+                <SelectItem value="short_close_requested">
+                  {language === "en" ? "Short Close Requested" : "Tutup Sisa Diajukan"}
+                </SelectItem>
                 <SelectItem value="received">{language === "en" ? "Received" : "Diterima"}</SelectItem>
                 <SelectItem value="cancelled">{language === "en" ? "Cancelled" : "Dibatalkan"}</SelectItem>
               </SelectContent>
