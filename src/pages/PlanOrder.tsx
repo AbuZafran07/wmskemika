@@ -311,7 +311,7 @@ export default function PlanOrder() {
       const matchesDateFrom = !dateFrom || od >= new Date(dateFrom);
       const matchesDateTo = !dateTo || od <= new Date(dateTo);
 
-      const activeStatuses = ["draft", "approved", "partially_received", "revision_requested"];
+      const activeStatuses = ["draft", "approved", "partially_received", "revision_requested", "short_close_requested"];
       const archivedStatuses = ["received", "cancelled"];
       const matchesViewMode =
         viewMode === "active" ? activeStatuses.includes(order.status) : archivedStatuses.includes(order.status);
