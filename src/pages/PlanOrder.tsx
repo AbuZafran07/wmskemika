@@ -2189,6 +2189,25 @@ export default function PlanOrder() {
               )}
 
               {/* Approval Reason Banner */}
+              {selectedOrder.status === 'short_close_requested' && selectedOrder.short_close_reason && (
+                <div className="rounded-lg border border-warning/50 bg-warning/10 p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-warning font-semibold">
+                    <AlertTriangle className="w-4 h-4" />
+                    {language === "en" ? "Short Close Requested" : "Pengajuan Tutup Sisa PO"}
+                  </div>
+                  <div className="text-sm space-y-1">
+                    <p><span className="text-muted-foreground">{language === "en" ? "Reason:" : "Alasan:"}</span> {selectedOrder.short_close_reason}</p>
+                    {selectedOrder.short_close_requested_at && (
+                      <p><span className="text-muted-foreground">{language === "en" ? "Date:" : "Tanggal:"}</span> {new Date(selectedOrder.short_close_requested_at).toLocaleString("id-ID")}</p>
+                    )}
+                    <p>
+                      <span className="text-muted-foreground">{language === "en" ? "Follow-up PO:" : "PO Lanjutan:"}</span>{" "}
+                      {selectedOrder.short_close_create_followup ? (language === "en" ? "Yes" : "Ya") : (language === "en" ? "No" : "Tidak")}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {approveReasonDisplay && (
                 <div className="rounded-lg border border-success/50 bg-success/10 p-4 space-y-2">
                   <div className="flex items-center gap-2 text-success font-semibold">
