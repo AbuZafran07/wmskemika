@@ -2227,6 +2227,46 @@ export default function PlanOrder() {
 
           <DialogFooter className="flex-wrap gap-2">
             {/* Revision actions in detail dialog */}
+            {/* Short Close: request (purchasing/admin) */}
+            {["approved", "partially_received"].includes(selectedOrder?.status || "") &&
+              (canEdit("plan_order") || isAdminOrAbove()) && (
+                <Button
+                  variant="outline"
+                  className="border-warning text-warning hover:bg-warning/10"
+                  onClick={() => {
+                    setShortCloseReason("");
+                    setShortCloseFollowup(false);
+                    setIsShortCloseDialogOpen(true);
+                  }}
+                >
+                  <AlertTriangle className="w-4 h-4 mr-2" />
+                  {language === "en" ? "Request Short Close" : "Ajukan Tutup Sisa PO"}
+                </Button>
+              )}
+            {selectedOrder?.status === "short_close_requested" &&
+              (user?.role === "finance" || user?.role === "super_admin") && (
+                <>
+                  <Button
+                    variant="outline"
+                    className="border-success text-success hover:bg-success/10"
+                    onClick={() => setIsApproveShortCloseOpen(true)}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    {language === "en" ? "Approve Short Close" : "Setujui Tutup Sisa"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-destructive text-destructive hover:bg-destructive/10"
+                    onClick={() => {
+                      setRejectShortCloseReason("");
+                      setIsRejectShortCloseOpen(true);
+                    }}
+                  >
+                    <XCircle className="w-4 h-4 mr-2" />
+                    {language === "en" ? "Reject Short Close" : "Tolak Tutup Sisa"}
+                  </Button>
+                </>
+              )}
             {selectedOrder?.status === "approved" && (
               <Button
                 variant="outline"
