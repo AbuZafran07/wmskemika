@@ -615,6 +615,27 @@ export default function RequestDelivery() {
         }
       }
 
+      // === Pastikan booking dikonfirmasi saat card masuk ke Delivered / Delivered Sample ===
+      if (["delivered", "delivered_sample"].includes(newStatus)) {
+        const { data: stillBooked, error: bookedErr } = await supabase
+          .from("stock_out_headers")
+          .select("id, stock_out_number")
+          .eq("sales_order_id", cardToMove.sales_order_id)
+          .eq("booking_status", "booked");
+
+        if (bookedErr) throw bookedErr;
+
+        for (const so of stillBooked || []) {
+          const { error: confirmErr } = await supabase.rpc("stock_out_confirm_delivery", {
+            p_stock_out_id: so.id,
+          });
+          if (confirmErr) {
+            toast.error(`Gagal konfirmasi pengiriman untuk ${so.stock_out_number}: ${confirmErr.message}`);
+            return;
+          }
+        }
+      }
+
       const { error } = await supabase
         .from("delivery_requests")
         .update({ 
