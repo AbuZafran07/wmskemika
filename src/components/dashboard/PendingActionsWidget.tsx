@@ -40,7 +40,7 @@ export function PendingActionsWidget() {
           id, plan_number, status, created_at,
           suppliers(name)
         `)
-        .in('status', ['draft', 'pending', 'revision_requested'])
+        .in('status', ['draft', 'pending', 'revision_requested', 'short_close_requested'])
         .is('is_deleted', false)
         .order('created_at', { ascending: false })
         .limit(20);
@@ -189,6 +189,8 @@ export function PendingActionsWidget() {
         return <Badge variant="pending">{language === 'en' ? 'Submitted' : 'Diajukan'}</Badge>;
       case 'revision_requested':
         return <Badge variant="destructive">{language === 'en' ? 'Revision Request' : 'Minta Revisi'}</Badge>;
+      case 'short_close_requested':
+        return <Badge variant="pending">{language === 'en' ? 'Short Close Request' : 'Tutup Sisa PO'}</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }

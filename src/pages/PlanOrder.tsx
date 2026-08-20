@@ -85,6 +85,9 @@ import {
   requestPlanOrderRevision,
   approvePlanOrderRevision,
   rejectPlanOrderRevision,
+  requestPlanOrderShortClose,
+  approvePlanOrderShortClose,
+  rejectPlanOrderShortClose,
   PlanOrderHeader,
   PlanOrderItem,
 } from "@/hooks/usePlanOrders";
@@ -140,6 +143,7 @@ const statusConfig: Record<
   draft: { label: "Draft", labelId: "Draft", variant: "draft" },
   approved: { label: "Approved", labelId: "Disetujui", variant: "approved" },
   revision_requested: { label: "Revision Requested", labelId: "Revisi Diminta", variant: "pending" },
+  short_close_requested: { label: "Short Close Requested", labelId: "Tutup Sisa Diajukan", variant: "pending" },
   partially_received: { label: "Partially Received", labelId: "Diterima Sebagian", variant: "pending" },
   received: { label: "Received", labelId: "Diterima", variant: "success" },
   cancelled: { label: "Cancelled", labelId: "Dibatalkan", variant: "cancelled" },
@@ -258,6 +262,17 @@ export default function PlanOrder() {
   const [isApprovingRevision, setIsApprovingRevision] = useState(false);
   const [isRejectingRevision, setIsRejectingRevision] = useState(false);
   const [revisionReasonDisplay, setRevisionReasonDisplay] = useState<{ reason: string; requestedBy: string; requestedAt: string } | null>(null);
+
+  // Short Close (Tutup Sisa PO) state
+  const [isShortCloseDialogOpen, setIsShortCloseDialogOpen] = useState(false);
+  const [shortCloseReason, setShortCloseReason] = useState("");
+  const [shortCloseFollowup, setShortCloseFollowup] = useState(false);
+  const [isRequestingShortClose, setIsRequestingShortClose] = useState(false);
+  const [isApproveShortCloseOpen, setIsApproveShortCloseOpen] = useState(false);
+  const [isApprovingShortClose, setIsApprovingShortClose] = useState(false);
+  const [isRejectShortCloseOpen, setIsRejectShortCloseOpen] = useState(false);
+  const [rejectShortCloseReason, setRejectShortCloseReason] = useState("");
+  const [isRejectingShortClose, setIsRejectingShortClose] = useState(false);
   const [approveReasonDisplay, setApproveReasonDisplay] = useState<{ reason: string; approvedBy: string; approvedAt: string } | null>(null);
 
   // Stock In history
@@ -296,7 +311,7 @@ export default function PlanOrder() {
       const matchesDateFrom = !dateFrom || od >= new Date(dateFrom);
       const matchesDateTo = !dateTo || od <= new Date(dateTo);
 
-      const activeStatuses = ["draft", "approved", "partially_received", "revision_requested"];
+      const activeStatuses = ["draft", "approved", "partially_received", "revision_requested", "short_close_requested"];
       const archivedStatuses = ["received", "cancelled"];
       const matchesViewMode =
         viewMode === "active" ? activeStatuses.includes(order.status) : archivedStatuses.includes(order.status);
@@ -811,6 +826,64 @@ export default function PlanOrder() {
     setIsRejectRevisionDialogOpen(false);
     setRejectRevisionReason("");
     setSelectedOrder(null);
+  };
+
+  // ===== Short Close Handlers =====
+  const handleRequestShortClose = async () => {
+    if (!selectedOrder || shortCloseReason.trim().length < 20) return;
+    setIsRequestingShortClose(true);
+    try {
+      const result = await requestPlanOrderShortClose(selectedOrder.id, shortCloseReason.trim(), shortCloseFollowup);
+      if (!result.success) throw new Error(result.error || "Gagal mengajukan tutup sisa PO");
+      toast.success(language === "en" ? "Short close request submitted" : "Permintaan tutup sisa PO terkirim");
+      refetch();
+      setIsShortCloseDialogOpen(false);
+      setIsDetailDialogOpen(false);
+      setShortCloseReason("");
+      setShortCloseFollowup(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal mengajukan tutup sisa PO");
+    }
+    setIsRequestingShortClose(false);
+  };
+
+  const handleApproveShortClose = async () => {
+    if (!selectedOrder) return;
+    setIsApprovingShortClose(true);
+    try {
+      const result = await approvePlanOrderShortClose(selectedOrder.id);
+      if (!result.success) throw new Error(result.error || "Gagal menyetujui tutup sisa PO");
+      toast.success(
+        result.followup_plan_number
+          ? (language === "en"
+              ? `Short close approved. Follow-up PO ${result.followup_plan_number} created as draft.`
+              : `Tutup sisa PO disetujui. PO lanjutan ${result.followup_plan_number} dibuat sebagai draft.`)
+          : (language === "en" ? "Short close approved" : "Tutup sisa PO disetujui")
+      );
+      refetch();
+      setIsApproveShortCloseOpen(false);
+      setIsDetailDialogOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal menyetujui tutup sisa PO");
+    }
+    setIsApprovingShortClose(false);
+  };
+
+  const handleRejectShortClose = async () => {
+    if (!selectedOrder || rejectShortCloseReason.trim().length < 20) return;
+    setIsRejectingShortClose(true);
+    try {
+      const result = await rejectPlanOrderShortClose(selectedOrder.id, rejectShortCloseReason.trim());
+      if (!result.success) throw new Error(result.error || "Gagal menolak tutup sisa PO");
+      toast.success(language === "en" ? "Short close rejected" : "Tutup sisa PO ditolak");
+      refetch();
+      setIsRejectShortCloseOpen(false);
+      setIsDetailDialogOpen(false);
+      setRejectShortCloseReason("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal menolak tutup sisa PO");
+    }
+    setIsRejectingShortClose(false);
   };
 
   // ===== Detail view =====
@@ -1462,6 +1535,9 @@ export default function PlanOrder() {
                 <SelectItem value="partially_received">
                   {language === "en" ? "Partially Received" : "Diterima Sebagian"}
                 </SelectItem>
+                <SelectItem value="short_close_requested">
+                  {language === "en" ? "Short Close Requested" : "Tutup Sisa Diajukan"}
+                </SelectItem>
                 <SelectItem value="received">{language === "en" ? "Received" : "Diterima"}</SelectItem>
                 <SelectItem value="cancelled">{language === "en" ? "Cancelled" : "Dibatalkan"}</SelectItem>
               </SelectContent>
@@ -1871,6 +1947,127 @@ export default function PlanOrder() {
         </DialogContent>
       </Dialog>
 
+      {/* Short Close Request Dialog */}
+      <Dialog open={isShortCloseDialogOpen} onOpenChange={setIsShortCloseDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{language === "en" ? "Request Short Close" : "Ajukan Tutup Sisa PO"}</DialogTitle>
+            <DialogDescription>
+              {language === "en"
+                ? `Close the outstanding quantity of "${selectedOrder?.plan_number}" because the supplier cannot fulfill it. Needs Finance approval.`
+                : `Tutup sisa qty pada "${selectedOrder?.plan_number}" karena supplier tidak bisa memenuhi. Perlu persetujuan Finance.`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>{language === "en" ? "Reason" : "Alasan"} *</Label>
+              <Textarea
+                value={shortCloseReason}
+                onChange={(e) => setShortCloseReason(e.target.value)}
+                placeholder={language === "en" ? "e.g. Supplier stock unavailable, remaining 1 pcs cancelled..." : "cth: Stok supplier habis, sisa 1 pcs dibatalkan..."}
+                rows={3}
+              />
+              <div className="flex items-center justify-between">
+                <p className={`text-xs ${shortCloseReason.trim().length < 20 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                  {shortCloseReason.trim().length}/20 {language === "en" ? "min characters" : "karakter minimum"}
+                </p>
+                {shortCloseReason.trim().length >= 20 && <span className="text-xs text-green-600">✓</span>}
+              </div>
+            </div>
+            <label className="flex items-start gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={shortCloseFollowup}
+                onChange={(e) => setShortCloseFollowup(e.target.checked)}
+              />
+              <span>
+                {language === "en"
+                  ? "Create a new draft PO for the remaining quantity"
+                  : "Buat PO draft baru untuk sisa qty yang belum terpenuhi"}
+              </span>
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsShortCloseDialogOpen(false)} disabled={isRequestingShortClose}>
+              {t("common.cancel")}
+            </Button>
+            <Button onClick={handleRequestShortClose} disabled={isRequestingShortClose || shortCloseReason.trim().length < 20}>
+              {isRequestingShortClose && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {language === "en" ? "Submit Request" : "Kirim Permintaan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approve Short Close Dialog */}
+      <AlertDialog open={isApproveShortCloseOpen} onOpenChange={setIsApproveShortCloseOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{language === "en" ? "Approve Short Close" : "Setujui Tutup Sisa PO"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === "en"
+                ? `Outstanding quantity on "${selectedOrder?.plan_number}" will be closed and the PO marked as received. Continue?`
+                : `Sisa qty pada "${selectedOrder?.plan_number}" akan ditutup dan PO ditandai selesai (received). Lanjutkan?`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {selectedOrder?.short_close_reason && (
+            <div className="rounded-md bg-muted p-3 text-sm">
+              <p className="font-medium mb-1">{language === "en" ? "Requested reason" : "Alasan pengajuan"}</p>
+              <p className="text-muted-foreground">{selectedOrder.short_close_reason}</p>
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isApprovingShortClose}>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleApproveShortClose}
+              disabled={isApprovingShortClose}
+              className="bg-success text-success-foreground hover:bg-success/90"
+            >
+              {isApprovingShortClose && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {language === "en" ? "Approve" : "Setujui"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reject Short Close Dialog */}
+      <Dialog open={isRejectShortCloseOpen} onOpenChange={setIsRejectShortCloseOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{language === "en" ? "Reject Short Close" : "Tolak Tutup Sisa PO"}</DialogTitle>
+            <DialogDescription>
+              {language === "en"
+                ? `"${selectedOrder?.plan_number}" will return to its previous status.`
+                : `"${selectedOrder?.plan_number}" akan kembali ke status sebelumnya.`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label>{language === "en" ? "Rejection Reason" : "Alasan Penolakan"} *</Label>
+            <Textarea
+              value={rejectShortCloseReason}
+              onChange={(e) => setRejectShortCloseReason(e.target.value)}
+              rows={3}
+            />
+            <div className="flex items-center justify-between">
+              <p className={`text-xs ${rejectShortCloseReason.trim().length < 20 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                {rejectShortCloseReason.trim().length}/20 {language === "en" ? "min characters" : "karakter minimum"}
+              </p>
+              {rejectShortCloseReason.trim().length >= 20 && <span className="text-xs text-green-600">✓</span>}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRejectShortCloseOpen(false)} disabled={isRejectingShortClose}>
+              {t("common.cancel")}
+            </Button>
+            <Button variant="destructive" onClick={handleRejectShortClose} disabled={isRejectingShortClose || rejectShortCloseReason.trim().length < 20}>
+              {isRejectingShortClose && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {language === "en" ? "Reject" : "Tolak"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Detail Dialog (with Preview / Download / Print / View Doc) */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
@@ -1992,6 +2189,25 @@ export default function PlanOrder() {
               )}
 
               {/* Approval Reason Banner */}
+              {selectedOrder.status === 'short_close_requested' && selectedOrder.short_close_reason && (
+                <div className="rounded-lg border border-warning/50 bg-warning/10 p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-warning font-semibold">
+                    <AlertTriangle className="w-4 h-4" />
+                    {language === "en" ? "Short Close Requested" : "Pengajuan Tutup Sisa PO"}
+                  </div>
+                  <div className="text-sm space-y-1">
+                    <p><span className="text-muted-foreground">{language === "en" ? "Reason:" : "Alasan:"}</span> {selectedOrder.short_close_reason}</p>
+                    {selectedOrder.short_close_requested_at && (
+                      <p><span className="text-muted-foreground">{language === "en" ? "Date:" : "Tanggal:"}</span> {new Date(selectedOrder.short_close_requested_at).toLocaleString("id-ID")}</p>
+                    )}
+                    <p>
+                      <span className="text-muted-foreground">{language === "en" ? "Follow-up PO:" : "PO Lanjutan:"}</span>{" "}
+                      {selectedOrder.short_close_create_followup ? (language === "en" ? "Yes" : "Ya") : (language === "en" ? "No" : "Tidak")}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {approveReasonDisplay && (
                 <div className="rounded-lg border border-success/50 bg-success/10 p-4 space-y-2">
                   <div className="flex items-center gap-2 text-success font-semibold">
@@ -2155,6 +2371,46 @@ export default function PlanOrder() {
 
           <DialogFooter className="flex-wrap gap-2">
             {/* Revision actions in detail dialog */}
+            {/* Short Close: request (purchasing/admin) */}
+            {["approved", "partially_received"].includes(selectedOrder?.status || "") &&
+              (canEdit("plan_order") || isAdminOrAbove()) && (
+                <Button
+                  variant="outline"
+                  className="border-warning text-warning hover:bg-warning/10"
+                  onClick={() => {
+                    setShortCloseReason("");
+                    setShortCloseFollowup(false);
+                    setIsShortCloseDialogOpen(true);
+                  }}
+                >
+                  <AlertTriangle className="w-4 h-4 mr-2" />
+                  {language === "en" ? "Request Short Close" : "Ajukan Tutup Sisa PO"}
+                </Button>
+              )}
+            {selectedOrder?.status === "short_close_requested" &&
+              (user?.role === "finance" || user?.role === "super_admin") && (
+                <>
+                  <Button
+                    variant="outline"
+                    className="border-success text-success hover:bg-success/10"
+                    onClick={() => setIsApproveShortCloseOpen(true)}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    {language === "en" ? "Approve Short Close" : "Setujui Tutup Sisa"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-destructive text-destructive hover:bg-destructive/10"
+                    onClick={() => {
+                      setRejectShortCloseReason("");
+                      setIsRejectShortCloseOpen(true);
+                    }}
+                  >
+                    <XCircle className="w-4 h-4 mr-2" />
+                    {language === "en" ? "Reject Short Close" : "Tolak Tutup Sisa"}
+                  </Button>
+                </>
+              )}
             {selectedOrder?.status === "approved" && (
               <Button
                 variant="outline"

@@ -1020,6 +1020,14 @@ export type Database = {
           po_document_url: string | null
           reference_no: string | null
           shipping_cost: number | null
+          short_close_approved_at: string | null
+          short_close_approved_by: string | null
+          short_close_create_followup: boolean
+          short_close_followup_plan_order_id: string | null
+          short_close_reason: string | null
+          short_close_rejected_reason: string | null
+          short_close_requested_at: string | null
+          short_close_requested_by: string | null
           status: string
           supplier_id: string
           tax_rate: number | null
@@ -1047,6 +1055,14 @@ export type Database = {
           po_document_url?: string | null
           reference_no?: string | null
           shipping_cost?: number | null
+          short_close_approved_at?: string | null
+          short_close_approved_by?: string | null
+          short_close_create_followup?: boolean
+          short_close_followup_plan_order_id?: string | null
+          short_close_reason?: string | null
+          short_close_rejected_reason?: string | null
+          short_close_requested_at?: string | null
+          short_close_requested_by?: string | null
           status?: string
           supplier_id: string
           tax_rate?: number | null
@@ -1074,6 +1090,14 @@ export type Database = {
           po_document_url?: string | null
           reference_no?: string | null
           shipping_cost?: number | null
+          short_close_approved_at?: string | null
+          short_close_approved_by?: string | null
+          short_close_create_followup?: boolean
+          short_close_followup_plan_order_id?: string | null
+          short_close_reason?: string | null
+          short_close_rejected_reason?: string | null
+          short_close_requested_at?: string | null
+          short_close_requested_by?: string | null
           status?: string
           supplier_id?: string
           tax_rate?: number | null
@@ -2717,6 +2741,10 @@ export type Database = {
         Returns: Json
       }
       plan_order_approve_revision: { Args: { order_id: string }; Returns: Json }
+      plan_order_approve_short_close: {
+        Args: { order_id: string }
+        Returns: Json
+      }
       plan_order_cancel: { Args: { order_id: string }; Returns: Json }
       plan_order_create: {
         Args: { attachment_meta?: Json; header_data: Json; items_data: Json }
@@ -2726,8 +2754,16 @@ export type Database = {
         Args: { order_id: string; reject_reason?: string }
         Returns: Json
       }
+      plan_order_reject_short_close: {
+        Args: { order_id: string; reject_reason: string }
+        Returns: Json
+      }
       plan_order_request_revision: {
         Args: { order_id: string; revision_reason: string }
+        Returns: Json
+      }
+      plan_order_request_short_close: {
+        Args: { create_followup?: boolean; order_id: string; reason: string }
         Returns: Json
       }
       plan_order_soft_delete: { Args: { order_id: string }; Returns: Json }

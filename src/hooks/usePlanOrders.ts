@@ -32,6 +32,14 @@ export interface PlanOrderHeader {
   deleted_at?: string | null;
   deleted_by?: string | null;
   cancel_reason?: string | null;
+  short_close_reason?: string | null;
+  short_close_requested_by?: string | null;
+  short_close_requested_at?: string | null;
+  short_close_create_followup?: boolean | null;
+  short_close_approved_by?: string | null;
+  short_close_approved_at?: string | null;
+  short_close_rejected_reason?: string | null;
+  short_close_followup_plan_order_id?: string | null;
   supplier?: {
     id: string;
     name: string;
@@ -467,6 +475,53 @@ export async function rejectPlanOrderRevision(orderId: string, reason?: string):
 }
 
 // Legacy export for backward compatibility (deprecated - use RPC functions instead)
+// ===== Short Close (Tutup Sisa PO) =====
+export async function requestPlanOrderShortClose(
+  orderId: string,
+  reason: string,
+  createFollowup: boolean
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data, error } = await supabase.rpc('plan_order_request_short_close', {
+      order_id: orderId,
+      reason,
+      create_followup: createFollowup,
+    });
+    if (error) throw error;
+    return data as { success: boolean; error?: string };
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : 'Gagal mengajukan tutup sisa PO' };
+  }
+}
+
+export async function approvePlanOrderShortClose(
+  orderId: string
+): Promise<{ success: boolean; error?: string; followup_plan_number?: string | null }> {
+  try {
+    const { data, error } = await supabase.rpc('plan_order_approve_short_close', { order_id: orderId });
+    if (error) throw error;
+    return data as { success: boolean; error?: string; followup_plan_number?: string | null };
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : 'Gagal menyetujui tutup sisa PO' };
+  }
+}
+
+export async function rejectPlanOrderShortClose(
+  orderId: string,
+  reason: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data, error } = await supabase.rpc('plan_order_reject_short_close', {
+      order_id: orderId,
+      reject_reason: reason,
+    });
+    if (error) throw error;
+    return data as { success: boolean; error?: string };
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : 'Gagal menolak tutup sisa PO' };
+  }
+}
+
 export async function updatePlanOrderStatus(
   id: string, 
   status: string,
