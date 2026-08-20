@@ -32,6 +32,14 @@ export interface PlanOrderHeader {
   deleted_at?: string | null;
   deleted_by?: string | null;
   cancel_reason?: string | null;
+  short_close_reason?: string | null;
+  short_close_requested_by?: string | null;
+  short_close_requested_at?: string | null;
+  short_close_create_followup?: boolean | null;
+  short_close_approved_by?: string | null;
+  short_close_approved_at?: string | null;
+  short_close_rejected_reason?: string | null;
+  short_close_followup_plan_order_id?: string | null;
   supplier?: {
     id: string;
     name: string;
