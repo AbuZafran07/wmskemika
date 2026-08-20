@@ -1346,6 +1346,9 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           const targetStatus = hasSampleLabel ? "delivered_sample" : "delivered";
           const targetLabel = hasSampleLabel ? "Delivered Sample" : "Delivered";
 
+          const bookingOk = await confirmBookedStockOuts();
+          if (!bookingOk) return;
+
           await supabase
             .from("delivery_requests")
             .update({
@@ -1485,6 +1488,11 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       }
 
       if (deleteAction === "delivered") {
+        const bookingOk = await confirmBookedStockOuts();
+        if (!bookingOk) {
+          setDeletingCard(false);
+          return;
+        }
         // Move to delivered with date note
         const { error: updateError } = await supabase
           .from("delivery_requests")
