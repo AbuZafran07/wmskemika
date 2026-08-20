@@ -1216,6 +1216,12 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
         const targetStatus = hasSampleLabel ? "delivered_sample" : "delivered";
         const targetLabel = hasSampleLabel ? "Delivered Sample" : "Delivered";
 
+        const bookingOk = await confirmBookedStockOuts();
+        if (!bookingOk) {
+          fetchChecklists();
+          return;
+        }
+
         await supabase
           .from("delivery_requests")
           .update({
