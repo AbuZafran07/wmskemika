@@ -191,6 +191,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     id: string;
     stock_out_number: string;
     delivery_date: string;
+    booking_status?: string;
     items: {
       product_name: string;
       qty_out: number;
