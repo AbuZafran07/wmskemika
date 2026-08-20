@@ -523,6 +523,30 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
     setChecklists((data as ChecklistItem[]) || []);
   }, [card]);
 
+  // Konfirmasi semua stock out yang masih "booked" agar stok benar-benar terpotong
+  const confirmBookedStockOuts = useCallback(async (): Promise<boolean> => {
+    if (!card) return true;
+    const { data: bookedList, error } = await supabase
+      .from("stock_out_headers")
+      .select("id, stock_out_number")
+      .eq("sales_order_id", card.sales_order_id)
+      .eq("booking_status", "booked");
+    if (error) {
+      toast.error("Gagal memeriksa status booking stok: " + error.message);
+      return false;
+    }
+    for (const so of bookedList || []) {
+      const { error: confirmErr } = await supabase.rpc("stock_out_confirm_delivery", {
+        p_stock_out_id: so.id,
+      });
+      if (confirmErr) {
+        toast.error(`Gagal konfirmasi pengiriman untuk ${so.stock_out_number}: ${confirmErr.message}`);
+        return false;
+      }
+    }
+    return true;
+  }, [card]);
+
   // Fetch stock out details for this SO
   const fetchStockOutDetails = useCallback(async () => {
     if (!card) return;
