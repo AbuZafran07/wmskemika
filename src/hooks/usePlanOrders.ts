@@ -475,6 +475,53 @@ export async function rejectPlanOrderRevision(orderId: string, reason?: string):
 }
 
 // Legacy export for backward compatibility (deprecated - use RPC functions instead)
+// ===== Short Close (Tutup Sisa PO) =====
+export async function requestPlanOrderShortClose(
+  orderId: string,
+  reason: string,
+  createFollowup: boolean
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data, error } = await supabase.rpc('plan_order_request_short_close', {
+      order_id: orderId,
+      reason,
+      create_followup: createFollowup,
+    });
+    if (error) throw error;
+    return data as { success: boolean; error?: string };
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : 'Gagal mengajukan tutup sisa PO' };
+  }
+}
+
+export async function approvePlanOrderShortClose(
+  orderId: string
+): Promise<{ success: boolean; error?: string; followup_plan_number?: string | null }> {
+  try {
+    const { data, error } = await supabase.rpc('plan_order_approve_short_close', { order_id: orderId });
+    if (error) throw error;
+    return data as { success: boolean; error?: string; followup_plan_number?: string | null };
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : 'Gagal menyetujui tutup sisa PO' };
+  }
+}
+
+export async function rejectPlanOrderShortClose(
+  orderId: string,
+  reason: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data, error } = await supabase.rpc('plan_order_reject_short_close', {
+      order_id: orderId,
+      reject_reason: reason,
+    });
+    if (error) throw error;
+    return data as { success: boolean; error?: string };
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : 'Gagal menolak tutup sisa PO' };
+  }
+}
+
 export async function updatePlanOrderStatus(
   id: string, 
   status: string,
