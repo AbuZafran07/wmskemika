@@ -829,6 +829,7 @@ export default function PlanOrder() {
 
   // ===== Detail view =====
   const handleViewDetail = async (order: PlanOrderHeader) => {
+*** MARKER ***
     setSelectedOrder(order);
     setIsDetailDialogOpen(true);
     setRevisionReasonDisplay(null);
