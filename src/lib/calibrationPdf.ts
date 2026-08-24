@@ -303,9 +303,8 @@ export async function generateSPKPdf(receiptId: string) {
   });
   const subtotal = instrumentSubtotal + sparepartSubtotal;
   const taxAmount = subtotal * (taxRate / 100);
-  const grandTotal = Number((receipt as any).total_amount) > 0
-    ? Number((receipt as any).total_amount)
-    : subtotal + taxAmount;
+  // TOTAL selalu = Sub-Total + PPN (total_amount di DB hanya menyimpan nilai sebelum pajak)
+  const grandTotal = subtotal + taxAmount;
 
   // ── Header block: No. SPK / Ref / Tanggal / Target ──
   autoTable(doc, {
