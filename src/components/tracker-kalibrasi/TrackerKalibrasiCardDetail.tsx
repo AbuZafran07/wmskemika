@@ -1428,12 +1428,12 @@ export default function TrackerKalibrasiCardDetail({
                           <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Harga</th>
                           <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">Kelayakan</th>
                           <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">Kesimpulan</th>
-                          {canToggle && <th className="px-3 py-2 w-8" />}
+                          {canStageEdit && <th className="px-3 py-2 w-8" />}
                         </tr>
                       </thead>
                       <tbody className="divide-y">
                         {instruments.length === 0 ? (
-                          <tr><td colSpan={canToggle ? 8 : 7} className="px-3 py-6 text-center text-sm text-muted-foreground">Belum ada data alat</td></tr>
+                          <tr><td colSpan={canStageEdit ? 8 : 7} className="px-3 py-6 text-center text-sm text-muted-foreground">Belum ada data alat</td></tr>
                         ) : instruments.map((inst) => (
                           <tr key={inst.id} className="hover:bg-muted/20">
                             <td className="px-3 py-2 text-center text-muted-foreground text-xs">{inst.item_number}</td>
@@ -1457,7 +1457,7 @@ export default function TrackerKalibrasiCardDetail({
                                 </span>
                               ) : <span className="text-xs text-muted-foreground">-</span>}
                             </td>
-                            {canToggle && (
+                            {canStageEdit && (
                               <td className="px-3 py-2">
                                 <div className="flex items-center gap-1 justify-end">
                                   <button
@@ -1467,13 +1467,13 @@ export default function TrackerKalibrasiCardDetail({
                                   >
                                     <FlaskConical className="w-3.5 h-3.5" />
                                   </button>
-                                  <button
+                                  {canToggle && <button
                                     className="text-muted-foreground hover:text-destructive transition-colors"
                                     onClick={() => deleteInstrument(inst.id)}
                                     title="Hapus alat"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
+                                  </button>}
                                 </div>
                               </td>
                             )}
@@ -1623,7 +1623,7 @@ export default function TrackerKalibrasiCardDetail({
                             <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">Qty</th>
                             <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Harga</th>
                             <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">Stok Keluar</th>
-                            {canToggle && <th className="px-3 py-2 w-8" />}
+                            {canStageEdit && <th className="px-3 py-2 w-8" />}
                           </tr>
                         </thead>
                         <tbody className="divide-y">
