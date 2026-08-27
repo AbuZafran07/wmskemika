@@ -140,6 +140,7 @@ async function cleanSignatureImage(dataUrl: string): Promise<string> {
   }
 }
 
+async function getSignatureBase64(userId: string | null | undefined): Promise<string | null> {
 
   if (!userId) return null;
   try {
