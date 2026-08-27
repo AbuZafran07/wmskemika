@@ -974,13 +974,15 @@ export async function generateCertificatePdf(
       if (sigCols[i].sig) {
         try { doc.addImage(sigCols[i].sig!, "PNG", x + colW3 / 2 - 18, sigY + 8, 36, 18); } catch {}
       }
-      if (i === 2) {
-        // stamp text for authorized column
+      if (i === 2 && !sigCols[i].sig) {
+        // stempel teks hanya dipakai bila TTD/stempel belum diunggah,
+        // supaya tidak tumpang tindih dengan stempel yang sudah menyatu di gambar TTD.
         doc.setTextColor(20, 120, 40);
         setFont(doc, "bold", 8);
         doc.text("PT. KEMIKA KARYA PRATAMA", x + colW3 / 2, sigY + 20, { align: "center" });
         doc.setTextColor(0, 0, 0);
       }
+
       // signature line
       doc.setDrawColor(120, 120, 120);
       doc.line(x + 8, sigY + SIG_H - 10, x + colW3 - 8, sigY + SIG_H - 10);
