@@ -155,9 +155,9 @@ export default function AdjustmentLog() {
     if (!search) return true;
     const searchLower = search.toLowerCase();
     return (
-      adj.adjustment_number.toLowerCase().includes(searchLower) ||
-      adj.reason.toLowerCase().includes(searchLower) ||
-      adj.items.some(item => item.product_name.toLowerCase().includes(searchLower))
+      (adj.adjustment_number || "").toLowerCase().includes(searchLower) ||
+      (adj.reason || "").toLowerCase().includes(searchLower) ||
+      (adj.items || []).some(item => (item.product_name || "").toLowerCase().includes(searchLower))
     );
   });
 
