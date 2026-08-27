@@ -1101,7 +1101,7 @@ export async function generateBASTPdf(receiptId: string) {
   doc.text("BERITA ACARA SERAH TERIMA ALAT & SERTIFIKAT", A4_W / 2, y, { align: "center" });
   y += 6;
 
-  const today = new Date();
+  const today = handoverDate;
   const firstCert = instruments.find((i) => i.cert && i.cert !== "-")?.cert || "-";
   autoTable(doc, {
     startY: y,
