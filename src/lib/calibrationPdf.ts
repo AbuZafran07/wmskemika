@@ -1066,6 +1066,26 @@ export async function generateBASTPdf(receiptId: string) {
     cert: it.certificate_number ?? "-",
   }));
 
+  // Tanggal serah terima = saat kartu tracker dipindahkan ke kolom "Delivered"
+  // (checklist Delivered dicentang), BUKAN tanggal dokumen digenerate.
+  const { data: deliveredChecks } = await (supabase as any)
+    .from("calibration_tracker_checklists")
+    .select("checklist_key, is_checked, checked_at, checked_by")
+    .eq("sales_order_id", receiptId)
+    .in("checklist_key", ["instrument_delivered", "certificate_released", "payment_verified"])
+    .eq("is_checked", true);
+  const deliveredRow =
+    (deliveredChecks || []).find((c: any) => c.checklist_key === "instrument_delivered") ||
+    (deliveredChecks || []).slice().sort((a: any, b: any) =>
+      String(b.checked_at ?? "").localeCompare(String(a.checked_at ?? "")))[0] ||
+    null;
+  const handoverDate: Date = deliveredRow?.checked_at ? new Date(deliveredRow.checked_at) : new Date();
+
+  // TTD pihak Kemika otomatis (petugas yang menandai instrument delivered).
+  const { data: authData } = await supabase.auth.getUser();
+  const kemikaSigner = await getSigner(deliveredRow?.checked_by || authData?.user?.id || null);
+
+
   const bgData = await imgToBase64("/kop-surat-bg.jpg");
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   addBg(doc, bgData);
