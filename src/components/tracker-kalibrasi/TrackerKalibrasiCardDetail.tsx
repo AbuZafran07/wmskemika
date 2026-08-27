@@ -108,6 +108,7 @@ interface InstrumentDetail {
   monitoring_reading: string | null;
   correction: string | null;
   additional_information: string | null;
+  calibration_date: string | null;
   certificate_validity_months: number;
 }
 
@@ -396,7 +397,7 @@ export default function TrackerKalibrasiCardDetail({
             description, item_type, created_at,
             calibration_gas, traceability, env_temperature, env_humidity,
             standard_applied, monitoring_reading, correction, additional_information,
-            certificate_validity_months
+            calibration_date, certificate_validity_months
           `)
           .eq("sales_order_id", receiptId)
           .eq("item_type", "calibration")
@@ -425,6 +426,7 @@ export default function TrackerKalibrasiCardDetail({
         monitoring_reading: it.monitoring_reading ?? null,
         correction: it.correction ?? null,
         additional_information: it.additional_information ?? null,
+        calibration_date: (it as any).calibration_date ?? null,
         certificate_validity_months: Number(it.certificate_validity_months ?? 12) === 6 ? 6 : 12,
       }));
 
@@ -1126,6 +1128,7 @@ export default function TrackerKalibrasiCardDetail({
           env_temperature: null,
           env_humidity: null,
           standard_applied: null,
+          calibration_date: null,
           monitoring_reading: null,
           correction: null,
           additional_information: null,
@@ -2369,6 +2372,18 @@ export default function TrackerKalibrasiCardDetail({
                       onChange={(e) => upd({ additional_information: e.target.value })} placeholder="opsional" />
                   </div>
                   <div className="mt-3 max-w-xs">
+                    <Label className="text-xs">Tanggal Kalibrasi (manual)</Label>
+                    <Input
+                      type="date"
+                      value={editingCalDetail.calibration_date ?? ''}
+                      disabled={readOnly}
+                      onChange={(e) => upd({ calibration_date: e.target.value || null })}
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Dipakai sebagai <b>Tanggal Kalibrasi</b> di sertifikat agar sama dengan tanggal pada instrumen. Kosongkan untuk memakai tanggal otomatis.
+                    </p>
+                  </div>
+                  <div className="mt-3 max-w-xs">
                     <Label className="text-xs">Masa Berlaku / Kalibrasi Selanjutnya</Label>
                     <Select
                       value={String(editingCalDetail.certificate_validity_months ?? 12)}
@@ -2417,6 +2432,7 @@ export default function TrackerKalibrasiCardDetail({
                       monitoring_reading: editingCalDetail.monitoring_reading,
                       correction: editingCalDetail.correction,
                       additional_information: editingCalDetail.additional_information,
+                      calibration_date: editingCalDetail.calibration_date || null,
                       certificate_validity_months:
                         Number(editingCalDetail.certificate_validity_months ?? 12) === 6 ? 6 : 12,
                     })

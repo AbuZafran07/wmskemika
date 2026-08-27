@@ -767,7 +767,7 @@ export async function generateCertificatePdf(
         ],
         [
           { content: "Tanggal Kalibrasi / Calibration Date", styles: { fontStyle: "bold", fillColor: [245, 247, 252] } },
-          fmtDate(progressAt || item.certificate_issued_at),
+          fmtDate(item.calibration_date || progressAt || item.certificate_issued_at),
           { content: "Tanggal Terbit / Issue Date", styles: { fontStyle: "bold", fillColor: [245, 247, 252] } },
           fmtDate(completedAt || item.certificate_issued_at),
         ],
@@ -901,9 +901,9 @@ export async function generateCertificatePdf(
           { content: "Kalibrasi Selanjutnya / Next Calibration", styles: { fontStyle: "bold", fillColor: [245, 247, 252] } },
           fmtDate(
             item.next_calibration_date ??
-              (completedAt || item.certificate_issued_at
+              (item.calibration_date || completedAt || item.certificate_issued_at
                 ? (() => {
-                    const d = new Date(completedAt || item.certificate_issued_at);
+                    const d = new Date(item.calibration_date || completedAt || item.certificate_issued_at);
                     const months =
                       Number(item.certificate_validity_months ?? 12) === 6 ? 6 : 12;
                     d.setMonth(d.getMonth() + months);
