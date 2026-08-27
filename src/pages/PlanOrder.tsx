@@ -301,7 +301,7 @@ export default function PlanOrder() {
     return planOrders.filter((order) => {
       const query = searchQuery.toLowerCase();
       const matchesSearch =
-        order.plan_number.toLowerCase().includes(query) ||
+        (order.plan_number || "").toLowerCase().includes(query) ||
         (order.supplier?.name || "").toLowerCase().includes(query) ||
         (order.reference_no || "").toLowerCase().includes(query);
 

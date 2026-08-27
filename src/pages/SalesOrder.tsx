@@ -284,9 +284,9 @@ export default function SalesOrder() {
   const filteredOrders = useMemo(() => {
     return salesOrders.filter((order) => {
       const matchesSearch =
-        order.sales_order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (order.sales_order_number || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
         (order.customer?.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.customer_po_number.toLowerCase().includes(searchQuery.toLowerCase());
+        (order.customer_po_number || "").toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesStatus = statusFilter === "all" || order.status === statusFilter;
 

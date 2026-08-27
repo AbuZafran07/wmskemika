@@ -839,12 +839,12 @@ export default function RequestDelivery() {
     if (cardSearchQuery.trim()) {
       const q = cardSearchQuery.toLowerCase();
       filtered = filtered.filter(c =>
-        c.sales_order_number.toLowerCase().includes(q) ||
-        c.customer_name.toLowerCase().includes(q) ||
-        c.customer_po_number.toLowerCase().includes(q) ||
-        c.project_instansi.toLowerCase().includes(q) ||
-        c.sales_name.toLowerCase().includes(q) ||
-        c.items.some(i => i.product_name.toLowerCase().includes(q))
+        (c.sales_order_number || "").toLowerCase().includes(q) ||
+        (c.customer_name || "").toLowerCase().includes(q) ||
+        (c.customer_po_number || "").toLowerCase().includes(q) ||
+        (c.project_instansi || "").toLowerCase().includes(q) ||
+        (c.sales_name || "").toLowerCase().includes(q) ||
+        (c.items || []).some(i => (i.product_name || "").toLowerCase().includes(q))
       );
     }
     if (filterUrgent) {

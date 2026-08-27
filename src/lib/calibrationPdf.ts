@@ -1066,6 +1066,26 @@ export async function generateBASTPdf(receiptId: string) {
     cert: it.certificate_number ?? "-",
   }));
 
+  // Tanggal serah terima = saat kartu tracker dipindahkan ke kolom "Delivered"
+  // (checklist Delivered dicentang), BUKAN tanggal dokumen digenerate.
+  const { data: deliveredChecks } = await (supabase as any)
+    .from("calibration_tracker_checklists")
+    .select("checklist_key, is_checked, checked_at, checked_by")
+    .eq("sales_order_id", receiptId)
+    .in("checklist_key", ["instrument_delivered", "certificate_released", "payment_verified"])
+    .eq("is_checked", true);
+  const deliveredRow =
+    (deliveredChecks || []).find((c: any) => c.checklist_key === "instrument_delivered") ||
+    (deliveredChecks || []).slice().sort((a: any, b: any) =>
+      String(b.checked_at ?? "").localeCompare(String(a.checked_at ?? "")))[0] ||
+    null;
+  const handoverDate: Date = deliveredRow?.checked_at ? new Date(deliveredRow.checked_at) : new Date();
+
+  // TTD pihak Kemika otomatis (petugas yang menandai instrument delivered).
+  const { data: authData } = await supabase.auth.getUser();
+  const kemikaSigner = await getSigner(deliveredRow?.checked_by || authData?.user?.id || null);
+
+
   const bgData = await imgToBase64("/kop-surat-bg.jpg");
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   addBg(doc, bgData);
@@ -1081,7 +1101,7 @@ export async function generateBASTPdf(receiptId: string) {
   doc.text("BERITA ACARA SERAH TERIMA ALAT & SERTIFIKAT", A4_W / 2, y, { align: "center" });
   y += 6;
 
-  const today = new Date();
+  const today = handoverDate;
   const firstCert = instruments.find((i) => i.cert && i.cert !== "-")?.cert || "-";
   autoTable(doc, {
     startY: y,
@@ -1329,7 +1349,7 @@ export async function generateBASTPdf(receiptId: string) {
   const sigTextW = colW - 14;
   const lineY = frameBottom - 8;
   const sigCols: [string, string, string][] = [
-    ["Diserahkan oleh", salesName || "-", "PT Kemika Karya Pratama"],
+    ["Diserahkan oleh", kemikaSigner.name || salesName || "-", "PT Kemika Karya Pratama"],
     [
       "Diterima oleh",
       header.service_pic_name || customer?.pic || "Pelanggan / PIC",
@@ -1341,6 +1361,12 @@ export async function generateBASTPdf(receiptId: string) {
     const cx = x + colW / 2;
     fitFontB(sigCols[i][0], sigTextW, 9, 6.5, "bold");
     doc.text(sigCols[i][0], cx, sigY, { align: "center" });
+    // TTD digital pihak Kemika (otomatis) di kolom pertama
+    if (i === 0 && kemikaSigner.sig) {
+      try {
+        doc.addImage(kemikaSigner.sig, "PNG", cx - 15, sigY + 2, 30, 11);
+      } catch {}
+    }
     // nama tepat DI ATAS garis
     fitFontB(sigCols[i][1], sigTextW, 8.5, 6, "bold");
     doc.text(sigCols[i][1], cx, lineY - 1.6, { align: "center" });

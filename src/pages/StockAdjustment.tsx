@@ -188,8 +188,8 @@ export default function StockAdjustment() {
   const filteredAdjustments = useMemo(() => {
     return adjustments.filter(adj => {
       const matchesSearch = 
-        adj.adjustment_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        adj.reason.toLowerCase().includes(searchQuery.toLowerCase());
+        (adj.adjustment_number || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (adj.reason || "").toLowerCase().includes(searchQuery.toLowerCase());
       
       const matchesStatus = statusFilter === 'all' || adj.status === statusFilter;
       
