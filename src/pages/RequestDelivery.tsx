@@ -302,13 +302,27 @@ export default function RequestDelivery() {
   }, []);
 
   const fetchCardLabels = useCallback(async () => {
-    const { data: cardLabels } = await supabase
-      .from("delivery_card_labels")
-      .select("delivery_request_id, label_id");
+    // Ambil SEMUA relasi label (paginasi, karena PostgREST membatasi 1000 baris per request)
+    const PAGE = 1000;
+    const cardLabels: { delivery_request_id: string; label_id: string }[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase
+        .from("delivery_card_labels")
+        .select("delivery_request_id, label_id")
+        .order("created_at", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) {
+        console.error("Gagal memuat label kartu:", error);
+        return;
+      }
+      cardLabels.push(...(data || []));
+      if (!data || data.length < PAGE) break;
+    }
+
     const { data: labels } = await supabase
       .from("delivery_labels")
       .select("id, name, color");
-    if (!cardLabels || !labels) return;
+    if (!labels) return;
     setAllLabels(labels);
     const labelsById = Object.fromEntries(labels.map(l => [l.id, l]));
     const map: Record<string, { name: string; color: string }[]> = {};
@@ -320,6 +334,7 @@ export default function RequestDelivery() {
     });
     setCardLabelsMap(map);
   }, []);
+
 
   // Fetch pending approval requests per card
   const fetchPendingApprovals = useCallback(async () => {
