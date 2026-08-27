@@ -95,12 +95,14 @@ async function getSignatureBase64(userId: string | null | undefined): Promise<st
       .from("signatures")
       .download(data.signature_path);
     if (error || !blob) return null;
-    return await new Promise<string | null>((resolve) => {
+    const raw = await new Promise<string | null>((resolve) => {
       const reader = new FileReader();
       reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : null);
       reader.onerror = () => resolve(null);
       reader.readAsDataURL(blob);
     });
+    return raw ? await cleanSignatureImage(raw) : null;
+
   } catch {
     return null;
   }
