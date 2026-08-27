@@ -79,7 +79,68 @@ async function imgToBase64(src: string): Promise<string | null> {
   }
 }
 
-async function getSignatureBase64(userId: string | null | undefined): Promise<string | null> {
+/**
+ * Bersihkan gambar tanda tangan sebelum ditempel ke PDF:
+ * - buang bingkai/garis tepi sisa crop (inset 2% tiap sisi)
+ * - jadikan latar putih transparan agar tidak menimpa elemen lain
+ * - trim area kosong sehingga goresan tampil proporsional
+ */
+async function cleanSignatureImage(dataUrl: string): Promise<string> {
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = reject;
+      el.src = dataUrl;
+    });
+    const inset = Math.max(1, Math.round(Math.min(img.width, img.height) * 0.02));
+    const sw = img.width - inset * 2;
+    const sh = img.height - inset * 2;
+    if (sw <= 4 || sh <= 4) return dataUrl;
+
+    const c = document.createElement("canvas");
+    c.width = sw;
+    c.height = sh;
+    const ctx = c.getContext("2d");
+    if (!ctx) return dataUrl;
+    ctx.drawImage(img, inset, inset, sw, sh, 0, 0, sw, sh);
+
+    const data = ctx.getImageData(0, 0, sw, sh);
+    const px = data.data;
+    let minX = sw, minY = sh, maxX = -1, maxY = -1;
+    for (let y = 0; y < sh; y++) {
+      for (let x = 0; x < sw; x++) {
+        const i = (y * sw + x) * 4;
+        const lum = (px[i] + px[i + 1] + px[i + 2]) / 3;
+        if (px[i + 3] < 8 || lum > 235) {
+          px[i + 3] = 0; // latar putih -> transparan
+        } else {
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    ctx.putImageData(data, 0, 0);
+    if (maxX < 0 || maxY < 0) return c.toDataURL("image/png");
+
+    const pad = 2;
+    const cx = Math.max(0, minX - pad);
+    const cy = Math.max(0, minY - pad);
+    const cw = Math.min(sw - cx, maxX - minX + 1 + pad * 2);
+    const ch = Math.min(sh - cy, maxY - minY + 1 + pad * 2);
+    const out = document.createElement("canvas");
+    out.width = cw;
+    out.height = ch;
+    out.getContext("2d")!.drawImage(c, cx, cy, cw, ch, 0, 0, cw, ch);
+    return out.toDataURL("image/png");
+  } catch {
+    return dataUrl;
+  }
+}
+
+
   if (!userId) return null;
   try {
     const { data } = await supabase
