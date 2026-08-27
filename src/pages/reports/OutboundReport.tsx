@@ -131,10 +131,10 @@ export default function OutboundReport() {
   const filteredRecords = records.filter(record => {
     const displayNo = record.delivery_number || record.stock_out_number;
     const matchesSearch = 
-      displayNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.stock_out_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.sales_order?.sales_order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.sales_order?.customer?.name.toLowerCase().includes(searchQuery.toLowerCase());
+      (displayNo || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (record.stock_out_number || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (record.sales_order?.sales_order_number || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (record.sales_order?.customer?.name || "").toLowerCase().includes(searchQuery.toLowerCase());
     
     // Product name filter
     const matchesProduct = !productFilter || 
