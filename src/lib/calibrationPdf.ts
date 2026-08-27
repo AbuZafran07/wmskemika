@@ -1349,7 +1349,7 @@ export async function generateBASTPdf(receiptId: string) {
   const sigTextW = colW - 14;
   const lineY = frameBottom - 8;
   const sigCols: [string, string, string][] = [
-    ["Diserahkan oleh", salesName || "-", "PT Kemika Karya Pratama"],
+    ["Diserahkan oleh", kemikaSigner.name || salesName || "-", "PT Kemika Karya Pratama"],
     [
       "Diterima oleh",
       header.service_pic_name || customer?.pic || "Pelanggan / PIC",
@@ -1361,6 +1361,12 @@ export async function generateBASTPdf(receiptId: string) {
     const cx = x + colW / 2;
     fitFontB(sigCols[i][0], sigTextW, 9, 6.5, "bold");
     doc.text(sigCols[i][0], cx, sigY, { align: "center" });
+    // TTD digital pihak Kemika (otomatis) di kolom pertama
+    if (i === 0 && kemikaSigner.sig) {
+      try {
+        doc.addImage(kemikaSigner.sig, "PNG", cx - 15, sigY + 2, 30, 11);
+      } catch {}
+    }
     // nama tepat DI ATAS garis
     fitFontB(sigCols[i][1], sigTextW, 8.5, 6, "bold");
     doc.text(sigCols[i][1], cx, lineY - 1.6, { align: "center" });
