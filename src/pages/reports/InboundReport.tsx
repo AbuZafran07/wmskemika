@@ -93,9 +93,9 @@ export default function InboundReport() {
 
   const filteredRecords = records.filter(record => {
     const matchesSearch =
-      record.stock_in_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.plan_order?.plan_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.plan_order?.supplier?.name.toLowerCase().includes(searchQuery.toLowerCase());
+      (record.stock_in_number || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (record.plan_order?.plan_number || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (record.plan_order?.supplier?.name || "").toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesProduct = !productFilter ||
       record.items.some(item => item.product?.name?.toLowerCase().includes(productFilter.toLowerCase()));
