@@ -1,0 +1,1 @@
+ALTER FUNCTION public.verify_certificate(text, text) VOLATILE;
