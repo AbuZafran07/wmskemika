@@ -224,11 +224,11 @@ export default function DeliveryOrder() {
   const filtered = useMemo(() => {
     return rows.filter(r => {
       const matchSearch = !search ||
-        r.do_number.toLowerCase().includes(search.toLowerCase()) ||
-        r.stock_out_number.toLowerCase().includes(search.toLowerCase()) ||
-        r.so_number.toLowerCase().includes(search.toLowerCase()) ||
-        r.customer_name.toLowerCase().includes(search.toLowerCase()) ||
-        r.customer_po.toLowerCase().includes(search.toLowerCase());
+        (r.do_number || "").toLowerCase().includes(search.toLowerCase()) ||
+        (r.stock_out_number || "").toLowerCase().includes(search.toLowerCase()) ||
+        (r.so_number || "").toLowerCase().includes(search.toLowerCase()) ||
+        (r.customer_name || "").toLowerCase().includes(search.toLowerCase()) ||
+        (r.customer_po || "").toLowerCase().includes(search.toLowerCase());
       const matchCustomer = filterCustomer === "all" || r.customer_name === filterCustomer;
       return matchSearch && matchCustomer;
     });
