@@ -1833,6 +1833,7 @@ export type Database = {
       sales_order_items: {
         Row: {
           additional_information: string | null
+          calibration_date: string | null
           calibration_gas: string | null
           calibration_method: string | null
           certificate_issued_at: string | null
@@ -1873,6 +1874,7 @@ export type Database = {
         }
         Insert: {
           additional_information?: string | null
+          calibration_date?: string | null
           calibration_gas?: string | null
           calibration_method?: string | null
           certificate_issued_at?: string | null
@@ -1913,6 +1915,7 @@ export type Database = {
         }
         Update: {
           additional_information?: string | null
+          calibration_date?: string | null
           calibration_gas?: string | null
           calibration_method?: string | null
           certificate_issued_at?: string | null
