@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.wms-assistant]
 verify_jwt = false
+
+[functions.verify-certificate-public]
+verify_jwt = false
