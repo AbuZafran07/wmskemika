@@ -1081,9 +1081,11 @@ export async function generateBASTPdf(receiptId: string) {
     null;
   const handoverDate: Date = deliveredRow?.checked_at ? new Date(deliveredRow.checked_at) : new Date();
 
-  // TTD pihak Kemika otomatis (petugas yang menandai instrument delivered).
+  // TTD pihak Kemika = akun yang sedang login dan meng-generate BAST
+  // (mis. Irvan), bukan user lain yang kebetulan mencentang checklist.
+  // Fallback ke pencentang checklist hanya jika sesi login tidak terbaca.
   const { data: authData } = await supabase.auth.getUser();
-  const kemikaSigner = await getSigner(deliveredRow?.checked_by || authData?.user?.id || null);
+  const kemikaSigner = await getSigner(authData?.user?.id || deliveredRow?.checked_by || null);
 
 
   const bgData = await imgToBase64("/kop-surat-bg.jpg");
