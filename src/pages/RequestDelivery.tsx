@@ -1348,12 +1348,16 @@ export default function RequestDelivery() {
         >
           {BOARD_COLUMNS.map((column) => {
             const columnCards = getColumnCards(column.id);
+            const visibleColumnCards = expandedColumns[column.id]
+              ? columnCards
+              : columnCards.slice(0, COLUMN_RENDER_LIMIT);
             const weekDates = getWeekDates();
             const colDate = weekDates[column.id as keyof typeof weekDates];
             const colHolidayName = colDate ? isHoliday(colDate) : null;
             const colIsWeekend = colDate ? isWeekend(colDate) : false;
             const isHolidayColumn = !!(colHolidayName || colIsWeekend);
             return (
+
               <div
                 key={column.id}
                 className={cn(
