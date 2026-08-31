@@ -87,6 +87,8 @@ export default function RequestDelivery() {
   const { isHoliday } = useHolidays();
   const [cards, setCards] = useState<DeliveryCard[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedColumns, setExpandedColumns] = useState<Record<string, boolean>>({});
+
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [detailCard, setDetailCard] = useState<DeliveryCard | null>(null);
   const [moveDialogCard, setMoveDialogCard] = useState<DeliveryCard | null>(null);
