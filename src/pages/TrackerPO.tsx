@@ -65,6 +65,9 @@ const STATUS_LABELS: Record<string, string> = {
 
 const ARCHIVE_ROLES = ["super_admin", "admin", "purchasing"];
 
+// Batas card yang dirender per kolom (sisanya via tombol "Tampilkan lainnya")
+const COLUMN_RENDER_LIMIT = 30;
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("id-ID", {
     style: "currency", currency: "IDR",
@@ -102,6 +105,7 @@ export default function TrackerPO({ compact = false }: { compact?: boolean }) {
   const [cardMeta, setCardMeta] = useState<CardMetaMap>({});
   // Pending date inputs untuk checklist invoice: key = `${planOrderId}_${checklistKey}`
   const [pendingDates, setPendingDates] = useState<Record<string, string>>({});
+  const [expandedColumns, setExpandedColumns] = useState<Record<string, boolean>>({});
 
   // Deep-link support: /tracker-po?card=<plan_order_id> (dari notifikasi lonceng)
   const [searchParams, setSearchParams] = useSearchParams();
@@ -807,10 +811,21 @@ export default function TrackerPO({ compact = false }: { compact?: boolean }) {
                       </Badge>
                     </div>
                     <div className="flex-1 overflow-y-auto p-2 space-y-2" style={{ maxHeight: "calc(100vh - 11rem)" }}>
-                      {colCards.length === 0 ? (
+                      {visible.length === 0 ? (
                         <div className="text-center py-8 text-muted-foreground/50"><p className="text-xs">Tidak ada PO</p></div>
                       ) : (
-                        colCards.map((order) => renderCard(order))
+                        <>
+                          {(expandedColumns[col.id] ? visible : visible.slice(0, COLUMN_RENDER_LIMIT)).map((order) => renderCard(order))}
+                          {!expandedColumns[col.id] && visible.length > COLUMN_RENDER_LIMIT && (
+                            <button
+                              type="button"
+                              onClick={() => setExpandedColumns((p) => ({ ...p, [col.id]: true }))}
+                              className="w-full text-xs py-2 rounded-lg border border-dashed border-border text-muted-foreground hover:bg-muted/50"
+                            >
+                              Tampilkan {visible.length - COLUMN_RENDER_LIMIT} card lainnya
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
