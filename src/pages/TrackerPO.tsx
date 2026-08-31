@@ -65,6 +65,9 @@ const STATUS_LABELS: Record<string, string> = {
 
 const ARCHIVE_ROLES = ["super_admin", "admin", "purchasing"];
 
+// Batas card yang dirender per kolom (sisanya via tombol "Tampilkan lainnya")
+const COLUMN_RENDER_LIMIT = 30;
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("id-ID", {
     style: "currency", currency: "IDR",
