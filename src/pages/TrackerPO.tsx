@@ -102,6 +102,7 @@ export default function TrackerPO({ compact = false }: { compact?: boolean }) {
   const [cardMeta, setCardMeta] = useState<CardMetaMap>({});
   // Pending date inputs untuk checklist invoice: key = `${planOrderId}_${checklistKey}`
   const [pendingDates, setPendingDates] = useState<Record<string, string>>({});
+  const [expandedColumns, setExpandedColumns] = useState<Record<string, boolean>>({});
 
   // Deep-link support: /tracker-po?card=<plan_order_id> (dari notifikasi lonceng)
   const [searchParams, setSearchParams] = useSearchParams();
