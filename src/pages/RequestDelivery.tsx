@@ -41,7 +41,9 @@ import DeliveryMarqueeTicker from "@/components/delivery/DeliveryMarqueeTicker";
 import { notifyDeliveryCardMoved, notifyNewDeliveryCard } from "@/lib/pushNotifications";
 
 // Board columns definition
+const COLUMN_RENDER_LIMIT = 30;
 const BOARD_COLUMNS = [
+
   { id: "new_order", label: "New Orders", color: "bg-blue-600" },
   { id: "checking", label: "Checking...", color: "bg-yellow-600" },
   { id: "on_hold_delivery", label: "On Hold Delivery Order", color: "bg-orange-600" },
