@@ -41,7 +41,9 @@ import DeliveryMarqueeTicker from "@/components/delivery/DeliveryMarqueeTicker";
 import { notifyDeliveryCardMoved, notifyNewDeliveryCard } from "@/lib/pushNotifications";
 
 // Board columns definition
+const COLUMN_RENDER_LIMIT = 30;
 const BOARD_COLUMNS = [
+
   { id: "new_order", label: "New Orders", color: "bg-blue-600" },
   { id: "checking", label: "Checking...", color: "bg-yellow-600" },
   { id: "on_hold_delivery", label: "On Hold Delivery Order", color: "bg-orange-600" },
@@ -87,6 +89,8 @@ export default function RequestDelivery() {
   const { isHoliday } = useHolidays();
   const [cards, setCards] = useState<DeliveryCard[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedColumns, setExpandedColumns] = useState<Record<string, boolean>>({});
+
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [detailCard, setDetailCard] = useState<DeliveryCard | null>(null);
   const [moveDialogCard, setMoveDialogCard] = useState<DeliveryCard | null>(null);
@@ -237,7 +241,7 @@ export default function RequestDelivery() {
     try {
       const { data: requests, error } = await supabase
         .from("delivery_requests")
-        .select("*")
+        .select("id, sales_order_id, board_status, notes, delivery_date_target, created_at, updated_at")
         .order("updated_at", { ascending: false });
 
       if (error) throw error;
@@ -248,16 +252,18 @@ export default function RequestDelivery() {
       }
 
       const soIds = requests.map(r => r.sales_order_id);
-      
-      const { data: soHeaders } = await supabase
-        .from("sales_order_headers")
-        .select("*, customers!inner(name, code)")
-        .in("id", soIds);
 
-      const { data: soItems } = await supabase
-        .from("sales_order_items")
-        .select("*, products!inner(name)")
-        .in("sales_order_id", soIds);
+      const [{ data: soHeaders }, { data: soItems }] = await Promise.all([
+        supabase
+          .from("sales_order_headers")
+          .select("id, sales_order_number, customer_po_number, allocation_type, project_instansi, sales_name, delivery_deadline, order_date, status, grand_total, ship_to_address, notes, customers!inner(name, code)")
+          .in("id", soIds),
+        supabase
+          .from("sales_order_items")
+          .select("sales_order_id, ordered_qty, qty_delivered, products!inner(name)")
+          .in("sales_order_id", soIds),
+      ]);
+
 
       const mappedCards: DeliveryCard[] = requests.map(req => {
         const so = soHeaders?.find(h => h.id === req.sales_order_id);
@@ -1346,12 +1352,16 @@ export default function RequestDelivery() {
         >
           {BOARD_COLUMNS.map((column) => {
             const columnCards = getColumnCards(column.id);
+            const visibleColumnCards = expandedColumns[column.id]
+              ? columnCards
+              : columnCards.slice(0, COLUMN_RENDER_LIMIT);
             const weekDates = getWeekDates();
             const colDate = weekDates[column.id as keyof typeof weekDates];
             const colHolidayName = colDate ? isHoliday(colDate) : null;
             const colIsWeekend = colDate ? isWeekend(colDate) : false;
             const isHolidayColumn = !!(colHolidayName || colIsWeekend);
             return (
+
               <div
                 key={column.id}
                 className={cn(
@@ -1409,7 +1419,7 @@ export default function RequestDelivery() {
                       <p className="text-[10px] text-center opacity-50 mt-0.5">Tidak ada pengiriman</p>
                     </div>
                   )}
-                  {columnCards.map((card) => (
+                  {visibleColumnCards.map((card) => (
                     <Card
                       key={card.id}
                       draggable={canManage && card.board_status !== "on_hold_delivery"}
@@ -1557,6 +1567,18 @@ export default function RequestDelivery() {
                       )}
                     </Card>
                   ))}
+
+                  {columnCards.length > visibleColumnCards.length && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-xs"
+                      onClick={() => setExpandedColumns(prev => ({ ...prev, [column.id]: true }))}
+                    >
+                      Tampilkan {columnCards.length - visibleColumnCards.length} card lainnya
+                    </Button>
+                  )}
+
 
                   {columnCards.length === 0 && (
                     <div className="text-center py-8 text-muted-foreground/50">
