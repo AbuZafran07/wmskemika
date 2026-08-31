@@ -1411,7 +1411,7 @@ export default function RequestDelivery() {
                       <p className="text-[10px] text-center opacity-50 mt-0.5">Tidak ada pengiriman</p>
                     </div>
                   )}
-                  {columnCards.map((card) => (
+                  {visibleColumnCards.map((card) => (
                     <Card
                       key={card.id}
                       draggable={canManage && card.board_status !== "on_hold_delivery"}
