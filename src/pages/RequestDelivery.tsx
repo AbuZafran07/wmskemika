@@ -1560,6 +1560,18 @@ export default function RequestDelivery() {
                     </Card>
                   ))}
 
+                  {columnCards.length > visibleColumnCards.length && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-xs"
+                      onClick={() => setExpandedColumns(prev => ({ ...prev, [column.id]: true }))}
+                    >
+                      Tampilkan {columnCards.length - visibleColumnCards.length} card lainnya
+                    </Button>
+                  )}
+
+
                   {columnCards.length === 0 && (
                     <div className="text-center py-8 text-muted-foreground/50">
                       <p className="text-xs">Tidak ada card</p>
