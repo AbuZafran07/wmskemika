@@ -237,7 +237,7 @@ export default function RequestDelivery() {
     try {
       const { data: requests, error } = await supabase
         .from("delivery_requests")
-        .select("*")
+        .select("id, sales_order_id, board_status, notes, delivery_date_target, created_at, updated_at")
         .order("updated_at", { ascending: false });
 
       if (error) throw error;
@@ -248,16 +248,18 @@ export default function RequestDelivery() {
       }
 
       const soIds = requests.map(r => r.sales_order_id);
-      
-      const { data: soHeaders } = await supabase
-        .from("sales_order_headers")
-        .select("*, customers!inner(name, code)")
-        .in("id", soIds);
 
-      const { data: soItems } = await supabase
-        .from("sales_order_items")
-        .select("*, products!inner(name)")
-        .in("sales_order_id", soIds);
+      const [{ data: soHeaders }, { data: soItems }] = await Promise.all([
+        supabase
+          .from("sales_order_headers")
+          .select("id, sales_order_number, customer_po_number, allocation_type, project_instansi, sales_name, delivery_deadline, order_date, status, grand_total, ship_to_address, notes, customers!inner(name, code)")
+          .in("id", soIds),
+        supabase
+          .from("sales_order_items")
+          .select("sales_order_id, ordered_qty, qty_delivered, products!inner(name)")
+          .in("sales_order_id", soIds),
+      ]);
+
 
       const mappedCards: DeliveryCard[] = requests.map(req => {
         const so = soHeaders?.find(h => h.id === req.sales_order_id);
