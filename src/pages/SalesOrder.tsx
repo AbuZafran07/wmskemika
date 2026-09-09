@@ -845,17 +845,26 @@ export default function SalesOrder() {
 
   const handleCancel = async () => {
     if (!selectedOrder) return;
+    if (cancelReason.trim().length < 20) {
+      toast.error(
+        language === "en"
+          ? "Cancellation reason is required (min. 20 characters)"
+          : "Alasan pembatalan wajib diisi minimal 20 karakter",
+      );
+      return;
+    }
     setIsCancelling(true);
-    const result = await cancelSalesOrder(selectedOrder.id);
+    const result = await cancelSalesOrder(selectedOrder.id, cancelReason.trim());
     if (result.success) {
       toast.success(language === "en" ? "Sales Order cancelled" : "Sales Order dibatalkan");
       refetch();
+      setIsCancelDialogOpen(false);
+      setCancelReason("");
+      setSelectedOrder(null);
     } else {
       toast.error(result.error || "Failed to cancel");
     }
     setIsCancelling(false);
-    setIsCancelDialogOpen(false);
-    setSelectedOrder(null);
   };
 
   const handleDelete = async () => {
