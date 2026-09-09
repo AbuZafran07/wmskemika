@@ -198,6 +198,7 @@ export default function SalesOrder() {
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [approveReason, setApproveReason] = useState("");
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
 
