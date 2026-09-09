@@ -1697,6 +1697,9 @@ export type Database = {
           approved_by: string | null
           calibration_received_at: string | null
           calibration_status: string | null
+          cancel_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           created_at: string | null
           created_by: string | null
           customer_id: string
@@ -1740,6 +1743,9 @@ export type Database = {
           approved_by?: string | null
           calibration_received_at?: string | null
           calibration_status?: string | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           created_at?: string | null
           created_by?: string | null
           customer_id: string
@@ -1783,6 +1789,9 @@ export type Database = {
           approved_by?: string | null
           calibration_received_at?: string | null
           calibration_status?: string | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           created_at?: string | null
           created_by?: string | null
           customer_id?: string
@@ -2790,7 +2799,10 @@ export type Database = {
         Args: { order_id: string }
         Returns: Json
       }
-      sales_order_cancel: { Args: { order_id: string }; Returns: Json }
+      sales_order_cancel: {
+        Args: { cancel_reason: string; order_id: string }
+        Returns: Json
+      }
       sales_order_cancel_delivered: {
         Args: { order_id: string; reason: string }
         Returns: Json

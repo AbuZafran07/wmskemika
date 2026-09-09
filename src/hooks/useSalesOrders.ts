@@ -520,8 +520,16 @@ export async function approveSalesOrder(orderId: string, approveReason?: string)
   }
 }
 
-export async function cancelSalesOrder(orderId: string): Promise<{ success: boolean; error?: string }> {
+export async function cancelSalesOrder(
+  orderId: string,
+  reason: string,
+): Promise<{ success: boolean; error?: string }> {
   try {
+    const trimmedReason = (reason || '').trim();
+    if (trimmedReason.length < 20) {
+      return { success: false, error: 'Alasan pembatalan wajib diisi minimal 20 karakter' };
+    }
+
     // Ambil data SO dulu untuk dapat reference & so_number sebelum stage berubah
     const { data: soBefore } = await supabase
       .from('sales_order_headers')
@@ -529,7 +537,10 @@ export async function cancelSalesOrder(orderId: string): Promise<{ success: bool
       .eq('id', orderId)
       .single();
 
-    const { data, error } = await supabase.rpc('sales_order_cancel', { order_id: orderId });
+    const { data, error } = await supabase.rpc('sales_order_cancel', {
+      order_id: orderId,
+      cancel_reason: trimmedReason,
+    } as never);
     if (error) throw error;
     const result = data as { success: boolean; error?: string };
 
@@ -556,7 +567,7 @@ export async function cancelSalesOrder(orderId: string): Promise<{ success: bool
               so_number: soBefore.sales_order_number,
               reference_number: reference,
               cancelled_at: new Date().toISOString(),
-              reason: 'SO dibatalkan dari WMS',
+              reason: trimmedReason,
             });
             console.log('[WMS] Sales Pulse SO Cancelled sync berhasil:', soBefore.sales_order_number);
           } catch (cancelSyncErr) {

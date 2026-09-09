@@ -198,6 +198,7 @@ export default function SalesOrder() {
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [approveReason, setApproveReason] = useState("");
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
 
@@ -844,17 +845,26 @@ export default function SalesOrder() {
 
   const handleCancel = async () => {
     if (!selectedOrder) return;
+    if (cancelReason.trim().length < 20) {
+      toast.error(
+        language === "en"
+          ? "Cancellation reason is required (min. 20 characters)"
+          : "Alasan pembatalan wajib diisi minimal 20 karakter",
+      );
+      return;
+    }
     setIsCancelling(true);
-    const result = await cancelSalesOrder(selectedOrder.id);
+    const result = await cancelSalesOrder(selectedOrder.id, cancelReason.trim());
     if (result.success) {
       toast.success(language === "en" ? "Sales Order cancelled" : "Sales Order dibatalkan");
       refetch();
+      setIsCancelDialogOpen(false);
+      setCancelReason("");
+      setSelectedOrder(null);
     } else {
       toast.error(result.error || "Failed to cancel");
     }
     setIsCancelling(false);
-    setIsCancelDialogOpen(false);
-    setSelectedOrder(null);
   };
 
   const handleDelete = async () => {
@@ -1950,21 +1960,51 @@ export default function SalesOrder() {
       </AlertDialog>
 
       {/* Cancel Dialog */}
-      <AlertDialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+      <AlertDialog
+        open={isCancelDialogOpen}
+        onOpenChange={(open) => {
+          setIsCancelDialogOpen(open);
+          if (!open) setCancelReason("");
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{language === "en" ? "Cancel Sales Order" : "Batalkan Sales Order"}</AlertDialogTitle>
             <AlertDialogDescription>
               {language === "en"
-                ? `Are you sure you want to cancel "${selectedOrder?.sales_order_number}"?`
-                : `Apakah Anda yakin ingin membatalkan "${selectedOrder?.sales_order_number}"?`}
+                ? `Are you sure you want to cancel "${selectedOrder?.sales_order_number}"? Please provide a reason.`
+                : `Apakah Anda yakin ingin membatalkan "${selectedOrder?.sales_order_number}"? Mohon isi alasannya.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-2 py-2">
+            <Label>
+              {language === "en" ? "Cancellation Reason" : "Alasan Pembatalan"} *
+            </Label>
+            <Textarea
+              rows={3}
+              maxLength={1000}
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder={
+                language === "en"
+                  ? "e.g. Customer cancelled the order due to budget changes"
+                  : "cth. Customer membatalkan order karena perubahan anggaran"
+              }
+              disabled={isCancelling}
+            />
+            <p className={`text-xs ${cancelReason.trim().length < 20 ? "text-destructive" : "text-muted-foreground"}`}>
+              {cancelReason.trim().length}/20{" "}
+              {language === "en" ? "minimum characters" : "karakter minimum"}
+            </p>
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isCancelling}>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleCancel}
-              disabled={isCancelling}
+              onClick={(e) => {
+                e.preventDefault();
+                handleCancel();
+              }}
+              disabled={isCancelling || cancelReason.trim().length < 20}
               className="bg-destructive hover:bg-destructive/90"
             >
               {isCancelling && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
