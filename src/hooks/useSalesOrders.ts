@@ -567,7 +567,7 @@ export async function cancelSalesOrder(
               so_number: soBefore.sales_order_number,
               reference_number: reference,
               cancelled_at: new Date().toISOString(),
-              reason: 'SO dibatalkan dari WMS',
+              reason: trimmedReason,
             });
             console.log('[WMS] Sales Pulse SO Cancelled sync berhasil:', soBefore.sales_order_number);
           } catch (cancelSyncErr) {
