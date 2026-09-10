@@ -164,15 +164,15 @@ serve(async (req) => {
         100,
       );
       const rawLimit = req.method === "GET" ? incomingUrl.searchParams.get("limit") : body.limit;
-      const limit = rawLimit === null || rawLimit === undefined || rawLimit === ""
-        ? null
+      const parsedLimit = rawLimit === null || rawLimit === undefined || rawLimit === ""
+        ? NaN
         : Number(rawLimit);
+      // Default limit: upstream bisa hang kalau diminta seluruh deal tanpa batas.
+      const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 5000) : 200;
 
       if (search) url.searchParams.set("search", search);
       if (segment) url.searchParams.set("segment", segment);
-      if (Number.isFinite(limit)) {
-        url.searchParams.set("limit", String(Math.min(Math.max(Number(limit), 1), 5000)));
-      }
+      url.searchParams.set("limit", String(limit));
 
       const { data: logRow } = await adminClient
         .from("sales_pulse_sync_logs")
@@ -192,12 +192,28 @@ serve(async (req) => {
         .select("id")
         .single();
 
-      const upstream = await fetch(url.toString(), {
-        method: "GET",
-        headers: {
-          "X-WMS-API-Key": salesPulseApiKey,
-        },
-      });
+      let upstream: Response;
+      try {
+        upstream = await fetch(url.toString(), {
+          method: "GET",
+          headers: {
+            "X-WMS-API-Key": salesPulseApiKey,
+          },
+          signal: AbortSignal.timeout(25000),
+        });
+      } catch (fetchErr) {
+        const message = fetchErr instanceof Error && fetchErr.name === "TimeoutError"
+          ? "Sales Pulse tidak merespons dalam 25 detik. Coba ketik kata kunci pencarian agar datanya lebih sedikit."
+          : `Gagal menghubungi Sales Pulse: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`;
+        if (logRow?.id) {
+          await adminClient
+            .from("sales_pulse_sync_logs")
+            .update({ status: "failed", status_code: 504, error_message: sanitizeText(message, 500) })
+            .eq("id", logRow.id);
+        }
+        return jsonResponse({ error: message, data: [], count: 0 }, 504);
+      }
+
 
       const responsePayload = await upstream.json().catch(() => ({ error: "Invalid JSON response" }));
       const normalizedData = upstream.ok
