@@ -9,7 +9,7 @@ const corsHeaders = {
 
 const ARAP_ENDPOINT = "https://qekexdtidnbspqzwerrd.supabase.co/functions/v1/wms-sync";
 
-const ALLOWED_ENTITIES = ["customer", "vendor", "sales_order", "plan_order"];
+const ALLOWED_ENTITIES = ["customer", "vendor", "sales_order", "plan_order", "stock_movement"];
 const ALLOWED_ACTIONS = ["upsert", "sync_batch"];
 const ALLOWED_ROLES = ["super_admin", "admin", "finance", "sales", "purchasing"];
 
