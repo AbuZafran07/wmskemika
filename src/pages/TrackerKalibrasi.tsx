@@ -187,7 +187,7 @@ interface ColumnProps {
 
 function KanbanColumn({ colDef, cards, onClickCard, labelsByCard }: ColumnProps) {
   return (
-    <div className="flex flex-col w-[85vw] sm:w-72 max-w-[320px] flex-none">
+    <div className="flex flex-col w-[85vw] sm:w-72 max-w-[320px] flex-none h-full min-h-0">
       {/* Column header */}
       <div className="rounded-xl border bg-card mb-2 overflow-hidden">
         <div className={cn("h-1.5 w-full", colDef.color)} />
@@ -203,7 +203,7 @@ function KanbanColumn({ colDef, cards, onClickCard, labelsByCard }: ColumnProps)
       </div>
 
       {/* Cards */}
-      <div className="flex flex-col gap-2 flex-1 overflow-y-auto pb-4 pr-0.5">
+      <div className="flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto pb-4 pr-0.5">
         {cards.length === 0 ? (
           <div className="rounded-xl border border-dashed bg-muted/20 h-20 flex items-center justify-center">
             <p className="text-xs text-muted-foreground">Kosong</p>
@@ -701,8 +701,8 @@ export default function TrackerKalibrasi() {
         <div className={cn("flex-1 relative z-10", isFullView ? "overflow-auto" : "overflow-x-auto overflow-y-hidden")}>
           <div
             className={cn(
-              "flex gap-3 sm:gap-4 pb-2 snap-x snap-mandatory sm:snap-none -mx-3 px-3 sm:mx-0 sm:px-0",
-              isFullView ? "w-full h-full" : "",
+              "flex gap-3 sm:gap-4 pb-2 snap-x snap-mandatory sm:snap-none -mx-3 px-3 sm:mx-0 sm:px-0 h-full",
+              isFullView ? "w-full" : "",
             )}
             style={isFullView ? { transform: `scale(${zoomLevel / 100})`, transformOrigin: "top left", width: `${10000 / zoomLevel}%`, height: `${10000 / zoomLevel}%` } : undefined}
           >
