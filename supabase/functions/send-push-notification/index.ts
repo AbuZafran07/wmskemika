@@ -124,10 +124,23 @@ serve(async (req) => {
     const serviceAccountJson = Deno.env.get('FIREBASE_SERVICE_ACCOUNT_JSON');
 
     if (!serviceAccountJson) {
-      throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON not configured');
+      return new Response(JSON.stringify({ error: 'Push configuration error: FIREBASE_SERVICE_ACCOUNT_JSON not configured' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    const serviceAccount = JSON.parse(serviceAccountJson);
+    let serviceAccount: any;
+    try {
+      serviceAccount = JSON.parse(serviceAccountJson);
+      if (!serviceAccount?.project_id || !serviceAccount?.client_email || !serviceAccount?.private_key) {
+        throw new Error('missing required fields (project_id, client_email, private_key)');
+      }
+    } catch (e) {
+      console.error('FIREBASE_SERVICE_ACCOUNT_JSON is not a valid service account JSON:', e.message);
+      return new Response(JSON.stringify({ error: `Push configuration error: FIREBASE_SERVICE_ACCOUNT_JSON invalid (${e.message})` }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const payload = await req.json();
