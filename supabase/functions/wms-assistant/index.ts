@@ -79,8 +79,14 @@ Deno.serve(async (req) => {
 
     // Normalize messages: allow content to be string OR array of parts
     // [{type:"text", text:"..."}, {type:"image_url", image_url:{url:"data:image/webp;base64,..."}}]
+    // Roles are server-owned: callers may only send conversation turns.
+    // Anything other than "assistant" is coerced to "user" so system instructions
+    // can never be injected from the request body.
+    const safeRole = (role: unknown): "user" | "assistant" =>
+      role === "assistant" ? "assistant" : "user";
+
     const normalized = messages.map((m: any) => {
-      if (typeof m?.content === "string") return { role: m.role, content: m.content };
+      if (typeof m?.content === "string") return { role: safeRole(m?.role), content: m.content };
       if (Array.isArray(m?.content)) {
         const parts = m.content
           .map((p: any) => {
@@ -93,9 +99,9 @@ Deno.serve(async (req) => {
             return null;
           })
           .filter(Boolean);
-        return { role: m.role, content: parts };
+        return { role: safeRole(m?.role), content: parts };
       }
-      return { role: m.role, content: String(m?.content ?? "") };
+      return { role: safeRole(m?.role), content: String(m?.content ?? "") };
     });
 
     // ===== CLASSIFY MODE =====
