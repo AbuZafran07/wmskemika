@@ -129,18 +129,62 @@ serve(async (req) => {
       });
     }
 
+    // Tolerate common paste variants: surrounding whitespace/quotes, base64-encoded JSON,
+    // or a JSON string containing the JSON document.
+    const parseServiceAccount = (raw: string): any => {
+      const attempts: string[] = [];
+      const trimmed = raw.trim();
+      attempts.push(trimmed);
+      if (/^['"][\s\S]*['"]$/.test(trimmed)) attempts.push(trimmed.slice(1, -1));
+      if (/^[A-Za-z0-9+/=\s]+$/.test(trimmed) && trimmed.length > 100) {
+        try { attempts.push(atob(trimmed.replace(/\s+/g, ''))); } catch (_) { /* not base64 */ }
+      }
+      const firstBrace = trimmed.indexOf('{');
+      const lastBrace = trimmed.lastIndexOf('}');
+      if (firstBrace > -1 && lastBrace > firstBrace) attempts.push(trimmed.slice(firstBrace, lastBrace + 1));
+
+      let lastError = 'unrecognized format';
+      for (const candidate of attempts) {
+        try {
+          let parsed = JSON.parse(candidate);
+          if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+          if (parsed?.project_id && parsed?.client_email && parsed?.private_key) {
+            if (typeof parsed.private_key === 'string') {
+              parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
+            }
+            return parsed;
+          }
+          lastError = 'missing required fields (project_id, client_email, private_key)';
+        } catch (e) {
+          lastError = e.message;
+        }
+      }
+      throw new Error(lastError);
+    };
+
     let serviceAccount: any;
     try {
-      serviceAccount = JSON.parse(serviceAccountJson);
-      if (!serviceAccount?.project_id || !serviceAccount?.client_email || !serviceAccount?.private_key) {
-        throw new Error('missing required fields (project_id, client_email, private_key)');
-      }
+      serviceAccount = parseServiceAccount(serviceAccountJson);
     } catch (e) {
-      console.error('FIREBASE_SERVICE_ACCOUNT_JSON is not a valid service account JSON:', e.message);
-      return new Response(JSON.stringify({ error: `Push configuration error: FIREBASE_SERVICE_ACCOUNT_JSON invalid (${e.message})` }), {
+      // Safe diagnostics only: never log or return any part of the secret value.
+      console.error('FIREBASE_SERVICE_ACCOUNT_JSON unusable:', e.message, {
+        length: serviceAccountJson.length,
+        startsWithBrace: serviceAccountJson.trim().startsWith('{'),
+        endsWithBrace: serviceAccountJson.trim().endsWith('}'),
+        containsPrivateKeyHeader: serviceAccountJson.includes('BEGIN PRIVATE KEY'),
+      });
+      return new Response(JSON.stringify({
+        error: `Push configuration error: FIREBASE_SERVICE_ACCOUNT_JSON invalid (${e.message})`,
+        hint: 'Paste the complete Firebase service account JSON file contents, from "{" to "}".',
+        value_length: serviceAccountJson.length,
+        starts_with_brace: serviceAccountJson.trim().startsWith('{'),
+        ends_with_brace: serviceAccountJson.trim().endsWith('}'),
+        contains_private_key_header: serviceAccountJson.includes('BEGIN PRIVATE KEY'),
+      }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const payload = await req.json();
