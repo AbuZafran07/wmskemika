@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.finance-sync-forwarder]
 verify_jwt = false
+
+[functions.kemi-export]
+verify_jwt = false
