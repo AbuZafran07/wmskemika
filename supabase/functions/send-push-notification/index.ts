@@ -142,6 +142,9 @@ serve(async (req) => {
       const firstBrace = trimmed.indexOf('{');
       const lastBrace = trimmed.lastIndexOf('}');
       if (firstBrace > -1 && lastBrace > firstBrace) attempts.push(trimmed.slice(firstBrace, lastBrace + 1));
+      // Value pasted without the outer curly braces.
+      if (!trimmed.startsWith('{')) attempts.push(`{${trimmed.replace(/,\s*$/, '')}}`);
+
 
       let lastError = 'unrecognized format';
       for (const candidate of attempts) {
