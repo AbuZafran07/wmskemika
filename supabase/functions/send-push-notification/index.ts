@@ -111,6 +111,7 @@ serve(async (req) => {
         .select('role')
         .eq('user_id', userId);
       const roles = (roleRows || []).map((r: any) => r.role);
+      callerRoles = roles;
       const allowed = roles.some((r: string) =>
         ['super_admin', 'admin', 'sales', 'warehouse', 'finance', 'purchasing'].includes(r)
       );
@@ -215,11 +216,37 @@ serve(async (req) => {
       ? { ...data, link: safeLink, ...(senderId ? { sender_id: senderId } : {}) }
       : (senderId ? { link: safeLink, sender_id: senderId } : { link: safeLink });
 
+    // Recipient selection is bounded: explicit, validated recipient lists only,
+    // and broadcasts (no recipient list) are limited to admins or internal cron calls.
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const MAX_RECIPIENTS = 200;
+    const requestedIds = Array.isArray(user_ids) ? user_ids : [];
+    const targetIds = Array.from(
+      new Set(requestedIds.filter((id: unknown) => typeof id === 'string' && UUID_RE.test(id))),
+    );
+
+    if (requestedIds.length > 0 && targetIds.length === 0) {
+      return new Response(JSON.stringify({ error: 'user_ids must be valid user identifiers' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    if (targetIds.length > MAX_RECIPIENTS) {
+      return new Response(JSON.stringify({ error: `Too many recipients (max ${MAX_RECIPIENTS})` }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    const canBroadcast = isCronCaller || callerRoles.some((r) => ['super_admin', 'admin'].includes(r));
+    if (targetIds.length === 0 && !canBroadcast) {
+      return new Response(JSON.stringify({ error: 'user_ids is required' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     // Get FCM tokens for target users
     let query = supabase.from('push_tokens').select('token, user_id');
-    
-    if (user_ids && user_ids.length > 0) {
-      query = query.in('user_id', user_ids);
+
+    if (targetIds.length > 0) {
+      query = query.in('user_id', targetIds);
     }
 
     if (exclude_user_id) {
