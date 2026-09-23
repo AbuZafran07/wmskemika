@@ -110,10 +110,19 @@ export function DeliveryOrderPdf({ open, onOpenChange, data }: DeliveryOrderPdfP
     const printWindow = window.open('', '_blank');
     if (!printWindow || !contentRef.current) return;
 
+    // Escape stored values before interpolating into the print document markup.
+    const escapeHtml = (value: unknown) =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
     printWindow.document.write(`
       <html>
         <head>
-          <title>Delivery Order - ${doNumber}</title>
+          <title>Delivery Order - ${escapeHtml(doNumber)}</title>
           <style>
             body { margin: 0; padding: 0; font-family: Arial, sans-serif; color: #111; }
             table { border-collapse: collapse; width: 100%; }
