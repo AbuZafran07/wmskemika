@@ -79,6 +79,7 @@ serve(async (req) => {
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const cronSecret = Deno.env.get('CRON_SECRET');
     let senderId: string | null = null;
+    let callerRoles: string[] = [];
 
     // Allow internal cron callers via shared secret header
     const incomingCronSecret = req.headers.get('x-cron-secret');
