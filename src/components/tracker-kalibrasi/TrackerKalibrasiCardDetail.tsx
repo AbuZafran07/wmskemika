@@ -276,6 +276,27 @@ export default function TrackerKalibrasiCardDetail({
   const [loadingReceipt, setLoadingReceipt] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
   const [newComment, setNewComment] = useState("");
+  const mentionTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const [mentionStart, setMentionStart] = useState(-1);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [mentionCandidates, setMentionCandidates] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    supabase.from("profiles_chat_view").select("id, full_name").then(({ data }) => {
+      setMentionCandidates((data || []).filter((u: any) => u.id && u.full_name).map((u: any) => ({ id: u.id, name: u.full_name })));
+    });
+  }, []);
+  const filteredMentionCandidates = useMemo(() => {
+    const q = mentionQuery.toLowerCase();
+    return mentionCandidates.filter((u) => u.id !== user?.id && (!q || u.name.toLowerCase().includes(q)));
+  }, [mentionCandidates, mentionQuery, user?.id]);
+  const insertMentionName = (name: string) => {
+    const el = mentionTextareaRef.current;
+    const before = newComment.slice(0, mentionStart);
+    const after = newComment.slice(el?.selectionStart ?? newComment.length);
+    setNewComment(`${before}@${name} ${after}`);
+    setMentionStart(-1);
+    el?.focus();
+  };
   const [sending, setSending] = useState(false);
   const [pdfLoading, setPdfLoading] = useState<"spk" | "cert" | "bast" | null>(null);
 
@@ -2148,24 +2169,66 @@ export default function TrackerKalibrasiCardDetail({
                 {/* Comment input */}
                 <div className="px-4 py-3 border-b">
                   <div className="flex gap-2">
-                    <div className="flex-1">
+                    <div className="flex-1 relative">
                       <Textarea
+                        ref={mentionTextareaRef}
                         value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setNewComment(val);
+                          const cursor = e.target.selectionStart ?? val.length;
+                          const before = val.slice(0, cursor);
+                          const at = before.lastIndexOf("@");
+                          if (at !== -1 && (at === 0 || /\s/.test(before[at - 1])) && !/\s/.test(before.slice(at + 1))) {
+                            setMentionStart(at);
+                            setMentionQuery(before.slice(at + 1));
+                          } else {
+                            setMentionStart(-1);
+                          }
+                        }}
                         onPaste={handleCommentPaste}
                         placeholder="Tulis komentar... (ketik @ untuk mention)"
                         className="text-xs min-h-[50px] resize-none"
                         onKeyDown={(e) => {
-                          if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendComment(); }
+                          if (e.key === "Escape") { setMentionStart(-1); return; }
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            if (mentionStart !== -1 && filteredMentionCandidates.length > 0) {
+                              insertMentionName(filteredMentionCandidates[0].name);
+                            } else {
+                              sendComment();
+                            }
+                          }
                         }}
                       />
+                      {mentionStart !== -1 && filteredMentionCandidates.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-popover text-popover-foreground border rounded-lg shadow-xl max-h-48 overflow-y-auto z-[9999]">
+                          {filteredMentionCandidates.slice(0, 8).map((u) => (
+                            <button
+                              key={u.id}
+                              type="button"
+                              className="w-full flex items-center gap-2 p-2 hover:bg-muted transition-colors text-left"
+                              onMouseDown={(ev) => { ev.preventDefault(); insertMentionName(u.name); }}
+                            >
+                              <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[9px] font-semibold">{u.name.charAt(0).toUpperCase()}</span>
+                              <span className="text-xs font-medium truncate">{u.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div className="flex flex-col gap-1 self-end">
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7"
-                        onClick={() => setNewComment((prev) => prev + "@")}
+                        onClick={() => {
+                          const val = newComment + (newComment && !/\s$/.test(newComment) ? " @" : "@");
+                          setNewComment(val);
+                          setMentionStart(val.length - 1);
+                          setMentionQuery("");
+                          mentionTextareaRef.current?.focus();
+                        }}
                       >
                         <AtSign className="h-3.5 w-3.5" />
                       </Button>
