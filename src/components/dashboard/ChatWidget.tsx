@@ -655,6 +655,18 @@ export const ChatWidget = ({ onlineUsers = [] }: ChatWidgetProps) => {
       if (mentions.length === 0) {
         if (selectedUser) {
           pushPayload.user_ids = [selectedUser.id];
+        } else {
+          // Global chat: notify all team members explicitly (broadcast is
+          // restricted to admins server-side, so pass the recipient list).
+          const recipientIds = allUsers.map((u) => u.id).filter((id) => id !== user.id);
+          if (recipientIds.length === 0) {
+            setNewMessage("");
+            setReplyingTo(null);
+            setSelectedFile(null);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            return;
+          }
+          pushPayload.user_ids = recipientIds;
         }
         supabase.functions.invoke('send-push-notification', {
           body: pushPayload,
