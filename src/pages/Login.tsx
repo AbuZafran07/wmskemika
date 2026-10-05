@@ -34,7 +34,13 @@ export default function Login() {
     
     if (result.success) {
       toast.success(language === 'en' ? 'Login successful!' : 'Login berhasil!');
-      navigate('/dashboard');
+      const next = new URLSearchParams(window.location.search).get('next');
+      const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : null;
+      if (safeNext) {
+        window.location.href = safeNext;
+      } else {
+        navigate('/dashboard');
+      }
     } else {
       toast.error(result.error || (language === 'en' ? 'Login failed' : 'Login gagal'));
     }

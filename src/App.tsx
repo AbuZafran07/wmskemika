@@ -48,6 +48,7 @@ import NotFound from "./pages/NotFound";
 import Notifications from "./pages/Notifications";
 import DeliveryOrder from "./pages/DeliveryOrder";
 import ProformaInvoice from "./pages/ProformaInvoice";
+import OAuthConsent from "./pages/OAuthConsent";
 
 const queryClient = new QueryClient();
 
@@ -73,6 +74,7 @@ const App = () => (
               ) : (
               <Routes>
                 <Route path="/login" element={<Login />} />
+                <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
                 <Route path="/verify/:certNumber" element={<VerifyCertificate />} />
                 <Route
                   path="/"
