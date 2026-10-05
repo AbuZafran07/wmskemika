@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "sdk_version": "3.0.4",
+  "path": "/functions/v1/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://yzlfqllwusfnhigtezfo.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "warehouse-management-inventory",
+      "version": "0.1.0",
+      "title": "Warehouse Management Inventory"
+    },
+    "tools": [
+      {
+        "name": "search_products",
+        "title": "Cari produk & stok",
+        "description": "Search active products by name or SKU and return their on-hand stock totals.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "query": {
+              "description": "Name or SKU fragment; empty lists all.",
+              "type": "string",
+              "maxLength": 100
+            },
+            "limit": {
+              "description": "Max rows (default 25).",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          "additionalProperties": false
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_sales_orders",
+        "title": "Daftar Sales Order",
+        "description": "List recent Sales Orders, optionally filtered by status or order number.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "status": {
+              "description": "e.g. draft, approved, delivered, cancelled",
+              "type": "string",
+              "maxLength": 40
+            },
+            "number": {
+              "description": "Fragment of the SO number",
+              "type": "string",
+              "maxLength": 60
+            },
+            "limit": {
+              "description": "Max rows (default 25).",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          "additionalProperties": false
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_plan_orders",
+        "title": "Daftar Plan Order",
+        "description": "List recent inbound Plan Orders, optionally filtered by status.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "status": {
+              "description": "e.g. draft, approved, received",
+              "type": "string",
+              "maxLength": 40
+            },
+            "limit": {
+              "description": "Max rows (default 25).",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          "additionalProperties": false
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
