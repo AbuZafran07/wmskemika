@@ -328,15 +328,18 @@ export default function RequestDelivery() {
   const fetchDeliveredCards = useCallback(async () => {
     setLoadingDelivered(true);
     try {
-      const { data: requests, error } = await supabase
-        .from("delivery_requests")
-        .select("id, sales_order_id, board_status, notes, delivery_date_target, created_at, updated_at")
-        .in("board_status", ["delivered", "delivered_sample"])
-        .order("updated_at", { ascending: false })
-        .limit(50);
+      // Ambil tiap status terpisah (masing-masing 50 terbaru) supaya status yang
+      // jarang di-update tidak kehabisan slot karena limit gabungan didominasi status lain.
+      const baseSelect = "id, sales_order_id, board_status, notes, delivery_date_target, created_at, updated_at";
+      const [{ data: deliveredReq, error: err1 }, { data: deliveredSampleReq, error: err2 }] = await Promise.all([
+        supabase.from("delivery_requests").select(baseSelect).eq("board_status", "delivered").order("updated_at", { ascending: false }).limit(50),
+        supabase.from("delivery_requests").select(baseSelect).eq("board_status", "delivered_sample").order("updated_at", { ascending: false }).limit(50),
+      ]);
+      if (err1) throw err1;
+      if (err2) throw err2;
 
-      if (error) throw error;
-      if (!requests || requests.length === 0) {
+      const requests = [...(deliveredReq || []), ...(deliveredSampleReq || [])];
+      if (requests.length === 0) {
         setDeliveredCards([]);
         return;
       }
