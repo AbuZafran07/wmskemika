@@ -111,6 +111,13 @@ export default function RequestDelivery() {
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [boardBgUrl, setBoardBgUrl] = useState<string>("");
   const [isFullView, setIsFullView] = useState(() => localStorage.getItem('delivery_full_view') === 'true');
+
+  // --- FIX: lazy load delivered columns ---
+  const [showDelivered, setShowDelivered] = useState(false);
+  const [deliveredCount, setDeliveredCount] = useState(0);
+  const [deliveredCards, setDeliveredCards] = useState<DeliveryCard[]>([]);
+  const [loadingDelivered, setLoadingDelivered] = useState(false);
+  const realtimeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [zoomLevel, setZoomLevel] = useState(() => {
     const saved = localStorage.getItem('delivery_zoom_level');
     return saved ? Number(saved) : 70;
@@ -242,9 +249,19 @@ export default function RequestDelivery() {
       const { data: requests, error } = await supabase
         .from("delivery_requests")
         .select("id, sales_order_id, board_status, notes, delivery_date_target, created_at, updated_at")
-        .order("updated_at", { ascending: false });
+        .not("board_status", "in", '("delivered","delivered_sample")')
+        .order("updated_at", { ascending: false })
+        .limit(500);
 
       if (error) throw error;
+
+      // Hitung jumlah delivered tanpa ambil datanya (ditampilkan sebagai placeholder di kolom)
+      const { count: deliveredTotal } = await supabase
+        .from("delivery_requests")
+        .select("*", { count: "exact", head: true })
+        .in("board_status", ["delivered", "delivered_sample"]);
+      setDeliveredCount(deliveredTotal || 0);
+
       if (!requests || requests.length === 0) {
         setCards([]);
         setLoading(false);
@@ -304,6 +321,79 @@ export default function RequestDelivery() {
       toast.error("Gagal memuat data Kanban");
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  // Lazy-load kolom Delivered/Delivered Sample: hanya diambil saat tombol diklik
+  const fetchDeliveredCards = useCallback(async () => {
+    setLoadingDelivered(true);
+    try {
+      const { data: requests, error } = await supabase
+        .from("delivery_requests")
+        .select("id, sales_order_id, board_status, notes, delivery_date_target, created_at, updated_at")
+        .in("board_status", ["delivered", "delivered_sample"])
+        .order("updated_at", { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      if (!requests || requests.length === 0) {
+        setDeliveredCards([]);
+        return;
+      }
+
+      const soIds = requests.map(r => r.sales_order_id);
+
+      const [{ data: soHeaders }, { data: soItems }] = await Promise.all([
+        supabase
+          .from("sales_order_headers")
+          .select("id, sales_order_number, customer_po_number, allocation_type, project_instansi, sales_name, delivery_deadline, order_date, status, grand_total, ship_to_address, notes, customers!inner(name, code)")
+          .in("id", soIds),
+        supabase
+          .from("sales_order_items")
+          .select("sales_order_id, ordered_qty, qty_delivered, products!inner(name)")
+          .in("sales_order_id", soIds),
+      ]);
+
+      const mapped: DeliveryCard[] = requests.map(req => {
+        const so = soHeaders?.find(h => h.id === req.sales_order_id);
+        const items = soItems?.filter(i => i.sales_order_id === req.sales_order_id) || [];
+
+        return {
+          id: req.id,
+          sales_order_id: req.sales_order_id,
+          board_status: req.board_status as BoardStatus,
+          notes: req.notes,
+          delivery_date_target: req.delivery_date_target,
+          created_at: req.created_at,
+          updated_at: req.updated_at,
+          sales_order_number: so?.sales_order_number || "-",
+          customer_name: (so?.customers as any)?.name || "-",
+          customer_code: (so?.customers as any)?.code || "-",
+          customer_po_number: so?.customer_po_number || "-",
+          allocation_type: so?.allocation_type || "-",
+          project_instansi: so?.project_instansi || "-",
+          sales_name: so?.sales_name || "-",
+          delivery_deadline: so?.delivery_deadline || "",
+          order_date: so?.order_date || "",
+          so_status: so?.status || "",
+          grand_total: so?.grand_total || 0,
+          ship_to_address: so?.ship_to_address,
+          so_notes: so?.notes,
+          items: items.map(i => ({
+            product_name: (i.products as any)?.name || "-",
+            ordered_qty: i.ordered_qty,
+            qty_delivered: i.qty_delivered || 0,
+          })),
+        };
+      });
+
+      setDeliveredCards(mapped);
+      setShowDelivered(true);
+    } catch (err: any) {
+      console.error("Error fetching delivered cards:", err);
+      toast.error("Gagal memuat data Delivered");
+    } finally {
+      setLoadingDelivered(false);
     }
   }, []);
 
@@ -437,11 +527,15 @@ export default function RequestDelivery() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
-    fetchCards();
-    fetchCardLabels();
-    fetchPendingApprovals();
-    fetchUnreadComments();
-    syncOnHoldStatus();
+    const init = async () => {
+      await fetchCards();
+      fetchCardLabels();
+      fetchPendingApprovals();
+      fetchUnreadComments();
+      // syncOnHoldStatus jalankan belakangan, tidak blocking initial render
+      setTimeout(() => syncOnHoldStatus(), 3000);
+    };
+    init();
   }, [fetchCards, fetchCardLabels, fetchPendingApprovals, fetchUnreadComments, syncOnHoldStatus]);
 
   // Auto-open card from URL query param ?card=<id>
@@ -462,7 +556,11 @@ export default function RequestDelivery() {
     const channel = supabase
       .channel("delivery_requests_realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "delivery_requests" }, () => {
-        fetchCards();
+        if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current);
+        realtimeDebounceRef.current = setTimeout(() => {
+          fetchCards();
+          if (showDelivered) fetchDeliveredCards();
+        }, 2000);
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "delivery_card_labels" }, async (payload: any) => {
         fetchCardLabels();
@@ -508,8 +606,11 @@ export default function RequestDelivery() {
         }
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [fetchCards, fetchCardLabels, fetchPendingApprovals, fetchUnreadComments, cards, user?.id]);
+    return () => {
+      supabase.removeChannel(channel);
+      if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current);
+    };
+  }, [fetchCards, fetchCardLabels, fetchPendingApprovals, fetchUnreadComments, fetchDeliveredCards, showDelivered, cards, user?.id]);
 
   const PENGIRIMAN_COLUMNS = ["pengiriman_senin", "pengiriman_selasa", "pengiriman_rabu", "pengiriman_kamis", "pengiriman_jumat"];
 
@@ -1351,7 +1452,46 @@ export default function RequestDelivery() {
           style={isFullView ? { transform: `scale(${zoomLevel / 100})`, transformOrigin: "top left", width: `${10000 / zoomLevel}%`, height: `${10000 / zoomLevel}%` } : undefined}
         >
           {BOARD_COLUMNS.map((column) => {
-            const columnCards = getColumnCards(column.id);
+            const isDeliveredCol = column.id === "delivered" || column.id === "delivered_sample";
+
+            // Kolom Delivered/Delivered Sample: lazy-load, tampilkan placeholder dulu
+            if (isDeliveredCol && !showDelivered) {
+              const colCount = column.id === "delivered" ? deliveredCount : 0;
+              return (
+                <div
+                  key={column.id}
+                  className={cn(
+                    "flex flex-col rounded-xl border bg-muted/30 border-border/50",
+                    isFullView ? "flex-1 min-w-0" : "w-[280px] flex-shrink-0"
+                  )}
+                >
+                  <div className={cn("px-3 py-2.5 rounded-t-xl flex items-center justify-between", column.color)}>
+                    <span className="text-xs font-bold text-white truncate">{column.label}</span>
+                    <Badge variant="secondary" className="bg-white/20 text-white text-[10px] h-5 min-w-[20px] flex items-center justify-center">
+                      {colCount}
+                    </Badge>
+                  </div>
+                  <div className="flex-1 flex flex-col items-center justify-center p-4 gap-2" style={{ minHeight: "120px" }}>
+                    <p className="text-xs text-muted-foreground text-center">
+                      {colCount > 0 ? `${colCount} card tersimpan` : "Tidak ada data"}
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={fetchDeliveredCards}
+                      disabled={loadingDelivered}
+                      className="text-xs h-7"
+                    >
+                      {loadingDelivered ? "Memuat..." : "⬇ Muat Data Delivered"}
+                    </Button>
+                  </div>
+                </div>
+              );
+            }
+
+            const columnCards = isDeliveredCol
+              ? deliveredCards.filter(c => c.board_status === column.id)
+              : getColumnCards(column.id);
             const visibleColumnCards = expandedColumns[column.id]
               ? columnCards
               : columnCards.slice(0, COLUMN_RENDER_LIMIT);
