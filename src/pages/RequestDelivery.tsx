@@ -328,34 +328,45 @@ export default function RequestDelivery() {
   const fetchDeliveredCards = useCallback(async () => {
     setLoadingDelivered(true);
     try {
-      // Ambil tiap status terpisah (masing-masing 50 terbaru) supaya status yang
-      // jarang di-update tidak kehabisan slot karena limit gabungan didominasi status lain.
+      // Read every page; keep related SO queries bounded to avoid row/URL limits.
       const baseSelect = "id, sales_order_id, board_status, notes, delivery_date_target, created_at, updated_at";
-      const [{ data: deliveredReq, error: err1 }, { data: deliveredSampleReq, error: err2 }] = await Promise.all([
-        supabase.from("delivery_requests").select(baseSelect).eq("board_status", "delivered").order("updated_at", { ascending: false }).limit(50),
-        supabase.from("delivery_requests").select(baseSelect).eq("board_status", "delivered_sample").order("updated_at", { ascending: false }).limit(50),
-      ]);
-      if (err1) throw err1;
-      if (err2) throw err2;
+      const allMapped: DeliveryCard[] = [];
+      const pageSize = 100;
+      for (let from = 0; ; from += pageSize) {
+        const { data: requests, error } = await supabase
+          .from("delivery_requests")
+          .select(baseSelect)
+          .in("board_status", ["delivered", "delivered_sample"])
+          .order("updated_at", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        if (!requests?.length) break;
 
-      const requests = [...(deliveredReq || []), ...(deliveredSampleReq || [])];
-      if (requests.length === 0) {
-        setDeliveredCards([]);
-        return;
-      }
+      const soIds = Array.from(new Set(requests.map(r => r.sales_order_id)));
 
-      const soIds = requests.map(r => r.sales_order_id);
-
-      const [{ data: soHeaders }, { data: soItems }] = await Promise.all([
+      const [{ data: soHeaders, error: headerError }, soItems] = await Promise.all([
         supabase
           .from("sales_order_headers")
           .select("id, sales_order_number, customer_po_number, allocation_type, project_instansi, sales_name, delivery_deadline, order_date, status, grand_total, ship_to_address, notes, customers!inner(name, code)")
           .in("id", soIds),
-        supabase
-          .from("sales_order_items")
-          .select("sales_order_id, ordered_qty, qty_delivered, products!inner(name)")
-          .in("sales_order_id", soIds),
+        (async () => {
+          const items: { sales_order_id: string; ordered_qty: number; qty_delivered: number | null; products: { name: string } }[] = [];
+          for (let offset = 0; ; offset += 1000) {
+            const { data, error: itemError } = await supabase
+              .from("sales_order_items")
+              .select("sales_order_id, ordered_qty, qty_delivered, products!inner(name)")
+              .in("sales_order_id", soIds)
+              .order("id", { ascending: true })
+              .range(offset, offset + 999);
+            if (itemError) throw itemError;
+            items.push(...(data || []));
+            if (!data || data.length < 1000) break;
+          }
+          return items;
+        })(),
       ]);
+      if (headerError) throw headerError;
 
       const mapped: DeliveryCard[] = requests.map(req => {
         const so = soHeaders?.find(h => h.id === req.sales_order_id);
@@ -390,7 +401,11 @@ export default function RequestDelivery() {
         };
       });
 
-      setDeliveredCards(mapped);
+        allMapped.push(...mapped);
+        if (requests.length < pageSize) break;
+      }
+
+      setDeliveredCards(allMapped);
       setShowDelivered(true);
     } catch (err: any) {
       console.error("Error fetching delivered cards:", err);
@@ -399,6 +414,14 @@ export default function RequestDelivery() {
       setLoadingDelivered(false);
     }
   }, []);
+
+  // Search/filter must include completed cards even before manual loading.
+  useEffect(() => {
+    if (!showDelivered && !loadingDelivered &&
+        (cardSearchQuery.trim() || filterLabelNames.length > 0 || filterUrgent)) {
+      void fetchDeliveredCards();
+    }
+  }, [cardSearchQuery, filterLabelNames, filterUrgent, showDelivered, fetchDeliveredCards]);
 
   const fetchCardLabels = useCallback(async () => {
     // Ambil SEMUA relasi label (paginasi, karena PostgREST membatasi 1000 baris per request)
@@ -939,7 +962,8 @@ export default function RequestDelivery() {
   const handleDragEnd = () => { setDraggedCard(null); setDragOverColumn(null); };
 
   const getColumnCards = (columnId: string) => {
-    let filtered = cards.filter(c => c.board_status === columnId);
+    const source = columnId === "delivered" || columnId === "delivered_sample" ? deliveredCards : cards;
+    let filtered = source.filter(c => c.board_status === columnId);
     if (filterLabelNames.length > 0) {
       filtered = filtered.filter(c => {
         const labels = cardLabelsMap[c.id] || [];
@@ -947,7 +971,7 @@ export default function RequestDelivery() {
       });
     }
     if (cardSearchQuery.trim()) {
-      const q = cardSearchQuery.toLowerCase();
+      const q = cardSearchQuery.trim().toLowerCase();
       filtered = filtered.filter(c =>
         (c.sales_order_number || "").toLowerCase().includes(q) ||
         (c.customer_name || "").toLowerCase().includes(q) ||
@@ -1492,9 +1516,7 @@ export default function RequestDelivery() {
               );
             }
 
-            const columnCards = isDeliveredCol
-              ? deliveredCards.filter(c => c.board_status === column.id)
-              : getColumnCards(column.id);
+            const columnCards = getColumnCards(column.id);
             const visibleColumnCards = expandedColumns[column.id]
               ? columnCards
               : columnCards.slice(0, COLUMN_RENDER_LIMIT);
