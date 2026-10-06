@@ -114,7 +114,7 @@ export default function RequestDelivery() {
 
   // --- FIX: lazy load delivered columns ---
   const [showDelivered, setShowDelivered] = useState(false);
-  const [deliveredCount, setDeliveredCount] = useState(0);
+  const [deliveredCount, setDeliveredCount] = useState<Record<string, number>>({ delivered: 0, delivered_sample: 0 });
   const [deliveredCards, setDeliveredCards] = useState<DeliveryCard[]>([]);
   const [loadingDelivered, setLoadingDelivered] = useState(false);
   const realtimeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -255,12 +255,12 @@ export default function RequestDelivery() {
 
       if (error) throw error;
 
-      // Hitung jumlah delivered tanpa ambil datanya (ditampilkan sebagai placeholder di kolom)
-      const { count: deliveredTotal } = await supabase
-        .from("delivery_requests")
-        .select("*", { count: "exact", head: true })
-        .in("board_status", ["delivered", "delivered_sample"]);
-      setDeliveredCount(deliveredTotal || 0);
+      // Hitung jumlah delivered per kolom tanpa ambil datanya (ditampilkan sebagai placeholder)
+      const [{ count: deliveredCnt }, { count: deliveredSampleCnt }] = await Promise.all([
+        supabase.from("delivery_requests").select("*", { count: "exact", head: true }).eq("board_status", "delivered"),
+        supabase.from("delivery_requests").select("*", { count: "exact", head: true }).eq("board_status", "delivered_sample"),
+      ]);
+      setDeliveredCount({ delivered: deliveredCnt || 0, delivered_sample: deliveredSampleCnt || 0 });
 
       if (!requests || requests.length === 0) {
         setCards([]);
@@ -1456,7 +1456,7 @@ export default function RequestDelivery() {
 
             // Kolom Delivered/Delivered Sample: lazy-load, tampilkan placeholder dulu
             if (isDeliveredCol && !showDelivered) {
-              const colCount = column.id === "delivered" ? deliveredCount : 0;
+              const colCount = deliveredCount[column.id] || 0;
               return (
                 <div
                   key={column.id}
