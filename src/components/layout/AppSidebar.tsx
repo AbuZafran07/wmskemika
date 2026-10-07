@@ -34,6 +34,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { canAccessMenu, MenuKey } from "@/lib/permissions";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 
 interface MenuItem {
   key: string;
@@ -118,240 +119,128 @@ interface AppSidebarProps {
 
 const SCROLL_POSITION_KEY = "sidebar-scroll-position";
 
-export default function AppSidebar({ isMobile, isOpen, isCollapsed, onToggleCollapse, onClose, onNavigate }: AppSidebarProps) {
+function activeGroup(pathname: string) {
+  return menuItems.find(group => group.groupKey !== "menu.summary" && group.items.some(item =>
+    item.href === pathname || item.children?.some(child => child.href === pathname)
+  ))?.groupKey ?? null;
+}
+
+export default function AppSidebar({ isMobile, isCollapsed, onToggleCollapse, onNavigate }: AppSidebarProps) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const location = useLocation();
+  const compact = isCollapsed && !isMobile;
+  const [openGroup, setOpenGroup] = useState<string | null>(() => activeGroup(location.pathname));
   const [expandedItems, setExpandedItems] = useState<string[]>(["dataProduct"]);
   const scrollContainerRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    const savedScrollPosition = sessionStorage.getItem(SCROLL_POSITION_KEY);
-    if (savedScrollPosition && scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = parseInt(savedScrollPosition, 10);
-    }
+    const saved = sessionStorage.getItem(SCROLL_POSITION_KEY);
+    if (saved && scrollContainerRef.current) scrollContainerRef.current.scrollTop = parseInt(saved, 10);
   }, []);
 
-  const handleScroll = () => {
-    if (scrollContainerRef.current) {
-      sessionStorage.setItem(SCROLL_POSITION_KEY, scrollContainerRef.current.scrollTop.toString());
-    }
-  };
-
   useEffect(() => {
-    const activeElement = scrollContainerRef.current?.querySelector('[data-active="true"]');
-    if (activeElement) activeElement.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    const group = activeGroup(location.pathname);
+    if (group) setOpenGroup(group);
+    const parent = menuItems.flatMap(group => group.items).find(item => item.children?.some(child => child.href === location.pathname));
+    if (parent) setExpandedItems(prev => prev.includes(parent.key) ? prev : [...prev, parent.key]);
   }, [location.pathname]);
 
-  const toggleExpanded = (key: string) => {
-    setExpandedItems((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
-  };
-
-  const isActive = (href: string) => location.pathname === href;
-  const isParentActive = (children: MenuItem[]) =>
-    children.some((child) => child.href && location.pathname.startsWith(child.href));
-
-  const handleNavClick = () => {
-    if (isMobile) onNavigate();
-  };
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      scrollContainerRef.current?.querySelector('[data-active="true"]')?.scrollIntoView({ block: "nearest" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [location.pathname, openGroup, compact]);
 
   const canAccess = (item: MenuItem): boolean => {
     if (!user) return false;
     if (item.menuKey) return canAccessMenu(user.role, item.menuKey);
-    if (item.children) return item.children.some(child => canAccess(child));
+    if (item.children) return item.children.some(canAccess);
     return true;
   };
+  const isActive = (item: MenuItem): boolean => item.href === location.pathname || Boolean(item.children?.some(isActive));
+  const handleNavigate = () => { if (isMobile) onNavigate(); };
 
-  const getAccessibleChildren = (children: MenuItem[]): MenuItem[] => {
-    return children.filter(child => canAccess(child));
-  };
-
-  const renderMenuItem = (item: MenuItem, depth = 0) => {
+  const renderMenuItem = (item: MenuItem, inGroup = false, depth = 0): React.ReactNode => {
     if (!canAccess(item)) return null;
-
-    const hasChildren = item.children && item.children.length > 0;
-    
-    if (hasChildren) {
-      const accessibleChildren = getAccessibleChildren(item.children!);
-      if (accessibleChildren.length === 0) return null;
-    }
-    
-    const isExpanded = expandedItems.includes(item.key);
-    const active = item.href ? isActive(item.href) : hasChildren && isParentActive(item.children!);
+    const children = item.children?.filter(canAccess) ?? [];
+    const active = isActive(item);
     const Icon = item.icon;
-
-    // Collapsed mode
-    if (isCollapsed && !isMobile) {
-      if (hasChildren) {
-        const accessibleChildren = getAccessibleChildren(item.children!);
-        return (
-          <Tooltip key={item.key} delayDuration={0}>
-            <TooltipTrigger asChild>
-              <div className={cn(
-                "flex items-center justify-center w-10 h-10 mx-auto rounded-lg transition-all duration-200 cursor-pointer",
-                "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                active && "bg-sidebar-accent text-sidebar-primary",
-              )}>
-                <Icon className="w-5 h-5" />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="right" className="flex flex-col gap-1 p-2">
-              <span className="font-semibold text-xs mb-1">{t(item.labelKey)}</span>
-              {accessibleChildren.map(child => (
-                <NavLink
-                  key={child.key}
-                  to={child.href!}
-                  onClick={handleNavClick}
-                  className={({ isActive: navActive }) => cn(
-                    "text-xs px-2 py-1 rounded hover:bg-accent transition-colors",
-                    navActive && "bg-accent font-medium"
-                  )}
-                >
-                  {t(child.labelKey)}
-                </NavLink>
-              ))}
-            </TooltipContent>
-          </Tooltip>
-        );
-      }
-
-      return (
-        <Tooltip key={item.key} delayDuration={0}>
-          <TooltipTrigger asChild>
-            <NavLink
-              to={item.href!}
-              onClick={handleNavClick}
-              data-active={active}
-              className={({ isActive: navActive }) =>
-                cn(
-                  "flex items-center justify-center w-10 h-10 mx-auto rounded-lg transition-all duration-200",
-                  "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                  (navActive || active) && "bg-sidebar-accent text-sidebar-primary",
-                )
-              }
-            >
-              <Icon className="w-5 h-5" />
-            </NavLink>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            <span className="text-xs">{t(item.labelKey)}</span>
-          </TooltipContent>
-        </Tooltip>
-      );
-    }
-
-    // Expanded mode (original)
-    if (hasChildren) {
-      const accessibleChildren = getAccessibleChildren(item.children!);
-      
-      return (
-        <div key={item.key}>
-          <button
-            onClick={() => toggleExpanded(item.key)}
-            className={cn(
-              "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-200",
-              "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-              active && "bg-sidebar-accent text-sidebar-primary",
-            )}
-          >
-            <div className="flex items-center gap-3">
-              <Icon className="w-5 h-5" />
-              <span>{t(item.labelKey)}</span>
-            </div>
-            {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-          </button>
-
-          {isExpanded && (
-            <div className="ml-4 mt-1 space-y-1 border-l border-sidebar-border pl-3">
-              {accessibleChildren.map((child) => renderMenuItem(child, depth + 1))}
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    return (
-      <NavLink
-        key={item.key}
-        to={item.href!}
-        onClick={handleNavClick}
-        data-active={active}
-        className={({ isActive: navActive }) =>
-          cn(
-            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200",
-            "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-            (navActive || active) &&
-              "bg-sidebar-accent text-sidebar-primary font-medium border-l-2 border-sidebar-primary -ml-0.5 pl-[14px]",
-          )
-        }
-      >
-        <Icon className="w-5 h-5 flex-shrink-0" />
-        <div className="flex flex-col">
-          <span>{t(item.labelKey)}</span>
-          {item.subLabelKey && <span className="text-xs text-sidebar-foreground/70">{t(item.subLabelKey)}</span>}
-        </div>
-      </NavLink>
+    const itemClasses = cn(
+      "relative flex items-center rounded-lg font-medium transition-colors duration-200 motion-reduce:transition-none",
+      compact ? "h-10 w-10 justify-center mx-auto" : inGroup ? "gap-3 pl-7 pr-3 py-2 text-[13px]" : "gap-3 px-3 py-2.5 text-sm",
+      !compact && depth > 0 && "pl-10",
+      active ? "bg-sidebar-accent text-sidebar-foreground" : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
     );
+    const content = <>
+      {active && <span aria-hidden="true" className="sidebar-active-indicator" />}
+      <Icon className={cn("shrink-0", compact ? "w-5 h-5" : inGroup ? "w-4 h-4" : "w-[18px] h-[18px]")} />
+      {!compact && <div className="min-w-0 flex-1 text-left">
+        <span className="block whitespace-normal break-words leading-tight">{t(item.labelKey)}</span>
+        {item.subLabelKey && <span className="block mt-0.5 text-[11px] font-normal text-sidebar-foreground/60 whitespace-normal break-words leading-tight">{t(item.subLabelKey)}</span>}
+      </div>}
+    </>;
+
+    if (children.length > 0) {
+      const expanded = expandedItems.includes(item.key);
+      if (compact) return <Tooltip key={item.key} delayDuration={0}>
+        <TooltipTrigger asChild><Button variant="sidebar" size="icon" aria-label={t(item.labelKey)} className={itemClasses}>{content}</Button></TooltipTrigger>
+        <TooltipContent side="right" sideOffset={8} className="flex flex-col gap-1 p-2">
+          <span className="font-semibold text-xs mb-1">{t(item.labelKey)}</span>
+          {children.map(child => child.href ? <NavLink key={child.key} to={child.href} onClick={handleNavigate} className="text-xs px-2 py-1 rounded hover:bg-accent">{t(child.labelKey)}</NavLink> : null)}
+        </TooltipContent>
+      </Tooltip>;
+      return <div key={item.key}>
+        <Button variant="sidebar" aria-expanded={expanded} aria-controls={`sidebar-parent-${item.key}`} onClick={() => setExpandedItems(prev => expanded ? prev.filter(key => key !== item.key) : [...prev, item.key])} className={cn(itemClasses, "w-full h-auto whitespace-normal")}>
+          {content}{expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+        </Button>
+        {expanded && <div id={`sidebar-parent-${item.key}`} className="space-y-0.5 pt-0.5">{children.map(child => renderMenuItem(child, true, depth + 1))}</div>}
+      </div>;
+    }
+    if (!item.href) return null;
+    const link = <NavLink to={item.href} onClick={handleNavigate} data-active={active} aria-label={compact ? t(item.labelKey) : undefined} className={itemClasses}>{content}</NavLink>;
+    return compact ? <Tooltip key={item.key} delayDuration={0}><TooltipTrigger asChild>{link}</TooltipTrigger><TooltipContent side="right" sideOffset={8} className="font-medium">{t(item.labelKey)}</TooltipContent></Tooltip> : <React.Fragment key={item.key}>{link}</React.Fragment>;
   };
 
-  const getVisibleGroups = () => {
-    return menuItems.filter(group => {
-      return group.items.some(item => canAccess(item));
-    });
-  };
-
-  const visibleGroups = getVisibleGroups();
-
-  return (
-    <TooltipProvider>
-      <aside className={cn("h-full sidebar-gradient sidebar-shadow flex flex-col transition-all duration-300", isMobile ? "w-full" : "w-full")}>
-        {/* Collapse toggle button - desktop only */}
-        {!isMobile && (
-          <div className={cn("flex items-center px-2 pt-2", isCollapsed ? "justify-center" : "justify-end")}>
-            <button
-              onClick={onToggleCollapse}
-              className="p-1.5 rounded-lg text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-              title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
-              {isCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
-            </button>
-          </div>
-        )}
-
-        {/* Navigation - scrollable */}
-        <nav ref={scrollContainerRef} onScroll={handleScroll} className={cn("flex-1 overflow-y-auto space-y-6", isCollapsed && !isMobile ? "p-2" : "p-3")}>
-          {visibleGroups.map((group) => {
-            const visibleItems = group.items.filter(item => canAccess(item));
-            if (visibleItems.length === 0) return null;
-            
-            return (
-              <div key={group.groupKey}>
-                {!isCollapsed && (
-                  <h2 className="px-3 mb-2 text-xs font-semibold text-sidebar-foreground/80 uppercase tracking-wider">
-                    {t(group.groupKey)}
-                  </h2>
-                )}
-                {isCollapsed && !isMobile && (
-                  <div className="w-6 border-t border-sidebar-border/50 mx-auto mb-2" />
-                )}
-
-                <div className={cn("space-y-1", isCollapsed && !isMobile && "flex flex-col items-center")}>
-                  {visibleItems.map((item) => renderMenuItem(item))}
-                </div>
+  const groups = menuItems.filter(group => group.items.some(canAccess));
+  return <TooltipProvider delayDuration={0}>
+    <aside className="h-full bg-sidebar flex flex-col overflow-hidden">
+      <nav aria-label="Menu utama" ref={scrollContainerRef} onScroll={() => {
+        if (scrollContainerRef.current) sessionStorage.setItem(SCROLL_POSITION_KEY, String(scrollContainerRef.current.scrollTop));
+      }} className={cn("flex-1 overflow-y-auto py-4 sidebar-menu-scroll", compact ? "px-1.5" : "px-3")}>
+        <div className="space-y-1">
+          {groups.map((group, index) => {
+            if (compact) return <div key={group.groupKey} className={cn(index > 0 && "pt-2")}>
+              {index > 0 && <div className="mx-2 mb-2 border-t border-sidebar-border/20" />}
+              <div className="space-y-0.5">{group.items.map(item => renderMenuItem(item))}</div>
+            </div>;
+            if (group.groupKey === "menu.summary") return <div key={group.groupKey} className="pb-4">
+              <h2 className="px-3 mb-2 text-xs font-semibold uppercase text-sidebar-foreground/80">{t(group.groupKey)}</h2>
+              <div className="space-y-0.5">{group.items.map(item => renderMenuItem(item))}</div>
+            </div>;
+            const expanded = openGroup === group.groupKey;
+            const active = group.items.some(isActive);
+            return <div key={group.groupKey}>
+              <Button variant="sidebar" aria-expanded={expanded} aria-controls={`sidebar-${group.groupKey}`} onClick={() => setOpenGroup(prev => prev === group.groupKey ? null : group.groupKey)} className={cn("w-full h-auto justify-between gap-2 rounded-lg px-3 py-2.5 text-xs font-semibold uppercase whitespace-normal", (active || expanded) && "text-sidebar-foreground")}>
+                <span className="min-w-0 text-left break-words">{t(group.groupKey)}</span>
+                {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+              </Button>
+              <div id={`sidebar-${group.groupKey}`} hidden={!expanded}>
+                <div className="space-y-0.5 pt-0.5 pb-1">{group.items.map(item => renderMenuItem(item, true))}</div>
               </div>
-            );
+            </div>;
           })}
-        </nav>
-
-        {/* Footer */}
-        <div className="p-4 border-t border-sidebar-border flex-shrink-0">
-          {isCollapsed && !isMobile ? (
-            <p className="text-[8px] text-sidebar-foreground/60 text-center">KKP</p>
-          ) : (
-            <p className="text-xs text-sidebar-foreground/60 text-center">© 2026 PT. Kemika Karya Pratama</p>
-          )}
         </div>
-      </aside>
-    </TooltipProvider>
-  );
+      </nav>
+      <div className="border-t border-sidebar-border/30 shrink-0">
+        {!isMobile && <Button variant="sidebar" onClick={onToggleCollapse} title={compact ? "Expand sidebar" : "Collapse sidebar"} aria-label={compact ? "Expand sidebar" : "Collapse sidebar"} className={cn("w-full h-auto rounded-none px-4 py-3 text-sidebar-foreground/70", compact ? "justify-center" : "justify-start")}>
+          {compact ? <PanelLeftOpen className="w-4 h-4" /> : <><PanelLeftClose className="w-4 h-4" /><span className="text-xs font-medium">Minimize</span></>}
+        </Button>}
+        <div className={cn("px-4 text-center", compact ? "pb-3" : "pb-3 pt-1")}>
+          <p className="text-[10px] text-sidebar-foreground/60">{compact ? "KKP" : "© 2026 PT. Kemika Karya Pratama"}</p>
+        </div>
+      </div>
+    </aside>
+  </TooltipProvider>;
 }
