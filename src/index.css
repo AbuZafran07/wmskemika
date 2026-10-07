@@ -59,13 +59,13 @@
     --radius: 0.5rem;
 
     /* Sidebar - Dark Theme (consistent in light/dark mode) */
-    --sidebar-background: 220 20% 12%;
-    --sidebar-foreground: 0 0% 90%;
-    --sidebar-primary: 153 100% 40%;
+    --sidebar-background: 220 26% 14%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 142 71% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 20% 18%;
-    --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 220 15% 20%;
+    --sidebar-accent: 220 20% 20%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 220 20% 22%;
     --sidebar-ring: 153 100% 40%;
     --sidebar-muted: 0 0% 75%;
 
@@ -107,13 +107,13 @@
     --input: 220 15% 22%;
     --ring: 153 80% 45%;
 
-    --sidebar-background: 220 25% 8%;
-    --sidebar-foreground: 0 0% 90%;
-    --sidebar-primary: 153 80% 45%;
-    --sidebar-primary-foreground: 220 20% 10%;
-    --sidebar-accent: 220 20% 15%;
-    --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 220 15% 18%;
+    --sidebar-background: 220 26% 8%;
+    --sidebar-foreground: 240 5% 96%;
+    --sidebar-primary: 142 71% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 4% 16%;
+    --sidebar-accent-foreground: 240 5% 96%;
+    --sidebar-border: 240 4% 16%;
     --sidebar-ring: 153 80% 45%;
   }
 }
@@ -153,6 +153,29 @@
 }
 
 @layer utilities {
+  .sidebar-active-indicator {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    border-radius: 0 9999px 9999px 0;
+    background-color: hsl(var(--sidebar-primary));
+  }
+
+  .sidebar-menu-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--sidebar-foreground) / 0.25) transparent;
+  }
+
+  .sidebar-menu-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .sidebar-menu-scroll::-webkit-scrollbar-thumb {
+    background: hsl(var(--sidebar-foreground) / 0.25);
+  }
+
   .sidebar-gradient {
     background: linear-gradient(180deg, hsl(var(--sidebar-background)) 0%, hsl(220 25% 8%) 100%);
   }
