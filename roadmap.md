@@ -1,3 +1,5 @@
 - [x] Load all Delivered/Delivered Sample cards without a 50-card cap.
 - [x] Apply board search and filters to completed cards, loading them automatically when needed.
 - [x] Verify older Delivered orders can be found through the signed-in board.
+- [ ] Match sidebar menu styling to AP/AR Nexus while preserving WMS menus and access.
+- [ ] Verify sidebar navigation, submenu, collapse, and both themes.
