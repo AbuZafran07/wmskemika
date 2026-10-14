@@ -567,15 +567,74 @@ export default function RequestDelivery() {
   // Auto-open card from URL query param ?card=<id>
   useEffect(() => {
     const cardId = searchParams.get('card');
-    if (cardId && cards.length > 0 && !detailCard) {
-      const found = cards.find(c => c.id === cardId);
-      if (found) {
-        setDetailCard(found);
-        // Clean up the query param
-        setSearchParams({}, { replace: true });
-      }
+    if (!cardId || detailCard) return;
+
+    const found = cards.find(c => c.id === cardId) || deliveredCards.find(c => c.id === cardId);
+    if (found) {
+      setDetailCard(found);
+      setSearchParams({}, { replace: true });
+      return;
     }
-  }, [searchParams, cards, detailCard, setSearchParams]);
+
+    // Kartu tidak ada di board (mis. Delivered yang belum dimuat) — ambil langsung dari DB
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: req, error } = await supabase
+          .from("delivery_requests")
+          .select("id, sales_order_id, board_status, notes, delivery_date_target, created_at, updated_at")
+          .eq("id", cardId)
+          .maybeSingle();
+        if (error || !req || cancelled) return;
+
+        const [{ data: so }, { data: soItems }] = await Promise.all([
+          supabase
+            .from("sales_order_headers")
+            .select("id, sales_order_number, customer_po_number, allocation_type, project_instansi, sales_name, delivery_deadline, order_date, status, grand_total, ship_to_address, notes, customers!inner(name, code)")
+            .eq("id", req.sales_order_id)
+            .maybeSingle(),
+          supabase
+            .from("sales_order_items")
+            .select("sales_order_id, ordered_qty, qty_delivered, products!inner(name)")
+            .eq("sales_order_id", req.sales_order_id),
+        ]);
+        if (cancelled) return;
+
+        const card: DeliveryCard = {
+          id: req.id,
+          sales_order_id: req.sales_order_id,
+          board_status: req.board_status as BoardStatus,
+          notes: req.notes,
+          delivery_date_target: req.delivery_date_target,
+          created_at: req.created_at,
+          updated_at: req.updated_at,
+          sales_order_number: so?.sales_order_number || "-",
+          customer_name: (so?.customers as any)?.name || "-",
+          customer_code: (so?.customers as any)?.code || "-",
+          customer_po_number: so?.customer_po_number || "-",
+          allocation_type: so?.allocation_type || "-",
+          project_instansi: so?.project_instansi || "-",
+          sales_name: so?.sales_name || "-",
+          delivery_deadline: so?.delivery_deadline || "",
+          order_date: so?.order_date || "",
+          so_status: so?.status || "",
+          grand_total: so?.grand_total || 0,
+          ship_to_address: so?.ship_to_address,
+          so_notes: so?.notes,
+          items: (soItems || []).map(i => ({
+            product_name: (i.products as any)?.name || "-",
+            ordered_qty: i.ordered_qty,
+            qty_delivered: i.qty_delivered || 0,
+          })),
+        };
+        setDetailCard(card);
+        setSearchParams({}, { replace: true });
+      } catch (err) {
+        console.error("Error opening card from notification link:", err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [searchParams, cards, deliveredCards, detailCard, setSearchParams]);
 
   // Realtime subscription
   useEffect(() => {
