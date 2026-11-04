@@ -2,7 +2,7 @@ import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom';
 import { notifyNewStockAdjustment } from '@/lib/pushNotifications';
 import { securePrint, printStyles } from '@/lib/printUtils';
-import { Plus, Search, Eye, Edit, MoreHorizontal, CheckCircle, XCircle, Loader2, Upload, ArrowLeft, Trash2, Printer, Archive, List, TrendingUp, TrendingDown, AlertTriangle, Split, Merge } from 'lucide-react';
+import { Plus, Search, Eye, Edit, MoreHorizontal, CheckCircle, XCircle, Loader2, Upload, ArrowLeft, Trash2, Printer, Archive, List, TrendingUp, TrendingDown, AlertTriangle, Split, Merge, PackageX, ClipboardList } from 'lucide-react';
 import BatchSplitDialog from '@/components/stock-adjustment/BatchSplitDialog';
 import MergeBatchDialog from '@/components/stock-adjustment/MergeBatchDialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -52,7 +52,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import ExpiredBatchesTab from '@/components/stock-adjustment/ExpiredBatchesTab';
+import DestructionOrdersTab from '@/components/stock-adjustment/DestructionOrdersTab';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/hooks/usePlanOrders';
@@ -143,6 +145,7 @@ export default function StockAdjustment() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [viewMode, setViewMode] = useState<'active' | 'archived'>('active');
+  const [mainTab, setMainTab] = useState<'adjustment' | 'expired' | 'bap'>('adjustment');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
@@ -1101,18 +1104,35 @@ export default function StockAdjustment() {
         )}
       </div>
 
-      <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'active' | 'archived')}>
+      <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'adjustment' | 'expired' | 'bap')}>
         <TabsList>
-          <TabsTrigger value="active" className="gap-2">
+          <TabsTrigger value="adjustment" className="gap-2">
             <List className="w-4 h-4" />
-            {language === 'en' ? 'Active' : 'Aktif'}
+            {language === 'en' ? 'Adjustment History' : 'Riwayat Adjustment'}
           </TabsTrigger>
-          <TabsTrigger value="archived" className="gap-2">
-            <Archive className="w-4 h-4" />
-            {language === 'en' ? 'Archived' : 'Arsip'}
+          <TabsTrigger value="expired" className="gap-2">
+            <AlertTriangle className="w-4 h-4" />
+            Barang Expired
+          </TabsTrigger>
+          <TabsTrigger value="bap" className="gap-2">
+            <ClipboardList className="w-4 h-4" />
+            Riwayat BAP
           </TabsTrigger>
         </TabsList>
-      </Tabs>
+
+        <TabsContent value="adjustment" className="space-y-4 mt-4">
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'active' | 'archived')}>
+            <TabsList>
+              <TabsTrigger value="active" className="gap-2">
+                <List className="w-4 h-4" />
+                {language === 'en' ? 'Active' : 'Aktif'}
+              </TabsTrigger>
+              <TabsTrigger value="archived" className="gap-2">
+                <Archive className="w-4 h-4" />
+                {language === 'en' ? 'Archived' : 'Arsip'}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
 
       <Card>
         <CardHeader>
@@ -1262,6 +1282,30 @@ export default function StockAdjustment() {
           />
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="expired" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Barang Expired</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ExpiredBatchesTab />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="bap" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Riwayat BAP</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <DestructionOrdersTab />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Detail Dialog */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
