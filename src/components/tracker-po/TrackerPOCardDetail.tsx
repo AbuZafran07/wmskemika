@@ -808,8 +808,12 @@ export default function TrackerPOCardDetail({
                   <div>{planOrder.plan_date ? format(new Date(planOrder.plan_date), "d MMM yyyy", { locale: idLocale }) : "-"}</div>
                   <div className="text-muted-foreground">Expected Delivery</div>
                   <div>{planOrder.expected_delivery_date ? format(new Date(planOrder.expected_delivery_date), "d MMM yyyy", { locale: idLocale }) : "-"}</div>
-                  <div className="text-muted-foreground">Grand Total</div>
-                  <div className="font-semibold">{formatCurrency(planOrder.grand_total)}</div>
+                  {userRole && userRole !== "sales" && (
+                    <>
+                      <div className="text-muted-foreground">Grand Total</div>
+                      <div className="font-semibold">{formatCurrency(planOrder.grand_total)}</div>
+                    </>
+                  )}
                   {planOrder.reference_no && (
                     <>
                       <div className="text-muted-foreground">Reference No</div>

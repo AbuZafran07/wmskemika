@@ -393,7 +393,9 @@ export default function TrackerPO({ compact = false }: { compact?: boolean }) {
         )}
 
         {/* Grand Total */}
-        <p className="text-[10px] text-muted-foreground mb-2">{formatCurrency(order.grand_total)}</p>
+        {userRole && userRole !== "sales" && (
+          <p className="text-[10px] text-muted-foreground mb-2">{formatCurrency(order.grand_total)}</p>
+        )}
 
         {/* Cancel reason */}
         {order.status === "cancelled" && order.cancel_reason && (
