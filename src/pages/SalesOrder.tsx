@@ -43,6 +43,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
@@ -265,6 +266,7 @@ export default function SalesOrder() {
   // ✅ headerDiscount dihapus
   const [taxRate, setTaxRate] = useState(11);
   const [shippingCost, setShippingCost] = useState(0);
+  const [isTaxable, setIsTaxable] = useState(true);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [selectedProductId, setSelectedProductId] = useState("");
 
@@ -345,6 +347,7 @@ export default function SalesOrder() {
     setPoDocumentKey("");
     setTaxRate(11);
     setShippingCost(0);
+    setIsTaxable(true);
     setOrderItems([]);
     setSelectedProductId("");
     setCustomerPic("");
@@ -515,9 +518,9 @@ export default function SalesOrder() {
 
     // DPP Pengganti = DPP × 11/12
     const dpp = netSubtotal;
-    const dppPengganti = Math.round(dpp * 11 / 12);
+    const dppPengganti = isTaxable ? Math.round(dpp * 11 / 12) : 0;
     // PPN 12% = DPP Pengganti × 12%
-    const tax = Math.round(dppPengganti * 12 / 100);
+    const tax = isTaxable ? Math.round(dppPengganti * 12 / 100) : 0;
     const ship = clampNumber(safeNumber(shippingCost, 0), 0, 1_000_000_000_000);
     const grandTotal = dpp + tax + ship;
 
@@ -531,7 +534,7 @@ export default function SalesOrder() {
       ship,
       grandTotal,
     };
-  }, [orderItems, shippingCost]);
+  }, [orderItems, shippingCost, isTaxable]);
 
   // === FILE UPLOAD ===
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -636,6 +639,7 @@ export default function SalesOrder() {
 
     setTaxRate(safeNumber(order.tax_rate, 11));
     setShippingCost(safeNumber(order.shipping_cost, 0));
+    setIsTaxable(safeNumber(order.tax_rate, 11) > 0);
 
     // Fetch items
     const { data, error } = await supabase
@@ -766,7 +770,7 @@ export default function SalesOrder() {
         // ✅ discount header dipakai sebagai Total Discount (Rp)
         discount: totals.totalDiscount,
 
-        tax_rate: 12,
+        tax_rate: isTaxable ? 11 : 0,
         shipping_cost: clampNumber(safeNumber(shippingCost, 0), 0, 1_000_000_000_000),
         grand_total: totals.grandTotal,
       };
@@ -1841,6 +1845,22 @@ export default function SalesOrder() {
               </CardContent>
             </Card>
 
+            <div className="flex items-center gap-3 py-2">
+              <Switch
+                id="is-taxable"
+                checked={isTaxable}
+                onCheckedChange={setIsTaxable}
+              />
+              <Label htmlFor="is-taxable" className="cursor-pointer">
+                Kena PPN (12%)
+              </Label>
+              {!isTaxable && (
+                <span className="text-xs text-amber-600 font-medium bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                  Non-PPN
+                </span>
+              )}
+            </div>
+
             {/* Totals (NO header discount input) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-4">
@@ -1869,15 +1889,26 @@ export default function SalesOrder() {
                     <span className="font-medium">{formatCurrency(totals.dpp)}</span>
                   </div>
 
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">DPP Pengganti</span>
-                    <span className="font-medium">{formatCurrency(totals.dppPengganti)}</span>
-                  </div>
+                  {isTaxable && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">DPP Pengganti</span>
+                      <span className="font-medium">{formatCurrency(totals.dppPengganti)}</span>
+                    </div>
+                  )}
 
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Pajak</span>
-                    <span className="font-medium">{formatCurrency(totals.tax)}</span>
-                  </div>
+                  {isTaxable && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Pajak (PPN 12%)</span>
+                      <span className="font-medium">{formatCurrency(totals.tax)}</span>
+                    </div>
+                  )}
+
+                  {!isTaxable && (
+                    <div className="flex justify-between text-amber-600">
+                      <span className="text-sm">Non-PPN</span>
+                      <span className="text-sm font-medium">Rp 0</span>
+                    </div>
+                  )}
 
                   <div className="border-t pt-2 flex justify-between">
                     <span className="font-semibold">Subtotal</span>
@@ -2131,7 +2162,20 @@ export default function SalesOrder() {
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex items-center justify-between">
-              <DialogTitle>{language === "en" ? "Sales Order Details" : "Detail Sales Order"}</DialogTitle>
+              <div className="flex items-center gap-2">
+                <DialogTitle>{language === "en" ? "Sales Order Details" : "Detail Sales Order"}</DialogTitle>
+                {selectedOrder && (
+                  safeNumber(selectedOrder.tax_rate, 0) > 0 ? (
+                    <Badge variant="outline" className="text-green-600 border-green-300">
+                      PPN 12%
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-amber-600 border-amber-300">
+                      Non-PPN
+                    </Badge>
+                  )
+                )}
+              </div>
               <div className="flex gap-2">
                 {selectedOrder?.po_document_url && (
                   <Button
@@ -2671,9 +2715,10 @@ export default function SalesOrder() {
                     }, 0);
 
                     const totalDiscount = safeNumber(selectedOrder.discount, 0);
+                    const isSOTaxable = safeNumber(selectedOrder.tax_rate, 0) > 0;
                     const dpp = grossSubtotal - totalDiscount;
-                    const dppPengganti = Math.round(dpp * 11 / 12);
-                    const tax = Math.round(dppPengganti * 12 / 100);
+                    const dppPengganti = isSOTaxable ? Math.round(dpp * 11 / 12) : 0;
+                    const tax = isSOTaxable ? Math.round(dppPengganti * 12 / 100) : 0;
                     const ship = safeNumber(selectedOrder.shipping_cost, 0);
                     const grandTotal = dpp + tax + ship;
 
@@ -2683,14 +2728,23 @@ export default function SalesOrder() {
                           <span>DPP</span>
                           <b>{formatCurrency(dpp)}</b>
                         </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                          <span>DPP Pengganti</span>
-                          <b>{formatCurrency(dppPengganti)}</b>
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                          <span>Pajak</span>
-                          <b>{formatCurrency(tax)}</b>
-                        </div>
+                        {isSOTaxable ? (
+                          <>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                              <span>DPP Pengganti</span>
+                              <b>{formatCurrency(dppPengganti)}</b>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                              <span>Pajak (PPN 12%)</span>
+                              <b>{formatCurrency(tax)}</b>
+                            </div>
+                          </>
+                        ) : (
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px", color: "#b45309" }}>
+                            <span>Non-PPN</span>
+                            <b>Rp 0</b>
+                          </div>
+                        )}
 
                         <div style={{ borderTop: "1px solid #888", marginTop: "4px", paddingTop: "6px", display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
                           <span style={{ fontWeight: 700 }}>Subtotal</span>
