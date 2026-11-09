@@ -70,8 +70,25 @@ export default function ExpiredBatchesTab() {
       return;
     }
 
+    // Kurangi qty yang sudah diajukan di BAP pending agar batch tidak dimusnahkan dua kali
+    const batchIds = (data || []).map((b: any) => b.id);
+    const pendingByBatch: Record<string, number> = {};
+    if (batchIds.length > 0) {
+      const { data: pendingItems } = await (supabase as any)
+        .from('destruction_order_items')
+        .select('batch_id, qty_to_destroy, destruction_orders!inner(status)')
+        .in('batch_id', batchIds)
+        .eq('destruction_orders.status', 'pending');
+      (pendingItems || []).forEach((it: any) => {
+        pendingByBatch[it.batch_id] = (pendingByBatch[it.batch_id] || 0) + (it.qty_to_destroy || 0);
+      });
+    }
+
     setBatches(
-      (data || []).map((b: any) => ({
+      (data || [])
+        .map((b: any) => ({ ...b, qty_on_hand: b.qty_on_hand - (pendingByBatch[b.id] || 0) }))
+        .filter((b: any) => b.qty_on_hand > 0)
+        .map((b: any) => ({
         id: b.id,
         batch_no: b.batch_no,
         expired_date: b.expired_date,
