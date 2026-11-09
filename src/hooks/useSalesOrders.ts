@@ -581,7 +581,7 @@ const { data: soItemsData, error: soItemsError } = await supabase
   }
 }
 
-export async function cancelSalesOrder(orderId: string): Promise<{ success: boolean; error?: string }> {
+export async function cancelSalesOrder(orderId: string, cancelReason = 'Dibatalkan oleh pengguna'): Promise<{ success: boolean; error?: string }> {
   try {
     // Ambil data SO dulu untuk dapat reference & so_number sebelum stage berubah
     const { data: soBefore } = await supabase
@@ -590,7 +590,7 @@ export async function cancelSalesOrder(orderId: string): Promise<{ success: bool
       .eq('id', orderId)
       .single();
 
-    const { data, error } = await supabase.rpc('sales_order_cancel', { order_id: orderId });
+    const { data, error } = await supabase.rpc('sales_order_cancel', { order_id: orderId, cancel_reason: cancelReason });
     if (error) throw error;
     const result = data as { success: boolean; error?: string };
 
