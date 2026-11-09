@@ -143,6 +143,47 @@ export type Database = {
           },
         ]
       }
+      calibration_document_logs: {
+        Row: {
+          created_at: string
+          document_number: string | null
+          document_type: string
+          file_url: string | null
+          generated_by: string | null
+          generated_by_email: string | null
+          id: string
+          sales_order_id: string
+        }
+        Insert: {
+          created_at?: string
+          document_number?: string | null
+          document_type: string
+          file_url?: string | null
+          generated_by?: string | null
+          generated_by_email?: string | null
+          id?: string
+          sales_order_id: string
+        }
+        Update: {
+          created_at?: string
+          document_number?: string | null
+          document_type?: string
+          file_url?: string | null
+          generated_by?: string | null
+          generated_by_email?: string | null
+          id?: string
+          sales_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calibration_document_logs_sales_order_id_fkey"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_order_headers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calibration_items: {
         Row: {
           brand_model: string | null
@@ -412,6 +453,65 @@ export type Database = {
           is_active?: boolean | null
           name?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      certificate_expiry_notifications: {
+        Row: {
+          created_at: string
+          id: string
+          item_id: string
+          sent_date: string
+          threshold_days: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_id: string
+          sent_date?: string
+          threshold_days: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_id?: string
+          sent_date?: string
+          threshold_days?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "certificate_expiry_notifications_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "sales_order_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      certificate_verification_logs: {
+        Row: {
+          certificate_number: string
+          id: string
+          ip_address: string | null
+          result: string
+          scanned_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          certificate_number: string
+          id?: string
+          ip_address?: string | null
+          result: string
+          scanned_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          certificate_number?: string
+          id?: string
+          ip_address?: string | null
+          result?: string
+          scanned_at?: string
+          user_agent?: string | null
         }
         Relationships: []
       }
@@ -734,6 +834,9 @@ export type Database = {
           id: string
           notes: string | null
           sales_order_id: string
+          signed_at: string | null
+          signed_by: string | null
+          status: string
           stock_out_id: string
         }
         Insert: {
@@ -743,6 +846,9 @@ export type Database = {
           id?: string
           notes?: string | null
           sales_order_id: string
+          signed_at?: string | null
+          signed_by?: string | null
+          status?: string
           stock_out_id: string
         }
         Update: {
@@ -752,6 +858,9 @@ export type Database = {
           id?: string
           notes?: string | null
           sales_order_id?: string
+          signed_at?: string | null
+          signed_by?: string | null
+          status?: string
           stock_out_id?: string
         }
         Relationships: [
@@ -779,6 +888,7 @@ export type Database = {
           created_by: string | null
           delivery_date_target: string | null
           id: string
+          move_source: string
           moved_at: string | null
           moved_by: string | null
           notes: string | null
@@ -792,6 +902,7 @@ export type Database = {
           created_by?: string | null
           delivery_date_target?: string | null
           id?: string
+          move_source?: string
           moved_at?: string | null
           moved_by?: string | null
           notes?: string | null
@@ -805,6 +916,7 @@ export type Database = {
           created_by?: string | null
           delivery_date_target?: string | null
           id?: string
+          move_source?: string
           moved_at?: string | null
           moved_by?: string | null
           notes?: string | null
@@ -817,6 +929,159 @@ export type Database = {
             columns: ["sales_order_id"]
             isOneToOne: false
             referencedRelation: "sales_order_headers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      destruction_order_items: {
+        Row: {
+          batch_id: string
+          created_at: string | null
+          destruction_order_id: string
+          id: string
+          product_id: string
+          qty_to_destroy: number
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string | null
+          destruction_order_id: string
+          id?: string
+          product_id: string
+          qty_to_destroy: number
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string | null
+          destruction_order_id?: string
+          id?: string
+          product_id?: string
+          qty_to_destroy?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "destruction_order_items_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "available_stock"
+            referencedColumns: ["batch_id"]
+          },
+          {
+            foreignKeyName: "destruction_order_items_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "destruction_order_items_destruction_order_id_fkey"
+            columns: ["destruction_order_id"]
+            isOneToOne: false
+            referencedRelation: "destruction_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "destruction_order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      destruction_orders: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          bap_number: string
+          created_at: string | null
+          created_by: string
+          destruction_date: string
+          id: string
+          notes: string | null
+          rejected_reason: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          bap_number: string
+          created_at?: string | null
+          created_by: string
+          destruction_date?: string
+          id?: string
+          notes?: string | null
+          rejected_reason?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          bap_number?: string
+          created_at?: string | null
+          created_by?: string
+          destruction_date?: string
+          id?: string
+          notes?: string | null
+          rejected_reason?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      expired_extend_logs: {
+        Row: {
+          batch_id: string
+          extended_at: string | null
+          extended_by: string
+          id: string
+          new_expired_date: string
+          old_expired_date: string
+          product_id: string
+          reason: string
+        }
+        Insert: {
+          batch_id: string
+          extended_at?: string | null
+          extended_by: string
+          id?: string
+          new_expired_date: string
+          old_expired_date: string
+          product_id: string
+          reason: string
+        }
+        Update: {
+          batch_id?: string
+          extended_at?: string | null
+          extended_by?: string
+          id?: string
+          new_expired_date?: string
+          old_expired_date?: string
+          product_id?: string
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expired_extend_logs_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "available_stock"
+            referencedColumns: ["batch_id"]
+          },
+          {
+            foreignKeyName: "expired_extend_logs_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expired_extend_logs_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]
@@ -908,6 +1173,14 @@ export type Database = {
           po_document_url: string | null
           reference_no: string | null
           shipping_cost: number | null
+          short_close_approved_at: string | null
+          short_close_approved_by: string | null
+          short_close_create_followup: boolean
+          short_close_followup_plan_order_id: string | null
+          short_close_reason: string | null
+          short_close_rejected_reason: string | null
+          short_close_requested_at: string | null
+          short_close_requested_by: string | null
           status: string
           supplier_id: string
           tax_rate: number | null
@@ -935,6 +1208,14 @@ export type Database = {
           po_document_url?: string | null
           reference_no?: string | null
           shipping_cost?: number | null
+          short_close_approved_at?: string | null
+          short_close_approved_by?: string | null
+          short_close_create_followup?: boolean
+          short_close_followup_plan_order_id?: string | null
+          short_close_reason?: string | null
+          short_close_rejected_reason?: string | null
+          short_close_requested_at?: string | null
+          short_close_requested_by?: string | null
           status?: string
           supplier_id: string
           tax_rate?: number | null
@@ -962,6 +1243,14 @@ export type Database = {
           po_document_url?: string | null
           reference_no?: string | null
           shipping_cost?: number | null
+          short_close_approved_at?: string | null
+          short_close_approved_by?: string | null
+          short_close_create_followup?: boolean
+          short_close_followup_plan_order_id?: string | null
+          short_close_reason?: string | null
+          short_close_rejected_reason?: string | null
+          short_close_requested_at?: string | null
+          short_close_requested_by?: string | null
           status?: string
           supplier_id?: string
           tax_rate?: number | null
@@ -1361,7 +1650,7 @@ export type Database = {
           discount: number | null
           id: string
           notes: string | null
-          product_id: string
+          product_id: string | null
           product_name: string
           proforma_invoice_id: string
           qty: number
@@ -1373,7 +1662,7 @@ export type Database = {
           discount?: number | null
           id?: string
           notes?: string | null
-          product_id: string
+          product_id?: string | null
           product_name: string
           proforma_invoice_id: string
           qty: number
@@ -1385,7 +1674,7 @@ export type Database = {
           discount?: number | null
           id?: string
           notes?: string | null
-          product_id?: string
+          product_id?: string | null
           product_name?: string
           proforma_invoice_id?: string
           qty?: number
@@ -1561,10 +1850,13 @@ export type Database = {
           approved_by: string | null
           calibration_received_at: string | null
           calibration_status: string | null
+          cancel_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           created_at: string | null
           created_by: string | null
           customer_id: string
-          customer_po_number: string
+          customer_po_number: string | null
           customer_request_notes: string | null
           deleted_at: string | null
           deleted_by: string | null
@@ -1576,6 +1868,7 @@ export type Database = {
           notes: string | null
           order_date: string
           order_type: string
+          payment_verified_at: string | null
           po_document_url: string | null
           project_instansi: string
           sales_name: string
@@ -1587,6 +1880,8 @@ export type Database = {
           ship_to_address: string | null
           shipping_cost: number | null
           spk_confirmed_at: string | null
+          spk_confirmed_file_name: string | null
+          spk_confirmed_file_url: string | null
           spk_issued_at: string | null
           spk_number: string | null
           status: string
@@ -1601,10 +1896,13 @@ export type Database = {
           approved_by?: string | null
           calibration_received_at?: string | null
           calibration_status?: string | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           created_at?: string | null
           created_by?: string | null
           customer_id: string
-          customer_po_number: string
+          customer_po_number?: string | null
           customer_request_notes?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
@@ -1616,6 +1914,7 @@ export type Database = {
           notes?: string | null
           order_date?: string
           order_type?: string
+          payment_verified_at?: string | null
           po_document_url?: string | null
           project_instansi: string
           sales_name: string
@@ -1627,6 +1926,8 @@ export type Database = {
           ship_to_address?: string | null
           shipping_cost?: number | null
           spk_confirmed_at?: string | null
+          spk_confirmed_file_name?: string | null
+          spk_confirmed_file_url?: string | null
           spk_issued_at?: string | null
           spk_number?: string | null
           status?: string
@@ -1641,10 +1942,13 @@ export type Database = {
           approved_by?: string | null
           calibration_received_at?: string | null
           calibration_status?: string | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           created_at?: string | null
           created_by?: string | null
           customer_id?: string
-          customer_po_number?: string
+          customer_po_number?: string | null
           customer_request_notes?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
@@ -1656,6 +1960,7 @@ export type Database = {
           notes?: string | null
           order_date?: string
           order_type?: string
+          payment_verified_at?: string | null
           po_document_url?: string | null
           project_instansi?: string
           sales_name?: string
@@ -1667,6 +1972,8 @@ export type Database = {
           ship_to_address?: string | null
           shipping_cost?: number | null
           spk_confirmed_at?: string | null
+          spk_confirmed_file_name?: string | null
+          spk_confirmed_file_url?: string | null
           spk_issued_at?: string | null
           spk_number?: string | null
           status?: string
@@ -1687,13 +1994,24 @@ export type Database = {
       }
       sales_order_items: {
         Row: {
+          additional_information: string | null
+          calibration_date: string | null
+          calibration_gas: string | null
           calibration_method: string | null
           certificate_issued_at: string | null
           certificate_number: string | null
+          certificate_revoked_at: string | null
+          certificate_revoked_by: string | null
+          certificate_revoked_reason: string | null
+          certificate_validity_months: number
+          certificate_verify_token: string | null
           condition_notes: string | null
+          correction: string | null
           created_at: string | null
           description: string | null
           discount: number | null
+          env_humidity: number | null
+          env_temperature: number | null
           feasibility_notes: string | null
           feasibility_status: string | null
           id: string
@@ -1702,6 +2020,7 @@ export type Database = {
           instrument_serial_number: string | null
           item_type: string
           measurement_range: string | null
+          monitoring_reading: string | null
           notes: string | null
           ordered_qty: number
           product_id: string | null
@@ -1709,18 +2028,31 @@ export type Database = {
           qty_remaining: number | null
           sales_order_id: string
           sla_working_days: number | null
+          standard_applied: string | null
           subtotal: number | null
           tax_rate: number | null
+          traceability: string | null
           unit_price: number
         }
         Insert: {
+          additional_information?: string | null
+          calibration_date?: string | null
+          calibration_gas?: string | null
           calibration_method?: string | null
           certificate_issued_at?: string | null
           certificate_number?: string | null
+          certificate_revoked_at?: string | null
+          certificate_revoked_by?: string | null
+          certificate_revoked_reason?: string | null
+          certificate_validity_months?: number
+          certificate_verify_token?: string | null
           condition_notes?: string | null
+          correction?: string | null
           created_at?: string | null
           description?: string | null
           discount?: number | null
+          env_humidity?: number | null
+          env_temperature?: number | null
           feasibility_notes?: string | null
           feasibility_status?: string | null
           id?: string
@@ -1729,6 +2061,7 @@ export type Database = {
           instrument_serial_number?: string | null
           item_type?: string
           measurement_range?: string | null
+          monitoring_reading?: string | null
           notes?: string | null
           ordered_qty: number
           product_id?: string | null
@@ -1736,18 +2069,31 @@ export type Database = {
           qty_remaining?: number | null
           sales_order_id: string
           sla_working_days?: number | null
+          standard_applied?: string | null
           subtotal?: number | null
           tax_rate?: number | null
+          traceability?: string | null
           unit_price: number
         }
         Update: {
+          additional_information?: string | null
+          calibration_date?: string | null
+          calibration_gas?: string | null
           calibration_method?: string | null
           certificate_issued_at?: string | null
           certificate_number?: string | null
+          certificate_revoked_at?: string | null
+          certificate_revoked_by?: string | null
+          certificate_revoked_reason?: string | null
+          certificate_validity_months?: number
+          certificate_verify_token?: string | null
           condition_notes?: string | null
+          correction?: string | null
           created_at?: string | null
           description?: string | null
           discount?: number | null
+          env_humidity?: number | null
+          env_temperature?: number | null
           feasibility_notes?: string | null
           feasibility_status?: string | null
           id?: string
@@ -1756,6 +2102,7 @@ export type Database = {
           instrument_serial_number?: string | null
           item_type?: string
           measurement_range?: string | null
+          monitoring_reading?: string | null
           notes?: string | null
           ordered_qty?: number
           product_id?: string | null
@@ -1763,8 +2110,10 @@ export type Database = {
           qty_remaining?: number | null
           sales_order_id?: string
           sla_working_days?: number | null
+          standard_applied?: string | null
           subtotal?: number | null
           tax_rate?: number | null
+          traceability?: string | null
           unit_price?: number
         }
         Relationships: [
@@ -2505,7 +2854,22 @@ export type Database = {
       }
     }
     Functions: {
+      approve_destruction_order: {
+        Args: { p_destruction_order_id: string }
+        Returns: undefined
+      }
       cleanup_old_chat_messages: { Args: never; Returns: undefined }
+      delete_certificate: { Args: { p_item_id: string }; Returns: Json }
+      extend_batch_expiry: {
+        Args: {
+          p_batch_id: string
+          p_new_expired_date: string
+          p_reason: string
+        }
+        Returns: undefined
+      }
+      generate_bap_number: { Args: never; Returns: string }
+      get_calibration_checklist_users: { Args: never; Returns: string[] }
       get_my_email: { Args: never; Returns: string }
       get_sanitized_error_message: {
         Args: { p_sqlerrm: string; p_sqlstate: string }
@@ -2534,11 +2898,31 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_calibration_checker: { Args: { _user_id: string }; Returns: boolean }
+      issue_calibration_certificates: {
+        Args: { p_so_id: string }
+        Returns: {
+          certificate_issued_at: string
+          certificate_number: string
+          item_id: string
+        }[]
+      }
+      issue_calibration_spk: {
+        Args: { p_so_id: string }
+        Returns: {
+          spk_issued_at: string
+          spk_number: string
+        }[]
+      }
       plan_order_approve: {
         Args: { approve_reason?: string; order_id: string }
         Returns: Json
       }
       plan_order_approve_revision: { Args: { order_id: string }; Returns: Json }
+      plan_order_approve_short_close: {
+        Args: { order_id: string }
+        Returns: Json
+      }
       plan_order_cancel: { Args: { order_id: string }; Returns: Json }
       plan_order_create: {
         Args: { attachment_meta?: Json; header_data: Json; items_data: Json }
@@ -2548,8 +2932,16 @@ export type Database = {
         Args: { order_id: string; reject_reason?: string }
         Returns: Json
       }
+      plan_order_reject_short_close: {
+        Args: { order_id: string; reject_reason: string }
+        Returns: Json
+      }
       plan_order_request_revision: {
         Args: { order_id: string; revision_reason: string }
+        Returns: Json
+      }
+      plan_order_request_short_close: {
+        Args: { create_followup?: boolean; order_id: string; reason: string }
         Returns: Json
       }
       plan_order_soft_delete: { Args: { order_id: string }; Returns: Json }
@@ -2561,6 +2953,14 @@ export type Database = {
         Args: { _order_id: string }
         Returns: undefined
       }
+      reject_destruction_order: {
+        Args: { p_destruction_order_id: string; p_reason: string }
+        Returns: undefined
+      }
+      revoke_certificate: {
+        Args: { p_item_id: string; p_reason: string }
+        Returns: Json
+      }
       sales_order_approve: {
         Args: { approve_reason?: string; order_id: string }
         Returns: Json
@@ -2569,9 +2969,20 @@ export type Database = {
         Args: { order_id: string }
         Returns: Json
       }
-      sales_order_cancel: { Args: { order_id: string }; Returns: Json }
+      sales_order_cancel: {
+        Args: { cancel_reason: string; order_id: string }
+        Returns: Json
+      }
+      sales_order_cancel_delivered: {
+        Args: { order_id: string; reason: string }
+        Returns: Json
+      }
       sales_order_create: {
         Args: { attachment_meta?: Json; header_data: Json; items_data: Json }
+        Returns: Json
+      }
+      sales_order_force_revision_qty: {
+        Args: { order_id: string; reason: string }
         Returns: Json
       }
       sales_order_reject_revision: {
@@ -2580,6 +2991,14 @@ export type Database = {
       }
       sales_order_request_revision: {
         Args: { order_id: string; revision_reason: string }
+        Returns: Json
+      }
+      sales_order_revise_pricing: {
+        Args: { items: Json; order_id: string; reason: string }
+        Returns: Json
+      }
+      sales_order_revise_qty: {
+        Args: { items: Json; order_id: string; reason: string }
         Returns: Json
       }
       sales_order_soft_delete: { Args: { order_id: string }; Returns: Json }
@@ -2631,6 +3050,10 @@ export type Database = {
         }
         Returns: Json
       }
+      sync_calibration_delivered: {
+        Args: { p_delivered: boolean; p_so_id: string }
+        Returns: undefined
+      }
       sync_calibration_receipt_status: {
         Args: { p_received: boolean; p_so_id: string }
         Returns: undefined
@@ -2657,6 +3080,25 @@ export type Database = {
         Args: { table_name: string; uuid_val: string }
         Returns: boolean
       }
+      verify_certificate: {
+        Args: { p_number: string; p_token: string }
+        Returns: {
+          brand_model: string
+          calibration_method: string
+          certificate_issued_at: string
+          certificate_number: string
+          customer_name: string
+          expires_at: string
+          instrument_name: string
+          measurement_range: string
+          revoked_at: string
+          revoked_reason: string
+          sales_order_number: string
+          serial_number: string
+          spk_number: string
+          status: string
+        }[]
+      }
     }
     Enums: {
       app_role:
@@ -2682,12 +3124,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2711,11 +3153,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2736,11 +3178,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2761,11 +3203,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2778,11 +3220,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
