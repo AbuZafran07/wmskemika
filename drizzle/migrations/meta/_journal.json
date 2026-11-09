@@ -15,6 +15,13 @@
       "when": 1792719381383,
       "tag": "0001_tracker_po_read_access_sales_warehouse",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794219321800,
+      "tag": "0002_expired_destruction_management",
+      "breakpoints": true
     }
   ]
 }

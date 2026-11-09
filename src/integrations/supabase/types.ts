@@ -933,6 +933,159 @@ export type Database = {
           },
         ]
       }
+      destruction_order_items: {
+        Row: {
+          batch_id: string
+          created_at: string | null
+          destruction_order_id: string
+          id: string
+          product_id: string
+          qty_to_destroy: number
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string | null
+          destruction_order_id: string
+          id?: string
+          product_id: string
+          qty_to_destroy: number
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string | null
+          destruction_order_id?: string
+          id?: string
+          product_id?: string
+          qty_to_destroy?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "destruction_order_items_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "available_stock"
+            referencedColumns: ["batch_id"]
+          },
+          {
+            foreignKeyName: "destruction_order_items_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "destruction_order_items_destruction_order_id_fkey"
+            columns: ["destruction_order_id"]
+            isOneToOne: false
+            referencedRelation: "destruction_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "destruction_order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      destruction_orders: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          bap_number: string
+          created_at: string | null
+          created_by: string
+          destruction_date: string
+          id: string
+          notes: string | null
+          rejected_reason: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          bap_number: string
+          created_at?: string | null
+          created_by: string
+          destruction_date?: string
+          id?: string
+          notes?: string | null
+          rejected_reason?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          bap_number?: string
+          created_at?: string | null
+          created_by?: string
+          destruction_date?: string
+          id?: string
+          notes?: string | null
+          rejected_reason?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      expired_extend_logs: {
+        Row: {
+          batch_id: string
+          extended_at: string | null
+          extended_by: string
+          id: string
+          new_expired_date: string
+          old_expired_date: string
+          product_id: string
+          reason: string
+        }
+        Insert: {
+          batch_id: string
+          extended_at?: string | null
+          extended_by: string
+          id?: string
+          new_expired_date: string
+          old_expired_date: string
+          product_id: string
+          reason: string
+        }
+        Update: {
+          batch_id?: string
+          extended_at?: string | null
+          extended_by?: string
+          id?: string
+          new_expired_date?: string
+          old_expired_date?: string
+          product_id?: string
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expired_extend_logs_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "available_stock"
+            referencedColumns: ["batch_id"]
+          },
+          {
+            foreignKeyName: "expired_extend_logs_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expired_extend_logs_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_batches: {
         Row: {
           batch_no: string
@@ -2701,8 +2854,21 @@ export type Database = {
       }
     }
     Functions: {
+      approve_destruction_order: {
+        Args: { p_destruction_order_id: string }
+        Returns: undefined
+      }
       cleanup_old_chat_messages: { Args: never; Returns: undefined }
       delete_certificate: { Args: { p_item_id: string }; Returns: Json }
+      extend_batch_expiry: {
+        Args: {
+          p_batch_id: string
+          p_new_expired_date: string
+          p_reason: string
+        }
+        Returns: undefined
+      }
+      generate_bap_number: { Args: never; Returns: string }
       get_calibration_checklist_users: { Args: never; Returns: string[] }
       get_my_email: { Args: never; Returns: string }
       get_sanitized_error_message: {
@@ -2785,6 +2951,10 @@ export type Database = {
       }
       recompute_sales_order_totals: {
         Args: { _order_id: string }
+        Returns: undefined
+      }
+      reject_destruction_order: {
+        Args: { p_destruction_order_id: string; p_reason: string }
         Returns: undefined
       }
       revoke_certificate: {
