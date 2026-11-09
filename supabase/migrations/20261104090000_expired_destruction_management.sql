@@ -152,8 +152,13 @@ BEGIN
     WHERE doi.destruction_order_id = p_destruction_order_id
   LOOP
     -- Kurangi qty_on_hand di inventory_batches
+    IF (SELECT qty_on_hand FROM public.inventory_batches WHERE id = v_item.batch_id FOR UPDATE)
+       IS DISTINCT FROM NULL
+       AND (SELECT qty_on_hand FROM public.inventory_batches WHERE id = v_item.batch_id) < v_item.qty_to_destroy THEN
+      RAISE EXCEPTION 'Stok batch tidak cukup untuk dimusnahkan';
+    END IF;
     UPDATE public.inventory_batches
-    SET qty_on_hand = GREATEST(0, qty_on_hand - v_item.qty_to_destroy),
+    SET qty_on_hand = qty_on_hand - v_item.qty_to_destroy,
         updated_at = NOW()
     WHERE id = v_item.batch_id;
 
@@ -261,3 +266,25 @@ BEGIN
   );
 END;
 $$;
+
+
+-- Guard: total qty di BAP pending per batch tidak boleh melebihi stok
+CREATE OR REPLACE FUNCTION public.trg_guard_destruction_item_qty()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_on_hand INTEGER; v_pending INTEGER;
+BEGIN
+  SELECT qty_on_hand INTO v_on_hand FROM public.inventory_batches WHERE id = NEW.batch_id FOR UPDATE;
+  IF v_on_hand IS NULL THEN RAISE EXCEPTION 'Batch tidak ditemukan'; END IF;
+  SELECT COALESCE(SUM(doi.qty_to_destroy),0) INTO v_pending
+  FROM public.destruction_order_items doi
+  JOIN public.destruction_orders d ON d.id = doi.destruction_order_id
+  WHERE doi.batch_id = NEW.batch_id AND d.status = 'pending' AND doi.id <> NEW.id;
+  IF NEW.qty_to_destroy + v_pending > v_on_hand THEN
+    RAISE EXCEPTION 'Qty pemusnahan melebihi stok tersedia (stok %, sudah diajukan di BAP pending %)', v_on_hand, v_pending;
+  END IF;
+  RETURN NEW;
+END; $$;
+
+DROP TRIGGER IF EXISTS guard_destruction_item_qty ON public.destruction_order_items;
+CREATE TRIGGER guard_destruction_item_qty BEFORE INSERT OR UPDATE OF qty_to_destroy, batch_id
+ON public.destruction_order_items FOR EACH ROW EXECUTE FUNCTION public.trg_guard_destruction_item_qty();
