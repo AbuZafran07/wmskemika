@@ -25,6 +25,7 @@ import { exportSectionBasedPdf } from '@/lib/pdfSectionExport';
 import { sanitizeHtml } from '@/lib/printUtils';
 import { PdfGeneratingOverlay } from '@/components/PdfGeneratingOverlay';
 import PiPdfTemplate, { PiPdfData } from '@/components/reports/PiPdfTemplate';
+import { calculateProformaTax } from '@/lib/proformaTax';
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   pending: { label: 'Menunggu Approval', variant: 'secondary' },
@@ -530,14 +531,13 @@ export default function ProformaInvoicePage() {
               price: Math.round(item.unit_price),
               discount: discountPercent,
               subtotal: Math.round(subtotalAfterDiscount),
-              taxPercent: '12%',
+              taxPercent: Number(detail.tax_rate) > 0 ? '12%' : '-',
             };
           });
 
           // DPP = sum of item subtotals after discount (recalculated for accuracy)
           const dpp = pdfItems.reduce((sum, it) => sum + it.subtotal, 0);
-          const dppPenggantiCalc = Math.round(dpp * 11 / 12);
-          const pajak = Math.round(dppPenggantiCalc * 0.12);
+          const { dppPengganti: dppPenggantiCalc, taxAmount: pajak } = calculateProformaTax(dpp, detail.tax_rate);
           const biayaPengantaran = Math.round(detail.shipping_cost || 0);
           const subTotalCalc = Math.round(dpp + pajak + biayaPengantaran);
           const materai = Math.round(detail.materai_amount || 0);
