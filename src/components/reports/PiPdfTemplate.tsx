@@ -44,6 +44,7 @@ export interface PiPdfSummary {
   dppPengganti: number;
   tax: number;
   deliveryFee: number;
+  otherCosts?: number;
   subTotal: number;
   stampDuty: number;
   downPayment: number;

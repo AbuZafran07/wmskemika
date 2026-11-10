@@ -25,7 +25,7 @@ import { exportSectionBasedPdf } from '@/lib/pdfSectionExport';
 import { sanitizeHtml } from '@/lib/printUtils';
 import { PdfGeneratingOverlay } from '@/components/PdfGeneratingOverlay';
 import PiPdfTemplate, { PiPdfData } from '@/components/reports/PiPdfTemplate';
-import { calculateProformaTax } from '@/lib/proformaTax';
+import { calculateProformaSummary } from '@/lib/proformaTax';
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   pending: { label: 'Menunggu Approval', variant: 'secondary' },
@@ -373,26 +373,24 @@ export default function ProformaInvoicePage() {
               {/* Financial summary */}
               {/* Financial summary — match PDF layout */}
               {(() => {
-                const dpPercent = Number(detail.dp_percent) || 0;
-                const dpAmount = dpPercent > 0 ? Math.round((detail.grand_total * dpPercent) / 100) : 0;
-                const balance = detail.grand_total - dpAmount;
-                const dppPengganti = detail.tax_amount > 0 ? Math.round(detail.subtotal * 11 / 12) : detail.subtotal;
+                const summary = calculateProformaSummary(detail);
+                const { dpPercent, downPayment: dpAmount, balance, dppPengganti } = summary;
                 return (
                   <div className="border-t pt-4 space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span>DPP</span>
-                      <span>{formatCurrency(detail.subtotal)}</span>
+                      <span>{formatCurrency(summary.dpp)}</span>
                     </div>
-                    {detail.tax_amount > 0 && (
+                    {summary.dppPengganti > 0 && (
                       <div className="flex justify-between text-muted-foreground">
                         <span>DPP Pengganti</span>
                         <span>{formatCurrency(dppPengganti)}</span>
                       </div>
                     )}
-                    {detail.tax_amount > 0 && (
+                    {summary.dppPengganti > 0 && (
                       <div className="flex justify-between">
                         <span>Pajak (PPN 12%)</span>
-                        <span>{formatCurrency(detail.tax_amount)}</span>
+                        <span>{formatCurrency(summary.tax)}</span>
                       </div>
                     )}
                     {detail.shipping_cost > 0 && (
@@ -409,7 +407,7 @@ export default function ProformaInvoicePage() {
                     )}
                     <div className="flex justify-between font-semibold border-t pt-2">
                       <span>Sub Total</span>
-                      <span>{formatCurrency(detail.grand_total - (detail.materai_amount || 0))}</span>
+                      <span>{formatCurrency(summary.subTotal)}</span>
                     </div>
                     {detail.materai_amount > 0 && (
                       <div className="flex justify-between">
@@ -535,18 +533,9 @@ export default function ProformaInvoicePage() {
             };
           });
 
-          // DPP = sum of item subtotals after discount (recalculated for accuracy)
-          const dpp = pdfItems.reduce((sum, it) => sum + it.subtotal, 0);
-          const { dppPengganti: dppPenggantiCalc, taxAmount: pajak } = calculateProformaTax(dpp, detail.tax_rate);
-          const biayaPengantaran = Math.round(detail.shipping_cost || 0);
-          const subTotalCalc = Math.round(dpp + pajak + biayaPengantaran);
-          const materai = Math.round(detail.materai_amount || 0);
-          const grossTotal = Math.round(subTotalCalc + materai);
-
-          // DP + Termin scheme: DP nominal goes to Down Payment row; Saldo = sisa
-          const dpPercent = (detail as any).dp_percent ? Number((detail as any).dp_percent) : 0;
-          const dpAmount = dpPercent > 0 ? Math.round((grossTotal * dpPercent) / 100) : 0;
-          const saldo = grossTotal - dpAmount;
+          // The saved snapshot is shared with the detail view, not independently recalculated.
+          const summary = calculateProformaSummary(detail);
+          const saldo = summary.balance;
           const paymentNote = (detail as any).payment_note || null;
 
           const pdfData: PiPdfData = {
@@ -574,17 +563,7 @@ export default function ProformaInvoicePage() {
               address: customer?.address || '-',
             },
             items: pdfItems,
-            summary: {
-              dpp,
-              dppPengganti: dppPenggantiCalc,
-              tax: pajak,
-              deliveryFee: biayaPengantaran,
-              subTotal: subTotalCalc,
-              stampDuty: materai,
-              downPayment: dpAmount,
-              dpPercent,
-              balance: saldo,
-            },
+            summary,
             signatory: {
               name: detail.approved_by_profile?.full_name || null,
               position: "FINANCE",
