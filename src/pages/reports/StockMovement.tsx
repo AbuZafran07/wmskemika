@@ -393,7 +393,7 @@ export default function StockMovement() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
+                    <TableCell className="min-w-[240px] max-w-[360px] whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-relaxed text-muted-foreground">
                       {tx.notes || '-'}
                     </TableCell>
                   </TableRow>
