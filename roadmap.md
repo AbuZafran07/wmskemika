@@ -3,3 +3,5 @@
 - [x] Verify older Delivered orders can be found through the signed-in board.
 - [x] Match sidebar menu styling to AP/AR Nexus while preserving WMS menus and access.
 - [x] Verify sidebar navigation, submenu, collapse, and both themes.
+- [ ] Make PI tax calculation follow the linked SO's tax setting.
+- [ ] Correct the reported pending PI and verify its PDF totals.
