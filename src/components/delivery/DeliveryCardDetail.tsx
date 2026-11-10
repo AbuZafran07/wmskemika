@@ -34,6 +34,7 @@ import { cancelDeliveredSalesOrder } from "@/hooks/useSalesOrders";
 import { SoRevisionActions } from "@/components/delivery/SoRevisionActions";
 import { SoUnifiedRevisionDialog } from "@/components/delivery/SoUnifiedRevisionDialog";
 import { useNavigate } from "react-router-dom";
+import { calculateProformaTax } from "@/lib/proformaTax";
 
 const BOARD_COLUMNS = [
   { id: "new_order", label: "New Orders", color: "bg-blue-600" },
@@ -1648,7 +1649,6 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
       const piNumber = await generateUniquePINumber();
 
       const discount = soHeader.discount || 0;
-      const _taxRate = soHeader.tax_rate || 0; // kept for reference
       const shippingCost = soHeader.shipping_cost || 0;
 
       // Build PI items with subtotal AFTER item-level discount
@@ -1668,8 +1668,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
 
       // DPP = sum of all item subtotals (after discount)
       const dpp = piItemsData.reduce((sum: number, it: any) => sum + it.subtotal, 0);
-      const dppPengganti = Math.round(dpp * 11 / 12);
-      const taxAmount = Math.round(dppPengganti * 0.12);
+      const { taxRate, taxAmount } = calculateProformaTax(dpp, soHeader.tax_rate);
       const materai = calculateMaterai(cust?.customer_type, dpp, shippingCost, taxAmount, materaiAmount);
       const grandTotal = Math.round(dpp + shippingCost + taxAmount + materai);
 
@@ -1683,7 +1682,7 @@ export default function DeliveryCardDetail({ card, onClose, onMoveRequest, canMa
           delivery_request_id: card.id,
           subtotal: dpp,
           discount,
-          tax_rate: 12,
+          tax_rate: taxRate,
           tax_amount: taxAmount,
           shipping_cost: shippingCost,
           other_costs: 0,
