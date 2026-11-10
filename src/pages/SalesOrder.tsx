@@ -1852,7 +1852,7 @@ export default function SalesOrder() {
                 onCheckedChange={setIsTaxable}
               />
               <Label htmlFor="is-taxable" className="cursor-pointer">
-                Kena PPN (12%)
+                {language === "en" ? "Taxable Transaction (VAT 12%)" : "Transaksi Kena Pajak (PPN 12%)"}
               </Label>
               {!isTaxable && (
                 <span className="text-xs text-amber-600 font-medium bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
