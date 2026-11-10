@@ -5,3 +5,6 @@
 - [x] Verify sidebar navigation, submenu, collapse, and both themes.
 - [x] Make PI tax calculation follow the linked SO's tax setting.
 - [x] Correct the reported pending PI and verify its PDF totals.
+- [x] Fix persisted SO totals and new PI tax snapshots for non-PPN orders.
+- [x] Reconcile the reported SO and current PI; match PI detail, preview, and PDF totals.
+- [x] Verify the reported non-PPN order and invoice through the signed-in screens and tests.

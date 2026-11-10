@@ -44,6 +44,7 @@ export interface PiPdfSummary {
   dppPengganti: number;
   tax: number;
   deliveryFee: number;
+  otherCosts?: number;
   subTotal: number;
   stampDuty: number;
   downPayment: number;
@@ -217,6 +218,7 @@ const PiPdfTemplateCompact = React.forwardRef<HTMLDivElement, PiPdfTemplateProps
       { label: 'Pajak', value: fmt(summary.tax) },
     ] : []),
     { label: 'Biaya Pengantaran', value: fmt(summary.deliveryFee) },
+    ...((summary.otherCosts || 0) > 0 ? [{ label: 'Biaya Lainnya', value: fmt(summary.otherCosts || 0) }] : []),
   ];
 
   const itemCount = items.length;
