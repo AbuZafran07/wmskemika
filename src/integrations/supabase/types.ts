@@ -963,6 +963,13 @@ export type Database = {
             foreignKeyName: "destruction_order_items_batch_id_fkey"
             columns: ["batch_id"]
             isOneToOne: false
+            referencedRelation: "available_stock"
+            referencedColumns: ["batch_id"]
+          },
+          {
+            foreignKeyName: "destruction_order_items_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
             referencedRelation: "inventory_batches"
             referencedColumns: ["id"]
           },
@@ -1056,6 +1063,13 @@ export type Database = {
           reason?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "expired_extend_logs_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "available_stock"
+            referencedColumns: ["batch_id"]
+          },
           {
             foreignKeyName: "expired_extend_logs_batch_id_fkey"
             columns: ["batch_id"]
@@ -2847,7 +2861,11 @@ export type Database = {
       cleanup_old_chat_messages: { Args: never; Returns: undefined }
       delete_certificate: { Args: { p_item_id: string }; Returns: Json }
       extend_batch_expiry: {
-        Args: { p_batch_id: string; p_new_expired_date: string; p_reason: string }
+        Args: {
+          p_batch_id: string
+          p_new_expired_date: string
+          p_reason: string
+        }
         Returns: undefined
       }
       generate_bap_number: { Args: never; Returns: string }
