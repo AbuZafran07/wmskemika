@@ -15,6 +15,13 @@
       "when": 1792719381383,
       "tag": "0001_tracker_po_read_access_sales_warehouse",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794297396291,
+      "tag": "0002_respect_so_tax_setting_in_totals_and_pi",
+      "breakpoints": true
     }
   ]
 }
