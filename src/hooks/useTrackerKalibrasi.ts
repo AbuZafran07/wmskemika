@@ -400,7 +400,7 @@ export function useTrackerKalibrasi() {
 
       try {
         if (existing) {
-          await (supabase as any)
+          const { error } = await (supabase as any)
             .from('calibration_tracker_checklists')
             .update({
               is_checked: newValue,
@@ -408,14 +408,16 @@ export function useTrackerKalibrasi() {
               checked_at: newValue ? new Date().toISOString() : null,
             })
             .eq('id', existing.id);
+          if (error) throw error;
         } else {
-          await (supabase as any).from('calibration_tracker_checklists').insert({
+          const { error } = await (supabase as any).from('calibration_tracker_checklists').insert({
             sales_order_id: receiptId,
             checklist_key: checklistKey,
             is_checked: true,
             checked_by: user.id,
             checked_at: new Date().toISOString(),
           });
+          if (error) throw error;
         }
 
         // Side-effects on header
