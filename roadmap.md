@@ -8,3 +8,6 @@
 - [x] Fix persisted SO totals and new PI tax snapshots for non-PPN orders.
 - [x] Reconcile the reported SO and current PI; match PI detail, preview, and PDF totals.
 - [x] Verify the reported non-PPN order and invoice through the signed-in screens and tests.
+- [x] Repair allowed calibration statuses without changing standard SO workflows or checklist roles.
+- [x] Reconcile the 12 completed calibration SOs with an audit record.
+- [x] Test delivery/reopening and verify calibration cards, SO archives, and Stock Out choices.

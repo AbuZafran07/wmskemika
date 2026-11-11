@@ -22,6 +22,13 @@
       "when": 1794297396291,
       "tag": "0002_respect_so_tax_setting_in_totals_and_pi",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794369941846,
+      "tag": "0003_allow_calibration_delivery_statuses",
+      "breakpoints": true
     }
   ]
 }
