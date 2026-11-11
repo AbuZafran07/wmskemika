@@ -9,8 +9,10 @@ test('completed calibration SO closes and can reopen without constraint errors',
   skip: process.env.CALIBRATION_STATUS_TEST !== '1',
 }, async () => {
   const minted = JSON.parse(readFileSync(`${homedir()}/.cache/lovable-auth/session.json`, 'utf8'));
-  const ref = minted.storage_key.slice(3, -11);
-  const client = createClient(`https://${ref}.supabase.co`, minted.session.access_token, {
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  ok(url && key, 'App connection configuration is required');
+  const client = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const { error: authError } = await client.auth.setSession(minted.session);
