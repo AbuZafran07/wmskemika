@@ -209,7 +209,7 @@ export default function SettingsPage() {
         </Button>
       </div>
 
-      <Tabs defaultValue="general" className="space-y-6">
+      <Tabs defaultValue={new URLSearchParams(window.location.search).get('tab') === 'backup' ? 'backup' : 'general'} className="space-y-6">
         <TabsList>
           <TabsTrigger value="general">
             <SettingsIcon className="w-4 h-4 mr-2" />

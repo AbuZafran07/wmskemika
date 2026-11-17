@@ -5,3 +5,4 @@
 - Sidebar presentation uses the existing permission-filtered menu tree with collapsible sections and a shared sidebar Button variant; this keeps navigation and authorization unchanged when styling evolves.
 - SO recomputation and PI insertion enforce the SO tax setting server-side; PI detail, preview and PDF use a shared saved-snapshot summary including all fees, preventing inconsistent totals without silently changing historical invoices.
 - Calibration delivery uses the existing finance/admin RPC and permits its delivered/in_progress statuses; checklist writes must succeed before header synchronization, keeping failed saves from closing an SO.
+- Database backups discover public tables dynamically and read them with primary-key keyset pagination; external runs upload bounded parts and a final manifest so incomplete backups are never treated as successful.

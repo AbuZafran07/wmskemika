@@ -88,6 +88,7 @@ export default function ExternalBackupCard() {
   const [config, setConfig] = useState<ExternalConfig>(DEFAULT_CONFIG);
   const [status, setStatus] = useState<ExternalStatus>({});
   const [configured, setConfigured] = useState(false);
+  const [configurationIssue, setConfigurationIssue] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -98,6 +99,7 @@ export default function ExternalBackupCard() {
       const { data, error } = await supabase.functions.invoke('external-backup', { body: { action: 'status' } });
       if (error) throw new Error(await functionError(error));
       setConfigured(data?.configured === true);
+      setConfigurationIssue(typeof data?.configuration_issue === 'string' ? data.configuration_issue : null);
       setConfig(safeConfig(data?.config));
       setStatus((data?.status || {}) as ExternalStatus);
       if (!quiet) toast.success(data?.configured ? 'Status backup eksternal diperbarui' : 'Kunci tujuan backup belum dikonfigurasi');
@@ -167,7 +169,9 @@ export default function ExternalBackupCard() {
             {!configured && (
               <div className="flex gap-2 rounded-lg border border-warning/20 bg-warning/10 p-3 text-sm">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-                <p>Kunci akses tujuan belum tersedia. Admin IT perlu mengisi kunci rahasia backup eksternal sebelum backup dapat dijalankan.</p>
+                <p>{configurationIssue === 'legacy_service_role_required'
+                  ? 'Kunci tujuan belum sesuai. Gunakan legacy service_role JWT dari project HRGA (Settings → API Keys → Legacy keys), bukan secret key model baru.'
+                  : 'Kunci akses tujuan belum tersedia. Admin IT perlu mengisi kunci rahasia backup eksternal sebelum backup dapat dijalankan.'}</p>
               </div>
             )}
 

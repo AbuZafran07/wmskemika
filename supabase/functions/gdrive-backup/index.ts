@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { daysAgoIso, listBackupTables, readAllTableRows } from "../_shared/backup-tables.ts";
+import { daysAgoIso, listBackupTables } from "../_shared/backup-tables.ts";
+import { writeBackupJsonFile } from "../_shared/backup-json-file.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -66,7 +67,9 @@ async function getGoogleAccessToken(serviceAccount: Record<string, string>) {
   return data.access_token as string;
 }
 
-serve(async (req) => {
+declare const EdgeRuntime: { waitUntil: (promise: Promise<unknown>) => void };
+
+async function handleGdriveBackup(req: Request) {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -74,6 +77,7 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, serviceKey);
+  let cleanup: (() => Promise<void>) | undefined;
 
   try {
     // ===== Auth: cron secret OR super_admin JWT =====
@@ -156,89 +160,92 @@ serve(async (req) => {
     if (isCron && !configValue.enabled) {
       return json({ message: "Google Drive backup is disabled" });
     }
+    if (body.preflight === true) return json({ success: true });
 
-    // ===== 1. Export seluruh tabel dengan keyset pagination =====
-    const backupData: Record<string, unknown[]> = {};
-    const tableCounts: Record<string, number> = {};
-    let totalRecords = 0;
+    // ===== 1. Export seluruh tabel per-bagian agar tidak dibatasi memori =====
     const failed: string[] = [];
     const tables = await listBackupTables(supabase);
-
-    for (const table of tables) {
-      try {
-        const options = table.table_name === "audit_logs" || table.table_name === "sales_pulse_sync_logs"
-          ? { sinceColumn: "created_at" as const, since: daysAgoIso(30) }
-          : {};
-        const rows = await readAllTableRows(supabase, table, options);
-        backupData[table.table_name] = rows;
-        tableCounts[table.table_name] = rows.length;
-        totalRecords += rows.length;
-      } catch (error) {
-        failed.push(table.table_name);
-        const message = error instanceof Error ? error.message : String(error);
-        await supabase.from("settings").upsert({
-          key: "gdrive_backup_config",
-          value: { ...configValue, last_backup_status: "failed", failed_tables: failed, last_error: message },
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "key" });
-        await supabase.from("audit_logs").insert({
-          user_id: actorId,
-          action: "GDRIVE_AUTO_BACKUP",
-          module: "backup",
-          ref_table: "settings",
-          new_data: { status: "failed", failed_tables: failed, error: message },
-        });
-        return json({ success: false, error: message, failed_tables: failed }, 500);
-      }
-    }
-
     const now = new Date();
     const dateStr = now.toISOString().replace(/[:.]/g, "-").slice(0, 19);
     const fileName = `WMS-Kemika-Backup-${dateStr}.json`;
-    const jsonContent = JSON.stringify({
-      _meta: {
-        app: "WMS Kemika",
-        version: "1.0.0",
-        type: "gdrive_auto_backup",
-        exported_at: now.toISOString(),
-        tables: Object.keys(backupData),
-        failed_tables: failed,
-        total_records: totalRecords,
-        table_counts: tableCounts,
-      },
-      data: backupData,
-    });
+    let archive: Awaited<ReturnType<typeof writeBackupJsonFile>>;
+    try {
+      archive = await writeBackupJsonFile(
+        supabase,
+        tables,
+        (table) => table.table_name === "audit_logs" || table.table_name === "sales_pulse_sync_logs"
+          ? { sinceColumn: "created_at", since: daysAgoIso(30) }
+          : {},
+        (tableCounts, totalRecords) => ({
+          app: "WMS Kemika",
+          version: "1.1.0",
+          type: "gdrive_auto_backup",
+          exported_at: now.toISOString(),
+          tables: tables.map((table) => table.table_name),
+          failed_tables: [],
+          total_records: totalRecords,
+          table_counts: tableCounts,
+        }),
+      );
+      cleanup = archive.cleanup;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const failedTable = message.match(/Backup tabel ([a-z0-9_]+)/i)?.[1];
+      if (failedTable) failed.push(failedTable);
+      await supabase.from("settings").upsert({
+        key: "gdrive_backup_config",
+        value: { ...configValue, last_backup_status: "failed", failed_tables: failed, last_error: message },
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "key" });
+      await supabase.from("audit_logs").insert({
+        user_id: actorId,
+        action: "GDRIVE_AUTO_BACKUP",
+        module: "backup",
+        ref_table: "settings",
+        new_data: { status: "failed", failed_tables: failed, error: message },
+      });
+      return json({ success: false, error: message, failed_tables: failed }, 500);
+    }
+    const tableCounts = archive.tableCounts;
+    const totalRecords = archive.totalRecords;
 
     // ===== 2. Access token =====
     const accessToken = await getGoogleAccessToken(serviceAccount);
 
-    // ===== 3. Upload multipart =====
-    const boundary = "backup_boundary_wms_kemika";
-    const metadata = JSON.stringify({
-      name: fileName,
-      parents: [gdriveFolderId],
-      mimeType: "application/json",
-      description: `WMS Kemika auto backup — ${totalRecords} records`,
-    });
-
-    const multipartBody =
-      `--${boundary}\r\n` +
-      `Content-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n` +
-      `--${boundary}\r\n` +
-      `Content-Type: application/json\r\n\r\n${jsonContent}\r\n` +
-      `--${boundary}--`;
-
-    const uploadResponse = await fetch(
-      "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,size",
+    // ===== 3. Upload resumable langsung dari file sementara =====
+    const sessionResponse = await fetch(
+      "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true&fields=id,name,size",
       {
         method: "POST",
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          "Content-Type": `multipart/related; boundary=${boundary}`,
+          "Content-Type": "application/json; charset=UTF-8",
+          "X-Upload-Content-Type": "application/json",
+          "X-Upload-Content-Length": String(archive.size),
         },
-        body: multipartBody,
+        body: JSON.stringify({
+          name: fileName,
+          parents: [gdriveFolderId],
+          mimeType: "application/json",
+          description: `WMS Kemika auto backup — ${totalRecords} records`,
+        }),
       },
     );
+    const sessionUrl = sessionResponse.headers.get("location");
+    if (!sessionResponse.ok || !sessionUrl) {
+      const errText = await sessionResponse.text();
+      return json({ error: `Sesi Google Drive upload gagal (${sessionResponse.status}): ${errText}` }, 502);
+    }
+    const uploadFile = await Deno.open(archive.path, { read: true });
+    const uploadResponse = await fetch(sessionUrl, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        "Content-Length": String(archive.size),
+      },
+      body: uploadFile.readable,
+    });
 
     if (!uploadResponse.ok) {
       const errText = await uploadResponse.text();
@@ -255,6 +262,8 @@ serve(async (req) => {
       return json({ error: `Google Drive upload gagal (${uploadResponse.status}): ${errText}` }, 502);
     }
     const uploadResult = await uploadResponse.json();
+    await archive.cleanup();
+    cleanup = undefined;
 
     // ===== 4. Backup file storage ke GDrive (opsional) =====
     const { data: inclSetting } = await supabase
@@ -511,5 +520,20 @@ serve(async (req) => {
     const message = err instanceof Error ? err.message : String(err);
     console.error("GDrive backup error:", message);
     return json({ error: message }, 500);
+  } finally {
+    if (cleanup) await cleanup();
   }
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  let body: Record<string, unknown> = {};
+  try { body = await req.clone().json(); } catch { /* empty body */ }
+  if (body.test === true) return handleGdriveBackup(req);
+  const preflight = await handleGdriveBackup(new Request(req, {
+    body: JSON.stringify({ preflight: true, include_files: body.include_files }),
+  }));
+  if (!preflight.ok) return preflight;
+  EdgeRuntime.waitUntil(handleGdriveBackup(req).then(async (response) => { await response.text(); }));
+  return json({ success: true, status: "started" }, 202);
 });

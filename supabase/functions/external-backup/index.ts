@@ -450,7 +450,9 @@ async function runExternalBackup(
   };
 }
 
-serve(async (req) => {
+declare const EdgeRuntime: { waitUntil: (promise: Promise<unknown>) => void };
+
+async function handleExternalBackup(req: Request) {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
@@ -516,27 +518,27 @@ serve(async (req) => {
           await source.from("settings").upsert({ key: "external_backup_status", value: next, updated_at: new Date().toISOString() }, { onConflict: "key" });
         }
       }
-      return json({ success: true, configured: !!targetKey, config, status: previousStatus });
+      const keyIsLegacyJwt = !!targetKey && /^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(targetKey.trim());
+      return json({
+        success: true,
+        configured: keyIsLegacyJwt,
+        configuration_issue: targetKey && !keyIsLegacyJwt ? "legacy_service_role_required" : null,
+        config,
+        status: previousStatus,
+      });
     }
 
     if (!targetKey) {
       return json({ error: "Backup eksternal belum dikonfigurasi: EXTERNAL_BACKUP_SECRET_KEY belum diisi", configured: false }, 503);
     }
     const targetUrl = Deno.env.get("EXTERNAL_BACKUP_URL") || DEFAULT_TARGET_URL;
-    // New sb_secret_* keys belong in the apikey header, not in a JWT Bearer header.
-    // Legacy service_role JWTs continue through the standard client behavior.
-    const targetFetch: typeof fetch = (input, init) => {
-      if (!targetKey.startsWith("sb_")) return fetch(input, init);
-      const request = new Request(input, init);
-      const headers = new Headers(request.headers);
-      headers.set("apikey", targetKey);
-      headers.delete("Authorization");
-      return fetch(new Request(request, { headers }));
-    };
-    const target = createClient(targetUrl, targetKey, {
-      auth: { persistSession: false },
-      global: { fetch: targetFetch },
-    });
+    if (!/^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(targetKey.trim())) {
+      return json({
+        error: "Kunci tujuan harus berupa legacy service_role JWT dari project HRGA (Settings → API Keys → Legacy keys)",
+        configured: false,
+      }, 503);
+    }
+    const target = createClient(targetUrl, targetKey.trim(), { auth: { persistSession: false } });
     const startedAt = new Date().toISOString();
     runFolder = `kemika-wms/${startedAt.replace(/[:.]/g, "-")}`;
     await ensurePrivateTargetBucket(target);
