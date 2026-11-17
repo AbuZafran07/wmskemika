@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { daysAgoIso, listBackupTables, readAllTableRows } from "../_shared/backup-tables.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,37 +12,6 @@ const json = (body: unknown, status = 200) =>
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-
-const TABLES = [
-  // Master Data
-  "products", "categories", "units", "suppliers", "customers",
-  // Plan & Sales Order
-  "plan_order_headers", "plan_order_items",
-  "sales_order_headers", "sales_order_items",
-  // Proforma Invoice
-  "proforma_invoices", "proforma_invoice_items",
-  // Stock
-  "stock_in_headers", "stock_in_items",
-  "stock_out_headers", "stock_out_items",
-  "stock_adjustments", "stock_adjustment_items",
-  "inventory_batches", "stock_transactions",
-  // Delivery / Kanban
-  "delivery_requests", "delivery_orders", "delivery_comments",
-  "delivery_checklists", "delivery_labels", "delivery_card_labels",
-  // Tracker PO
-  "po_tracker_checklists", "po_tracker_comments",
-  "po_tracker_labels", "po_tracker_card_labels", "po_tracker_archived",
-  // Kalibrasi
-  "calibration_items", "calibration_spare_parts",
-  "calibration_tracker_checklists", "calibration_tracker_comments",
-  "calibration_labels", "calibration_card_labels", "calibration_document_logs",
-  // Chat K'talk
-  "chat_messages", "chat_reactions",
-  // Lainnya
-  "attachments", "national_holidays",
-  "profiles", "user_roles", "user_signatures",
-  "audit_logs", "settings",
-];
 
 async function getGoogleAccessToken(serviceAccount: Record<string, string>) {
   const encode = (obj: unknown) =>
@@ -187,25 +157,39 @@ serve(async (req) => {
       return json({ message: "Google Drive backup is disabled" });
     }
 
-    // ===== 1. Export tabel =====
+    // ===== 1. Export seluruh tabel dengan keyset pagination =====
     const backupData: Record<string, unknown[]> = {};
+    const tableCounts: Record<string, number> = {};
     let totalRecords = 0;
     const failed: string[] = [];
+    const tables = await listBackupTables(supabase);
 
-    for (const table of TABLES) {
-      let query = supabase.from(table).select("*");
-      if (table === "audit_logs") {
-        query = query
-          .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
-          .order("created_at", { ascending: false });
+    for (const table of tables) {
+      try {
+        const options = table.table_name === "audit_logs" || table.table_name === "sales_pulse_sync_logs"
+          ? { sinceColumn: "created_at" as const, since: daysAgoIso(30) }
+          : {};
+        const rows = await readAllTableRows(supabase, table, options);
+        backupData[table.table_name] = rows;
+        tableCounts[table.table_name] = rows.length;
+        totalRecords += rows.length;
+      } catch (error) {
+        failed.push(table.table_name);
+        const message = error instanceof Error ? error.message : String(error);
+        await supabase.from("settings").upsert({
+          key: "gdrive_backup_config",
+          value: { ...configValue, last_backup_status: "failed", failed_tables: failed, last_error: message },
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "key" });
+        await supabase.from("audit_logs").insert({
+          user_id: actorId,
+          action: "GDRIVE_AUTO_BACKUP",
+          module: "backup",
+          ref_table: "settings",
+          new_data: { status: "failed", failed_tables: failed, error: message },
+        });
+        return json({ success: false, error: message, failed_tables: failed }, 500);
       }
-      const { data, error } = await query;
-      if (error) {
-        failed.push(table);
-        continue;
-      }
-      backupData[table] = data ?? [];
-      totalRecords += data?.length ?? 0;
     }
 
     const now = new Date();
@@ -220,6 +204,7 @@ serve(async (req) => {
         tables: Object.keys(backupData),
         failed_tables: failed,
         total_records: totalRecords,
+        table_counts: tableCounts,
       },
       data: backupData,
     });
@@ -483,6 +468,9 @@ serve(async (req) => {
         last_backup_at: now.toISOString(),
         last_backup_file: fileName,
         last_backup_records: totalRecords,
+        last_backup_status: "success",
+        failed_tables: [],
+        table_counts: tableCounts,
         gdrive_file_id: uploadResult.id,
         include_files: includeFiles,
         last_files_folder: filesFolderName,

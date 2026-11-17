@@ -2914,6 +2914,13 @@ export type Database = {
           spk_number: string
         }[]
       }
+      list_backup_tables: {
+        Args: never
+        Returns: {
+          primary_key: string
+          table_name: string
+        }[]
+      }
       plan_order_approve: {
         Args: { approve_reason?: string; order_id: string }
         Returns: Json

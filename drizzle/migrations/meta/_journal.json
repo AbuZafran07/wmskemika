@@ -36,6 +36,13 @@
       "when": 1794881161880,
       "tag": "0004_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794908403245,
+      "tag": "0005_add_dynamic_backup_table_discovery",
+      "breakpoints": true
     }
   ]
 }

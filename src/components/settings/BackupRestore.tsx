@@ -22,6 +22,7 @@ import { id as idLocale } from 'date-fns/locale';
 import JSZip from 'jszip';
 import * as XLSX from 'xlsx';
 import { Progress } from '@/components/ui/progress';
+import ExternalBackupCard from '@/components/settings/ExternalBackupCard';
 
 const STORAGE_BUCKETS = ['avatars', 'chat-attachments', 'documents', 'product-photos', 'signatures'] as const;
 
@@ -1071,6 +1072,8 @@ export default function BackupRestore() {
           </div>
         </CardContent>
       </Card>
+
+      <ExternalBackupCard />
 
       {/* Manual Backup */}
       <Card>
