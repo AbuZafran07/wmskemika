@@ -38,7 +38,7 @@ async function handleAutoBackup(req: Request) {
 
     const tables = await listBackupTables(supabase);
     const now = new Date().toISOString();
-    const fileName = `auto/backup-${now.replace(/[:.]/g, "-")}.json`;
+    const fileName = `auto/backup-${now.replace(/[:.]/g, "-")}.json.gz`;
     const archive = await writeBackupJsonFile(
       supabase,
       tables,
@@ -60,16 +60,25 @@ async function handleAutoBackup(req: Request) {
 
     const uploadPath = fileName.split("/").map(encodeURIComponent).join("/");
     const uploadFile = await Deno.open(archive.path, { read: true });
+    let uploadedBytes = 0;
+    const byteCounter = new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        uploadedBytes += chunk.byteLength;
+        controller.enqueue(chunk);
+      },
+    });
+    const compressedBody = uploadFile.readable
+      .pipeThrough(new CompressionStream("gzip"))
+      .pipeThrough(byteCounter);
     const uploadResponse = await fetch(`${supabaseUrl}/storage/v1/object/backups/${uploadPath}`, {
       method: "POST",
       headers: {
         apikey: supabaseKey,
         Authorization: `Bearer ${supabaseKey}`,
         "Content-Type": "application/json",
-        "Content-Length": String(archive.size),
         "x-upsert": "false",
       },
-      body: uploadFile.readable,
+      body: compressedBody,
     });
     if (!uploadResponse.ok) {
       const message = await uploadResponse.text();
@@ -90,7 +99,8 @@ async function handleAutoBackup(req: Request) {
     const historyEntry = {
       file: fileName,
       created_at: now,
-      size: archive.size,
+      size: uploadedBytes,
+      uncompressed_size: archive.size,
       table_count: tables.length,
       total_records: archive.totalRecords,
       table_counts: archive.tableCounts,
@@ -119,7 +129,8 @@ async function handleAutoBackup(req: Request) {
       file: fileName,
       total_records: archive.totalRecords,
       table_counts: archive.tableCounts,
-      size: archive.size,
+      size: uploadedBytes,
+      uncompressed_size: archive.size,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

@@ -262,6 +262,9 @@ async function handleGdriveBackup(req: Request) {
       return json({ error: `Google Drive upload gagal (${uploadResponse.status}): ${errText}` }, 502);
     }
     const uploadResult = await uploadResponse.json();
+    if (Number(uploadResult.size) !== archive.size) {
+      throw new Error(`Ukuran arsip Google Drive tidak cocok: ${uploadResult.size || "tidak diketahui"} vs ${archive.size}`);
+    }
     await archive.cleanup();
     cleanup = undefined;
 
@@ -519,6 +522,16 @@ async function handleGdriveBackup(req: Request) {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("GDrive backup error:", message);
+    const { data: latestConfig } = await supabase.from("settings").select("value").eq("key", "gdrive_backup_config").maybeSingle();
+    await supabase.from("settings").upsert({
+      key: "gdrive_backup_config",
+      value: {
+        ...((latestConfig?.value || {}) as Record<string, unknown>),
+        last_backup_status: "failed",
+        last_error: message.slice(0, 500),
+      },
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "key" });
     return json({ error: message }, 500);
   } finally {
     if (cleanup) await cleanup();

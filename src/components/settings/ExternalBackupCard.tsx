@@ -31,7 +31,7 @@ type ManifestTable = {
 type BackupRun = {
   started_at: string;
   completed_at?: string;
-  status: 'success' | 'failed' | 'partial';
+  status: 'success' | 'failed' | 'partial' | 'running';
   folder?: string;
   total_rows?: number;
   total_bytes?: number;
@@ -131,13 +131,34 @@ export default function ExternalBackupCard() {
 
   const runBackup = async () => {
     setRunning(true);
-    toast.info('Backup eksternal sedang berjalan. Jangan tutup halaman ini.');
+    const previousStartedAt = status.history?.[0]?.started_at;
+    toast.info('Backup eksternal dimulai di server. Hasilnya akan diperiksa otomatis.');
     try {
       const { data, error } = await supabase.functions.invoke('external-backup', { body: { action: 'backup' } });
       if (error) throw new Error(await functionError(error));
       if (!data?.success) throw new Error(data?.error || 'Backup eksternal tidak berhasil');
-      toast.success(`Backup selesai: ${Number(data.total_rows || 0).toLocaleString('id-ID')} baris, ${formatBytes(data.total_bytes)}`);
-      await loadStatus(true);
+      if (data.status === 'started') {
+        const deadline = Date.now() + 15 * 60 * 1000;
+        while (Date.now() < deadline) {
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+          const { data: current, error: statusError } = await supabase.functions.invoke('external-backup', { body: { action: 'status' } });
+          if (statusError) continue;
+          const latestRun = current?.status?.history?.[0] as BackupRun | undefined;
+          if (latestRun?.started_at && latestRun.started_at !== previousStartedAt && latestRun.status !== 'running') {
+            setStatus(current.status as ExternalStatus);
+            if (latestRun.status === 'success') {
+              toast.success(`Backup selesai: ${Number(latestRun.total_rows || 0).toLocaleString('id-ID')} baris, ${formatBytes(latestRun.total_bytes)}`);
+            } else {
+              throw new Error(latestRun.error || `Backup berakhir dengan status ${latestRun.status}`);
+            }
+            return;
+          }
+        }
+        toast.info('Backup masih berjalan di server. Gunakan Cek Status beberapa saat lagi.', { duration: 12000 });
+      } else {
+        toast.success(`Backup selesai: ${Number(data.total_rows || 0).toLocaleString('id-ID')} baris, ${formatBytes(data.total_bytes)}`);
+        await loadStatus(true);
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Backup eksternal gagal', { duration: 12000 });
       await loadStatus(true);
@@ -169,9 +190,11 @@ export default function ExternalBackupCard() {
             {!configured && (
               <div className="flex gap-2 rounded-lg border border-warning/20 bg-warning/10 p-3 text-sm">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-                <p>{configurationIssue === 'legacy_service_role_required'
-                  ? 'Kunci tujuan belum sesuai. Gunakan legacy service_role JWT dari project HRGA (Settings → API Keys → Legacy keys), bukan secret key model baru.'
-                  : 'Kunci akses tujuan belum tersedia. Admin IT perlu mengisi kunci rahasia backup eksternal sebelum backup dapat dijalankan.'}</p>
+                <p>{configurationIssue === 'wrong_project'
+                  ? 'Kunci yang tersimpan milik project WMS, bukan project tujuan HRGA. Backup eksternal ditahan agar tidak memakai kunci yang salah.'
+                  : configurationIssue === 'legacy_service_role_required'
+                    ? 'Kunci tujuan belum sesuai. Gunakan legacy service_role JWT dari project HRGA (Settings → API Keys → Legacy keys), bukan secret key model baru.'
+                    : 'Kunci akses tujuan belum tersedia. Admin IT perlu mengisi kunci rahasia backup eksternal sebelum backup dapat dijalankan.'}</p>
               </div>
             )}
 

@@ -7,10 +7,10 @@ import {
   countSourceRows,
   daysAgoIso,
   listBackupTables,
-  readTableInParts,
   type BackupTable,
   type TableReadOptions,
 } from "../_shared/backup-tables.ts";
+import { rawTablePages } from "../_shared/backup-raw-rest.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,6 +30,17 @@ class HttpError extends Error {
   }
 }
 class PartialRunError extends Error {}
+
+function keyMatchesTargetProject(key: string, targetUrl: string): boolean {
+  try {
+    const payload = key.split(".")[1];
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const decoded = JSON.parse(atob(normalized)) as { ref?: string };
+    return decoded.ref === new URL(targetUrl).hostname.split(".")[0];
+  } catch {
+    return false;
+  }
+}
 
 type BackupConfig = {
   audit_logs_days: number | null;
@@ -339,13 +350,17 @@ async function runExternalBackup(
     const split = countBefore > EXTERNAL_PART_SIZE;
     const files: { name: string; size: number }[] = [];
 
-    const result = await readTableInParts(source, table, options, EXTERNAL_PART_SIZE, async (partNumber, rows) => {
-      assertTime(startMs);
+    let tableRowCount = 0;
+    let partRowCount = 0;
+    let partContents: string[] = [];
+    const flushPart = async () => {
+      if (partRowCount === 0) return;
+      const partNumber = files.length + 1;
       if (!split && partNumber > 1) throw new Error(`Tabel ${table.table_name} berubah saat backup; ulangi run`);
       const name = split
         ? `${table.table_name}.part-${String(partNumber).padStart(3, "0")}.json`
         : `${table.table_name}.json`;
-      const content = JSON.stringify(rows);
+      const content = `[${partContents.join(",")}]`;
       const size = new TextEncoder().encode(content).byteLength;
       const { error } = await target.storage.from("backups").upload(`${runFolder}/${name}`, content, {
         contentType: "application/json",
@@ -354,9 +369,23 @@ async function runExternalBackup(
       if (error) throw new Error(`Upload ${table.table_name} bagian ${partNumber} gagal: ${error.message}`);
       files.push({ name, size });
       totalBytes += size;
-    });
+      partRowCount = 0;
+      partContents = [];
+    };
+    for await (const page of rawTablePages(table, options)) {
+      assertTime(startMs);
+      if (page.rowCount === 0) continue;
+      if (partRowCount > 0 && partRowCount + page.rowCount > EXTERNAL_PART_SIZE) await flushPart();
+      const pageJson = page.json.trim();
+      if (!pageJson.startsWith("[") || !pageJson.endsWith("]")) throw new Error(`Format JSON ${table.table_name} tidak valid`);
+      partContents.push(pageJson.slice(1, -1));
+      partRowCount += page.rowCount;
+      tableRowCount += page.rowCount;
+      if (partRowCount === EXTERNAL_PART_SIZE) await flushPart();
+    }
+    await flushPart();
 
-    if (result.rowCount === 0) {
+    if (tableRowCount === 0) {
       const content = "[]";
       const size = 2;
       const name = `${table.table_name}.json`;
@@ -373,14 +402,14 @@ async function runExternalBackup(
     manifestTables.push({
       name: table.table_name,
       primary_key: table.primary_key,
-      row_count: result.rowCount,
-      part_count: result.partCount,
+      row_count: tableRowCount,
+      part_count: files.length,
       files,
       source_count_before: countBefore,
       source_count_after: countAfter,
-      count_delta: countAfter - result.rowCount,
+      count_delta: countAfter - tableRowCount,
     });
-    totalRows += result.rowCount;
+    totalRows += tableRowCount;
   }
 
   const storageFiles = await copyStorageBuckets(source, target, config, startMs);
@@ -505,6 +534,7 @@ async function handleExternalBackup(req: Request) {
       history: Array.isArray(rawStatus.history) ? rawStatus.history as RunRecord[] : [],
     };
     const targetKey = Deno.env.get("EXTERNAL_BACKUP_SECRET_KEY");
+    const targetUrl = Deno.env.get("EXTERNAL_BACKUP_URL") || DEFAULT_TARGET_URL;
 
     if (action === "status") {
       if (isCron) {
@@ -519,10 +549,13 @@ async function handleExternalBackup(req: Request) {
         }
       }
       const keyIsLegacyJwt = !!targetKey && /^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(targetKey.trim());
+      const keyMatchesTarget = !!targetKey && keyIsLegacyJwt && keyMatchesTargetProject(targetKey.trim(), targetUrl);
       return json({
         success: true,
-        configured: keyIsLegacyJwt,
-        configuration_issue: targetKey && !keyIsLegacyJwt ? "legacy_service_role_required" : null,
+        configured: keyMatchesTarget,
+        configuration_issue: targetKey && !keyIsLegacyJwt
+          ? "legacy_service_role_required"
+          : targetKey && !keyMatchesTarget ? "wrong_project" : null,
         config,
         status: previousStatus,
       });
@@ -531,13 +564,20 @@ async function handleExternalBackup(req: Request) {
     if (!targetKey) {
       return json({ error: "Backup eksternal belum dikonfigurasi: EXTERNAL_BACKUP_SECRET_KEY belum diisi", configured: false }, 503);
     }
-    const targetUrl = Deno.env.get("EXTERNAL_BACKUP_URL") || DEFAULT_TARGET_URL;
     if (!/^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(targetKey.trim())) {
       return json({
         error: "Kunci tujuan harus berupa legacy service_role JWT dari project HRGA (Settings → API Keys → Legacy keys)",
         configured: false,
       }, 503);
     }
+    if (!keyMatchesTargetProject(targetKey.trim(), targetUrl)) {
+      return json({
+        error: "Kunci yang tersimpan milik project lain. Backup ke HRGA tidak dijalankan.",
+        configured: false,
+        configuration_issue: "wrong_project",
+      }, 503);
+    }
+    if (body.preflight === true) return json({ success: true, configured: true });
     const target = createClient(targetUrl, targetKey.trim(), { auth: { persistSession: false } });
     const startedAt = new Date().toISOString();
     runFolder = `kemika-wms/${startedAt.replace(/[:.]/g, "-")}`;
@@ -586,4 +626,15 @@ async function handleExternalBackup(req: Request) {
     }
     return json({ success: false, error: message, status: partial ? "partial" : "failed" }, statusCode);
   }
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const body = await req.clone().json().catch(() => null) as Record<string, unknown> | null;
+  if (body?.action === "status") return handleExternalBackup(req);
+  const preflightBody = { ...(body || {}), action: "backup", preflight: true };
+    const preflight = await handleExternalBackup(new Request(req, { body: JSON.stringify(preflightBody) }));
+  if (!preflight.ok) return preflight;
+  EdgeRuntime.waitUntil(handleExternalBackup(req).then(async (response) => { await response.text(); }));
+  return json({ success: true, status: "started" }, 202);
 });

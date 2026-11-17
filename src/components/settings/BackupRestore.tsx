@@ -389,17 +389,36 @@ export default function BackupRestore() {
 
   const runGdriveBackupNow = async () => {
     setGdriveLoading(true);
+    const previousBackupAt = gdriveConfig.last_backup_at;
     try {
       const { data, error } = await supabase.functions.invoke('gdrive-backup', { body: {} });
       if (error) throw new Error(await readFunctionError(error));
       if (data?.error) throw new Error(data.error);
+      if (data?.status === 'started') {
+        toast.info('Backup Google Drive dimulai di server. Hasilnya akan diperiksa otomatis.');
+        const deadline = Date.now() + 15 * 60 * 1000;
+        while (Date.now() < deadline) {
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+          const { data: setting } = await supabase.from('settings').select('value').eq('key', 'gdrive_backup_config').maybeSingle();
+          const value = (setting?.value || {}) as Record<string, unknown>;
+          if (value.last_backup_status === 'failed') throw new Error(String(value.last_error || 'Backup Google Drive gagal'));
+          if (value.last_backup_at && value.last_backup_at !== previousBackupAt) {
+            toast.success(`Backup terkirim ke Google Drive — ${Number(value.last_backup_records || 0).toLocaleString('id-ID')} record`);
+            await fetchGdriveConfig();
+            return;
+          }
+        }
+        toast.info('Backup masih berjalan di server. Muat ulang halaman beberapa saat lagi.', { duration: 12000 });
+        return;
+      }
       toast.success(`Backup terkirim ke Google Drive — ${Number(data?.total_records || 0).toLocaleString('id-ID')} record`);
       await fetchGdriveConfig();
     } catch (err: any) {
       console.error('Run gdrive backup error:', err);
       toast.error(err.message || 'Gagal menjalankan backup Google Drive', { duration: 12000 });
+    } finally {
+      setGdriveLoading(false);
     }
-    setGdriveLoading(false);
   };
 
   const fetchAutoBackupInfo = async () => {
@@ -638,38 +657,38 @@ export default function BackupRestore() {
   };
 
   // ============ RESTORE ============
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const readBackupFileText = async (file: File) => {
+    if (!file.name.endsWith('.gz')) return file.text();
+    const decompressed = file.stream().pipeThrough(new DecompressionStream('gzip'));
+    return new Response(decompressed).text();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.endsWith('.json')) {
-      toast.error('Hanya file JSON yang didukung');
+    if (!file.name.endsWith('.json') && !file.name.endsWith('.json.gz')) {
+      toast.error('Hanya file JSON atau JSON.GZ yang didukung');
       return;
     }
 
-    setRestoreFile(file);
-    
-    // Preview file contents
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const parsed = JSON.parse(ev.target?.result as string);
-        if (!parsed._meta || !parsed.data) {
-          toast.error('Format file backup tidak valid');
-          setRestoreFile(null);
-          return;
-        }
-        setRestorePreview({
-          tables: parsed._meta.tables || Object.keys(parsed.data),
-          recordCount: parsed._meta.total_records || 0,
-          date: parsed._meta.exported_at || 'Unknown',
-        });
-      } catch {
-        toast.error('File JSON tidak valid');
+    try {
+      const parsed = JSON.parse(await readBackupFileText(file));
+      if (!parsed._meta || !parsed.data) {
+        toast.error('Format file backup tidak valid');
         setRestoreFile(null);
+        return;
       }
-    };
-    reader.readAsText(file);
+      setRestoreFile(file);
+      setRestorePreview({
+        tables: parsed._meta.tables || Object.keys(parsed.data),
+        recordCount: parsed._meta.total_records || 0,
+        date: parsed._meta.exported_at || 'Unknown',
+      });
+    } catch {
+      toast.error('File backup JSON/gzip tidak valid');
+      setRestoreFile(null);
+    }
   };
 
   const handleRestore = async () => {
@@ -678,7 +697,7 @@ export default function BackupRestore() {
     setRestoring(true);
 
     try {
-      const text = await restoreFile.text();
+      const text = await readBackupFileText(restoreFile);
       const parsed = JSON.parse(text);
       const data = parsed.data as Record<string, unknown[]>;
       
@@ -1264,7 +1283,7 @@ export default function BackupRestore() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".json"
+              accept=".json,.json.gz,.gz"
               onChange={handleFileChange}
               className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
             />

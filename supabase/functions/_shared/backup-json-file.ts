@@ -1,10 +1,6 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import {
-  EXTERNAL_PART_SIZE,
-  readTableInParts,
-  type BackupTable,
-  type TableReadOptions,
-} from "./backup-tables.ts";
+import { rawTablePages } from "./backup-raw-rest.ts";
+import type { BackupTable, TableReadOptions } from "./backup-tables.ts";
 
 export type JsonBackupFile = {
   path: string;
@@ -50,24 +46,20 @@ export async function writeBackupJsonFile(
       if (tableIndex > 0) await write(",");
       await write(`${JSON.stringify(table.table_name)}:[`);
       let tableRows = 0;
-      await readTableInParts(
-        supabase,
-        table,
-        { ...optionsForTable(table), pageSize: 1000 },
-        1000,
-        async (_part, rows) => {
-          for (const row of rows) {
-            if (tableRows > 0) await write(",");
-            await write(JSON.stringify(row));
-            tableRows += 1;
-          }
-        },
-      );
+      for await (const page of rawTablePages(table, { ...optionsForTable(table), pageSize: 1000 })) {
+        if (page.rowCount > 0) {
+          if (tableRows > 0) await write(",");
+          const content = page.json.trim();
+          if (!content.startsWith("[") || !content.endsWith("]")) throw new Error(`Format JSON ${table.table_name} tidak valid`);
+          await write(content.slice(1, -1));
+          tableRows += page.rowCount;
+        }
+      }
       await write("]");
       tableCounts[table.table_name] = tableRows;
       totalRecords += tableRows;
     }
-    await write(`],"_meta":${JSON.stringify(metadata(tableCounts, totalRecords))}}`);
+    await write(`},"_meta":${JSON.stringify(metadata(tableCounts, totalRecords))}}`);
     await file.sync();
     await close();
     const stat = await Deno.stat(path);

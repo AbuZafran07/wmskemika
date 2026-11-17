@@ -11,10 +11,11 @@
 - [x] Repair allowed calibration statuses without changing standard SO workflows or checklist roles.
 - [x] Reconcile the 12 completed calibration SOs with an audit record.
 - [x] Test delivery/reopening and verify calibration cards, SO archives, and Stock Out choices.
-- [ ] Add dynamic, paginated backup table discovery shared by all backup functions.
-- [ ] Build external backup runs, manifests, verification, retention, configuration, and audit history.
-- [ ] Add the external-backup admin UI and super-admin failure/stale alerts.
-- [ ] Schedule external and stale-alert jobs; repair the weekly internal-backup schedule.
-- [ ] Update Google Drive and weekly backups to use complete paginated exports.
-- [ ] Deploy and verify authentication, full row counts, external upload, and legacy backups.
-- [ ] Record the backup architecture and finish with a clean build and commit.
+- [x] Add dynamic, paginated backup table discovery shared by all backup functions.
+- [x] Build external backup runs, manifests, verification, retention, configuration, and audit history.
+- [x] Add the external-backup admin UI and super-admin failure/stale alerts.
+- [x] Schedule external and stale-alert jobs; repair the weekly internal-backup schedule.
+- [x] Update Google Drive and weekly backups to use complete paginated exports.
+- [x] Deploy and verify authentication, full row counts, and legacy backups.
+- [ ] External HRGA upload blocked: the supplied key belongs to the WMS project; wait for a valid HRGA destination credential and do not retry WMS credentials against HRGA.
+- [x] Record the backup architecture and finish with a clean build and commit.
