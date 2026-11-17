@@ -523,11 +523,24 @@ serve(async (req) => {
       return json({ error: "Backup eksternal belum dikonfigurasi: EXTERNAL_BACKUP_SECRET_KEY belum diisi", configured: false }, 503);
     }
     const targetUrl = Deno.env.get("EXTERNAL_BACKUP_URL") || DEFAULT_TARGET_URL;
-    const target = createClient(targetUrl, targetKey, { auth: { persistSession: false } });
-    await ensurePrivateTargetBucket(target);
-
+    // New sb_secret_* keys belong in the apikey header, not in a JWT Bearer header.
+    // Legacy service_role JWTs continue through the standard client behavior.
+    const targetFetch: typeof fetch = (input, init) => {
+      if (!targetKey.startsWith("sb_")) return fetch(input, init);
+      const request = new Request(input, init);
+      const headers = new Headers(request.headers);
+      headers.set("apikey", targetKey);
+      headers.delete("Authorization");
+      return fetch(new Request(request, { headers }));
+    };
+    const target = createClient(targetUrl, targetKey, {
+      auth: { persistSession: false },
+      global: { fetch: targetFetch },
+    });
     const startedAt = new Date().toISOString();
     runFolder = `kemika-wms/${startedAt.replace(/[:.]/g, "-")}`;
+    await ensurePrivateTargetBucket(target);
+
     const result = await runExternalBackup(source, target, config, startMs, startedAt, runFolder);
     await writeStatus(source, previousStatus, result.run);
     await auditRun(source, actorId, result.run);
