@@ -1,3 +1,4 @@
+import { calculateProformaTax } from "@/lib/proformaTax";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import QRCode from "qrcode";
@@ -324,7 +325,6 @@ export async function generateSPKPdf(receiptId: string) {
   addBg(doc, bgData);
 
   const customer = (receipt as any).customer;
-  const taxRate = Number((receipt as any).tax_rate) || 11;
   const instrumentRows: any[][] = [];
   const sparepartRows: any[][] = [];
   let instrumentSubtotal = 0;
@@ -366,7 +366,8 @@ export async function generateSPKPdf(receiptId: string) {
     });
   });
   const subtotal = instrumentSubtotal + sparepartSubtotal;
-  const taxAmount = subtotal * (taxRate / 100);
+  // Kalibrasi selalu kena PPN: 12% x DPP Pengganti (11/12), sama dengan PI
+  const { taxRate, dppPengganti, taxAmount } = calculateProformaTax(subtotal, 11);
   // TOTAL selalu = Sub-Total + PPN (total_amount di DB hanya menyimpan nilai sebelum pajak)
   const grandTotal = subtotal + taxAmount;
 
@@ -482,6 +483,7 @@ export async function generateSPKPdf(receiptId: string) {
     margin: { left: M_LEFT, right: M_RIGHT, top: M_TOP, bottom: M_BOTTOM },
     body: [
       [{ content: "Sub-Total", styles: { halign: "right", fontStyle: "bold" } }, { content: fmt(subtotal), styles: { halign: "right" } }],
+      [{ content: "DPP Pengganti (11/12)", styles: { halign: "right", fontStyle: "bold" } }, { content: fmt(dppPengganti), styles: { halign: "right" } }],
       [{ content: `PPN ${taxRate}%`, styles: { halign: "right", fontStyle: "bold" } }, { content: fmt(taxAmount), styles: { halign: "right" } }],
       [{ content: "TOTAL", styles: { halign: "right", fontStyle: "bold", fillColor: [245, 247, 252] } }, { content: fmt(grandTotal), styles: { halign: "right", fontStyle: "bold", fillColor: [245, 247, 252] } }],
     ],
