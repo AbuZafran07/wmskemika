@@ -183,7 +183,7 @@ export default function SettingsPage() {
   // they will be redirected to dashboard. No need for "Access Denied" screen.
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="min-w-0 space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -210,7 +210,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue={new URLSearchParams(window.location.search).get('tab') === 'backup' ? 'backup' : 'general'} className="space-y-6">
-        <TabsList>
+        <TabsList className="h-auto max-w-full flex-wrap justify-start">
           <TabsTrigger value="general">
             <SettingsIcon className="w-4 h-4 mr-2" />
             Umum

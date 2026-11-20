@@ -825,7 +825,7 @@ export default function BackupRestore() {
   };
 
   return (
-    <div className="grid gap-6">
+    <div className="grid min-w-0 grid-cols-1 gap-6">
       {/* Auto Backup Cloud */}
       <Card>
         <CardHeader>
@@ -1005,12 +1005,12 @@ export default function BackupRestore() {
       {/* Google Drive Backup */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-info/10">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="shrink-0 p-2 rounded-lg bg-info/10">
                 <Cloud className="w-5 h-5 text-info" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <CardTitle className="text-lg">Google Drive Backup</CardTitle>
                 <CardDescription>
                   Backup otomatis ke Google Drive setiap malam (01.00 WIB) tanpa perlu PC menyala
@@ -1023,7 +1023,7 @@ export default function BackupRestore() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-lg border bg-card">
             <div className="flex items-center gap-2">
               <Shield className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm">Aktifkan Backup Harian ke Google Drive</span>
