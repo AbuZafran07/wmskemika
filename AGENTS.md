@@ -6,3 +6,4 @@
 - SO recomputation and PI insertion enforce the SO tax setting server-side; PI detail, preview and PDF use a shared saved-snapshot summary including all fees, preventing inconsistent totals without silently changing historical invoices.
 - Calibration delivery uses the existing finance/admin RPC and permits its delivered/in_progress statuses; checklist writes must succeed before header synchronization, keeping failed saves from closing an SO.
 - Database backups discover public tables dynamically and read them with primary-key keyset pagination; external runs upload bounded parts and a final manifest so incomplete backups are never treated as successful.
+- Google Drive backup attempts persist running status before acknowledgement and return a unique run ID; UI polling accepts only that attempt's terminal status so old results cannot resolve retries.

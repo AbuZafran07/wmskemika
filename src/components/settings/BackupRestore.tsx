@@ -23,6 +23,7 @@ import JSZip from 'jszip';
 import * as XLSX from 'xlsx';
 import { Progress } from '@/components/ui/progress';
 import ExternalBackupCard from '@/components/settings/ExternalBackupCard';
+import { getGdriveBackupResult } from '@/lib/gdriveBackupStatus';
 
 const STORAGE_BUCKETS = ['avatars', 'chat-attachments', 'documents', 'product-photos', 'signatures'] as const;
 
@@ -389,20 +390,22 @@ export default function BackupRestore() {
 
   const runGdriveBackupNow = async () => {
     setGdriveLoading(true);
-    const previousBackupAt = gdriveConfig.last_backup_at;
     try {
       const { data, error } = await supabase.functions.invoke('gdrive-backup', { body: {} });
       if (error) throw new Error(await readFunctionError(error));
       if (data?.error) throw new Error(data.error);
       if (data?.status === 'started') {
+        if (typeof data.run_id !== 'string') throw new Error('Tidak dapat memantau percobaan backup. Muat ulang halaman untuk melihat status terbaru.');
         toast.info('Backup Google Drive dimulai di server. Hasilnya akan diperiksa otomatis.');
         const deadline = Date.now() + 15 * 60 * 1000;
         while (Date.now() < deadline) {
           await new Promise((resolve) => setTimeout(resolve, 5000));
-          const { data: setting } = await supabase.from('settings').select('value').eq('key', 'gdrive_backup_config').maybeSingle();
+          const { data: setting, error: statusError } = await supabase.from('settings').select('value').eq('key', 'gdrive_backup_config').maybeSingle();
+          if (statusError) continue;
           const value = (setting?.value || {}) as Record<string, unknown>;
-          if (value.last_backup_status === 'failed') throw new Error(String(value.last_error || 'Backup Google Drive gagal'));
-          if (value.last_backup_at && value.last_backup_at !== previousBackupAt) {
+          const result = getGdriveBackupResult(value, data.run_id);
+          if (result === 'failed') throw new Error(String(value.last_error || 'Backup Google Drive gagal'));
+          if (result === 'success') {
             toast.success(`Backup terkirim ke Google Drive — ${Number(value.last_backup_records || 0).toLocaleString('id-ID')} record`);
             await fetchGdriveConfig();
             return;

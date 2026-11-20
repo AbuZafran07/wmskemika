@@ -19,3 +19,4 @@
 - [x] Deploy and verify authentication, full row counts, and legacy backups.
 - [ ] External HRGA upload blocked: the supplied key belongs to the WMS project; wait for a valid HRGA destination credential and do not retry WMS credentials against HRGA.
 - [x] Record the backup architecture and finish with a clean build and commit.
+- [x] Fix Google Drive retry status and persist upload failures; verify regression tests and the settings flow.

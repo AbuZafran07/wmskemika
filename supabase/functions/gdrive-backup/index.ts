@@ -2,11 +2,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { daysAgoIso, listBackupTables } from "../_shared/backup-tables.ts";
 import { writeBackupJsonFile } from "../_shared/backup-json-file.ts";
+import { backupRunStatus } from "./run-status.ts";
+import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
-};
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -69,13 +67,14 @@ async function getGoogleAccessToken(serviceAccount: Record<string, string>) {
 
 declare const EdgeRuntime: { waitUntil: (promise: Promise<unknown>) => void };
 
-async function handleGdriveBackup(req: Request) {
+async function handleGdriveBackup(req: Request, runId?: string) {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceKey) return json({ error: "Backup service is not configured" }, 500);
   const supabase = createClient(supabaseUrl, serviceKey);
   let cleanup: (() => Promise<void>) | undefined;
 
@@ -158,9 +157,18 @@ async function handleGdriveBackup(req: Request) {
     const configValue = (config?.value ?? {}) as Record<string, unknown>;
     const isCron = incomingCron && incomingCron === cronSecret;
     if (isCron && !configValue.enabled) {
-      return json({ message: "Google Drive backup is disabled" });
+      return json({ status: "skipped", message: "Google Drive backup is disabled" });
     }
-    if (body.preflight === true) return json({ success: true });
+    if (body.preflight === true) {
+      if (!runId) return json({ error: "Missing backup run ID" }, 500);
+      const { error } = await supabase.from("settings").upsert({
+        key: "gdrive_backup_config",
+        value: backupRunStatus(configValue, runId, "running"),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "key" });
+      if (error) throw error;
+      return json({ success: true });
+    }
 
     // ===== 1. Export seluruh tabel per-bagian agar tidak dibatasi memori =====
     const failed: string[] = [];
@@ -194,7 +202,7 @@ async function handleGdriveBackup(req: Request) {
       if (failedTable) failed.push(failedTable);
       await supabase.from("settings").upsert({
         key: "gdrive_backup_config",
-        value: { ...configValue, last_backup_status: "failed", failed_tables: failed, last_error: message },
+        value: { ...backupRunStatus(configValue, runId || "", "failed", message), failed_tables: failed },
         updated_at: new Date().toISOString(),
       }, { onConflict: "key" });
       await supabase.from("audit_logs").insert({
@@ -234,7 +242,7 @@ async function handleGdriveBackup(req: Request) {
     const sessionUrl = sessionResponse.headers.get("location");
     if (!sessionResponse.ok || !sessionUrl) {
       const errText = await sessionResponse.text();
-      return json({ error: `Sesi Google Drive upload gagal (${sessionResponse.status}): ${errText}` }, 502);
+      throw new Error(`Sesi Google Drive upload gagal (${sessionResponse.status}): ${errText}`);
     }
     const uploadFile = await Deno.open(archive.path, { read: true });
     const uploadResponse = await fetch(sessionUrl, {
@@ -251,15 +259,13 @@ async function handleGdriveBackup(req: Request) {
       const errText = await uploadResponse.text();
       console.error("Google Drive upload gagal:", uploadResponse.status, errText);
       if (errText.includes("storageQuotaExceeded") || errText.includes("do not have storage quota")) {
-        return json({
-          error:
+        throw new Error(
             "Upload gagal: folder tujuan ada di My Drive pribadi. Service Account Google tidak memiliki kuota penyimpanan. " +
             `Buat folder backup di Shared Drive (Drive Bersama), bagikan ke ${serviceAccount.client_email} sebagai Content manager, ` +
             "lalu perbarui GDRIVE_FOLDER_ID dengan ID folder tersebut.",
-          reason: "storage_quota",
-        }, 400);
+        );
       }
-      return json({ error: `Google Drive upload gagal (${uploadResponse.status}): ${errText}` }, 502);
+      throw new Error(`Google Drive upload gagal (${uploadResponse.status}): ${errText}`);
     }
     const uploadResult = await uploadResponse.json();
     if (Number(uploadResult.size) !== archive.size) {
@@ -472,10 +478,10 @@ async function handleGdriveBackup(req: Request) {
     }
 
     // ===== 5. Setting + audit log =====
-    await supabase.from("settings").upsert({
+    const { error: statusError } = await supabase.from("settings").upsert({
       key: "gdrive_backup_config",
       value: {
-        ...configValue,
+        ...backupRunStatus(configValue, runId || "", "success"),
         enabled: configValue.enabled === true,
         last_backup_at: now.toISOString(),
         last_backup_file: fileName,
@@ -491,6 +497,7 @@ async function handleGdriveBackup(req: Request) {
       },
       updated_at: now.toISOString(),
     }, { onConflict: "key" });
+    if (statusError) throw statusError;
 
     await supabase.from("audit_logs").insert({
       user_id: actorId,
@@ -522,16 +529,16 @@ async function handleGdriveBackup(req: Request) {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("GDrive backup error:", message);
-    const { data: latestConfig } = await supabase.from("settings").select("value").eq("key", "gdrive_backup_config").maybeSingle();
-    await supabase.from("settings").upsert({
+    if (runId) {
+      const { data: latestConfig } = await supabase.from("settings").select("value").eq("key", "gdrive_backup_config").maybeSingle();
+      await supabase.from("settings").upsert({
       key: "gdrive_backup_config",
       value: {
-        ...((latestConfig?.value || {}) as Record<string, unknown>),
-        last_backup_status: "failed",
-        last_error: message.slice(0, 500),
+        ...backupRunStatus((latestConfig?.value || {}) as Record<string, unknown>, runId, "failed", message),
       },
       updated_at: new Date().toISOString(),
     }, { onConflict: "key" });
+    }
     return json({ error: message }, 500);
   } finally {
     if (cleanup) await cleanup();
@@ -543,10 +550,13 @@ serve(async (req) => {
   let body: Record<string, unknown> = {};
   try { body = await req.clone().json(); } catch { /* empty body */ }
   if (body.test === true) return handleGdriveBackup(req);
+  const runId = crypto.randomUUID();
   const preflight = await handleGdriveBackup(new Request(req, {
     body: JSON.stringify({ preflight: true, include_files: body.include_files }),
-  }));
+  }), runId);
   if (!preflight.ok) return preflight;
-  EdgeRuntime.waitUntil(handleGdriveBackup(req).then(async (response) => { await response.text(); }));
-  return json({ success: true, status: "started" }, 202);
+  const preflightData = await preflight.json();
+  if (preflightData.status === "skipped") return json(preflightData);
+  EdgeRuntime.waitUntil(handleGdriveBackup(req, runId).then(async (response) => { await response.text(); }));
+  return json({ success: true, status: "started", run_id: runId }, 202);
 });
